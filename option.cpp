@@ -17,23 +17,6 @@ void option(int option_num, char* option_str[]);
 
 int main(int argc, char* argv[])
 {
-    
- /*   MatrixXf a(3,3);
-    a <<1, 0.7, 0.2, 0.7, 1, 0.99, 0.2, 0.99, 1;
-    cout<<"a:\n"<<a<<endl;
-    LDLT<MatrixXf> ldlt(a);
-    cout<<"LDLT-D: "<<ldlt.vectorD().transpose()<<endl;
-    //cout<<"LDLT-L: \n"<<ldlt.matrixL()<<endl;
-    //ldlt.vectorD() = VectorXf::Zero(3);
-    //cout<<"LDLT: "<<ldlt.vectorD().transpose()<<endl;
-    MatrixXf b = ldlt.matrixL() * ldlt.vectorD() * ldlt.matrixL().transpose();
-    cout<<"b:\n"<<b<<endl;
-
-    SelfAdjointEigenSolver<MatrixXf> eigensolver(a);
-    cout<<"eigenvalues: "<<eigensolver.eigenvalues().transpose()<<endl;
-    //cout<<"eigenvectors: \n"<<eigensolver.eigenvectors()<<endl;
-*/
-
     cout << "*******************************************************************" << endl;
     cout << "* Genome-wide Complex Trait Analysis (GCTA)" << endl;
     cout << "* version 1.24.5" << endl;
