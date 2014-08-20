@@ -23,7 +23,7 @@ int main(int argc, char* argv[])
     cout << "* (C) 2010-2013 Jian Yang, Hong Lee, Michael Goddard and Peter Visscher" << endl;
     cout << "* The University of Queensland" << endl;
     cout << "* MIT License" << endl;
-    cout << "*******************************************************************" << endl;
+    cout << "*******************************************************************" << endl; 
 
     long int time_used = 0, start = time(NULL);
     time_t curr = time(0);
@@ -120,6 +120,8 @@ void option(int option_num, char* option_str[])
 
     // gene expression data
     string efile="", eR_file = "", ecojo_ma_file="";
+    // data management for gene expression and methylation
+    string extract_probe_file="", exclude_probe_file="", extract_probe_name="", exclude_probe_name="";
     int make_erm_mtd = 1;
     double ecojo_p = 5e-6, ecojo_collinear = 0.9, ecojo_lambda = -1;
     bool efile_flag=false, eR_file_flag = false, ecojo_slct_flag = false, ecojo_blup_flag = false, make_erm_flag = false;
@@ -779,12 +781,30 @@ void option(int option_num, char* option_str[])
             if (sbat_wind < 20 || sbat_wind > 1000) throw ("\nError: invalid value for --sbat-wind. Valid range: 20 ~ 1000\n");
             sbat_wind *= 1000;
         }
+        // gene expression and methylation data file
         else if (strcmp(argv[i], "--efile") == 0) {
             efile = argv[++i];
             efile_flag = true;
             cout << "--efile " << efile << endl;
             CommFunc::FileExist(efile);
         } 
+	// data management for gene expression and methylation measure
+	else if (strcmp(argv[i], "--e-extract") == 0) {
+            extract_probe_file = argv[++i];
+            cout << "--e-extract " << extract_probe_file << endl;
+            CommFunc::FileExist(extract_probe_file);
+        } else if (strcmp(argv[i], "--e-exclude") == 0) {
+            exclude_probe_file = argv[++i];
+            cout << "--e-exclude " << exclude_probe_file << endl;
+            CommFunc::FileExist(exclude_probe_file);
+        } else if (strcmp(argv[i], "--extract-probe") == 0) {
+            extract_probe_name = argv[++i];
+            cout << "--extract-probe " << extract_probe_name << endl;
+        } else if (strcmp(argv[i], "--exclude-probe") == 0) {
+            exclude_probe_name = argv[++i];
+            cout << "--exclude-probe " << exclude_probe_name << endl;
+        }
+        // conditional analysis for gene expression and methylation measure
         else if (strcmp(argv[i], "--e-cor") == 0) {
             eR_file = argv[++i];
             eR_file_flag = true;
@@ -916,7 +936,14 @@ void option(int option_num, char* option_str[])
     } 
     else if(efile_flag){
         pter_gcta->read_efile(efile);
+        // data management for efile
+        if (!extract_probe_file.empty()) pter_gcta->extract_probe(extract_probe_file);
+        if (!exclude_probe_file.empty()) pter_gcta->exclude_probe(exclude_probe_file);
+        if (!extract_probe_name.empty()) pter_gcta->extract_single_probe(extract_probe_name);
+        if (!exclude_probe_name.empty()) pter_gcta->exclude_single_probe(exclude_probe_name);
+        // generating ERM
         if (make_erm_flag) pter_gcta->make_erm(make_erm_mtd - 1, grm_out_bin_flag);
+	// conditional analysis for gene expression or methylation
         else if(ecojo_slct_flag) pter_gcta->run_ecojo_slct(ecojo_ma_file, ecojo_p, ecojo_collinear);
         else if(ecojo_blup_flag) pter_gcta->run_ecojo_blup_efile(ecojo_ma_file, ecojo_lambda);
     }
