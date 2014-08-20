@@ -36,24 +36,22 @@ void gcta::calcu_lds(eigenVector &wt, int wind_size)
     string wt_file = _out + ".ldwt";
     ofstream owt(wt_file.data());
     if(!owt) throw("Error: can not open [" + wt_file + "] to read.");
-    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << endl;
+    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << log_maf[i] << endl;
     owt << endl;
     cout<<"LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
 
-
-   // adjust wt for maf
-    log_maf = log_maf.array() - log_maf.mean();
+   // adjust wt for log(maf)
     eigenVector y = wt.array() - wt.mean();
-    double beta = log_maf.dot(y) / log_maf.dot(log_maf);
+    eigenVector x = log_maf.array() - log_maf.mean();
+    double beta = x.dot(y) / x.dot(x);
     wt = wt.array() - log_maf.array()*beta;
 
     // debug
     cout<<"beta = " << beta << endl;
     cout << "wt adj: " << wt.segment(0,10).transpose() << endl;
-
 }
 
-void gcta::get_lds_brkpnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, int wind_size)
+void gcta::get_lds_brkpnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, int wind_size, int wind_snp_num)
 {
     unsigned long i = 0, j = 0, k = 0, m = _include.size();
 
@@ -67,8 +65,7 @@ void gcta::get_lds_brkpnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, int wind
             brk_pnt1.push_back(i);
             j++;
         }
-        else if (_bp[_include[i]] - _bp[_include[brk_pnt1[j]]] > wind_size) {
-        //else if (i - brk_pnt1[j] > 3000) {
+        else if ((_bp[_include[i]] - _bp[_include[brk_pnt1[j]]] > wind_size) && (i - brk_pnt1[j] > wind_snp_num)) {
             brk_pnt1.push_back(i - 1);
             j++;
             brk_pnt1.push_back(i);
@@ -114,7 +111,6 @@ void gcta::calcu_lds_blk(eigenVector &wt, eigenVector &log_maf, eigenVector &ssx
         double sum = eval.sum();
         double eff_m = (sum*sum) / eval.squaredNorm();
         double wt_buf = eff_m / (double)size;
-
         // debug
         /*MatrixXf grm = _geno.block(0,brk_pnt[i],n,size) * _geno.block(0,brk_pnt[i],n,size).transpose();
         grm = grm.array() / double (size);
@@ -129,18 +125,18 @@ void gcta::calcu_lds_blk(eigenVector &wt, eigenVector &log_maf, eigenVector &ssx
         // debug
         cout<<"size = "<<size<<"; eff_m = "<<eff_m <<endl;
 
-        double log_maf_buf = 0.0;
-        for (k = brk_pnt[i]; k <= brk_pnt[i+1]; k++) log_maf_buf += log(_maf[k]);
-        log_maf_buf /= (double) size;
+        double maf_mean = 0.0;
+        for (k = brk_pnt[i]; k <= brk_pnt[i+1]; k++) maf_mean += _maf[k];
+        maf_mean /= (double) size;
 
         for (j = 0, k = brk_pnt[i]; j < size; j++, k++) {
             if (second){
                 wt[k] = 0.5*(wt[k] + wt_buf);
-                log_maf[k] = 0.5*(log_maf[k] + log_maf_buf);
+                log_maf[k] = 0.5*(log_maf[k] + log(maf_mean));
             }
             else{
                 wt[k] = wt_buf;
-                log_maf[k] = log_maf_buf;
+                log_maf[k] = log(maf_mean);
             }
         }
     }
@@ -151,14 +147,15 @@ void gcta::calcu_ldak(eigenVector &wt, int wind_size, double rsq_cutoff)
 {
     unsigned long i = 0, n = _keep.size(), m = _include.size();
 
-    cout << "Calculating the LD based SNP weights (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between windows, and a least 3000 SNPs within a window) ..." << endl;
+    cout << "Calculating the LD based SNP weights (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between windows, and a least 500 SNPs within a window) ..." << endl;
     eigenVector ssx_sqrt_i;
     calcu_ssx_sqrt_i(ssx_sqrt_i);
 
     vector<int> brk_pnt1, brk_pnt2;
-    get_lds_brkpnt(brk_pnt1, brk_pnt2, wind_size);
+    get_lds_brkpnt(brk_pnt1, brk_pnt2, wind_size, 500);
     calcu_ldak_blk(wt, ssx_sqrt_i, brk_pnt1, false, rsq_cutoff);
     if (brk_pnt2.size() > 1) calcu_ldak_blk(wt, ssx_sqrt_i, brk_pnt2, true, rsq_cutoff);
+    if(_maf.size() < 1) calcu_maf();
 
     // debug
     double wt_m = wt.mean();
@@ -171,9 +168,18 @@ void gcta::calcu_ldak(eigenVector &wt, int wind_size, double rsq_cutoff)
     string wt_file = _out + ".ldwt";
     ofstream owt(wt_file.data());
     if(!owt) throw("Error: can not open [" + wt_file + "] to read.");
-    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << endl;
+    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << _maf[i] << endl;
     owt << endl;
     cout<<"LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
+
+    // adjust wt for maf
+    eigenVector log_maf(m);
+    for(i = 0; i < m; i++) log_maf[i] = log(_maf[i]);
+
+    eigenVector y = wt.array() - wt.mean();
+    eigenVector x = log_maf.array() - log_maf.mean();
+    double beta = x.dot(y) / x.dot(x);
+    wt = wt.array() - log_maf.array()*beta;
 }
 
 void gcta::calcu_ldak_blk(eigenVector &wt, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, bool second, double rsq_cutoff)
@@ -199,11 +205,9 @@ void gcta::calcu_ldak_blk(eigenVector &wt, eigenVector &ssx_sqrt_i, vector<int> 
                 rsq_sub(k,j) = rsq_sub(j,k);
             }
         }
-
         VectorXf c = VectorXf::Ones(size);
         VectorXf wt_sub = rsq_sub.lu().solve(c);
         if(!(wt_sub.minCoeff() > -1e10 && wt_sub.minCoeff() < 1e10)) throw("Error: LU decomposition error!");
-
         for (j = 0, k = brk_pnt[i]; j < size; j++, k++) {
             if (second) wt[k] = 0.5*(wt[k] + wt_sub(j));
             else wt[k] = wt_sub(j);
@@ -227,10 +231,16 @@ void gcta::make_grm_pca(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool o
 
     vector<float> seq;
     vector< vector<int> > maf_bin_pos; 
-    assign_snp_2_mb(seq, maf_bin_pos, 1);
+    assign_snp_2_mb(seq, maf_bin_pos, 100);
     double trace = 0.0;
     for (i = 0; i < seq.size() - 1; i++) {
-        if (maf_bin_pos[i].size() > 0) make_grm_pca_blk(maf_bin_pos[i], wind_size / 1000, trace);
+        if (maf_bin_pos[i].size() > 0){
+            
+            // debug
+            cout<<seq[i] << " < MAF <= "<<seq[i + 1]<<endl;
+
+            make_grm_pca_blk(maf_bin_pos[i], wind_size / 1000, trace);
+        }
     }
     _grm = _grm.array() / trace;
     _grm_N = MatrixXf::Constant(n,n,trace);
@@ -307,6 +317,8 @@ void gcta::make_grm_pca_blk(vector<int> & maf_bin_pos_i, int wind_size, double &
 
         col_std(X);
         MatrixXf grm_buf = X * X.transpose();
+        grm_buf = grm_buf.array() * (double)size / (double) eff_size;
+
         trace += grm_buf.diagonal().mean();
 
         // debug

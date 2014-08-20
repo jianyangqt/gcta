@@ -318,7 +318,7 @@ private:
     //void calcu_rsq_BlkDiagMat(float *X, vector<double> &sd_SNP, vector<int> &brk_pnt, eigenVector &wt, eigenVector &snp_num, double wt_ld_cut, bool average, int mtd);
     //void wt_geno_ld_mb(string meanld_file, eigenVector &wt, eigenVector &snp_num, int ttl_snp_num, int mtd);
     void calcu_lds(eigenVector &wt, int wind_size);
-    void get_lds_brkpnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, int wind_size);
+    void get_lds_brkpnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, int wind_size, int wind_snp_num=0);
     void calcu_lds_blk(eigenVector &wt, eigenVector &log_maf, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, bool second);
     void calcu_ldak(eigenVector &wt, int wind_size, double rsq_cutoff);
     void calcu_ldak_blk(eigenVector &wt, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, bool second, double rsq_cutoff);
