@@ -49,7 +49,9 @@ void gcta::read_efile(string efile)
         _pid[i]=id_buf;
         for(j=0; j<_probe_num; j++){
             if (!(ss >> id_buf)){ errmsg<<"Error: in line "<<i+2<<"."; throw(errmsg.str()); }
-            if(id_buf=="-9") _probe_data(i,j)=1e10;
+            //if(id_buf=="-9") _probe_data(i,j)=1e10;
+            StrFunc::to_upper(id_buf);
+            if(id_buf=="-9" || id_buf=="NA") _probe_data(i,j)=1e10;
             else _probe_data(i,j)=atof(id_buf.c_str());
         }
         i++;
@@ -182,7 +184,7 @@ void gcta::std_probe_ind(vector< vector<bool> > &X_bool, bool divid_by_std)
 void gcta::make_erm(int erm_mtd, bool output_bin)
 {
     int i = 0, j = 0, k = 0, n = _keep.size(), m = _e_include.size();
-    
+ 
     cout << "Recoding gene expression / methylation data ..." << endl;
     bool divid_by_std = false;
     vector< vector<bool> > X_bool;
@@ -209,9 +211,10 @@ void gcta::make_erm(int erm_mtd, bool output_bin)
         #pragma omp parallel for private(j, k)
         for (i = 0; i < n; i++) {
             for (j = 0; j <= i; j++) {
-                int miss_j = 0;
-                for (k = 0; k < miss_pos[j].size(); k++) miss_j += (int) X_bool[i][miss_pos[j][k]];
-                _grm_N(i,j) = m - miss_pos[i].size() - miss_j;
+                //int miss_j = 0;
+                //for (k = 0; k < miss_pos[j].size(); k++) miss_j += (int) X_bool[i][miss_pos[j][k]];
+                //_grm_N(i,j) = m - miss_pos[i].size() - miss_j;
+                _grm_N(i,j) = m - miss_pos[i].size() - miss_pos[j].size();
             }
         }
     }
@@ -271,6 +274,7 @@ void gcta::make_erm(int erm_mtd, bool output_bin)
 
     // Calculate A matrix
     _grm = _probe_data * _probe_data.transpose();
+
     #pragma omp parallel for private(j)
     for (i = 0; i < n; i++) {
         for (j = 0; j <= i; j++) {
@@ -285,4 +289,41 @@ void gcta::make_erm(int erm_mtd, bool output_bin)
     _out += ".E";
     output_grm(output_bin);
     _out = out_buf;
+}
+
+// data management for gene expression and methylation
+void gcta::extract_probe(string probelistfile)
+{
+    vector<string> probelist;
+    read_snplist(probelistfile, probelist, "probes");
+    update_id_map_kp(probelist, _probe_name_map, _e_include);
+    cout << _e_include.size() << " probes are extracted from [" + probelistfile + "]." << endl;
+}
+
+void gcta::extract_single_probe(string probename)
+{
+    vector<string> probelist;
+    probelist.push_back(probename);
+    update_id_map_kp(probelist, _probe_name_map, _e_include);
+    if (_e_include.empty()) throw ("Error: can not find the probe [" + probename + "] in the data.");
+    else cout << "Only the probe [" + probename + "] is included in the analysis." << endl;
+}
+
+void gcta::exclude_probe(string probelistfile)
+{
+    vector<string> probelist;
+    read_snplist(probelistfile, probelist);
+    int prev_size = _e_include.size();
+    update_id_map_rm(probelist, _probe_name_map, _e_include);
+    cout << prev_size - _e_include.size() << " probes are excluded from [" + probelistfile + "] and there are " << _e_include.size() << " probes remaining." << endl;
+}
+
+void gcta::exclude_single_probe(string probename)
+{
+    vector<string> probelist;
+    probelist.push_back(probename);
+    int include_size = _e_include.size();
+    update_id_map_rm(probelist, _probe_name_map, _e_include);
+    if (_e_include.size() == include_size) throw ("Error: can not find the probe [" + probename + "] in the data.");
+    else cout << "The probe [" + probename + "] has been excluded from the analysis." << endl;
 }
