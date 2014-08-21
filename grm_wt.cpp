@@ -171,15 +171,25 @@ void gcta::calcu_ldak(eigenVector &wt, int wind_size, double rsq_cutoff)
     for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << _maf[i] << endl;
     owt << endl;
     cout<<"LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
+    owt.close();
 
     // adjust wt for maf
-    eigenVector log_maf(m);
-    for(i = 0; i < m; i++) log_maf[i] = log(_maf[i]);
+    eigenMatrix X(m, 3);
+    X.col(0) = eigenVector::Ones(m);
+    for(i = 0; i < m; i++){
+        X(i,1) = log(_maf[i]);
+        X(i,2) = X(i,1) * X(i,1);
+    }
+    eigenVector e = wt - X * ((X.transpose() * X).inverse() * (X.transpose() * wt));
+    wt = e.array() + wt.mean();
 
-    eigenVector y = wt.array() - wt.mean();
-    eigenVector x = log_maf.array() - log_maf.mean();
-    double beta = x.dot(y) / x.dot(x);
-    wt = wt.array() - log_maf.array()*beta;
+    // debug
+    wt_file = _out + ".adj.ldwt";
+    owt.open(wt_file.data());
+    if(!owt) throw("Error: can not open [" + wt_file + "] to read.");
+    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << _maf[i] << endl;
+    owt << endl;
+    cout<<"Adjusted LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
 }
 
 void gcta::calcu_ldak_blk(eigenVector &wt, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, bool second, double rsq_cutoff)
