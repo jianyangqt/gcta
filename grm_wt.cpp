@@ -19,11 +19,21 @@ void gcta::calcu_lds(eigenVector &wt, int wind_size)
 
     vector<int> brk_pnt1, brk_pnt2;
     get_lds_brkpnt(brk_pnt1, brk_pnt2, wind_size);
-    calcu_maf();
+    int mean_size = 0, count = 0;
+    for (i = 0; i < brk_pnt1.size() - 1; i++) {
+        int size = brk_pnt1[i + 1] - brk_pnt1[i] + 1;
+        if (size > 2){
+            mean_size += size; 
+            count++;
+        }
+    }
+    mean_size /= count;
+    get_lds_brkpnt(brk_pnt1, brk_pnt2, 0, mean_size);
 
-    eigenVector log_maf = eigenVector::Zero(m);
-    calcu_lds_blk(wt, log_maf, ssx_sqrt_i, brk_pnt1, false);
-    if (brk_pnt2.size() > 1) calcu_lds_blk(wt, log_maf, ssx_sqrt_i, brk_pnt2, true);
+    eigenVector m_maf = eigenVector::Zero(m);
+    calcu_maf();
+    calcu_lds_blk(wt, m_maf, ssx_sqrt_i, brk_pnt1, false);
+    if (brk_pnt2.size() > 1) calcu_lds_blk(wt, m_maf, ssx_sqrt_i, brk_pnt2, true);
 
      // debug
     double wt_m = wt.mean();
@@ -36,19 +46,30 @@ void gcta::calcu_lds(eigenVector &wt, int wind_size)
     string wt_file = _out + ".ldwt";
     ofstream owt(wt_file.data());
     if(!owt) throw("Error: can not open [" + wt_file + "] to read.");
-    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << log_maf[i] << endl;
+    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << m_maf[i] << endl;
     owt << endl;
     cout<<"LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
+    owt.close();
 
    // adjust wt for log(maf)
-    eigenVector y = wt.array() - wt.mean();
-    eigenVector x = log_maf.array() - log_maf.mean();
-    double beta = x.dot(y) / x.dot(x);
-    wt = wt.array() - log_maf.array()*beta;
+    eigenMatrix X(m, 3);
+    X.col(0) = eigenVector::Ones(m);
+    X.col(1) = m_maf;
+    eigenVector e = wt - X * ((X.transpose() * X).inverse() * (X.transpose() * wt));
+    wt = e.array() + wt.mean();
 
     // debug
-    cout<<"beta = " << beta << endl;
     cout << "wt adj: " << wt.segment(0,10).transpose() << endl;
+
+    // debug
+    wt_file = _out + ".ldwt";
+    owt.open(wt_file.data());
+    if(!owt) throw("Error: can not open [" + wt_file + "] to read.");
+    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << m_maf[i] << endl;
+    owt << endl;
+    cout<<"Adjusted LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
+    owt.close();
+
 }
 
 void gcta::get_lds_brkpnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, int wind_size, int wind_snp_num)
@@ -57,15 +78,24 @@ void gcta::get_lds_brkpnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, int wind
 
     brk_pnt1.clear();
     brk_pnt1.push_back(0);
+    bool chr_start = true;
     for (i = 1, j = 0; i < m; i++) {
-        if (i == (m - 1)) brk_pnt1.push_back(m - 1);
+        if (i == (m - 1)) brk_pnt1[j - 1] = brk_pnt1[j] = m - 1;
         else if (_chr[_include[i]] != _chr[_include[brk_pnt1[j]]]) {
-            brk_pnt1.push_back(i - 1);
-            j++;
-            brk_pnt1.push_back(i);
-            j++;
+            if(chr_start){
+                brk_pnt1.push_back(i - 1);
+                j++;
+                brk_pnt1.push_back(i);
+                j++;
+            }
+            else{                
+                brk_pnt1[j - 1] = i - 1;
+                brk_pnt1[j] = i;
+            }
+            chr_start = true;
         }
         else if ((_bp[_include[i]] - _bp[_include[brk_pnt1[j]]] > wind_size) && (i - brk_pnt1[j] > wind_snp_num)) {
+            chr_start = false;
             brk_pnt1.push_back(i - 1);
             j++;
             brk_pnt1.push_back(i);
@@ -85,7 +115,7 @@ void gcta::get_lds_brkpnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, int wind
     }
 }
 
-void gcta::calcu_lds_blk(eigenVector &wt, eigenVector &log_maf, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, bool second)
+void gcta::calcu_lds_blk(eigenVector &wt, eigenVector &m_maf, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, bool second)
 {
     unsigned long i = 0, j = 0, k = 0, n = _keep.size(), m = _include.size(), size = 0;
 
@@ -125,18 +155,18 @@ void gcta::calcu_lds_blk(eigenVector &wt, eigenVector &log_maf, eigenVector &ssx
         // debug
         cout<<"size = "<<size<<"; eff_m = "<<eff_m <<endl;
 
-        double maf_mean = 0.0;
-        for (k = brk_pnt[i]; k <= brk_pnt[i+1]; k++) maf_mean += _maf[k];
-        maf_mean /= (double) size;
+        double m_maf_buf = 0.0;
+        for (k = brk_pnt[i]; k <= brk_pnt[i+1]; k++) m_maf_buf += _maf[k];
+        m_maf_buf /= (double) size;
 
         for (j = 0, k = brk_pnt[i]; j < size; j++, k++) {
             if (second){
                 wt[k] = 0.5*(wt[k] + wt_buf);
-                log_maf[k] = 0.5*(log_maf[k] + log(maf_mean));
+                m_maf[k] = 0.5*(m_maf[k] + m_maf_buf);
             }
             else{
                 wt[k] = wt_buf;
-                log_maf[k] = log(maf_mean);
+                m_maf[k] = m_maf_buf;
             }
         }
     }
@@ -147,32 +177,16 @@ void gcta::calcu_ldak(eigenVector &wt, int wind_size, double rsq_cutoff)
 {
     unsigned long i = 0, n = _keep.size(), m = _include.size();
 
-    cout << "Calculating the LD based SNP weights (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between windows, and a least 500 SNPs within a window) ..." << endl;
+    cout << "Calculating the LD based SNP weights (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between windows, and a least 3000 SNPs within a window) ..." << endl;
     eigenVector ssx_sqrt_i;
     calcu_ssx_sqrt_i(ssx_sqrt_i);
 
     vector<int> brk_pnt1, brk_pnt2;
-    get_lds_brkpnt(brk_pnt1, brk_pnt2, wind_size, 500);
+    get_lds_brkpnt(brk_pnt1, brk_pnt2, wind_size, 3000);
     calcu_ldak_blk(wt, ssx_sqrt_i, brk_pnt1, false, rsq_cutoff);
     if (brk_pnt2.size() > 1) calcu_ldak_blk(wt, ssx_sqrt_i, brk_pnt2, true, rsq_cutoff);
     if(_maf.size() < 1) calcu_maf();
-
-    // debug
-    double wt_m = wt.mean();
-    cout<<"wt mean = " << wt_m << endl;
-    cout<<"wt variance = " << (wt - eigenVector::Constant(m, wt_m)).squaredNorm() / (m - 1.0) <<endl;
-    cout<<"wt range = "<<wt.minCoeff()<<" ~ "<<wt.maxCoeff()<<endl;
-    cout << "wt: " << wt.segment(0,10).transpose() << endl;
     
-    // debug
-    string wt_file = _out + ".ldwt";
-    ofstream owt(wt_file.data());
-    if(!owt) throw("Error: can not open [" + wt_file + "] to read.");
-    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << _maf[i] << endl;
-    owt << endl;
-    cout<<"LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
-    owt.close();
-
     // adjust wt for maf
     eigenMatrix X(m, 3);
     X.col(0) = eigenVector::Ones(m);
@@ -184,12 +198,29 @@ void gcta::calcu_ldak(eigenVector &wt, int wind_size, double rsq_cutoff)
     wt = e.array() + wt.mean();
 
     // debug
-    wt_file = _out + ".adj.ldwt";
+    double wt_m = wt.mean();
+    cout<<"wt mean = " << wt_m << endl;
+    cout<<"wt variance = " << (wt - eigenVector::Constant(m, wt_m)).squaredNorm() / (m - 1.0) <<endl;
+    cout<<"wt range = "<<wt.minCoeff()<<" ~ "<<wt.maxCoeff()<<endl;
+    cout << "wt: " << wt.segment(0,10).transpose() << endl;
+
+    // debug
+    string wt_file = _out + ".ldwt";
+    ofstream owt(wt_file.data());
+    if(!owt) throw("Error: can not open [" + wt_file + "] to read.");
+    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << _maf[i] << endl;
+    owt << endl;
+    cout<<"LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
+    owt.close();
+
+    // debug
+    /*wt_file = _out + ".adj.ldwt";
     owt.open(wt_file.data());
     if(!owt) throw("Error: can not open [" + wt_file + "] to read.");
     for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << _maf[i] << endl;
     owt << endl;
     cout<<"Adjusted LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
+    */
 }
 
 void gcta::calcu_ldak_blk(eigenVector &wt, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, bool second, double rsq_cutoff)
