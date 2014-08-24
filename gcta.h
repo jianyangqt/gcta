@@ -323,7 +323,7 @@ private:
     void calcu_ldak(eigenVector &wt, int wind_size, double rsq_cutoff);
     void calcu_ldak_blk(eigenVector &wt, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, bool second, double rsq_cutoff);
     void calcu_ldwt(string i_ld_file, eigenVector &wt, int wind_size, double rsq_cutoff);
-    void read_mrsq_mb(string i_ld_file, vector<float> &seq, vector<double> &mrsq_mb, vector<double> &min_wt_mb, vector<double> &max_wt_mb, eigenVector &wt, eigenVector &snp_m);
+    void read_mrsq_mb(string i_ld_file, vector<float> &seq, vector<double> &mrsq_mb, eigenVector &wt, eigenVector &snp_m);
     void adj_wt_4_maf(eigenVector &wt);
     void col_std(MatrixXf &X);
     void assign_snp_2_mb(vector<float> &seq, vector< vector<int> > &maf_bin_pos, int mb_num);

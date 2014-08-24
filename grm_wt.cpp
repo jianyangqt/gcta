@@ -62,7 +62,7 @@ void gcta::calcu_lds(eigenVector &wt, int wind_size)
     cout << "wt adj: " << wt.segment(0,10).transpose() << endl;
 
     // debug
-    wt_file = _out + ".ldwt";
+    wt_file = _out + ".adj.ldwt";
     owt.open(wt_file.data());
     if(!owt) throw("Error: can not open [" + wt_file + "] to read.");
     for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << m_maf[i] << endl;
@@ -415,6 +415,8 @@ void gcta::assign_snp_2_mb(vector<float> &seq, vector< vector<int> > &maf_bin_po
 void gcta::calcu_ldwt(string i_ld_file, eigenVector &wt, int wind_size, double rsq_cutoff)
 {
     unsigned long i = 0, j = 0, k = 0, l = 0, n = _keep.size(), m = _include.size();
+    double rsq_thre = 3.92 / (double)n;
+    if(rsq_thre < rsq_cutoff) rsq_thre = rsq_cutoff;
 
     // assign SNPs to MAF bins
     vector<float> seq;
@@ -422,57 +424,45 @@ void gcta::calcu_ldwt(string i_ld_file, eigenVector &wt, int wind_size, double r
     assign_snp_2_mb(seq, maf_bin_pos, 100);
     int seq_size = seq.size();
 
-    vector<double> mrsq_mb, min_wt_mb, max_wt_mb;
+    vector<double> mrsq_mb;
     wt = eigenVector::Zero(m);
     eigenVector snp_num = eigenVector::Zero(m);
     eigenVector max_rsq = eigenVector::Zero(m);
     // Read mean LD from file and calculate the mean LD in each MAF bin
-    if (!i_ld_file.empty()) read_mrsq_mb(i_ld_file, seq, mrsq_mb, min_wt_mb, max_wt_mb, wt, snp_num);
+    if (!i_ld_file.empty()) read_mrsq_mb(i_ld_file, seq, mrsq_mb, wt, snp_num);
     else {
         // calcualte LD between SNPs
-        cout << "Calculating mean LD rsq (block size = " << wind_size / 1000 << "Kb; LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
+        cout << "Calculating mean LD rsq (block size = " << wind_size / 1000 << "Kb; LD rsq threshold = " << rsq_thre << ") ... " << endl;
         eigenVector ssx_sqrt_i;
         calcu_ssx_sqrt_i(ssx_sqrt_i);
         vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
         get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, wind_size);
-        calcu_ld_blk(ssx_sqrt_i, brk_pnt1, brk_pnt3, wt, snp_num, max_rsq, false, rsq_cutoff);
-        if (brk_pnt2.size() > 1) calcu_ld_blk(ssx_sqrt_i, brk_pnt2, brk_pnt3, wt, max_rsq, snp_num, true, rsq_cutoff);
+        calcu_ld_blk(ssx_sqrt_i, brk_pnt1, brk_pnt3, wt, snp_num, max_rsq, false, rsq_thre);
+        if (brk_pnt2.size() > 1) calcu_ld_blk(ssx_sqrt_i, brk_pnt2, brk_pnt3, wt, max_rsq, snp_num, true, rsq_thre);
 
         // adjust LD due to chance correlation
         double n_r = 1.0 / n;
         #pragma omp parallel for
-        for (i = 0; i < m; i++) {
-            if (snp_num[i] > 0) {
-                wt[i] = wt[i] - n_r + 1.0  / snp_num[i];
-                snp_num[i]++;
-            }
-            else wt[i] = -1.0;
+        for (i = 0; i < m; i++){
+            wt[i] = wt[i] * snp_num[i] + 1.0;
+            snp_num[i]++;
+            wt[i] /= snp_num[i]; 
         }
         
         // MAF bin weighting
         cout << "Calculating mean LD rsq in MAF bins ... " << endl;
         mrsq_mb.resize(seq_size - 1);
-        min_wt_mb.resize(seq_size - 1);
-        max_wt_mb.resize(seq_size - 1);
         for (i = 0; i < seq_size - 1; i++) {
-            min_wt_mb[i] = max_wt_mb[i] = 0.0;
             if (maf_bin_pos[i].size() > 0) {
                 long double sum_snp_num = 0.0;
                 for (j = 0; j < maf_bin_pos[i].size(); j++) {
                     k = maf_bin_pos[i][j];
-                    if (snp_num[k] > 0.0) {
-                        mrsq_mb[i] += wt[k] * snp_num[k];
-                        sum_snp_num += snp_num[k];
-                        if(wt[k] > max_wt_mb[i]) max_wt_mb[i] = wt[k];
-                        if(wt[k] < min_wt_mb[i]) min_wt_mb[i] = wt[k];
-                    }
+                    mrsq_mb[i] += wt[k] * snp_num[k];
+                    sum_snp_num += snp_num[k];
                 }
-                if (sum_snp_num > 0.0) {
-                    mrsq_mb[i] /= sum_snp_num;
-                    cout << maf_bin_pos[i].size() << " SNPs with " << setprecision(4) << seq[i] << " <= MAF < " << seq[i + 1] << ", mean LD rsq = " << mrsq_mb[i] << endl;
-                }
+                mrsq_mb[i] /= sum_snp_num;
+                cout << maf_bin_pos[i].size() << " SNPs with " << setprecision(4) << seq[i] << " <= MAF < " << seq[i + 1] << ", mean LD rsq = " << mrsq_mb[i] << endl;
             }
-            min_wt_mb[i] = fabs(min_wt_mb[i]);
         }
     }
 
@@ -481,8 +471,7 @@ void gcta::calcu_ldwt(string i_ld_file, eigenVector &wt, int wind_size, double r
             #pragma omp parallel for private(k)
             for (j = 0; j < maf_bin_pos[i].size(); j++) {
                 k = maf_bin_pos[i][j];
-                if (wt[k] > min_wt_mb[i]) wt[k] = mrsq_mb[i] / wt[k];
-                else wt[k] = mrsq_mb[i] / min_wt_mb[i];
+                wt[k] = mrsq_mb[i] / wt[k];
             }
         }
     }
@@ -503,7 +492,7 @@ void gcta::calcu_ldwt(string i_ld_file, eigenVector &wt, int wind_size, double r
     cout<<"LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
  }
 
-void gcta::read_mrsq_mb(string i_ld_file, vector<float> &seq, vector<double> &mrsq_mb, vector<double> &min_wt_mb, vector<double> &max_wt_mb, eigenVector &wt, eigenVector &snp_m)
+void gcta::read_mrsq_mb(string i_ld_file, vector<float> &seq, vector<double> &mrsq_mb, eigenVector &wt, eigenVector &snp_m)
 {
     ifstream ild(i_ld_file.c_str());
     if (!ild) throw ("Error: can not open the file [" + i_ld_file + "] to read.");
@@ -542,14 +531,11 @@ void gcta::read_mrsq_mb(string i_ld_file, vector<float> &seq, vector<double> &mr
     cout << "LD mean rsq for " << m << " SNPs read from [" + i_ld_file + "]." << endl;
 
     // adjusting LD due to chance correlation
-    double n_r = 1.0 / (double) _keep.size();
     #pragma omp parallel for
     for (i = 0; i < m; i++) {
-        if (snp_num[i] > 0) {
-            mrsq[i] = mrsq[i] - n_r + 1.0 / snp_num[i];
-            snp_num[i]++;
-        }
-        else mrsq[i] = -1.0;
+        mrsq[i] = mrsq[i] * snp_num[i] + 1.0;
+        snp_num[i]++;
+        mrsq[i] /= snp_num[i];
     }
 
     // extract the mean LD rsq for SNPs included in this run of analysis
@@ -585,27 +571,17 @@ void gcta::read_mrsq_mb(string i_ld_file, vector<float> &seq, vector<double> &mr
     cout << "Calculating mean LD rsq in MAF bins ... " << endl;
     mrsq_mb.clear();
     mrsq_mb.resize(seq_size - 1);
-    min_wt_mb.resize(seq_size - 1);
-    max_wt_mb.resize(seq_size - 1);
     for (i = 0; i < seq_size - 1; i++) {
-        min_wt_mb[i] = max_wt_mb[i] = 0.0;
         if (maf_bin_pos[i].size() > 0) {
             long double sum_snp_num = 0.0;
             for (j = 0; j < maf_bin_pos[i].size(); j++) {
                 k = maf_bin_pos[i][j];
-                if (snp_num[k] > 0.0) {
-                    mrsq_mb[i] += mrsq[k] * snp_num[k];
-                    sum_snp_num += snp_num[k];
-                    if(mrsq[k] > max_wt_mb[i]) max_wt_mb[i] = mrsq[k];
-                    if(mrsq[k] < min_wt_mb[i]) min_wt_mb[i] = mrsq[k];
-                }
+                mrsq_mb[i] += mrsq[k] * snp_num[k];
+                sum_snp_num += snp_num[k];
             }
-            if (sum_snp_num > 0.0) {
-                mrsq_mb[i] /= sum_snp_num;
-                cout << maf_bin_pos[i].size() << " SNPs with " << setprecision(4) << seq[i] << " <= MAF < " << seq[i + 1] << ", mean LD rsq = " << mrsq_mb[i] << endl;
-            }
+            mrsq_mb[i] /= sum_snp_num;
+            cout << maf_bin_pos[i].size() << " SNPs with " << setprecision(4) << seq[i] << " <= MAF < " << seq[i + 1] << ", mean LD rsq = " << mrsq_mb[i] << endl;
         }
-        min_wt_mb[i] = fabs(min_wt_mb[i]);
     }
 }
 

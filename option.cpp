@@ -331,7 +331,7 @@ void option(int option_num, char* option_str[])
             make_grm_ldwt_flag = true;
             make_grm_ldwt_mtd = atoi(argv[++i]);
             cout << "--make-grm-ld-alg " << make_grm_ldwt_mtd << endl;
-            if (make_grm_ldwt_mtd < 0 || make_grm_ldwt_mtd > 2) throw ("\nError: --make-grm-ld-alg should be 0 or 2.\n");
+            if (make_grm_ldwt_mtd < 0 || make_grm_ldwt_mtd > 3) throw ("\nError: --make-grm-ld-alg should be 0 or 3.\n");
         } else if (strcmp(argv[i], "--make-grm-d") == 0 || strcmp(argv[i], "--make-grm-d-bin") == 0) {
             make_grm_flag = true;
             dominance_flag = true;
@@ -954,7 +954,7 @@ void option(int option_num, char* option_str[])
             else if (!paa_file.empty()) pter_gcta->paa(paa_file);
             else if (ibc) pter_gcta->ibc(ibc_all);
             else if (make_grm_flag){
-                if(make_grm_ldwt_mtd == 2) pter_gcta->make_grm_pca(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, ldwt_wind, false);
+                if(make_grm_ldwt_mtd == 3) pter_gcta->make_grm_pca(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, ldwt_wind, false);
                 else pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_ldwt_mtd, i_ld_file, ldwt_wind, LD_rsq_cutoff, make_grm_f3_flag);
             }
             else if (recode || recode_nomiss) pter_gcta->save_XMat(recode_nomiss);
@@ -998,7 +998,7 @@ void option(int option_num, char* option_str[])
         if (max_maf > 0.0) pter_gcta->filter_snp_max_maf(max_maf);
         if (out_freq_flag) pter_gcta->save_freq(out_ssq_flag);
         else if (make_grm_flag){
-            if(make_grm_ldwt_mtd == 2) pter_gcta->make_grm_pca(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, ldwt_wind, false);
+            if(make_grm_ldwt_mtd == 3) pter_gcta->make_grm_pca(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, ldwt_wind, false);
             else pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_ldwt_mtd, i_ld_file, ldwt_wind, LD_rsq_cutoff, make_grm_f3_flag);
         }
         else if (recode || recode_nomiss) pter_gcta->save_XMat(recode_nomiss);
