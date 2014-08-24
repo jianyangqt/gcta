@@ -52,7 +52,7 @@ void gcta::calcu_lds(eigenVector &wt, int wind_size)
     owt.close();
 
    // adjust wt for log(maf)
-    eigenMatrix X(m, 3);
+    eigenMatrix X(m, 2);
     X.col(0) = eigenVector::Ones(m);
     X.col(1) = m_maf;
     eigenVector e = wt - X * ((X.transpose() * X).inverse() * (X.transpose() * wt));
