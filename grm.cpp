@@ -159,11 +159,14 @@ void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool outpu
     if (denominator < 0.0) throw ("Error: the sum of the weights is negative!");
     _grm_N = _grm_N.array() * denominator; 
 
-    #ifdef SINGLE_PRECISION
-    _grm = _grm.array() / _grm_N.array(); 
-    #else
-    _grm = _grm.array() / _grm_N.cast<double>().array();
-    #endif
+    #pragma omp parallel for private(j)
+    for (i = 0; i < n; i++) {
+        for (j = 0; j <= i; j++) {
+            if(_grm_N(i,j) > 0) _grm(i,j) /= _grm_N(i,j);
+            else _grm(i,j) = 0.0;
+            _grm(j,i) = _grm(i,j);
+        }
+    }
 
     // debug
     calcu_grm_var(diag_m, diag_v, off_m, off_v);

@@ -19,6 +19,7 @@ void gcta::calcu_lds(eigenVector &wt, int wind_size)
 
     vector<int> brk_pnt1, brk_pnt2;
     get_lds_brkpnt(brk_pnt1, brk_pnt2, wind_size);
+
     int mean_size = 0, count = 0;
     for (i = 0; i < brk_pnt1.size() - 1; i++) {
         int size = brk_pnt1[i + 1] - brk_pnt1[i] + 1;
@@ -80,7 +81,10 @@ void gcta::get_lds_brkpnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, int wind
     brk_pnt1.push_back(0);
     bool chr_start = true;
     for (i = 1, j = 0; i < m; i++) {
-        if (i == (m - 1)) brk_pnt1[j - 1] = brk_pnt1[j] = m - 1;
+        if (i == (m - 1)){
+            if(chr_start) brk_pnt1.push_back(m - 1);
+            else brk_pnt1[j - 1] = brk_pnt1[j] = m - 1;
+        }
         else if (_chr[_include[i]] != _chr[_include[brk_pnt1[j]]]) {
             if(chr_start){
                 brk_pnt1.push_back(i - 1);
