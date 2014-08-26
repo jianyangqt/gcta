@@ -321,10 +321,11 @@ private:
     void get_lds_brkpnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, int wind_size, int wind_snp_num=0);
     void calcu_lds_blk(eigenVector &wt, eigenVector &m_maf, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, bool second);
     void calcu_ldak(eigenVector &wt, int wind_size, double rsq_cutoff);
-    void calcu_ldak_blk(eigenVector &wt, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, bool second, double rsq_cutoff);
+    void calcu_ldak_blk(eigenVector &wt, eigenVector &sum_rsq, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, bool second, double rsq_cutoff);
     void calcu_ldwt(string i_ld_file, eigenVector &wt, int wind_size, double rsq_cutoff);
     void read_mrsq_mb(string i_ld_file, vector<float> &seq, vector<double> &mrsq_mb, eigenVector &wt, eigenVector &snp_m);
     void adj_wt_4_maf(eigenVector &wt);
+    void cal_sum_rsq_mb(eigenVector &sum_rsq_mb);
     void col_std(MatrixXf &X);
     void assign_snp_2_mb(vector<float> &seq, vector< vector<int> > &maf_bin_pos, int mb_num);
     void make_grm_pca_blk(vector<int> & maf_bin_pos_i, int wind_size, double &trace);

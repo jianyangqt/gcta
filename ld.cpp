@@ -318,15 +318,29 @@ void gcta::get_ld_blk_pnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, vector<i
 
     brk_pnt1.clear();
     brk_pnt1.push_back(0);
+    bool chr_start = true;
+    int prev_length = 0;
     for (i = 1, j = 0; i < m; i++) {
-        if (i == (m - 1)) brk_pnt1.push_back(m - 1);
+        if (i == (m - 1)){
+            if(!chr_start && prev_length < 0.5 * wind_size) brk_pnt1[j - 1] = brk_pnt1[j] = m - 1;                
+            else brk_pnt1.push_back(m - 1);
+        }
         else if (_chr[_include[i]] != _chr[_include[brk_pnt1[j]]]) {
-            brk_pnt1.push_back(i - 1);
-            j++;
-            brk_pnt1.push_back(i);
-            j++;
+            if(!chr_start && prev_length < 0.5 * wind_size){                
+                brk_pnt1[j - 1] = i - 1;
+                brk_pnt1[j] = i;
+            }
+            else{
+                brk_pnt1.push_back(i - 1);
+                j++;
+                brk_pnt1.push_back(i);
+                j++;
+            }
+            chr_start = true;
         }
         else if (_bp[_include[i]] - _bp[_include[brk_pnt1[j]]] > wind_size) {
+            prev_length = _bp[_include[i]] - _bp[_include[brk_pnt1[j]]];
+            chr_start = false;
             brk_pnt1.push_back(i - 1);
             j++;
             brk_pnt1.push_back(i);
@@ -357,6 +371,10 @@ void gcta::calcu_ld_blk(eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, vector<in
         if (_chr[_include[brk_pnt[i]]] != _chr[_include[brk_pnt[i + 1]]]) continue;
         size = brk_pnt[i + 1] - brk_pnt[i] + 1;
         if (size < 3) continue;
+
+        // debug
+        cout << "size = " << size <<endl;
+
         if (second) {
             s1 = brk_pnt3[i] - brk_pnt[i];
             s2 = s1 + 1;

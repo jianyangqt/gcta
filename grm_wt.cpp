@@ -53,11 +53,13 @@ void gcta::calcu_lds(eigenVector &wt, int wind_size)
     owt.close();
 
    // adjust wt for log(maf)
-    eigenMatrix X(m, 2);
+    /*eigenMatrix X(m, 2);
     X.col(0) = eigenVector::Ones(m);
     X.col(1) = m_maf;
     eigenVector e = wt - X * ((X.transpose() * X).inverse() * (X.transpose() * wt));
     wt = e.array() + wt.mean();
+    */
+    adj_wt_4_maf(wt);
 
     // debug
     cout << "wt adj: " << wt.segment(0,10).transpose() << endl;
@@ -80,25 +82,27 @@ void gcta::get_lds_brkpnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, int wind
     brk_pnt1.clear();
     brk_pnt1.push_back(0);
     bool chr_start = true;
+    int prev_length = 0;
     for (i = 1, j = 0; i < m; i++) {
         if (i == (m - 1)){
-            if(chr_start) brk_pnt1.push_back(m - 1);
-            else brk_pnt1[j - 1] = brk_pnt1[j] = m - 1;
+            if(!chr_start && prev_length < 0.5 * wind_snp_num) brk_pnt1[j - 1] = brk_pnt1[j] = m - 1;
+            else brk_pnt1.push_back(m - 1);
         }
         else if (_chr[_include[i]] != _chr[_include[brk_pnt1[j]]]) {
-            if(chr_start){
+            if(!chr_start && prev_length < 0.5 * wind_snp_num){                
+                brk_pnt1[j - 1] = i - 1;
+                brk_pnt1[j] = i;
+            }
+            else{
                 brk_pnt1.push_back(i - 1);
                 j++;
                 brk_pnt1.push_back(i);
                 j++;
             }
-            else{                
-                brk_pnt1[j - 1] = i - 1;
-                brk_pnt1[j] = i;
-            }
             chr_start = true;
         }
         else if ((_bp[_include[i]] - _bp[_include[brk_pnt1[j]]] > wind_size) && (i - brk_pnt1[j] > wind_snp_num)) {
+            prev_length  = i - brk_pnt1[j];
             chr_start = false;
             brk_pnt1.push_back(i - 1);
             j++;
@@ -179,27 +183,167 @@ void gcta::calcu_lds_blk(eigenVector &wt, eigenVector &m_maf, eigenVector &ssx_s
 // Weighting GRM using the Speed et al. 2013 AJHG method
 void gcta::calcu_ldak(eigenVector &wt, int wind_size, double rsq_cutoff)
 {
-    unsigned long i = 0, n = _keep.size(), m = _include.size();
 
-    cout << "Calculating the LD based SNP weights (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between windows, and a least 3000 SNPs within a window) ..." << endl;
+    unsigned long i = 0, j = 0, k = 0, l = 0, n = _keep.size(), m = _include.size();
+    double rsq_thre = 0.01; //3.8416 / (double)n;
+    if(rsq_thre < rsq_cutoff) rsq_thre = rsq_cutoff;
+
     eigenVector ssx_sqrt_i;
     calcu_ssx_sqrt_i(ssx_sqrt_i);
+    vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
+    get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, wind_size);
 
-    vector<int> brk_pnt1, brk_pnt2;
-    get_lds_brkpnt(brk_pnt1, brk_pnt2, wind_size, 3000);
-    calcu_ldak_blk(wt, ssx_sqrt_i, brk_pnt1, false, rsq_cutoff);
-    if (brk_pnt2.size() > 1) calcu_ldak_blk(wt, ssx_sqrt_i, brk_pnt2, true, rsq_cutoff);
-    if(_maf.size() < 1) calcu_maf();
+    // debug
+    vector<float> seq; // needs to be removed 
+    vector<double> mrsq_mb; // needs to be removed
+
+    wt = eigenVector::Zero(m);
+    eigenVector snp_num = eigenVector::Zero(m);
+    eigenVector max_rsq = eigenVector::Zero(m);
+    // Read mean LD from file and calculate the mean LD in each MAF bin
+    //if (!i_ld_file.empty()) read_mrsq_mb(i_ld_file, seq, mrsq_mb, wt, snp_num);
+   // else {
+        // calcualte LD between SNPs
+        cout << "Calculating mean LD rsq (block size = " << wind_size / 1000 << "Kb; LD rsq threshold = " << rsq_thre << ") ... " << endl;
+        calcu_ld_blk(ssx_sqrt_i, brk_pnt1, brk_pnt3, wt, snp_num, max_rsq, false, rsq_thre);
+        if (brk_pnt2.size() > 1) calcu_ld_blk(ssx_sqrt_i, brk_pnt2, brk_pnt3, wt, max_rsq, snp_num, true, rsq_thre);
+   // }
+
+    eigenVector sum_rsq(m);
+    for(i = 0; i < m; i++) sum_rsq[i] = wt[i] * snp_num[i] + 1.0;
+    cal_sum_rsq_mb(sum_rsq);
+
+    cout << "Calculating the LD based SNP weights (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between windows, and a least 3000 SNPs within a window) ..." << endl;
+    calcu_ldak_blk(wt, sum_rsq, ssx_sqrt_i, brk_pnt1, false, rsq_cutoff);
+    if (brk_pnt2.size() > 1) calcu_ldak_blk(wt, sum_rsq, ssx_sqrt_i, brk_pnt2, true, rsq_cutoff);
     
+     // debug
+    double wt_m = wt.mean();
+    cout<<"wt mean = " << wt_m << endl;
+    cout<<"wt variance = " << (wt - eigenVector::Constant(m, wt_m)).squaredNorm() / (m - 1.0) <<endl;
+    cout<<"wt range = "<<wt.minCoeff()<<" ~ "<<wt.maxCoeff()<<endl;
+    cout << "wt: " << wt.segment(0,10).transpose() << endl;
+
+    if(_maf.size() < 1) calcu_maf();
+
+    // debug
+    string wt_file = _out + ".ldwt";
+    ofstream owt(wt_file.data());
+    if(!owt) throw("Error: can not open [" + wt_file + "] to read.");
+    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << _maf[i] << " " << sum_rsq[i] << endl;
+    owt << endl;
+    cout<<"LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
+    owt.close();
+
     // adjust wt for maf
-    eigenMatrix X(m, 3);
-    X.col(0) = eigenVector::Ones(m);
-    for(i = 0; i < m; i++){
-        X(i,1) = log(_maf[i]);
-        X(i,2) = X(i,1) * X(i,1);
+    /*adj_wt_4_maf(wt);
+
+    // debug
+    wt_file = _out + ".adj.ldwt";
+    owt.open(wt_file.data());
+    if(!owt) throw("Error: can not open [" + wt_file + "] to read.");
+    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << _maf[i] << endl;
+    owt << endl;
+    cout<<"Adjusted LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
+    owt.close();*/
+}
+
+void gcta::calcu_ldak_blk(eigenVector &wt, eigenVector &sum_rsq, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, bool second, double rsq_cutoff)
+{
+    unsigned long i = 0, j = 0, k = 0, n = _keep.size(), m = _include.size(), size = 0;
+    double rsq_thre = 0.01; //3.8416 / (double)n;
+    if(rsq_thre < rsq_cutoff) rsq_thre = rsq_cutoff;
+
+    for (i = 0; i < brk_pnt.size() - 1; i++) {
+        if (_chr[_include[brk_pnt[i]]] != _chr[_include[brk_pnt[i + 1]]]) continue;
+        size = brk_pnt[i + 1] - brk_pnt[i] + 1;
+        if (size < 3) continue;
+
+        // debug
+        cout << "size = " << size << endl;
+
+        MatrixXf rsq_sub(size, size+1);
+        rsq_sub.block(0,0,size,size) = _geno.block(0,brk_pnt[i],n,size).transpose()*_geno.block(0,brk_pnt[i],n,size);
+        eigenVector ssx_sqrt_i_sub_sqrt = ssx_sqrt_i.segment(brk_pnt[i],size); 
+        VectorXf sum_rsq_buf = sum_rsq.segment(brk_pnt[i],size).cast<float>();       
+        #pragma omp parallel for private(k)
+        for (j = 0; j < size; j++) {
+            rsq_sub(j,j) = 1.01;
+            for (k = j + 1; k < size; k++) {
+                rsq_sub(j,k) *= (ssx_sqrt_i_sub_sqrt[j] * ssx_sqrt_i_sub_sqrt[k]);
+                rsq_sub(j,k) = rsq_sub(j,k)*rsq_sub(j,k);
+                if (rsq_sub(j,k) <= rsq_cutoff) rsq_sub(j,k) = 0.0;
+                rsq_sub(k,j) = rsq_sub(j,k);
+            }
+        }
+
+        VectorXf wt_sub;
+        VectorXf c = VectorXf::Ones(size);
+
+        rsq_sub.col(size) = sum_rsq_buf;
+        SimplexSolver solver(SIMPLEX_MAXIMIZE, c, rsq_sub);
+        if (solver.hasSolution()) wt_sub = solver.getSolution();
+        else cout << "The linear problem has no solution." << endl;
+
+    /*    FullPivLU<MatrixXf> lu(rsq_sub.block(0,0,size,size));
+        wt_sub = lu.solve(sum_rsq_buf);
+        */
+
+       /* SelfAdjointEigenSolver<MatrixXf> eigensolver(rsq_sub.block(0,0,size,size));
+        VectorXf eval = eigensolver.eigenvalues().array() / eigensolver.eigenvalues().sum();
+
+        double VE = 0.0;
+        int eff_size = 0;
+        for(j = size - 1; j >= 0; j--) {
+            VE += eval[j];
+            eff_size++;
+            if(VE>0.99) break;
+        }
+
+        // debug
+        cout<< "size = " << size <<", " << "eff_size = "<<eff_size<<endl;
+
+        X = X * eigensolver.eigenvectors().block(0, size - eff_size, size, eff_size);
+*/
+
+/*        VectorXf wt_sub = rsq_sub.lu().solve(sum_rsq_buf);
+        if(!(wt_sub.minCoeff() > -1e10 && wt_sub.minCoeff() < 1e10)) throw("Error: LU decomposition error!");*/
+        for (j = 0, k = brk_pnt[i]; j < size; j++, k++) {
+            if (second) wt[k] = 0.5*(wt[k] + wt_sub(j));
+            else wt[k] = wt_sub(j);
+        }
     }
-    eigenVector e = wt - X * ((X.transpose() * X).inverse() * (X.transpose() * wt));
-    wt = e.array() + wt.mean();
+}
+
+void gcta::calcu_ldwt(string i_ld_file, eigenVector &wt, int wind_size, double rsq_cutoff)
+{
+    unsigned long i = 0, j = 0, k = 0, l = 0, n = _keep.size(), m = _include.size();
+    double rsq_thre = 0.01; //3.8416 / (double)n;
+    if(rsq_thre < rsq_cutoff) rsq_thre = rsq_cutoff;
+
+    // debug
+    vector<float> seq; // needs to be removed 
+    vector<double> mrsq_mb; // needs to be removed
+
+    wt = eigenVector::Zero(m);
+    eigenVector snp_num = eigenVector::Zero(m);
+    eigenVector max_rsq = eigenVector::Zero(m);
+    // Read mean LD from file and calculate the mean LD in each MAF bin
+    if (!i_ld_file.empty()) read_mrsq_mb(i_ld_file, seq, mrsq_mb, wt, snp_num);
+    else {
+        // calcualte LD between SNPs
+        cout << "Calculating mean LD rsq (block size = " << wind_size / 1000 << "Kb; LD rsq threshold = " << rsq_thre << ") ... " << endl;
+        eigenVector ssx_sqrt_i;
+        calcu_ssx_sqrt_i(ssx_sqrt_i);
+        vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
+        get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, wind_size);
+        calcu_ld_blk(ssx_sqrt_i, brk_pnt1, brk_pnt3, wt, snp_num, max_rsq, false, rsq_thre);
+        if (brk_pnt2.size() > 1) calcu_ld_blk(ssx_sqrt_i, brk_pnt2, brk_pnt3, wt, max_rsq, snp_num, true, rsq_thre);
+
+        // calculate weights
+        #pragma omp parallel for
+        for (i = 0; i < m; i++) wt[i] = 1.0 / (wt[i] * snp_num[i] + 1.0);        
+    }
 
     // debug
     double wt_m = wt.mean();
@@ -207,6 +351,8 @@ void gcta::calcu_ldak(eigenVector &wt, int wind_size, double rsq_cutoff)
     cout<<"wt variance = " << (wt - eigenVector::Constant(m, wt_m)).squaredNorm() / (m - 1.0) <<endl;
     cout<<"wt range = "<<wt.minCoeff()<<" ~ "<<wt.maxCoeff()<<endl;
     cout << "wt: " << wt.segment(0,10).transpose() << endl;
+
+    if(_maf.size() < 1) calcu_maf();
 
     // debug
     string wt_file = _out + ".ldwt";
@@ -217,48 +363,160 @@ void gcta::calcu_ldak(eigenVector &wt, int wind_size, double rsq_cutoff)
     cout<<"LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
     owt.close();
 
+    // adjust wt for maf
+    adj_wt_4_maf(wt);
+
     // debug
-    /*wt_file = _out + ".adj.ldwt";
+    wt_file = _out + ".adj.ldwt";
     owt.open(wt_file.data());
     if(!owt) throw("Error: can not open [" + wt_file + "] to read.");
     for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << _maf[i] << endl;
     owt << endl;
     cout<<"Adjusted LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
-    */
+    owt.close();
 }
 
-void gcta::calcu_ldak_blk(eigenVector &wt, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, bool second, double rsq_cutoff)
+void gcta::read_mrsq_mb(string i_ld_file, vector<float> &seq, vector<double> &mrsq_mb, eigenVector &wt, eigenVector &snp_m)
 {
-    unsigned long i = 0, j = 0, k = 0, n = _keep.size(), m = _include.size(), size = 0;
-    double rsq_adj = 1.0 / (double)n;
+    ifstream ild(i_ld_file.c_str());
+    if (!ild) throw ("Error: can not open the file [" + i_ld_file + "] to read.");
 
-    for (i = 0; i < brk_pnt.size() - 1; i++) {
-        if (_chr[_include[brk_pnt[i]]] != _chr[_include[brk_pnt[i + 1]]]) continue;
-        size = brk_pnt[i + 1] - brk_pnt[i] + 1;
-        if (size < 3) continue;
+    int i = 0, j = 0, k = 0;
+    string snp_name_buf, str_buf;
+    double fbuf = 0.0;
+    cout << "Reading LD mean rsq for SNPs from [" + i_ld_file + "] ..." << endl;
+    vector<string> snp_name;
+    vector<float> snp_num, mrsq, freq;
+    int m = 0;
+    getline(ild, str_buf); // get the header
+    while (ild) {
+        ild >> snp_name_buf;
+        if (ild.eof()) break;
+        snp_name.push_back(snp_name_buf);
+        ild >> str_buf;
+        fbuf = atof(str_buf.c_str());
+        if (fbuf < 0.0 || fbuf > 1.0) throw ("Error: invalid value of \"allele frequency\" for the SNP " + snp_name_buf + ".");
+        freq.push_back(fbuf);
+        ild >> str_buf;
+        fbuf = atof(str_buf.c_str());
+        if (fbuf > 1.0 || fbuf < 0.0) {
+            throw ("Warning: invalid value of \"mean LD rsq\" for the SNP " + snp_name_buf + ", which will be set to zero.");
+            fbuf = 0.0;
+        }
+        mrsq.push_back(fbuf);
+        ild >> str_buf;
+        fbuf = atof(str_buf.c_str());
+        if (fbuf < 1.0) throw ("Error: invalid value of \"number of SNPs\" for the SNP " + snp_name_buf + ".");
+        snp_num.push_back(fbuf);
+        m++;
+        getline(ild, str_buf);
+    }
+    ild.close();
+    cout << "LD mean rsq for " << m << " SNPs read from [" + i_ld_file + "]." << endl;
 
-        MatrixXf rsq_sub(size, size);
-        rsq_sub = _geno.block(0,brk_pnt[i],n,size).transpose()*_geno.block(0,brk_pnt[i],n,size);
-        eigenVector ssx_sqrt_i_sub_sqrt = ssx_sqrt_i.segment(brk_pnt[i],size);        
-        #pragma omp parallel for private(k)
-        for (j = 0; j < size; j++) {
-            rsq_sub(j,j) = 1.001;
-            for (k = j + 1; k < size; k++) {
-                rsq_sub(j,k) *= (ssx_sqrt_i_sub_sqrt[j] * ssx_sqrt_i_sub_sqrt[k]);
-                rsq_sub(j,k) = rsq_sub(j,k)*rsq_sub(j,k) - rsq_adj;
-                if (rsq_sub(j,k) <= rsq_cutoff) rsq_sub(j,k) = 0.0;
-                rsq_sub(k,j) = rsq_sub(j,k);
+    // calculate weights
+    #pragma omp parallel for
+    for (i = 0; i < m; i++) mrsq[i] = 1.0 / (mrsq[i] * snp_num[i] + 1.0);
+
+    // extract the mean LD rsq for SNPs included in this run of analysis
+    map<string, int> snp_map;
+    for (i = 0; i < _include.size(); i++) snp_map.insert(pair<string, int>(_snp_name[_include[i]], i));
+    map<string, int>::iterator iter, end = snp_map.end();
+    int icount = 0;
+    #pragma omp parallel for
+    for (i = 0; i < m; i++) {
+        iter = snp_map.find(snp_name[i]);
+        if (iter != end) {
+            wt[iter->second] = mrsq[i];
+            snp_m[iter->second] = snp_num[i];
+            icount++;
+        }
+    }
+    cout << _include.size() << " SNPs are included in the analysis and mean LD rsq for " << icount << " SNPs are updated from the file [" << i_ld_file << "]." << endl;
+}
+
+void gcta::adj_wt_4_maf(eigenVector &wt)
+{
+    vector<float> seq;
+    vector< vector<int> > maf_bin_pos;
+    assign_snp_2_mb(seq, maf_bin_pos, 100);
+    int seq_size = seq.size();
+
+    int i = 0, j = 0;
+    eigenVector wt_mb_mean = eigenVector::Zero(seq_size - 1), wt_mb_sd = eigenVector::Zero(seq_size - 1);
+    bool get_mean_sd = false;
+    double mean = 0.0, sd = 0.0;
+    for (i = 0; i < seq_size - 1; i++) {
+        if (maf_bin_pos[i].size() > 30) {
+            for (j = 0; j < maf_bin_pos[i].size(); j++)  wt_mb_mean[i] += wt[maf_bin_pos[i][j]];
+            wt_mb_mean[i] /= (double) maf_bin_pos[i].size();
+            for (j = 0; j < maf_bin_pos[i].size(); j++)  wt_mb_sd[i] += (wt[maf_bin_pos[i][j]] - wt_mb_mean[i]) * (wt[maf_bin_pos[i][j]] - wt_mb_mean[i]);
+            wt_mb_sd[i] /= (double) (maf_bin_pos[i].size() - 1);
+            wt_mb_sd[i] = sqrt(wt_mb_sd[i]);
+            cout << maf_bin_pos[i].size() << " SNPs with " << setprecision(4) << seq[i] << " <= MAF < " << seq[i + 1] << ", mean wt = " << wt_mb_mean[i] << ", sd wt = " << wt_mb_sd[i] << endl;
+            if(!get_mean_sd){
+                mean = wt_mb_mean[i];
+                sd = wt_mb_sd[i];
+                get_mean_sd = true;
             }
         }
-        VectorXf c = VectorXf::Ones(size);
-        VectorXf wt_sub = rsq_sub.lu().solve(c);
-        if(!(wt_sub.minCoeff() > -1e10 && wt_sub.minCoeff() < 1e10)) throw("Error: LU decomposition error!");
-        for (j = 0, k = brk_pnt[i]; j < size; j++, k++) {
-            if (second) wt[k] = 0.5*(wt[k] + wt_sub(j));
-            else wt[k] = wt_sub(j);
+    }
+
+    for (i = 0; i < seq_size - 1; i++) {
+        if (maf_bin_pos[i].size() > 30){
+            for (j = 0; j < maf_bin_pos[i].size(); j++) wt[maf_bin_pos[i][j]] = sd * (wt[maf_bin_pos[i][j]] - wt_mb_mean[i]) / wt_mb_sd[i] + mean;
+        }
+    }
+
+    // debug
+    cout<<"here" <<endl;
+}
+
+void gcta::cal_sum_rsq_mb(eigenVector &sum_rsq_mb)
+{
+    vector<float> seq;
+    vector< vector<int> > maf_bin_pos;
+    assign_snp_2_mb(seq, maf_bin_pos, 100);
+    int seq_size = seq.size();
+
+    int i = 0, j = 0;
+    for (i = 0; i < seq_size - 1; i++) {
+        if (maf_bin_pos[i].size() > 0) {
+            double sum_rsq_mb_buf = 0.0;
+            for (j = 0; j < maf_bin_pos[i].size(); j++)  sum_rsq_mb_buf += sum_rsq_mb[maf_bin_pos[i][j]];
+            sum_rsq_mb_buf /= (double) maf_bin_pos[i].size();
+            for (j = 0; j < maf_bin_pos[i].size(); j++)  sum_rsq_mb[maf_bin_pos[i][j]] = sum_rsq_mb_buf;
         }
     }
 }
+
+void gcta::assign_snp_2_mb(vector<float> &seq, vector< vector<int> > &maf_bin_pos, int mb_num)
+{
+    int i = 0, j = 0, m = _include.size();
+
+     // create frequency bin
+    seq.clear();
+    double x = 0.5;
+    seq.push_back(0.501);
+    for (i = 0; i < mb_num; i++) {
+        x = exp(log(x) - 0.1053605);
+        seq.push_back(x);
+    }
+    int seq_size = seq.size();
+
+    // assign SNPs to MAF bins
+    if(_maf.size() < 1) calcu_maf();
+    maf_bin_pos.clear();
+    maf_bin_pos.resize(seq_size - 1);
+    for (j = 1; j < seq_size; j++) {
+        for (i = 0; i < m; i++) {
+            if (_maf[i] < seq[j - 1] && _maf[i] >= seq[j]) maf_bin_pos[j - 1].push_back(i);
+        }
+    }
+}
+
+/////////////
+// not working
 
 void gcta::make_grm_pca(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, double wind_size, bool mlmassoc)
 {
@@ -391,222 +649,5 @@ void gcta::col_std(MatrixXf &X)
     }
 }
 
-void gcta::assign_snp_2_mb(vector<float> &seq, vector< vector<int> > &maf_bin_pos, int mb_num)
-{
-    int i = 0, j = 0, m = _include.size();
-
-     // create frequency bin
-    seq.clear();
-    double x = 0.5;
-    seq.push_back(0.501);
-    for (i = 0; i < mb_num; i++) {
-        x = exp(log(x) - 0.1);
-        seq.insert(seq.begin(), x);
-    }
-    int seq_size = seq.size();
-
-    // assign SNPs to MAF bins
-    if(_maf.size() < 1) calcu_maf();
-    maf_bin_pos.clear();
-    maf_bin_pos.resize(seq_size - 1);
-    for (j = 1; j < seq_size; j++) {
-        for (i = 0; i < m; i++) {
-            if (_maf[i] >= seq[j - 1] && _maf[i] < seq[j]) maf_bin_pos[j - 1].push_back(i);
-        }
-    }
-}
-
-void gcta::calcu_ldwt(string i_ld_file, eigenVector &wt, int wind_size, double rsq_cutoff)
-{
-    unsigned long i = 0, j = 0, k = 0, l = 0, n = _keep.size(), m = _include.size();
-    double rsq_thre = 3.92 / (double)n;
-    if(rsq_thre < rsq_cutoff) rsq_thre = rsq_cutoff;
-
-    // assign SNPs to MAF bins
-    vector<float> seq;
-    vector< vector<int> > maf_bin_pos;
-    assign_snp_2_mb(seq, maf_bin_pos, 100);
-    int seq_size = seq.size();
-
-    vector<double> mrsq_mb;
-    wt = eigenVector::Zero(m);
-    eigenVector snp_num = eigenVector::Zero(m);
-    eigenVector max_rsq = eigenVector::Zero(m);
-    // Read mean LD from file and calculate the mean LD in each MAF bin
-    if (!i_ld_file.empty()) read_mrsq_mb(i_ld_file, seq, mrsq_mb, wt, snp_num);
-    else {
-        // calcualte LD between SNPs
-        cout << "Calculating mean LD rsq (block size = " << wind_size / 1000 << "Kb; LD rsq threshold = " << rsq_thre << ") ... " << endl;
-        eigenVector ssx_sqrt_i;
-        calcu_ssx_sqrt_i(ssx_sqrt_i);
-        vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
-        get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, wind_size);
-        calcu_ld_blk(ssx_sqrt_i, brk_pnt1, brk_pnt3, wt, snp_num, max_rsq, false, rsq_thre);
-        if (brk_pnt2.size() > 1) calcu_ld_blk(ssx_sqrt_i, brk_pnt2, brk_pnt3, wt, max_rsq, snp_num, true, rsq_thre);
-
-        // adjust LD due to chance correlation
-        double n_r = 1.0 / n;
-        #pragma omp parallel for
-        for (i = 0; i < m; i++){
-            wt[i] = wt[i] * snp_num[i] + 1.0;
-            snp_num[i]++;
-            wt[i] /= snp_num[i]; 
-        }
-        
-        // MAF bin weighting
-        cout << "Calculating mean LD rsq in MAF bins ... " << endl;
-        mrsq_mb.resize(seq_size - 1);
-        for (i = 0; i < seq_size - 1; i++) {
-            if (maf_bin_pos[i].size() > 0) {
-                long double sum_snp_num = 0.0;
-                for (j = 0; j < maf_bin_pos[i].size(); j++) {
-                    k = maf_bin_pos[i][j];
-                    mrsq_mb[i] += wt[k] * snp_num[k];
-                    sum_snp_num += snp_num[k];
-                }
-                mrsq_mb[i] /= sum_snp_num;
-                cout << maf_bin_pos[i].size() << " SNPs with " << setprecision(4) << seq[i] << " <= MAF < " << seq[i + 1] << ", mean LD rsq = " << mrsq_mb[i] << endl;
-            }
-        }
-    }
-
-    for (i = 0; i < seq_size - 1; i++) {
-        if (maf_bin_pos[i].size() > 0 && mrsq_mb[i] > 0.0) {
-            #pragma omp parallel for private(k)
-            for (j = 0; j < maf_bin_pos[i].size(); j++) {
-                k = maf_bin_pos[i][j];
-                wt[k] = mrsq_mb[i] / wt[k];
-            }
-        }
-    }
-
-    // debug
-    double wt_m = wt.mean();
-    cout<<"wt mean = " << wt_m << endl;
-    cout<<"wt variance = " << (wt - eigenVector::Constant(m, wt_m)).squaredNorm() / (m - 1.0) <<endl;
-    cout<<"wt range = "<<wt.minCoeff()<<" ~ "<<wt.maxCoeff()<<endl;
-    cout << "wt: " << wt.segment(0,10).transpose() << endl;
-
-    // debug
-    string wt_file = _out + ".ldwt";
-    ofstream owt(wt_file.data());
-    if(!owt) throw("Error: can not open [" + wt_file + "] to read.");
-    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << endl;
-    owt << endl;
-    cout<<"LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
- }
-
-void gcta::read_mrsq_mb(string i_ld_file, vector<float> &seq, vector<double> &mrsq_mb, eigenVector &wt, eigenVector &snp_m)
-{
-    ifstream ild(i_ld_file.c_str());
-    if (!ild) throw ("Error: can not open the file [" + i_ld_file + "] to read.");
-
-    int i = 0, j = 0, k = 0;
-    string snp_name_buf, str_buf;
-    double fbuf = 0.0;
-    cout << "Reading LD mean rsq for SNPs from [" + i_ld_file + "] ..." << endl;
-    vector<string> snp_name;
-    vector<float> snp_num, mrsq, freq;
-    int m = 0;
-    getline(ild, str_buf); // get the header
-    while (ild) {
-        ild >> snp_name_buf;
-        if (ild.eof()) break;
-        snp_name.push_back(snp_name_buf);
-        ild >> str_buf;
-        fbuf = atof(str_buf.c_str());
-        if (fbuf < 0.0 || fbuf > 1.0) throw ("Error: invalid value of \"allele frequency\" for the SNP " + snp_name_buf + ".");
-        freq.push_back(fbuf);
-        ild >> str_buf;
-        fbuf = atof(str_buf.c_str());
-        if (fbuf > 1.0 || fbuf < 0.0) {
-            throw ("Warning: invalid value of \"mean LD rsq\" for the SNP " + snp_name_buf + ", which will be set to zero.");
-            fbuf = 0.0;
-        }
-        mrsq.push_back(fbuf);
-        ild >> str_buf;
-        fbuf = atof(str_buf.c_str());
-        if (fbuf < 1.0) throw ("Error: invalid value of \"number of SNPs\" for the SNP " + snp_name_buf + ".");
-        snp_num.push_back(fbuf);
-        m++;
-        getline(ild, str_buf);
-    }
-    ild.close();
-    cout << "LD mean rsq for " << m << " SNPs read from [" + i_ld_file + "]." << endl;
-
-    // adjusting LD due to chance correlation
-    #pragma omp parallel for
-    for (i = 0; i < m; i++) {
-        mrsq[i] = mrsq[i] * snp_num[i] + 1.0;
-        snp_num[i]++;
-        mrsq[i] /= snp_num[i];
-    }
-
-    // extract the mean LD rsq for SNPs included in this run of analysis
-    map<string, int> snp_map;
-    for (i = 0; i < _include.size(); i++) snp_map.insert(pair<string, int>(_snp_name[_include[i]], i));
-    map<string, int>::iterator iter, end = snp_map.end();
-    int icount = 0;
-    #pragma omp parallel for
-    for (i = 0; i < m; i++) {
-        iter = snp_map.find(snp_name[i]);
-        if (iter != end) {
-            wt[iter->second] = mrsq[i];
-            snp_m[iter->second] = snp_num[i];
-            icount++;
-        }
-    }
-    cout << _include.size() << " SNPs are included in the analysis and mean LD rsq for " << icount << " SNPs are updated from the file [" << i_ld_file << "]." << endl;
-
-    // assign SNPs to MAF bins
-    #pragma omp parallel for
-    for (i = 0; i < m; i++) {
-        if (freq[i] > 0.5) freq[i] = 1.0 - freq[i];
-    }
-    int seq_size = seq.size();
-    vector< vector<int> > maf_bin_pos(seq_size - 1);
-    for (j = 1; j < seq_size; j++) {
-        for (i = 0; i < m; i++) {
-            if (freq[i] >= seq[j - 1] && freq[i] < seq[j]) maf_bin_pos[j - 1].push_back(i);
-        }
-    }
-
-    // calculate mean LD rsq in MAF bins
-    cout << "Calculating mean LD rsq in MAF bins ... " << endl;
-    mrsq_mb.clear();
-    mrsq_mb.resize(seq_size - 1);
-    for (i = 0; i < seq_size - 1; i++) {
-        if (maf_bin_pos[i].size() > 0) {
-            long double sum_snp_num = 0.0;
-            for (j = 0; j < maf_bin_pos[i].size(); j++) {
-                k = maf_bin_pos[i][j];
-                mrsq_mb[i] += mrsq[k] * snp_num[k];
-                sum_snp_num += snp_num[k];
-            }
-            mrsq_mb[i] /= sum_snp_num;
-            cout << maf_bin_pos[i].size() << " SNPs with " << setprecision(4) << seq[i] << " <= MAF < " << seq[i + 1] << ", mean LD rsq = " << mrsq_mb[i] << endl;
-        }
-    }
-}
-
-void gcta::adj_wt_4_maf(eigenVector &wt)
-{
-    int i = 0, m = _include.size();
-    eigenVector log_maf(m);
-    for(i = 0; i < m; i++){
-        log_maf[i] = _mu[_include[i]] * 0.5;
-        if(log_maf[i] > 0.5) log_maf[i] = 1.0 - log_maf[i];
-        log_maf[i] = log(log_maf[i]);
-    }
-
-    eigenVector y = wt;
-    y = y.array() - y.mean();
-    log_maf = log_maf.array() - log_maf.mean();
-    double beta = y.dot(log_maf) / log_maf.dot(log_maf);
-    wt = wt.array() - log_maf.array()*beta;
-
-    // debug
-    cout << "beta = " << beta;
-}
 
 
