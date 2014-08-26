@@ -9,7 +9,7 @@
 #include "gcta.h"
 
 // LD smoothing approach
-void gcta::calcu_lds(eigenVector &wt, int wind_size)
+void gcta::calcu_lds(eigenVector &wt, int wind_size, bool adj4maf)
 {
     unsigned long i = 0, n = _keep.size(), m = _include.size();
 
@@ -52,27 +52,22 @@ void gcta::calcu_lds(eigenVector &wt, int wind_size)
     cout<<"LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
     owt.close();
 
-   // adjust wt for log(maf)
-    /*eigenMatrix X(m, 2);
-    X.col(0) = eigenVector::Ones(m);
-    X.col(1) = m_maf;
-    eigenVector e = wt - X * ((X.transpose() * X).inverse() * (X.transpose() * wt));
-    wt = e.array() + wt.mean();
-    */
-    adj_wt_4_maf(wt);
 
-    // debug
-    cout << "wt adj: " << wt.segment(0,10).transpose() << endl;
+    if(adj4maf){
+        adj_wt_4_maf(wt);
 
-    // debug
-    wt_file = _out + ".adj.ldwt";
-    owt.open(wt_file.data());
-    if(!owt) throw("Error: can not open [" + wt_file + "] to read.");
-    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << m_maf[i] << " " << _maf[i] << endl;
-    owt << endl;
-    cout<<"Adjusted LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
-    owt.close();
+        // debug
+        cout << "wt adj: " << wt.segment(0,10).transpose() << endl;
 
+        // debug
+        wt_file = _out + ".adj.ldwt";
+        owt.open(wt_file.data());
+        if(!owt) throw("Error: can not open [" + wt_file + "] to read.");
+        for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << m_maf[i] << " " << _maf[i] << endl;
+        owt << endl;
+        cout<<"Adjusted LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
+        owt.close();
+    }
 }
 
 void gcta::get_lds_brkpnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, int wind_size, int wind_snp_num)
@@ -562,6 +557,9 @@ void gcta::adj_wt_4_maf(eigenVector &wt)
         }
     }
 
+    int m = wt.size();
+    mean = wt.mean();
+    sd = sqrt((wt - eigenVector::Constant(m, mean)).squaredNorm() / (m - 1.0));
     for (i = 0; i < seq_size - 1; i++) {
         if (maf_bin_pos[i].size() > 30){
             for (j = 0; j < maf_bin_pos[i].size(); j++) wt[maf_bin_pos[i][j]] = sd * (wt[maf_bin_pos[i][j]] - wt_mb_mean[i]) / wt_mb_sd[i] + mean;
