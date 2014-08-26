@@ -47,7 +47,7 @@ void gcta::calcu_lds(eigenVector &wt, int wind_size)
     string wt_file = _out + ".ldwt";
     ofstream owt(wt_file.data());
     if(!owt) throw("Error: can not open [" + wt_file + "] to read.");
-    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << m_maf[i] << endl;
+    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << m_maf[i] << " " << _maf[i] << endl;
     owt << endl;
     cout<<"LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
     owt.close();
@@ -68,7 +68,7 @@ void gcta::calcu_lds(eigenVector &wt, int wind_size)
     wt_file = _out + ".adj.ldwt";
     owt.open(wt_file.data());
     if(!owt) throw("Error: can not open [" + wt_file + "] to read.");
-    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << m_maf[i] << endl;
+    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << m_maf[i] << " " << _maf[i] << endl;
     owt << endl;
     cout<<"Adjusted LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
     owt.close();
@@ -209,13 +209,13 @@ void gcta::calcu_ldak(eigenVector &wt, int wind_size, double rsq_cutoff)
         if (brk_pnt2.size() > 1) calcu_ld_blk(ssx_sqrt_i, brk_pnt2, brk_pnt3, wt, max_rsq, snp_num, true, rsq_thre);
    // }
 
-    eigenVector sum_rsq(m);
-    for(i = 0; i < m; i++) sum_rsq[i] = wt[i] * snp_num[i] + 1.0;
-    cal_sum_rsq_mb(sum_rsq);
+    eigenVector mrsq(m);
+    for(i = 0; i < m; i++) mrsq[i] = wt[i] * snp_num[i] + 1.0;
+    cal_sum_rsq_mb(mrsq);
 
     cout << "Calculating the LD based SNP weights (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between windows, and a least 3000 SNPs within a window) ..." << endl;
-    calcu_ldak_blk(wt, sum_rsq, ssx_sqrt_i, brk_pnt1, false, rsq_cutoff);
-    if (brk_pnt2.size() > 1) calcu_ldak_blk(wt, sum_rsq, ssx_sqrt_i, brk_pnt2, true, rsq_cutoff);
+    calcu_ldak_blk(wt, mrsq, ssx_sqrt_i, brk_pnt1, false, rsq_cutoff);
+    if (brk_pnt2.size() > 1) calcu_ldak_blk(wt, mrsq, ssx_sqrt_i, brk_pnt2, true, rsq_cutoff);
     
      // debug
     double wt_m = wt.mean();
@@ -230,7 +230,7 @@ void gcta::calcu_ldak(eigenVector &wt, int wind_size, double rsq_cutoff)
     string wt_file = _out + ".ldwt";
     ofstream owt(wt_file.data());
     if(!owt) throw("Error: can not open [" + wt_file + "] to read.");
-    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << _maf[i] << " " << sum_rsq[i] << endl;
+    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << _maf[i] << " " << mrsq[i] << endl;
     owt << endl;
     cout<<"LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
     owt.close();
@@ -250,11 +250,12 @@ void gcta::calcu_ldak(eigenVector &wt, int wind_size, double rsq_cutoff)
 
 void gcta::calcu_ldak_blk(eigenVector &wt, eigenVector &sum_rsq, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, bool second, double rsq_cutoff)
 {
-    unsigned long i = 0, j = 0, k = 0, n = _keep.size(), m = _include.size(), size = 0;
+    unsigned long i = 0, n = _keep.size(), m = _include.size(), size = 0;
     double rsq_thre = 0.01; //3.8416 / (double)n;
     if(rsq_thre < rsq_cutoff) rsq_thre = rsq_cutoff;
 
     for (i = 0; i < brk_pnt.size() - 1; i++) {
+        int j = 0, k = 0;
         if (_chr[_include[brk_pnt[i]]] != _chr[_include[brk_pnt[i + 1]]]) continue;
         size = brk_pnt[i + 1] - brk_pnt[i] + 1;
         if (size < 3) continue;
@@ -265,7 +266,7 @@ void gcta::calcu_ldak_blk(eigenVector &wt, eigenVector &sum_rsq, eigenVector &ss
         MatrixXf rsq_sub(size, size+1);
         rsq_sub.block(0,0,size,size) = _geno.block(0,brk_pnt[i],n,size).transpose()*_geno.block(0,brk_pnt[i],n,size);
         eigenVector ssx_sqrt_i_sub_sqrt = ssx_sqrt_i.segment(brk_pnt[i],size); 
-        VectorXf sum_rsq_buf = sum_rsq.segment(brk_pnt[i],size).cast<float>();       
+        eigenVector mrsq_buf = sum_rsq.segment(brk_pnt[i],size);       
         #pragma omp parallel for private(k)
         for (j = 0; j < size; j++) {
             rsq_sub(j,j) = 1.01;
@@ -277,34 +278,20 @@ void gcta::calcu_ldak_blk(eigenVector &wt, eigenVector &sum_rsq, eigenVector &ss
             }
         }
 
-        VectorXf wt_sub;
+        eigenVector wt_sub(size);
         VectorXf c = VectorXf::Ones(size);
+        glpk_simplex_solver(rsq_sub, mrsq_buf, wt_sub, 10000);
 
-        rsq_sub.col(size) = sum_rsq_buf;
+    /*    rsq_sub.col(size) = sum_rsq_buf;
         SimplexSolver solver(SIMPLEX_MAXIMIZE, c, rsq_sub);
         if (solver.hasSolution()) wt_sub = solver.getSolution();
         else cout << "The linear problem has no solution." << endl;
 
+*/
+
     /*    FullPivLU<MatrixXf> lu(rsq_sub.block(0,0,size,size));
         wt_sub = lu.solve(sum_rsq_buf);
         */
-
-       /* SelfAdjointEigenSolver<MatrixXf> eigensolver(rsq_sub.block(0,0,size,size));
-        VectorXf eval = eigensolver.eigenvalues().array() / eigensolver.eigenvalues().sum();
-
-        double VE = 0.0;
-        int eff_size = 0;
-        for(j = size - 1; j >= 0; j--) {
-            VE += eval[j];
-            eff_size++;
-            if(VE>0.99) break;
-        }
-
-        // debug
-        cout<< "size = " << size <<", " << "eff_size = "<<eff_size<<endl;
-
-        X = X * eigensolver.eigenvectors().block(0, size - eff_size, size, eff_size);
-*/
 
 /*        VectorXf wt_sub = rsq_sub.lu().solve(sum_rsq_buf);
         if(!(wt_sub.minCoeff() > -1e10 && wt_sub.minCoeff() < 1e10)) throw("Error: LU decomposition error!");*/
@@ -313,6 +300,119 @@ void gcta::calcu_ldak_blk(eigenVector &wt, eigenVector &sum_rsq, eigenVector &ss
             else wt[k] = wt_sub(j);
         }
     }
+}
+
+void gcta::glpk_simplex_solver(MatrixXf &rsq, eigenVector &mrsq, eigenVector &wt, int maxiter)
+{
+    int size = rsq.rows();
+    int j = 0, k = 0, count = 0, total = 0, flag = 0;
+    
+    glp_prob *lp;
+    glp_smcp *parm;
+    
+    int *row_ind, *col_ind;
+    double *elements;
+    
+    //Initialising the workspace
+    lp=glp_create_prob();
+    glp_set_obj_dir(lp,GLP_MAX);
+    glp_add_rows(lp,2*size);
+    glp_add_cols(lp,2*size);
+    
+    //set the right hand side limits (<1 or <-1);  
+    for(j=0;j<size;j++) glp_set_row_bnds(lp,1+j,GLP_UP, 0.0,mrsq[j]);
+    for(j = size, k = 0; j < 2*size; j++, k++) glp_set_row_bnds(lp,1+j,GLP_UP, 0.0, -mrsq[k]);
+    
+    //now set the limits on x and a (all must be positive) and the objective function coefficients
+    for(j=0;j<size;j++){
+        glp_set_col_bnds(lp,1+j,GLP_LO, 0.0,0.0);
+        glp_set_obj_coef(lp,1+j,0);
+    }
+    for(j=size;j<2*size;j++){
+        glp_set_col_bnds(lp,1+j,GLP_LO, 0.0,0.0);
+        glp_set_obj_coef(lp,1+j,-1.0);
+    }
+    
+    //will load up A by placing elements 1 to 2N^2 + 2N in A using row and column indexes row_ind and col_ind
+    total=1+2*size*size+2*size;
+    row_ind = new int[total];
+    col_ind = new int[total];
+    elements = new double[total];
+        
+    //for top left
+    count=0;
+    for(j=0;j<size;j++){
+        for(k=0;k<size;k++){
+            row_ind[1+count]=j+1;
+            col_ind[1+count]=k+1;
+            elements[1+count]=rsq(j,k);
+            count++;
+        }
+    }
+    
+    //for bottom left
+    for(j=0;j<size;j++){
+        for(k=0;k<size;k++){
+            row_ind[1+count]=size+j+1;
+            col_ind[1+count]=k+1;
+            elements[1+count]=-rsq(j,k);
+            count++;
+        }
+    }
+    
+    //for top right - only need to fill diagonals (ones)
+    for(j=0;j<size;j++){
+        row_ind[1+count]=j+1;
+        col_ind[1+count]=size+j+1;
+        elements[1+count]=-1;
+        count++;
+    }
+    
+    //for bottom right - only need to fill diagonals (ones)
+    for(j=0;j<size;j++){
+        row_ind[1+count]=size+j+1;
+        col_ind[1+count]=size+j+1;
+        elements[1+count]=-1;
+        count++;
+    }
+    
+    //and load these in
+    glp_load_matrix(lp, count, row_ind, col_ind, elements);
+    
+    
+    //initialise the parameters
+    parm = new glp_smcp[sizeof(glp_smcp)];
+    glp_init_smcp(parm);
+    parm->it_lim=maxiter;
+    parm->out_frq=500;
+    //parm->msg_lev = GLP_MSG_OFF;
+        
+    //all loaded, so now solve the problem
+    flag=glp_simplex(lp,parm);
+    
+    
+    if(flag==GLP_EITLIM) throw ("Error: simplex method has exceeded iteration limit.");
+        
+    //load the results into wt - even though these wt might not be correct
+    for(j=0;j<size;j++) wt[j]=glp_get_col_prim(lp,1+j);
+    
+    //and delete the lp workspace
+    glp_delete_prob(lp);
+    
+    // debug
+    cout<<"here 1"<<endl;
+    delete[] row_ind;
+    // debug
+    cout<<"here 2"<<endl;
+    delete[] col_ind;
+    // debug
+    cout<<"here 3"<<endl;
+    delete[] elements;
+    // debug
+    cout<<"here 4"<<endl;
+    delete[] parm;
+    // debug
+    cout<<"here 5"<<endl;
 }
 
 void gcta::calcu_ldwt(string i_ld_file, eigenVector &wt, int wind_size, double rsq_cutoff)

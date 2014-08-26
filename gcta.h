@@ -33,10 +33,12 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <unsupported/Eigen/SparseExtra>
+#include <unsupported/Eigen/IterativeSolvers>
 #include <omp.h>
 #include <mkl_cblas.h>
 #include <mkl_lapack.h>
 #include "SimplexSolver.h"
+#include "glpk.h"
 
 using namespace Eigen;
 using namespace std;
@@ -329,6 +331,7 @@ private:
     void col_std(MatrixXf &X);
     void assign_snp_2_mb(vector<float> &seq, vector< vector<int> > &maf_bin_pos, int mb_num);
     void make_grm_pca_blk(vector<int> & maf_bin_pos_i, int wind_size, double &trace);
+    void glpk_simplex_solver(MatrixXf &rsq, eigenVector &mrsq, eigenVector &wt, int maxiter);
 
     // gene based association test
     void sbat_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, vector<int> &snp_chr, vector<int> &snp_bp, vector<double> &snp_pval);
