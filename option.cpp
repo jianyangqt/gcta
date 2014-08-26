@@ -331,7 +331,7 @@ void option(int option_num, char* option_str[])
             make_grm_ldwt_flag = true;
             make_grm_ldwt_mtd = atoi(argv[++i]);
             cout << "--make-grm-ld-alg " << make_grm_ldwt_mtd << endl;
-            if (make_grm_ldwt_mtd < 0 || make_grm_ldwt_mtd > 3) throw ("\nError: --make-grm-ld-alg should be 0 or 3.\n");
+            if (make_grm_ldwt_mtd < 0 || make_grm_ldwt_mtd > 10) throw ("\nError: --make-grm-ld-alg should be 0 or 10.\n");
         } else if (strcmp(argv[i], "--make-grm-d") == 0 || strcmp(argv[i], "--make-grm-d-bin") == 0) {
             make_grm_flag = true;
             dominance_flag = true;
