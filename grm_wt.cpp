@@ -9,16 +9,16 @@
 #include "gcta.h"
 
 // LD smoothing approach
-void gcta::calcu_lds(eigenVector &wt, int wind_size, bool adj4maf)
+void gcta::calcu_lds(eigenVector &wt, int ldwt_seg, bool adj4maf)
 {
     unsigned long i = 0, n = _keep.size(), m = _include.size();
 
-    cout << "Calculating SNP weights using LD smoothing approach (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between blocks) ..." << endl;
+    cout << "Calculating SNP weights using LD smoothing approach (block size of " << ldwt_seg / 1000 << "Kb with an overlap of "<<ldwt_seg/2000<<"Kb between blocks) ..." << endl;
     eigenVector ssx_sqrt_i;
     calcu_ssx_sqrt_i(ssx_sqrt_i);
 
     vector<int> brk_pnt1, brk_pnt2;
-    get_lds_brkpnt(brk_pnt1, brk_pnt2, wind_size);
+    get_lds_brkpnt(brk_pnt1, brk_pnt2, ldwt_seg);
 
     int mean_size = 0, count = 0;
     for (i = 0; i < brk_pnt1.size() - 1; i++) {
@@ -70,7 +70,7 @@ void gcta::calcu_lds(eigenVector &wt, int wind_size, bool adj4maf)
     }
 }
 
-void gcta::get_lds_brkpnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, int wind_size, int wind_snp_num)
+void gcta::get_lds_brkpnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, int ldwt_seg, int wind_snp_num)
 {
     unsigned long i = 0, j = 0, k = 0, m = _include.size();
 
@@ -96,7 +96,7 @@ void gcta::get_lds_brkpnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, int wind
             }
             chr_start = true;
         }
-        else if ((_bp[_include[i]] - _bp[_include[brk_pnt1[j]]] > wind_size) && (i - brk_pnt1[j] > wind_snp_num)) {
+        else if ((_bp[_include[i]] - _bp[_include[brk_pnt1[j]]] > ldwt_seg) && (i - brk_pnt1[j] > wind_snp_num)) {
             prev_length  = i - brk_pnt1[j];
             chr_start = false;
             brk_pnt1.push_back(i - 1);
@@ -176,7 +176,7 @@ void gcta::calcu_lds_blk(eigenVector &wt, eigenVector &m_maf, eigenVector &ssx_s
 }
 
 // Weighting GRM using the Speed et al. 2013 AJHG method
-void gcta::calcu_ldak(eigenVector &wt, int wind_size, double rsq_cutoff)
+void gcta::calcu_ldak(eigenVector &wt, int ldwt_seg, double rsq_cutoff)
 {
 
     unsigned long i = 0, j = 0, k = 0, l = 0, n = _keep.size(), m = _include.size();
@@ -186,7 +186,7 @@ void gcta::calcu_ldak(eigenVector &wt, int wind_size, double rsq_cutoff)
     eigenVector ssx_sqrt_i;
     calcu_ssx_sqrt_i(ssx_sqrt_i);
     vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
-    get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, wind_size);
+    get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, ldwt_seg);
 
     // debug
     vector<float> seq; // needs to be removed 
@@ -199,7 +199,7 @@ void gcta::calcu_ldak(eigenVector &wt, int wind_size, double rsq_cutoff)
     //if (!i_ld_file.empty()) read_mrsq_mb(i_ld_file, seq, mrsq_mb, wt, snp_num);
    // else {
         // calcualte LD between SNPs
-        cout << "Calculating mean LD rsq (block size = " << wind_size / 1000 << "Kb; LD rsq threshold = " << rsq_thre << ") ... " << endl;
+        cout << "Calculating mean LD rsq (block size = " << ldwt_seg / 1000 << "Kb; LD rsq threshold = " << rsq_thre << ") ... " << endl;
         calcu_ld_blk(ssx_sqrt_i, brk_pnt1, brk_pnt3, wt, snp_num, max_rsq, false, rsq_thre);
         if (brk_pnt2.size() > 1) calcu_ld_blk(ssx_sqrt_i, brk_pnt2, brk_pnt3, wt, max_rsq, snp_num, true, rsq_thre);
    // }
@@ -208,7 +208,7 @@ void gcta::calcu_ldak(eigenVector &wt, int wind_size, double rsq_cutoff)
     for(i = 0; i < m; i++) mrsq[i] = wt[i] * snp_num[i] + 1.0;
     cal_sum_rsq_mb(mrsq);
 
-    cout << "Calculating the LD based SNP weights (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between windows, and a least 3000 SNPs within a window) ..." << endl;
+    cout << "Calculating the LD based SNP weights (block size of " << ldwt_seg / 1000 << "Kb with an overlap of "<<ldwt_seg/2000<<"Kb between windows, and a least 3000 SNPs within a window) ..." << endl;
     calcu_ldak_blk(wt, mrsq, ssx_sqrt_i, brk_pnt1, false, rsq_cutoff);
     if (brk_pnt2.size() > 1) calcu_ldak_blk(wt, mrsq, ssx_sqrt_i, brk_pnt2, true, rsq_cutoff);
     
@@ -410,34 +410,53 @@ void gcta::glpk_simplex_solver(MatrixXf &rsq, eigenVector &mrsq, eigenVector &wt
     cout<<"here 5"<<endl;
 }
 
-void gcta::calcu_ldwt(string i_ld_file, eigenVector &wt, int wind_size, double rsq_cutoff)
+void gcta::calcu_ldwt(string i_ld_file, eigenVector &wt, int ldwt_wind, int ldwt_seg, double rsq_cutoff)
 {
-    unsigned long i = 0, j = 0, k = 0, l = 0, n = _keep.size(), m = _include.size();
-    double rsq_thre = 0.01; //3.8416 / (double)n;
-    if(rsq_thre < rsq_cutoff) rsq_thre = rsq_cutoff;
+    int i = 0, j = 0, k = 0, n = _keep.size(), m = _include.size(), size = 0;
+    double rsq_thre = 0.01;
+    if(rsq_cutoff > 0.0) rsq_thre = rsq_cutoff;
+    
+    // calculate mean LD
+    cout << "Calculating mean LD rsq between SNPs within a region of at least " << ldwt_wind / 1000 << "Kb long (LD rsq threshold = " << rsq_thre << ") ... " << endl;
+    vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
+    get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, ldwt_wind);
+    eigenVector mean_rsq = eigenVector::Zero(m), snp_num = eigenVector::Zero(m), max_rsq = eigenVector::Zero(m);
+    eigenVector ssx_sqrt_i;
+    calcu_ssx_sqrt_i(ssx_sqrt_i);
+    calcu_ld_blk(ssx_sqrt_i, brk_pnt1, brk_pnt3, mean_rsq, snp_num, max_rsq, false, rsq_thre, false);
+    if (brk_pnt2.size() > 1) calcu_ld_blk(ssx_sqrt_i, brk_pnt2, brk_pnt3, mean_rsq, snp_num, max_rsq, true, rsq_thre, false);
 
-    // debug
-    vector<float> seq; // needs to be removed 
-    vector<double> mrsq_mb; // needs to be removed
+    wt = eigenVector::Ones(m);
+    get_lds_brkpnt(brk_pnt1, brk_pnt2, ldwt_seg);
+    int mean_size = 0, count = 0;
+    for (i = 0; i < brk_pnt1.size() - 1; i++) {
+        size = brk_pnt1[i + 1] - brk_pnt1[i] + 1;
+        if (size > 2){
+            mean_size += size; 
+            count++;
+        }
+    }
+    mean_size /= count;
+    get_lds_brkpnt(brk_pnt1, brk_pnt2, 0, mean_size);
 
-    wt = eigenVector::Zero(m);
-    eigenVector snp_num = eigenVector::Zero(m);
-    eigenVector max_rsq = eigenVector::Zero(m);
-    // Read mean LD from file and calculate the mean LD in each MAF bin
-    if (!i_ld_file.empty()) read_mrsq_mb(i_ld_file, seq, mrsq_mb, wt, snp_num);
-    else {
-        // calcualte LD between SNPs
-        cout << "Calculating mean LD rsq (block size = " << wind_size / 1000 << "Kb; LD rsq threshold = " << rsq_thre << ") ... " << endl;
-        eigenVector ssx_sqrt_i;
-        calcu_ssx_sqrt_i(ssx_sqrt_i);
-        vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
-        get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, wind_size);
-        calcu_ld_blk(ssx_sqrt_i, brk_pnt1, brk_pnt3, wt, snp_num, max_rsq, false, rsq_thre);
-        if (brk_pnt2.size() > 1) calcu_ld_blk(ssx_sqrt_i, brk_pnt2, brk_pnt3, wt, max_rsq, snp_num, true, rsq_thre);
-
-        // calculate weights
-        #pragma omp parallel for
-        for (i = 0; i < m; i++) wt[i] = 1.0 / (wt[i] * snp_num[i] + 1.0);        
+    eigenVector ld_sum = (mean_rsq.array() * snp_num.array()).array() + 1.0;
+    double wt_buf = 0.0;
+    for (i = 0; i < brk_pnt1.size() - 1; i++) {
+        size = brk_pnt1[i + 1] - brk_pnt1[i] + 1;
+        if (size < 3) continue;
+        wt_buf = ld_sum.segment(brk_pnt1[i],size).sum();
+        if(wt_buf < 1e-6) wt_buf = (double)size;
+        wt_buf = (double)size / wt_buf; 
+        for (j = 0, k = brk_pnt1[i]; j < size; j++, k++) wt[k] = wt_buf;
+    }
+    
+    for (i = 0; i < brk_pnt2.size() - 1; i++) {
+        size = brk_pnt2[i + 1] - brk_pnt2[i] + 1;
+        if (size < 3) continue;
+        wt_buf = ld_sum.segment(brk_pnt2[i],size).sum();
+        if(wt_buf < 1e-6) wt_buf = (double)size;
+        wt_buf = (double)size / wt_buf; 
+        for (j = 0, k = brk_pnt2[i]; j < size; j++, k++) wt[k] = 0.5*(wt[k] + wt_buf);
     }
 
     // debug
@@ -450,22 +469,16 @@ void gcta::calcu_ldwt(string i_ld_file, eigenVector &wt, int wind_size, double r
     if(_maf.size() < 1) calcu_maf();
 
     // debug
-    string wt_file = _out + ".ldwt";
-    ofstream owt(wt_file.data());
-    if(!owt) throw("Error: can not open [" + wt_file + "] to read.");
-    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << _maf[i] << endl;
-    owt << endl;
-    cout<<"LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
-    owt.close();
+    eigenVector wt_o(wt);
 
     // adjust wt for maf
     adj_wt_4_maf(wt);
 
     // debug
-    wt_file = _out + ".adj.ldwt";
-    owt.open(wt_file.data());
+    string wt_file = _out + ".ldwt";
+    ofstream owt(wt_file.data());
     if(!owt) throw("Error: can not open [" + wt_file + "] to read.");
-    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << wt[i] << " " << _maf[i] << endl;
+    for (i = 0; i < m; i++)  owt << _snp_name[_include[i]] << " " << _bp[_include[i]] << " " << wt_o[i] << " " << wt[i] << " " << _maf[i] << " " << mean_rsq[i] << " " << snp_num[i] << endl;
     owt << endl;
     cout<<"Adjusted LD weights for all SNPs have bene saved in [" + wt_file + "]."<<endl;
     owt.close();
@@ -616,7 +629,7 @@ void gcta::assign_snp_2_mb(vector<float> &seq, vector< vector<int> > &maf_bin_po
 /////////////
 // not working
 
-void gcta::make_grm_pca(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, double wind_size, bool mlmassoc)
+void gcta::make_grm_pca(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, double ldwt_seg, bool mlmassoc)
 {
     int i = 0, j = 0, k = 0, n = _keep.size(), m = _include.size();
 
@@ -628,7 +641,7 @@ void gcta::make_grm_pca(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool o
 
     if (!mlmassoc) cout << "\nCalculating the PCA-based" << ((grm_d_flag) ? " dominance" : "") << " genetic relationship matrix (GRM)" << (grm_xchr_flag ? " for the X chromosome" : "") << (_dosage_flag ? " using imputed dosage data" : "") << " ... (Note: default speed-optimized mode, may use huge RAM)" << endl;
     else cout << "\nCalculating the PCA-based genetic relationship matrix (GRM) ... " << endl;
-    cout << "(block size of " << wind_size / 1000 << " SNPs)" << endl;
+    cout << "(block size of " << ldwt_seg / 1000 << " SNPs)" << endl;
 
     vector<float> seq;
     vector< vector<int> > maf_bin_pos; 
@@ -640,7 +653,7 @@ void gcta::make_grm_pca(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool o
             // debug
             cout<<seq[i] << " < MAF <= "<<seq[i + 1]<<endl;
 
-            make_grm_pca_blk(maf_bin_pos[i], wind_size / 1000, trace);
+            make_grm_pca_blk(maf_bin_pos[i], ldwt_seg / 1000, trace);
         }
     }
     _grm = _grm.array() / trace;
@@ -660,11 +673,11 @@ void gcta::make_grm_pca(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool o
     _out = out_buf;
 }
 
-void gcta::make_grm_pca_blk(vector<int> & maf_bin_pos_i, int wind_size, double &trace)
+void gcta::make_grm_pca_blk(vector<int> & maf_bin_pos_i, int ldwt_seg, double &trace)
 {
     int i = 0, j = 0, k = 0, n = _keep.size();
 
-    int length = maf_bin_pos_i.size() / (1 + (maf_bin_pos_i.size() / wind_size));
+    int length = maf_bin_pos_i.size() / (1 + (maf_bin_pos_i.size() / ldwt_seg));
     vector<int> brk_pnt;
     brk_pnt.push_back(0);
     for(i = length; i < maf_bin_pos_i.size(); i+=length){

@@ -363,7 +363,7 @@ void gcta::get_ld_blk_pnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, vector<i
     }
 }
 
-void gcta::calcu_ld_blk(eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, vector<int> &brk_pnt3, eigenVector &mean_rsq, eigenVector &snp_num, eigenVector &max_rsq, bool second, double rsq_cutoff)
+void gcta::calcu_ld_blk(eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, vector<int> &brk_pnt3, eigenVector &mean_rsq, eigenVector &snp_num, eigenVector &max_rsq, bool second, double rsq_cutoff, bool adj)
 {
     unsigned long i = 0, j = 0, k = 0, s1 = 0, s2 = 0, n = _keep.size(), m = _include.size(), size = 0, size_limit = 10000;
 
@@ -403,6 +403,7 @@ void gcta::calcu_ld_blk(eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, vector<in
                     rsq_sub(j,k) *= (ssx_sqrt_i_sub[j] * ssx_sqrt_i_sub[k]);
                     rsq_sub(j,k) = rsq_sub(j,k) * rsq_sub(j,k);
                     if (rsq_sub(j,k) >= rsq_cutoff) {
+                        if(adj) rsq_sub(j,k) -= (1.0 - rsq_sub(j,k)) / (n - 2.0);
                         mean_rsq_sub[j] += rsq_sub(j,k);
                         rsq_size[j] += 1.0;
                     }
@@ -429,7 +430,7 @@ void gcta::calcu_ld_blk(eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, vector<in
     }
 }
 
-void gcta::calcu_ld_blk_split(int size, int size_limit, int s_pnt, eigenVector &ssx_sqrt_i_sub, double rsq_cutoff, eigenVector &rsq_size, eigenVector &mean_rsq_sub, eigenVector &max_rsq_sub, int s1, int s2, bool second)
+void gcta::calcu_ld_blk_split(int size, int size_limit, int s_pnt, eigenVector &ssx_sqrt_i_sub, double rsq_cutoff, eigenVector &rsq_size, eigenVector &mean_rsq_sub, eigenVector &max_rsq_sub, int s1, int s2, bool second, bool adj)
 {
     unsigned long i = 0, j = 0, k = 0, m = 0, n = _keep.size();
     vector<int> brk_pnt_sub;
@@ -466,6 +467,7 @@ void gcta::calcu_ld_blk_split(int size, int size_limit, int s_pnt, eigenVector &
                 rsq_sub_sub(j,k) *= (ssx_sqrt_i_sub_sub[j] * ssx_sqrt_i_sub[k]);
                 rsq_sub_sub(j,k) = rsq_sub_sub(j,k) * rsq_sub_sub(j,k);
                 if (rsq_sub_sub(j,k) >= rsq_cutoff) {
+                    if(adj) rsq_sub_sub(j,k) -= (1.0 - rsq_sub_sub(j,k)) / (n - 2.0);
                     mean_rsq_sub_sub[j] += rsq_sub_sub(j,k);
                     rsq_size_sub[j] += 1.0;
                 }

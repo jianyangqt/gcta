@@ -34,7 +34,7 @@ void gcta::check_sex() {
     }
 }
 
-void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, bool mlmassoc, int ldwt_mtd, string i_ld_file, double ldwt_wind, double ldwt_rsq_cutoff, bool diag_f3_flag)
+void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, bool mlmassoc, int ldwt_mtd, string i_ld_file, double ldwt_wind, double ldwt_seg, double ldwt_rsq_cutoff, bool diag_f3_flag)
 {
     bool ldwt_flag = false, have_mis = false;
     if(ldwt_mtd > -1) ldwt_flag = true;
@@ -85,10 +85,10 @@ void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool outpu
     vector<int> neg;
     if (ldwt_flag) {
         //cout<<"Weighting the genotype based on LD ..."<<endl;
-        if (ldwt_mtd == 0) calcu_lds(wt, ldwt_wind, true);
-        else if (ldwt_mtd == 4) calcu_lds(wt, ldwt_wind, false);
-        else if(ldwt_mtd == 1) calcu_ldak(wt, ldwt_wind, ldwt_rsq_cutoff);
-        else if(ldwt_mtd == 2) calcu_ldwt(i_ld_file, wt, ldwt_wind, ldwt_rsq_cutoff);
+        if (ldwt_mtd == 0) calcu_lds(wt, ldwt_seg, true);
+        else if(ldwt_mtd == 1) calcu_ldak(wt, ldwt_seg, ldwt_rsq_cutoff);
+        else if(ldwt_mtd == 2) calcu_ldwt(i_ld_file, wt, ldwt_wind, ldwt_seg, ldwt_rsq_cutoff);
+        else if (ldwt_mtd == 4) calcu_lds(wt, ldwt_seg, false);
         for(j = 0; j < m; j++){
             if(wt(j)<0.0) neg.push_back(j);
         }
