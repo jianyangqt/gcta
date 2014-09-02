@@ -570,12 +570,9 @@ void gcta::adj_wt_4_maf(eigenVector &wt)
         }
     }
 
-    int m = wt.size();
-    mean = wt.mean();
-    sd = sqrt((wt - eigenVector::Constant(m, mean)).squaredNorm() / (m - 1.0));
     for (i = 0; i < seq_size - 1; i++) {
         if (maf_bin_pos[i].size() > 30){
-            for (j = 0; j < maf_bin_pos[i].size(); j++) wt[maf_bin_pos[i][j]] = sd * (wt[maf_bin_pos[i][j]] - wt_mb_mean[i]) / wt_mb_sd[i] + mean;
+            for (j = 0; j < maf_bin_pos[i].size(); j++) wt[maf_bin_pos[i][j]] = 0.01 * (wt[maf_bin_pos[i][j]] - wt_mb_mean[i]) / wt_mb_sd[i] + 0.02;
         }
     }
 
