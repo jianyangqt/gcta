@@ -17,6 +17,17 @@ void option(int option_num, char* option_str[]);
 
 int main(int argc, char* argv[])
 {
+/*
+    cout<< "StatFunc::qnorm(0.01) = " << StatFunc::qnorm(0.01, false) << endl;
+
+    VectorXf a(9), b;
+    a << 0.3, -1, 0.5, 0.4, 1, -6, -1.7, 0.8, 0.1;
+    cout<< "a  = " << a.transpose() << endl;
+    eigen_func::rank(a, b);
+    cout<< "b  = " << b.transpose() << endl;
+    eigen_func::inverse_norm_rank_transform(a);    
+    cout<< "a  = " << a.transpose() << endl;*/
+
     cout << "*******************************************************************" << endl;
     cout << "* Genome-wide Complex Trait Analysis (GCTA)" << endl;
     cout << "* version 1.24.5" << endl;

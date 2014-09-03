@@ -85,10 +85,9 @@ void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool outpu
     vector<int> neg;
     if (ldwt_flag) {
         //cout<<"Weighting the genotype based on LD ..."<<endl;
-        if (ldwt_mtd == 0) calcu_lds(wt, ldwt_seg, true);
+        if (ldwt_mtd == 0) calcu_lds(i_ld_file, wt, ldwt_wind, ldwt_seg, ldwt_rsq_cutoff);
         else if(ldwt_mtd == 1) calcu_ldak(wt, ldwt_seg, ldwt_rsq_cutoff);
-        else if(ldwt_mtd == 2) calcu_ldwt(i_ld_file, wt, ldwt_wind, ldwt_seg, ldwt_rsq_cutoff);
-        else if (ldwt_mtd == 4) calcu_lds(wt, ldwt_seg, false);
+        else if(ldwt_mtd == 2) calcu_ldwt(i_ld_file, wt, ldwt_wind, ldwt_rsq_cutoff);
         for(j = 0; j < m; j++){
             if(wt(j)<0.0) neg.push_back(j);
         }

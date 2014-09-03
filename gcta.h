@@ -24,6 +24,7 @@
 #include "CommFunc.h"
 #include "StrFunc.h"
 #include "StatFunc.h"
+#include "eigen_func.h"
 #include <fstream>
 #include <iomanip>
 #include <bitset>
@@ -38,7 +39,6 @@
 #include <mkl_cblas.h>
 #include <mkl_lapack.h>
 #include "SimplexSolver.h"
-#include "glpk.h"
 
 using namespace Eigen;
 using namespace std;
@@ -317,12 +317,11 @@ private:
     void grm_minus_grm(float *grm, float *sub_grm);
 
     // weighting GRM: ldwt_wind = window size for mean LD calculation; ld_seg = block size;
-    void calcu_lds(eigenVector &wt, int ldwt_seg, bool adj4maf = true);
+    void calcu_lds(string i_ld_file, eigenVector &wt, int ldwt_wind, int ldwt_seg, double rsq_cutoff);
     void get_lds_brkpnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, int ldwt_seg, int wind_snp_num=0);
-    void calcu_lds_blk(eigenVector &wt, eigenVector &m_maf, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, bool second);
     void calcu_ldak(eigenVector &wt, int ldwt_seg, double rsq_cutoff);
     void calcu_ldak_blk(eigenVector &wt, eigenVector &sum_rsq, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, bool second, double rsq_cutoff);
-    void calcu_ldwt(string i_ld_file, eigenVector &wt, int ldwt_wind, int ldwt_seg, double rsq_cutoff);
+    void calcu_ldwt(string i_ld_file, eigenVector &wt, int wind_size, double rsq_cutoff);
     void read_mrsq_mb(string i_ld_file, vector<float> &seq, vector<double> &mrsq_mb, eigenVector &wt, eigenVector &snp_m);
     void adj_wt_4_maf(eigenVector &wt);
     void cal_sum_rsq_mb(eigenVector &sum_rsq_mb);
