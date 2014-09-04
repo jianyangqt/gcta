@@ -8,6 +8,128 @@
 
 #include "gcta.h"
 
+void gcta::calcu_ld_blk_ldwt(eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, vector<int> &brk_pnt3, eigenVector &mean_rsq, eigenVector &snp_num, eigenVector &max_rsq, bool second, double rsq_cutoff, bool adj)
+{
+    unsigned long i = 0, j = 0, k = 0, s1 = 0, s2 = 0, n = _keep.size(), m = _include.size(), size = 0, size_limit = 10000;
+
+    for (i = 0; i < brk_pnt.size() - 1; i++) {
+        if (_chr[_include[brk_pnt[i]]] != _chr[_include[brk_pnt[i + 1]]]) continue;
+        size = brk_pnt[i + 1] - brk_pnt[i] + 1;
+        if (size < 3) continue;
+
+        // debug
+        cout << "size = " << size <<endl;
+
+        if (second) {
+            s1 = brk_pnt3[i] - brk_pnt[i];
+            s2 = s1 + 1;
+        }
+        else {
+            s1 = 0;
+            s2 = size - 1;
+        }
+
+        eigenVector ssx_sqrt_i_sub = ssx_sqrt_i.segment(brk_pnt[i],size);
+        eigenVector rsq_size(size), mean_rsq_sub(size), max_rsq_sub = eigenVector::Constant(size, -1.0);
+
+        if (size > size_limit) calcu_ld_blk_split_ldwt(size, size_limit, brk_pnt[i], ssx_sqrt_i_sub, rsq_cutoff, rsq_size, mean_rsq_sub, max_rsq_sub, s1, s2, second, adj);
+        else {
+            MatrixXf rsq_sub = _geno.block(0,brk_pnt[i],n,size).transpose() * _geno.block(0,brk_pnt[i],n,size);
+            #pragma omp parallel for private(k)
+            for (j = 0; j < size; j++) {
+                rsq_size[j] = 0.0;
+                mean_rsq_sub[j] = 0.0;
+                for (k = 0; k < size; k++) {
+                    if (second) {
+                        if (j <= s1 && k <= s1) continue;
+                        if (j >= s2 && k >= s2) continue;
+                    }
+                    if (k == j) continue;
+                    rsq_sub(j,k) *= (ssx_sqrt_i_sub[j] * ssx_sqrt_i_sub[k]);
+                    rsq_sub(j,k) = rsq_sub(j,k) * rsq_sub(j,k);
+                    if (rsq_sub(j,k) >= rsq_cutoff) {
+                        if(adj) rsq_sub(j,k) -= (1.0 - rsq_sub(j,k)) / (n - 2.0);
+                        mean_rsq_sub[j] += rsq_sub(j,k);
+                        rsq_size[j] += 1.0;
+                    }
+                    if (rsq_sub(j,k) > max_rsq_sub[j]) max_rsq_sub[j] = rsq_sub(j,k);
+                }
+                if (rsq_size[j] > 0.0) mean_rsq_sub[j] /= rsq_size[j];
+            }
+        }
+
+        for (j = 0, k = brk_pnt[i]; j < size; j++, k++) {
+            if (second) {
+                if (rsq_size[j] > 0.0) {
+                    mean_rsq[k] = (mean_rsq[k] * snp_num[k] + mean_rsq_sub[j] * rsq_size[j]) / (snp_num[k] + rsq_size[j]);
+                    snp_num[k] = (snp_num[k] + rsq_size[j]);
+                    if(max_rsq[k] < max_rsq_sub[j]) max_rsq[k] = max_rsq_sub[j];
+                }
+            }
+            else {
+                mean_rsq[k] = mean_rsq_sub[j];
+                snp_num[k] = rsq_size[j];
+                max_rsq[k] = max_rsq_sub[j];
+            }
+        }
+    }
+}
+
+void gcta::calcu_ld_blk_split_ldwt(int size, int size_limit, int s_pnt, eigenVector &ssx_sqrt_i_sub, double rsq_cutoff, eigenVector &rsq_size, eigenVector &mean_rsq_sub, eigenVector &max_rsq_sub, int s1, int s2, bool second, bool adj)
+{
+    unsigned long i = 0, j = 0, k = 0, m = 0, n = _keep.size();
+    vector<int> brk_pnt_sub;
+    brk_pnt_sub.push_back(0);
+    for (i = size_limit; i < size - size_limit; i += size_limit) {
+        brk_pnt_sub.push_back(i - 1);
+        brk_pnt_sub.push_back(i);
+        j = i;
+    }
+    j = (size - j) / 2 + j;
+    brk_pnt_sub.push_back(j - 1);
+    brk_pnt_sub.push_back(j);
+    brk_pnt_sub.push_back(size - 1);
+
+    for (i = 0; i < brk_pnt_sub.size() - 1; i++) {
+        int size_sub = brk_pnt_sub[i + 1] - brk_pnt_sub[i] + 1;
+        if (size_sub < 3) continue;
+
+        eigenVector ssx_sqrt_i_sub_sub = ssx_sqrt_i_sub.segment(brk_pnt_sub[i], size_sub);
+        MatrixXf rsq_sub_sub = _geno.block(0,s_pnt,n,size).block(0,brk_pnt_sub[i],n,size_sub).transpose() * _geno.block(0,s_pnt,n,size);
+        eigenVector rsq_size_sub(size_sub), mean_rsq_sub_sub(size_sub), max_rsq_sub_sub = eigenVector::Constant(size_sub, -1.0);
+
+        #pragma omp parallel for private(k)
+        for (j = 0; j < size_sub; j++) {
+            unsigned long s = j + brk_pnt_sub[i];
+            rsq_size_sub[j] = 0.0;
+            mean_rsq_sub_sub[j] = 0.0;
+            for (k = 0; k < size; k++) {
+                if (second) {
+                    if (s <= s1 && k <= s1) continue;
+                    if (s >= s2 && k >= s2) continue;
+                }
+                if (k == s) continue;
+                rsq_sub_sub(j,k) *= (ssx_sqrt_i_sub_sub[j] * ssx_sqrt_i_sub[k]);
+                rsq_sub_sub(j,k) = rsq_sub_sub(j,k) * rsq_sub_sub(j,k);
+                if (rsq_sub_sub(j,k) >= rsq_cutoff) {
+                    if(adj) rsq_sub_sub(j,k) -= (1.0 - rsq_sub_sub(j,k)) / (n - 2.0);
+                    mean_rsq_sub_sub[j] += rsq_sub_sub(j,k);
+                    rsq_size_sub[j] += 1.0;
+                }
+                if(rsq_sub_sub(j,k) > max_rsq_sub_sub[j]) max_rsq_sub_sub[j] = rsq_sub_sub(j,k);
+            }
+
+            if (rsq_size_sub[j] > 0.0) mean_rsq_sub_sub[j] /= rsq_size_sub[j];
+        }
+
+        for (j = 0, k = brk_pnt_sub[i]; j < size_sub; j++, k++) {
+            mean_rsq_sub[k] = mean_rsq_sub_sub[j];
+            rsq_size[k] = rsq_size_sub[j];
+            max_rsq_sub[k] = max_rsq_sub_sub[j];
+        }
+    }
+}
+
 // LD smoothing approach
 void gcta::calcu_lds(string i_ld_file, eigenVector &wt, int ldwt_wind, int ldwt_seg, double rsq_cutoff)
 {
@@ -22,8 +144,8 @@ void gcta::calcu_lds(string i_ld_file, eigenVector &wt, int ldwt_wind, int ldwt_
     eigenVector mean_rsq = eigenVector::Zero(m), snp_num = eigenVector::Zero(m), max_rsq = eigenVector::Zero(m);
     eigenVector ssx_sqrt_i;
     calcu_ssx_sqrt_i(ssx_sqrt_i);
-    calcu_ld_blk(ssx_sqrt_i, brk_pnt1, brk_pnt3, mean_rsq, snp_num, max_rsq, false, rsq_thre, false);
-    if (brk_pnt2.size() > 1) calcu_ld_blk(ssx_sqrt_i, brk_pnt2, brk_pnt3, mean_rsq, snp_num, max_rsq, true, rsq_thre, false);
+    calcu_ld_blk_ldwt(ssx_sqrt_i, brk_pnt1, brk_pnt3, mean_rsq, snp_num, max_rsq, false, rsq_thre, false);
+    if (brk_pnt2.size() > 1) calcu_ld_blk_ldwt(ssx_sqrt_i, brk_pnt2, brk_pnt3, mean_rsq, snp_num, max_rsq, true, rsq_thre, false);
 
     wt = eigenVector::Ones(m);
     get_lds_brkpnt(brk_pnt1, brk_pnt2, ldwt_seg);
@@ -240,8 +362,8 @@ void gcta::calcu_ldwt(string i_ld_file, eigenVector &wt, int wind_size, double r
     eigenVector mean_rsq = eigenVector::Zero(m), snp_num = eigenVector::Zero(m), max_rsq = eigenVector::Zero(m);
     eigenVector ssx_sqrt_i;
     calcu_ssx_sqrt_i(ssx_sqrt_i);
-    calcu_ld_blk(ssx_sqrt_i, brk_pnt1, brk_pnt3, mean_rsq, snp_num, max_rsq, false, rsq_thre, false);
-    if (brk_pnt2.size() > 1) calcu_ld_blk(ssx_sqrt_i, brk_pnt2, brk_pnt3, mean_rsq, snp_num, max_rsq, true, rsq_thre, false);
+    calcu_ld_blk_ldwt(ssx_sqrt_i, brk_pnt1, brk_pnt3, mean_rsq, snp_num, max_rsq, false, rsq_thre, false);
+    if (brk_pnt2.size() > 1) calcu_ld_blk_ldwt(ssx_sqrt_i, brk_pnt2, brk_pnt3, mean_rsq, snp_num, max_rsq, true, rsq_thre, false);
 
     wt = 1.0 / ((mean_rsq.array() * snp_num.array()).array() + 1.0);
     double min_coeff = wt.minCoeff();

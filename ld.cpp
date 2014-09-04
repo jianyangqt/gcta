@@ -270,17 +270,7 @@ void gcta::calcu_mean_rsq(int wind_size, double rsq_cutoff, bool dominance_flag)
 {
     check_autosome();
 
-    unsigned long i = 0, j = 0, k = 0, l = 0, n = _keep.size(), m = _include.size();
-    eigenVector ssx_sqrt_i;
-    if(dominance_flag){
-        make_XMat_d(_geno);
-        std_XMat_d(_geno, ssx_sqrt_i, true, true);
-    }
-    else{
-        make_XMat(_geno);
-        std_XMat(_geno, ssx_sqrt_i, false, true, true);
-    }
-    calcu_ssx_sqrt_i(ssx_sqrt_i);
+    int i = 0, m = _include.size();
 
     cout << "Calculating mean LD rsq between SNPs (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between blocks); LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
     if(dominance_flag) cout<<"(SNP genotypes are coded for dominance effects)"<<endl;
@@ -288,15 +278,15 @@ void gcta::calcu_mean_rsq(int wind_size, double rsq_cutoff, bool dominance_flag)
     get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, wind_size);
 
     eigenVector mean_rsq = eigenVector::Zero(m), snp_num = eigenVector::Zero(m), max_rsq = eigenVector::Zero(m);
-    calcu_ld_blk(ssx_sqrt_i, brk_pnt1, brk_pnt3, mean_rsq, snp_num, max_rsq, false, rsq_cutoff);
-    if (brk_pnt2.size() > 1) calcu_ld_blk(ssx_sqrt_i, brk_pnt2, brk_pnt3, mean_rsq, snp_num, max_rsq, true, rsq_cutoff);
+    calcu_ld_blk(brk_pnt1, brk_pnt3, mean_rsq, snp_num, max_rsq, false, rsq_cutoff, dominance_flag);
+    if (brk_pnt2.size() > 1) calcu_ld_blk(brk_pnt2, brk_pnt3, mean_rsq, snp_num, max_rsq, true, rsq_cutoff, dominance_flag);
 
     string mrsq_file = "";
     if(dominance_flag) mrsq_file = _out + ".d.mrsq.ld";
     else mrsq_file = _out + ".mrsq.ld";
     ofstream o_mrsq(mrsq_file.data());
-    o_mrsq<<"SNP freq mean_rsq snp_num max_rsq"<<endl;
-    for (i = 0; i < m; i++) o_mrsq << _snp_name[_include[i]] << " " << 0.5 * _mu[_include[i]] << " " << mean_rsq[i] << " " << snp_num[i] << " " << max_rsq[i] << endl;
+    o_mrsq<<"SNP chr bp freq mean_rsq snp_num max_rsq"<<endl;
+    for (i = 0; i < m; i++) o_mrsq << _snp_name[_include[i]] << " " << _chr[_include[i]] << " " << _bp[_include[i]] << " " << 0.5 * _mu[_include[i]] << " " << mean_rsq[i] << " " << snp_num[i] << " " << max_rsq[i] << endl;
     o_mrsq << endl;
     cout << "Mean and maximum LD rsq for " << m << " SNPs have been saved in the file [" + mrsq_file + "]." << endl;
 }
@@ -365,9 +355,9 @@ void gcta::get_ld_blk_pnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, vector<i
     }
 }
 
-void gcta::calcu_ld_blk(eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, vector<int> &brk_pnt3, eigenVector &mean_rsq, eigenVector &snp_num, eigenVector &max_rsq, bool second, double rsq_cutoff, bool adj)
+void gcta::calcu_ld_blk(vector<int> &brk_pnt, vector<int> &brk_pnt3, eigenVector &mean_rsq, eigenVector &snp_num, eigenVector &max_rsq, bool second, double rsq_cutoff, bool dominance_flag)
 {
-    unsigned long i = 0, j = 0, k = 0, s1 = 0, s2 = 0, n = _keep.size(), m = _include.size(), size = 0, size_limit = 10000;
+    int i = 0, j = 0, k = 0, s1 = 0, s2 = 0, n = _keep.size(), m = _include.size(), size = 0, size_limit = 10000;
 
     for (i = 0; i < brk_pnt.size() - 1; i++) {
         if (_chr[_include[brk_pnt[i]]] != _chr[_include[brk_pnt[i + 1]]]) continue;
@@ -386,12 +376,24 @@ void gcta::calcu_ld_blk(eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, vector<in
             s2 = size - 1;
         }
 
-        eigenVector ssx_sqrt_i_sub = ssx_sqrt_i.segment(brk_pnt[i],size);
         eigenVector rsq_size(size), mean_rsq_sub(size), max_rsq_sub = eigenVector::Constant(size, -1.0);
 
-        if (size > size_limit) calcu_ld_blk_split(size, size_limit, brk_pnt[i], ssx_sqrt_i_sub, rsq_cutoff, rsq_size, mean_rsq_sub, max_rsq_sub, s1, s2, second);
+        // make genotype matrix ()
+        vector<int> snp_indx(size);
+        for (j = brk_pnt[i], k = 0; j <= brk_pnt[i + 1]; j++, k++) snp_indx[k] = j;
+        MatrixXf X_sub;
+        if(dominance_flag) make_XMat_d_subset(X_sub, snp_indx, true);
+        else make_XMat_subset(X_sub, snp_indx, true);
+        eigenVector ssx_sqrt_i_sub(size);
+        for (j = 0; j < size; j++){
+            ssx_sqrt_i_sub[j] = X_sub.col(j).squaredNorm();
+            if (ssx_sqrt_i_sub[j] < 1.0e-50) ssx_sqrt_i_sub[j] = 0.0;
+            else ssx_sqrt_i_sub[j] = 1.0 / sqrt(ssx_sqrt_i_sub[j]);
+        }
+
+        if (size > size_limit) calcu_ld_blk_split(size, size_limit, X_sub, ssx_sqrt_i_sub, rsq_cutoff, rsq_size, mean_rsq_sub, max_rsq_sub, s1, s2, second);
         else {
-            MatrixXf rsq_sub = _geno.block(0,brk_pnt[i],n,size).transpose() * _geno.block(0,brk_pnt[i],n,size);
+            MatrixXf rsq_sub = X_sub.transpose() * X_sub;
             #pragma omp parallel for private(k)
             for (j = 0; j < size; j++) {
                 rsq_size[j] = 0.0;
@@ -405,7 +407,6 @@ void gcta::calcu_ld_blk(eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, vector<in
                     rsq_sub(j,k) *= (ssx_sqrt_i_sub[j] * ssx_sqrt_i_sub[k]);
                     rsq_sub(j,k) = rsq_sub(j,k) * rsq_sub(j,k);
                     if (rsq_sub(j,k) >= rsq_cutoff) {
-                        if(adj) rsq_sub(j,k) -= (1.0 - rsq_sub(j,k)) / (n - 2.0);
                         mean_rsq_sub[j] += rsq_sub(j,k);
                         rsq_size[j] += 1.0;
                     }
@@ -432,9 +433,9 @@ void gcta::calcu_ld_blk(eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, vector<in
     }
 }
 
-void gcta::calcu_ld_blk_split(int size, int size_limit, int s_pnt, eigenVector &ssx_sqrt_i_sub, double rsq_cutoff, eigenVector &rsq_size, eigenVector &mean_rsq_sub, eigenVector &max_rsq_sub, int s1, int s2, bool second, bool adj)
+void gcta::calcu_ld_blk_split(int size, int size_limit, MatrixXf &X_sub, eigenVector &ssx_sqrt_i_sub, double rsq_cutoff, eigenVector &rsq_size, eigenVector &mean_rsq_sub, eigenVector &max_rsq_sub, int s1, int s2, bool second)
 {
-    unsigned long i = 0, j = 0, k = 0, m = 0, n = _keep.size();
+    int i = 0, j = 0, k = 0, m = 0, n = _keep.size();
     vector<int> brk_pnt_sub;
     brk_pnt_sub.push_back(0);
     for (i = size_limit; i < size - size_limit; i += size_limit) {
@@ -452,7 +453,7 @@ void gcta::calcu_ld_blk_split(int size, int size_limit, int s_pnt, eigenVector &
         if (size_sub < 3) continue;
 
         eigenVector ssx_sqrt_i_sub_sub = ssx_sqrt_i_sub.segment(brk_pnt_sub[i], size_sub);
-        MatrixXf rsq_sub_sub = _geno.block(0,s_pnt,n,size).block(0,brk_pnt_sub[i],n,size_sub).transpose() * _geno.block(0,s_pnt,n,size);
+        MatrixXf rsq_sub_sub = X_sub.block(0,brk_pnt_sub[i],n,size_sub).transpose() * X_sub;
         eigenVector rsq_size_sub(size_sub), mean_rsq_sub_sub(size_sub), max_rsq_sub_sub = eigenVector::Constant(size_sub, -1.0);
 
         #pragma omp parallel for private(k)
@@ -469,7 +470,6 @@ void gcta::calcu_ld_blk_split(int size, int size_limit, int s_pnt, eigenVector &
                 rsq_sub_sub(j,k) *= (ssx_sqrt_i_sub_sub[j] * ssx_sqrt_i_sub[k]);
                 rsq_sub_sub(j,k) = rsq_sub_sub(j,k) * rsq_sub_sub(j,k);
                 if (rsq_sub_sub(j,k) >= rsq_cutoff) {
-                    if(adj) rsq_sub_sub(j,k) -= (1.0 - rsq_sub_sub(j,k)) / (n - 2.0);
                     mean_rsq_sub_sub[j] += rsq_sub_sub(j,k);
                     rsq_size_sub[j] += 1.0;
                 }
