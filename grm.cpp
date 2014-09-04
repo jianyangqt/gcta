@@ -95,8 +95,8 @@ void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool outpu
     } 
 
     // debug
-    cout<<"neg size = "<<neg.size()<<endl;
-    cout<<"wt.sum = "<<wt.sum()<<endl;
+    //cout<<"neg size = "<<neg.size()<<endl;
+    //cout<<"wt.sum = "<<wt.sum()<<endl;
 
     // Calculate A_N matrix
     if(have_mis){
@@ -173,27 +173,6 @@ void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool outpu
     cout<<"Variance of diagonals = "<<diag_v<<endl;
     cout<<"Mean of off-diagonals = " << off_m <<endl;
     cout<<"Variance of off-diagonals = " << off_v <<endl;
-
-/*    if (ldwt_flag) {
-
-
-        double diag_m_wt = 0.0, diag_v_wt = 0.0, off_m_wt = 0.0, off_v_wt = 0.0;
-        calcu_grm_var(diag_m_wt, diag_v_wt, off_m_wt, off_v_wt);
-
-    // debug
-    cout<<"\ngrm diagonals mean = "<<diag_m_wt<<endl;
-    cout<<"grm diagonals variance = "<<diag_v_wt<<endl;
-    cout<<"grm off-diag mean = " << off_m_wt <<endl;
-    cout<<"grm off-diag variance = " << off_v_wt <<endl;
-
-
-        eigenVector diag_new = (_grm.diagonal().array() - diag_m_wt) * sqrt(diag_v / diag_v_wt) + diag_m;
-        _grm = (_grm.array() - off_m_wt) * sqrt(off_v / off_v_wt) + off_m;
-        _grm.diagonal() = diag_new;
-
-    }
-
-    */ 
 
     // re-calcuate the diagonals (Fhat3+1)
     if (diag_f3_flag) {

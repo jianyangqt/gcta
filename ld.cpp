@@ -312,34 +312,36 @@ void gcta::calcu_ssx_sqrt_i(eigenVector &ssx_sqrt_i)
     }
 }
 
-void gcta::get_ld_blk_pnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, vector<int> &brk_pnt3, int wind_size)
+void gcta::get_ld_blk_pnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, vector<int> &brk_pnt3, int wind_bp, int wind_snp)
 {
     unsigned long i = 0, j = 0, k = 0, m = _include.size();
 
     brk_pnt1.clear();
     brk_pnt1.push_back(0);
     bool chr_start = true;
-    int prev_length = 0;
     for (i = 1, j = 0; i < m; i++) {
         if (i == (m - 1)){
-            if(!chr_start && prev_length < 0.5 * wind_size) brk_pnt1[j - 1] = brk_pnt1[j] = m - 1;                
-            else brk_pnt1.push_back(m - 1);
+            if(chr_start 
+                || ((_bp[_include[i]] - _bp[_include[brk_pnt1[j]]] > 0.5 * wind_bp)
+                && (i - brk_pnt1[j] > 0.5 * wind_snp))) brk_pnt1.push_back(m - 1);
+            else brk_pnt1[j - 1] = brk_pnt1[j] = m - 1;
         }
         else if (_chr[_include[i]] != _chr[_include[brk_pnt1[j]]]) {
-            if(!chr_start && prev_length < 0.5 * wind_size){                
-                brk_pnt1[j - 1] = i - 1;
-                brk_pnt1[j] = i;
-            }
-            else{
+            if(chr_start 
+                || ((_bp[_include[i-1]] - _bp[_include[brk_pnt1[j]]] > 0.5 * wind_bp)
+                && (i - 1 - brk_pnt1[j] > 0.5 * wind_snp))){                
                 brk_pnt1.push_back(i - 1);
                 j++;
                 brk_pnt1.push_back(i);
                 j++;
             }
+            else{                
+                brk_pnt1[j - 1] = i - 1;
+                brk_pnt1[j] = i;
+            }
             chr_start = true;
         }
-        else if (_bp[_include[i]] - _bp[_include[brk_pnt1[j]]] > wind_size) {
-            prev_length = _bp[_include[i]] - _bp[_include[brk_pnt1[j]]];
+        else if ((_bp[_include[i]] - _bp[_include[brk_pnt1[j]]] > wind_bp) && (i - brk_pnt1[j] >= wind_snp)) {
             chr_start = false;
             brk_pnt1.push_back(i - 1);
             j++;

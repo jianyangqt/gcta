@@ -143,7 +143,7 @@ void gcta::calcu_ldak(eigenVector &wt, int ldwt_seg, double rsq_cutoff)
     eigenVector ssx_sqrt_i;
     calcu_ssx_sqrt_i(ssx_sqrt_i);
     vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
-    get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, ldwt_seg);
+    get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, ldwt_seg, 3000);
 
 
     wt = eigenVector::Zero(m);
@@ -533,7 +533,7 @@ void gcta::make_grm_pca_blk(vector<int> & maf_bin_pos_i, int ldwt_seg, double &t
 
         col_std(X);
         MatrixXf grm_buf = X * X.transpose();
-        grm_buf = grm_buf.array() * (double)size / (double) eff_size;
+        //grm_buf = grm_buf.array() * (double)size / (double) eff_size;
 
         trace += grm_buf.diagonal().mean();
 
