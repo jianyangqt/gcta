@@ -120,9 +120,10 @@ void option(int option_num, char* option_str[])
 
     // gene expression data
     string efile="", eR_file = "", ecojo_ma_file="";
+    bool transpose_file_flag = false;
     // data management for gene expression and methylation
     string extract_probe_file="", exclude_probe_file="", extract_probe_name="", exclude_probe_name="";
-    int make_erm_mtd = 1;
+    int make_erm_mtd = 1, make_erm_indi = 0;
     double ecojo_p = 5e-6, ecojo_collinear = 0.9, ecojo_lambda = -1;
     bool efile_flag=false, eR_file_flag = false, ecojo_slct_flag = false, ecojo_blup_flag = false, make_erm_flag = false;
 
@@ -787,9 +788,16 @@ void option(int option_num, char* option_str[])
             efile_flag = true;
             cout << "--efile " << efile << endl;
             CommFunc::FileExist(efile);
-        } 
-	// data management for gene expression and methylation measure
-	else if (strcmp(argv[i], "--e-extract") == 0) {
+        }
+        else if (strcmp(argv[i], "--tefile") == 0 ) {
+            transpose_file_flag = true;
+            efile = argv[++i];
+            efile_flag = true;
+            cout << "--tefile " << efile << endl;
+            CommFunc::FileExist(efile);
+        }
+        // data management for gene expression and methylation measure
+        else if (strcmp(argv[i], "--e-extract") == 0) {
             extract_probe_file = argv[++i];
             cout << "--e-extract " << extract_probe_file << endl;
             CommFunc::FileExist(extract_probe_file);
@@ -853,7 +861,14 @@ void option(int option_num, char* option_str[])
             thread_flag = true;
             cout << "--make-erm-alg " << make_erm_mtd << endl;
             if (make_erm_mtd < 1 || make_erm_mtd > 3) throw ("\nError: --make-erm-alg should be 1, 2 or 3.\n");
-        } 
+        }
+        else if (strcmp(argv[i], "--make-erm-indi") == 0) {
+            make_erm_flag = true;
+            make_erm_indi = atoi(argv[++i]);
+            thread_flag = true;
+            cout << "--make-erm-indi " << make_erm_indi << endl;
+            if (make_erm_indi < 0 || make_erm_indi > 2) throw ("\nError: --make-erm-indi should be 0, 1 or 2.\n");
+        }
         else if (strcmp(argv[i], "gcta") == 0) break;
         else {
             stringstream errmsg;
@@ -935,14 +950,15 @@ void option(int option_num, char* option_str[])
         pter_gcta->read_IRG_fnames(RG_summary_file, RG_fname_file, GC_cutoff);
     } 
     else if(efile_flag){
-        pter_gcta->read_efile(efile);
+        if( !transpose_file_flag ) pter_gcta->read_efile(efile);
+        else pter_gcta->read_tefile(efile);
         // data management for efile
         if (!extract_probe_file.empty()) pter_gcta->extract_probe(extract_probe_file);
         if (!exclude_probe_file.empty()) pter_gcta->exclude_probe(exclude_probe_file);
         if (!extract_probe_name.empty()) pter_gcta->extract_single_probe(extract_probe_name);
         if (!exclude_probe_name.empty()) pter_gcta->exclude_single_probe(exclude_probe_name);
         // generating ERM
-        if (make_erm_flag) pter_gcta->make_erm(make_erm_mtd - 1, grm_out_bin_flag);
+        if (make_erm_flag) pter_gcta->make_erm(make_erm_mtd - 1, make_erm_indi, grm_out_bin_flag);
 	// conditional analysis for gene expression or methylation
         else if(ecojo_slct_flag) pter_gcta->run_ecojo_slct(ecojo_ma_file, ecojo_p, ecojo_collinear);
         else if(ecojo_blup_flag) pter_gcta->run_ecojo_blup_efile(ecojo_ma_file, ecojo_lambda);

@@ -13,14 +13,6 @@
 #ifndef _GCTA_H
 #define _GCTA_H
 
-#ifndef EIGEN_YES_I_KNOW_SPARSE_MODULE_IS_NOT_STABLE_YET
-#define EIGEN_YES_I_KNOW_SPARSE_MODULE_IS_NOT_STABLE_YET
-#endif
-
-#ifndef EIGEN_USE_MKL_ALL
-#define EIGEN_USE_MKL_ALL
-#endif
-
 #include "CommFunc.h"
 #include "StrFunc.h"
 #include "StatFunc.h"
@@ -30,30 +22,14 @@
 #include <map>
 //#include <random>
 #include "zfstream.h"
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
-#include <unsupported/Eigen/SparseExtra>
 #include <omp.h>
 #include <mkl_cblas.h>
 #include <mkl_lapack.h>
 #include "SimplexSolver.h"
+//#include "GlobalVarb.h"
 
 using namespace Eigen;
 using namespace std;
-
-#ifdef SINGLE_PRECISION
-typedef DiagonalMatrix<float, Dynamic, Dynamic> eigenDiagMat;
-typedef MatrixXf eigenMatrix;
-typedef VectorXf eigenVector;
-typedef SparseMatrix<float> eigenSparseMat;
-typedef DynamicSparseMatrix<float> eigenDynSparseMat;
-#else
-typedef DiagonalMatrix<double, Dynamic, Dynamic> eigenDiagMat;
-typedef MatrixXd eigenMatrix;
-typedef VectorXd eigenVector;
-typedef SparseMatrix<double> eigenSparseMat;
-typedef DynamicSparseMatrix<double> eigenDynSparseMat;
-#endif
 
 class gcta {
 public:
@@ -144,7 +120,14 @@ public:
     /////////////////////////
     // gene expresion data
     void read_efile(string efile);
+    void read_tefile(string efile);
 
+    // data management
+    void extract_probe(string probelistfile);
+    void extract_single_probe(string probename);
+    void exclude_probe(string probelistfile);
+    void exclude_single_probe(string probename);
+	
     // ecojo
     void read_eR(string eR_file);
     void run_ecojo_slct(string e_metafile, double p_cutoff, double collinear);
@@ -152,7 +135,7 @@ public:
     void run_ecojo_blup_eR(string e_metafile, double lambda);
 
     // ERM
-    void make_erm(int erm_mtd, bool output_bin); 
+    void make_erm(int erm_mtd, int erm_indi, bool output_bin);
 
 private:
     void init_keep();
@@ -514,6 +497,12 @@ private:
     eigenMatrix _ecojo_wholeR;
     double _ecojo_p_cutoff;
     double _ecojo_collinear;
+    
+    // missing vaule
+    vector<missValue> _miss_row;
+    int *_miss_row_indx;
+    vector<missValue> _miss_col;
+    int *_miss_col_indx;
 };
 
 class locus_bp {

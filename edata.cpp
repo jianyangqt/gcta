@@ -11,7 +11,73 @@
  */
 
 #include "gcta.h"
+#include "CommFunc.h"
 
+// local function without declaration
+eigenMatrix init_X(eigenMatrix &X, vector<int> keep, vector<int> include) {
+    eigenMatrix xbuf ( X );
+    int i=0, j=0;
+    int nrow = keep.size(), ncol = include.size();
+    
+    X.resize(nrow, ncol);
+    for( i=0; i<nrow; i++ ) {
+        for( j=0; j<ncol; j++ ) {
+            X(i,j)=xbuf(keep[i], include[j]);
+        }
+    }
+    return X;
+}
+eigenVector est_geno_mean(eigenMatrix geno_data, int *miss_indx, vector<missValue> miss_vale_pos, int mean_center) {
+    int i=0, ncol=geno_data.cols();
+    eigenVector geno_mu(ncol), genobuf(ncol);
+    
+    if(mean_center) geno_mu.setZero();
+    else {
+        for( i=0; i<ncol; i++) {
+            genobuf = geno_data.col(i);
+            geno_mu(i) = CommFunc::eigenMean(genobuf, miss_indx[i], miss_vale_pos[miss_indx[i]]);
+        }
+    }
+    return geno_mu;
+}
+
+eigenVector est_geno_var(eigenMatrix geno_data, int *miss_indx, vector<missValue> miss_vale_pos, int var_center) {
+    int i=0, indxbuf =0, nmiss=0;
+    int nrow = geno_data.rows(), ncol=geno_data.cols();
+    double dbuf=0.0;
+    eigenVector genobuf, geno_var;
+    
+    // var_center: 0 - method 2, 1 - method 1, 2 - method 3,
+    if(!var_center) {
+        // method 2
+        geno_var.resize(ncol);
+        for(i=0; i<ncol; i++) {
+            genobuf = geno_data.col(i);
+            indxbuf = miss_indx[i];
+            dbuf = CommFunc::eigenSd(genobuf, indxbuf, miss_vale_pos[indxbuf]);
+            dbuf = pow(dbuf, 2);
+            geno_var(i) = dbuf;
+        }
+    } else if( var_center == 1 ) {
+        // method 1
+        geno_var.resize(ncol);
+        for( i=0; i<ncol; i++) geno_var(i) = 1;
+    } else {
+        // method 3
+        geno_var.resize(nrow);
+        for( i=0; i<nrow; i++) {
+            genobuf = geno_data.row(i);
+            indxbuf = miss_indx[i];
+            dbuf = CommFunc::eigenSd(genobuf, indxbuf, miss_vale_pos[indxbuf]);
+            nmiss = indxbuf ? miss_vale_pos[indxbuf].num : 0;
+            dbuf = pow(dbuf, 2);
+            geno_var(i) = dbuf*(ncol-nmiss-1);
+        }
+    }
+    return geno_var;
+}
+
+// main function declared in gcta.h
 void gcta::read_efile(string efile)
 {
     ifstream einf;
@@ -49,7 +115,6 @@ void gcta::read_efile(string efile)
         _pid[i]=id_buf;
         for(j=0; j<_probe_num; j++){
             if (!(ss >> id_buf)){ errmsg<<"Error: in line "<<i+2<<"."; throw(errmsg.str()); }
-            //if(id_buf=="-9") _probe_data(i,j)=1e10;
             StrFunc::to_upper(id_buf);
             if(id_buf=="-9" || id_buf=="NA") _probe_data(i,j)=1e10;
             else _probe_data(i,j)=atof(id_buf.c_str());
@@ -59,6 +124,61 @@ void gcta::read_efile(string efile)
     einf.close();
     cout<<"Expression data for "<<_probe_num<<" probes of "<<_indi_num<<" individuals have been included from the file [" + efile + "]."<<endl; 
 
+    // Initialize _keep and _e_include
+    init_keep();
+    init_e_include();
+}
+
+void gcta::read_tefile(string efile)
+{
+    ifstream einf;
+    einf.open(efile.c_str());
+    if (!einf.is_open()) throw ("Error: can not open the file [" + efile + "] to read.");
+    cout << "Reading gene expression / methylation data from [" + efile + "] ..." << endl;
+    
+    string str_buf="";
+    vector<string> vs_buf;
+    getline(einf, str_buf); // reading the first line, family ID
+    int col_num = StrFunc::split_string(str_buf, vs_buf, " \t\n");
+    if(col_num < 2) throw ("Error: there needs be at least 2 columns in the file [" + efile + "].");
+    _indi_num = col_num - 1;
+    _fid.resize(_indi_num);
+    _pid.resize(_indi_num);
+    int i = 0;
+    for(i=0; i<_indi_num; i++) _fid[i] = vs_buf[i+1];
+    
+    getline(einf, str_buf); // reading the second line, individual ID
+    col_num = StrFunc::split_string(str_buf, vs_buf, " \t\n");
+    if(col_num!=_indi_num+1) throw ("Error: number of family ID and individual ID is different.");
+    for(i =0; i< _indi_num; i++) _pid[i] = vs_buf[i+1];
+    
+    _probe_num = 0; // read the number of probes
+    while(getline(einf,str_buf)) _probe_num++;
+    einf.close();
+    
+    einf.open(efile.c_str());  // re-open the file to read the gene expression and methylation data
+    for( i = 0; i < 2; i++ ) getline(einf, str_buf);  // skip family ID and individual ID
+    i=0;
+    int j=0;
+    stringstream errmsg;
+    _probe_name.resize(_probe_num);
+    _probe_data.resize(_indi_num, _probe_num);
+    string id_buf="";
+    while (getline(einf, str_buf)) {
+        stringstream ss(str_buf);
+        if (!(ss >> id_buf)){ errmsg<<"Error: in line "<<i+2<<"."; throw(errmsg.str()); }
+        _probe_name[i]=id_buf;
+        for(j=0; j<_indi_num; j++){
+            if (!(ss >> id_buf)){ errmsg<<"Error: in line "<<i+2<<"."; throw(errmsg.str()); }
+            StrFunc::to_upper(id_buf);
+            if(id_buf=="-9" || id_buf=="NA") _probe_data(j,i)=1e10;
+            else _probe_data(j,i)=atof(id_buf.c_str());
+        }
+        i++;
+    }
+    einf.close();
+    cout<<"Expression data for "<<_probe_num<<" probes of "<<_indi_num<<" individuals have been included from the file [" + efile + "]."<<endl;
+    
     // Initialize _keep and _e_include
     init_keep();
     init_e_include();
@@ -77,204 +197,102 @@ void gcta::init_e_include() {
     }
 }
 
-void gcta::std_probe(vector< vector<bool> > &X_bool, bool divid_by_std)
-{
-    eigenMatrix X(_probe_data);
-    _probe_data.resize(_keep.size(), _e_include.size());
-
-    int i=0, j=0;
-    #pragma omp parallel for private(j)
-    for(i=0; i<_keep.size(); i++){
-        for(j=0; j<_e_include.size(); j++) _probe_data(i,j)=X(_keep[i], _e_include[j]);
-    }
-    eigenVector mu(_e_include.size()), nonmiss(_e_include.size());
-
-    X_bool.resize(_keep.size());
-    for(i=0; i<_keep.size(); i++) X_bool[i].resize(_e_include.size());
-    #pragma omp parallel for private(i)
-    for(j=0; j<_e_include.size(); j++){
-        mu(j)=0.0;
-        nonmiss(j)=0.0;
-        for(i=0; i<_keep.size(); i++){
-            if(_probe_data(i,j)<1e9){
-                mu(j)+=_probe_data(i,j);
-                nonmiss(j)+=1.0;
-                X_bool[i][j] = true;
-            }
-            else X_bool[i][j] = false;
-        }
-        mu(j)/=nonmiss(j);
-    }
-
-    #pragma omp parallel for private(j)
-    for(i=0; i<_keep.size(); i++){
-        for(j=0; j<_e_include.size(); j++){
-            if(_probe_data(i,j)<1e9) _probe_data(i,j) -= mu(j);
-            else _probe_data(i,j) = 0.0;
-        }
-    }
-
-    if(divid_by_std){
-        eigenVector sd(_e_include.size());
-        #pragma omp parallel for
-        for(j=0; j<_e_include.size(); j++){
-            sd(j) = sqrt((_probe_data.col(j).dot(_probe_data.col(j))) / (nonmiss(j) - 1.0));
-        }
-
-        #pragma omp parallel for private(j)
-        for(i=0; i<_keep.size(); i++){
-            for(j=0; j<_e_include.size(); j++) _probe_data(i,j) /= sd(j);
-        }
-    }
-}
-
-void gcta::std_probe_ind(vector< vector<bool> > &X_bool, bool divid_by_std)
-{
-     int i = 0, j = 0, n = _keep.size(), m = _e_include.size();
-    eigenMatrix X(_probe_data);
-    _probe_data.resize(n, m);
-
-    #pragma omp parallel for private(j)
-    for(i=0; i<n; i++){
-        for(j=0; j<m; j++) _probe_data(i,j)=X(_keep[i], _e_include[j]);
-    }
-    X.resize(0,0);
-
-    eigenVector mu(n), nonmiss(n);
-
-    X_bool.resize(n);
-    for(i=0; i<n; i++) X_bool[i].resize(m);
-    #pragma omp parallel for private(j)
-    for(i=0; i<n; i++){
-        mu(i)=0.0;
-        nonmiss(i)=0.0;
-        for(j=0; j<m; j++){
-            if(_probe_data(i,j)<1e9){
-                mu(i)+=_probe_data(i,j);
-                nonmiss(i)+=1.0;
-                X_bool[i][j] = true;
-            }
-            else X_bool[i][j] = false;
-        }
-        mu(i)/=nonmiss(i);
-    }
-
-    #pragma omp parallel for private(j)
-    for(i=0; i<n; i++){
-        for(j=0; j<m; j++){
-            if(_probe_data(i,j)<1e9) _probe_data(i,j) -= mu(i);
-            else _probe_data(i,j) = 0.0;
-        }
-    }
-
-    if(divid_by_std){
-        eigenVector sd(n);
-        #pragma omp parallel for
-        for(i=0; i<n; i++){
-            sd(i) = sqrt((_probe_data.row(i).dot(_probe_data.row(i))) / (nonmiss(i) - 1.0));
-        }
-
-        #pragma omp parallel for private(j)
-        for(i=0; i<n; i++){
-            for(j=0; j<m; j++) _probe_data(i,j) /= sd(i);
-        }
-    }
-}
-
-void gcta::make_erm(int erm_mtd, bool output_bin)
+void gcta::make_erm(int erm_mtd, int erm_indi, bool output_bin)
 {
     int i = 0, j = 0, k = 0, n = _keep.size(), m = _e_include.size();
- 
+    bool est_var = true;
+    
     cout << "Recoding gene expression / methylation data ..." << endl;
-    bool divid_by_std = false;
-    vector< vector<bool> > X_bool;
-    if(erm_mtd < 2){
-        if(erm_mtd == 0) divid_by_std = true;
-        else if(erm_mtd == 1) divid_by_std = false;
-        std_probe(X_bool, divid_by_std);
+    MatrixXi X_bool;
+    
+    // default: 0, method 2, estimate mean and var for each probe / marker
+    // (xij - meani) * (xik - meani) / sum(var)
+    int mean_center = 0, var_center = 0;
+    // method 1: mean = 0, var = 1, don't estimate mean and var for each probe / makrer
+    // wij * wik / m*1
+    if(!erm_mtd) {
+        mean_center = 1; var_center = 1;
+    } else if( erm_mtd ==2 ) {
+        //method 3:  ( xij - meanj ) * ( xik - meank)
+        mean_center = 1; var_center = 2;
     }
-    else std_probe_ind(X_bool, false);
-
-    cout << "\nCalculating expression relationship matrix (ERM) ... " << endl;
-
-    // count the number of missing genotypes
-    vector< vector<int> > miss_pos(n);
-    for (i = 0; i < n; i++) {
-        for (j = 0; j < m; j++) {
-            if (X_bool[i][j] == false) miss_pos[i].push_back(j);
-        }
+    // initialize the X
+    _probe_data = init_X(_probe_data, _keep, _e_include);
+    // get the missing value
+    X_bool = CommFunc::find_missing_X(_probe_data);
+    // initialize the positions of miss value
+    _miss_row_indx = CommFunc::find_missing_pos(X_bool, _miss_row_indx, _miss_row, true);
+    _miss_col_indx = CommFunc::find_missing_pos(X_bool, _miss_col_indx, _miss_col);
+    
+    // pre-normalise the matrix
+    // method 1: standise the x to w
+    if(!erm_mtd) _probe_data = CommFunc::scale(_probe_data, _miss_col_indx, _miss_col);
+    // method 3: xij - meanj
+    else if(erm_mtd==2) _probe_data = CommFunc::scale(_probe_data, _miss_row_indx, _miss_row, true,  true);
+    // --make-erm-indi: re-scale the individual-wised value
+    if(erm_indi) {
+        _probe_data = CommFunc::scale(_probe_data, _miss_row_indx, _miss_row, true);
+        mean_center = var_center = 0;
+    }
+    
+    eigenVector geno_mu, geno_var;
+    
+    // method 1 and method 3: set the mean to zero
+    geno_mu = est_geno_mean( _probe_data, _miss_col_indx, _miss_col, mean_center );
+    // method 1: var = m
+    // method 2: var = sum(var(probe))
+    // method 3: var = ssx(x.k), k - one individual
+    if(erm_mtd != 2) {
+        geno_var = est_geno_var(_probe_data, _miss_col_indx, _miss_col, var_center);
+    } else {
+        geno_var = est_geno_var(_probe_data, _miss_row_indx, _miss_row, var_center);
     }
 
-    // Calculate A_N matrix
+    // estimate the _grm_N
     _grm_N.resize(n, n);
-    if(erm_mtd == 0){
-        #pragma omp parallel for private(j, k)
-        for (i = 0; i < n; i++) {
-            for (j = 0; j <= i; j++) {
-                //int miss_j = 0;
-                //for (k = 0; k < miss_pos[j].size(); k++) miss_j += (int) X_bool[i][miss_pos[j][k]];
-                //_grm_N(i,j) = m - miss_pos[i].size() - miss_j;
-                _grm_N(i,j) = m - miss_pos[i].size() - miss_pos[j].size();
+    double sumvar = 0.0, sumbuf=0.0, sumbuf2=0.0;
+    missValue missbuf;
+    // method 1 and 2, _grm_N = sum(var) - missingness
+    if(  erm_mtd != 2 ) {
+        sumvar = geno_var.sum();
+        for( i=0; i<n; i++ ) {
+            for( j=0; j<=i; j++) {
+                sumbuf = sumvar;
+                for(k=0; k<m; k++) {
+                    // substract var, if one of xij or xik is equal to zero
+                    if( (X_bool(i,k) & X_bool(j,k)) == 0 ) sumbuf -= geno_var(k);
+                }
+                _grm_N(i,j) = sumbuf;
+            }
+        }
+    }  else {
+        // method 3
+        for( i=0; i<n; i++ ) {
+            for( j=0; j<=i; j++) {
+                _grm_N(i,j) = sqrt(geno_var(i) * geno_var(j));
             }
         }
     }
-    else if (erm_mtd > 0){
-        if (erm_mtd == 1){
-            eigenVector nonmiss(m);
-            #pragma omp parallel for private(i)
-            for (j = 0; j < m; j++) {
-                nonmiss[j] = 0.0;
-                for (i = 0; i < n; i++) {
-                    if (X_bool[i][j] == true) nonmiss[j] += 1.0;
-                }
-            }
-            eigenVector var(m);
-            #pragma omp parallel for
-            for(j=0; j<m; j++){
-                if((nonmiss(j) - 1.0) > 0.0) var(j) = (_probe_data.col(j).dot(_probe_data.col(j))) / (nonmiss(j) - 1.0);
-                else var(j) = 0.0;
-
-            }
-            double sum_var = var.sum();
-            #pragma omp parallel for private(j, k)
-            for (i = 0; i < n; i++) {
-                double i_miss_sum_var = 0.0;
-                for (k = 0; k < miss_pos[i].size(); k++) i_miss_sum_var += var[miss_pos[i][k]];
-                for (j = 0; j <= i; j++) {
-                    double j_miss_sum_var = 0.0;
-                    for (k = 0; k < miss_pos[j].size(); k++){
-                        if (X_bool[i][miss_pos[j][k]] == true) j_miss_sum_var += var[miss_pos[j][k]];
-                    }
-                    _grm_N(i,j) = sum_var - i_miss_sum_var - j_miss_sum_var;
-                }
-            }
+    
+    // geno_data - mu for each column
+    int indxbuf = 0, nmiss = 0, *posbuf = 0;
+    eigenVector vecbuf;
+    for( i = 0; i< m; i++) {
+        vecbuf = _probe_data.col(i);
+        for( j = 0; j < n; j++) vecbuf(j) -= geno_mu(i);
+        // set the missing value to zero
+        indxbuf = _miss_col_indx[i];
+        if(indxbuf) {
+            nmiss = _miss_col[indxbuf].num;
+            posbuf = CommFunc::split_miss_pos(_miss_col[indxbuf], posbuf);
+            vecbuf = CommFunc::assignVale(vecbuf, posbuf, nmiss);
         }
-        else{
-            eigenVector ssx(n);
-            #pragma omp parallel for
-            for(i=0; i<n; i++) ssx(i) = _probe_data.row(i).dot(_probe_data.row(i));
-            #pragma omp parallel for private(j, k)
-            for (i = 0; i < n; i++) {
-                for (j = 0; j <= i; j++) {
-                    double ssx_i = ssx(i);
-                    double ssx_j = ssx(j);
-                    for (k = 0; k < miss_pos[j].size(); k++){
-                        int l = miss_pos[j][k];
-                        if(X_bool[i][l] == true) ssx_i -= _probe_data(i,l) * _probe_data(i,l);
-                    }
-                    for (k = 0; k < miss_pos[i].size(); k++){
-                        int l = miss_pos[i][k];
-                        if(X_bool[j][l] == true) ssx_j -= _probe_data(j,l) * _probe_data(j,l);
-                    }
-                    _grm_N(i,j) = sqrt(ssx_i*ssx_j);            
-                }
-            }
-        }
+        _probe_data.col(i) = vecbuf;
     }
-
+    
     // Calculate A matrix
     _grm = _probe_data * _probe_data.transpose();
-
+    
     #pragma omp parallel for private(j)
     for (i = 0; i < n; i++) {
         for (j = 0; j <= i; j++) {
@@ -282,13 +300,17 @@ void gcta::make_erm(int erm_mtd, bool output_bin)
             else _grm(i,j) = 0.0;
         }
     }
+    
     _grm = _grm.array() / _grm.diagonal().mean();
-
+    
     // Output A_N and A
     string out_buf = _out;
     _out += ".E";
     output_grm(output_bin);
     _out = out_buf;
+    
+    free(_miss_row_indx);
+    free(_miss_col_indx);
 }
 
 // data management for gene expression and methylation
