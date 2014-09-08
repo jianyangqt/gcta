@@ -223,7 +223,6 @@ void gcta::make_erm(int erm_mtd, int erm_indi, bool output_bin)
     // initialize the positions of miss value
     _miss_row_indx = CommFunc::find_missing_pos(X_bool, _miss_row_indx, _miss_row, true);
     _miss_col_indx = CommFunc::find_missing_pos(X_bool, _miss_col_indx, _miss_col);
-    
     // pre-normalise the matrix
     // method 1: standise the x to w
     if(!erm_mtd) _probe_data = CommFunc::scale(_probe_data, _miss_col_indx, _miss_col);
@@ -236,7 +235,6 @@ void gcta::make_erm(int erm_mtd, int erm_indi, bool output_bin)
     }
     
     eigenVector geno_mu, geno_var;
-    
     // method 1 and method 3: set the mean to zero
     geno_mu = est_geno_mean( _probe_data, _miss_col_indx, _miss_col, mean_center );
     // method 1: var = m
@@ -250,19 +248,29 @@ void gcta::make_erm(int erm_mtd, int erm_indi, bool output_bin)
 
     // estimate the _grm_N
     _grm_N.resize(n, n);
-    double sumvar = 0.0, sumbuf=0.0, sumbuf2=0.0;
+    int ibuf=0, snbuf=0;
+    double sumvar = 0.0;
     missValue missbuf;
+    string strbuf;
+    vector<string> vsbuf;
     // method 1 and 2, _grm_N = sum(var) - missingness
     if(  erm_mtd != 2 ) {
         sumvar = geno_var.sum();
         for( i=0; i<n; i++ ) {
             for( j=0; j<=i; j++) {
-                sumbuf = sumvar;
-                for(k=0; k<m; k++) {
-                    // substract var, if one of xij or xik is equal to zero
-                    if( (X_bool(i,k) & X_bool(j,k)) == 0 ) sumbuf -= geno_var(k);
+                _grm_N(i,j) = sumvar;
+                // missing value exists in row i or row j
+                if( _miss_row_indx[i] || _miss_row_indx[j] ) {
+                    strbuf = _miss_row[_miss_row_indx[i]].pos + _miss_row[_miss_row_indx[j]].pos;
+                    StrFunc::split_string(strbuf, vsbuf);
+                    sort(vsbuf.begin(), vsbuf.end());
+                    vsbuf.erase(unique(vsbuf.begin(), vsbuf.end()), vsbuf.end());
+                    ibuf = vsbuf.size();
+                    for(k=0; k<ibuf; k++) {
+                        snbuf = atoi(vsbuf[k].c_str());
+                        _grm_N(i,j) -= geno_var(k);
+                    }
                 }
-                _grm_N(i,j) = sumbuf;
             }
         }
     }  else {
@@ -273,7 +281,6 @@ void gcta::make_erm(int erm_mtd, int erm_indi, bool output_bin)
             }
         }
     }
-    
     // geno_data - mu for each column
     int indxbuf = 0, nmiss = 0, *posbuf = 0;
     eigenVector vecbuf;
@@ -289,7 +296,6 @@ void gcta::make_erm(int erm_mtd, int erm_indi, bool output_bin)
         }
         _probe_data.col(i) = vecbuf;
     }
-    
     // Calculate A matrix
     _grm = _probe_data * _probe_data.transpose();
     
@@ -302,7 +308,7 @@ void gcta::make_erm(int erm_mtd, int erm_indi, bool output_bin)
     }
     
     _grm = _grm.array() / _grm.diagonal().mean();
-    
+    cout <<"All finished."<<endl;
     // Output A_N and A
     string out_buf = _out;
     _out += ".E";
