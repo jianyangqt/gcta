@@ -265,10 +265,11 @@ private:
     eigenMatrix reg(vector<double> &y, vector<double> &x, vector<double> &rst, bool table = false);
     void rm_cor_snp(int m, int start, float *rsq, double rsq_cutoff, vector<int> &rm_snp_ID1);
     void get_ld_blk_pnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, vector<int> &brk_pnt3, int wind_bp, int wind_snp = 0);
+    void get_ld_blk_pnt_max_limit(vector<int> &brk_pnt1, vector<int> &brk_pnt2, vector<int> &brk_pnt3, int wind_bp, int wind_snp);
     void calcu_ld_blk(vector<int> &brk_pnt, vector<int> &brk_pnt3, eigenVector &mean_rsq, eigenVector &snp_num, eigenVector &max_rsq, bool second, double rsq_cutoff, bool dominance_flag = false);
     void calcu_ld_blk_split(int size, int size_limit, MatrixXf &X_sub, eigenVector &ssx_sqrt_i_sub, double rsq_cutoff, eigenVector &rsq_size, eigenVector &mean_rsq_sub, eigenVector &max_rsq_sub, int s1, int s2, bool second);
     void calcu_ssx_sqrt_i(eigenVector &ssx_sqrt_i);
-    void calcu_max_ld_rsq_block(eigenVector &multi_rsq, eigenVector &max_rsq, vector<int> &max_pos, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, double rsq_cutoff);
+    void calcu_max_ld_rsq_blk(eigenVector &multi_rsq, eigenVector &max_rsq, vector<int> &max_pos, vector<int> &brk_pnt, double rsq_cutoff, bool dominance_flag);
     bool bending_eigenval_Xf(VectorXf &eval);
 
     // Joint analysis of GWAS MA results
