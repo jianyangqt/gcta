@@ -17,16 +17,51 @@ void option(int option_num, char* option_str[]);
 
 int main(int argc, char* argv[])
 {
-/*
-    cout<< "StatFunc::qnorm(0.01) = " << StatFunc::qnorm(0.01, false) << endl;
 
-    VectorXf a(9), b;
-    a << 0.3, -1, 0.5, 0.4, 1, -6, -1.7, 0.8, 0.1;
-    cout<< "a  = " << a.transpose() << endl;
-    eigen_func::rank(a, b);
-    cout<< "b  = " << b.transpose() << endl;
-    eigen_func::inverse_norm_rank_transform(a);    
-    cout<< "a  = " << a.transpose() << endl;*/
+/*
+    MatrixXf a(3, 3);
+    a << 1, 0.12, -0.34, 0.12, 1, 0.54, -0.34, 0.54, 1;
+    SelfAdjointEigenSolver<MatrixXf> eigen(a);
+    cout<< "eigenvec = " << eigen.eigenvectors() << endl;
+    cout<< "eigenval = " << eigen.eigenvalues().transpose() << endl;
+
+
+    int size = 3, n = 100;
+    int j = 0;
+            JacobiSVD<MatrixXf> svd;
+        svd.compute(a, ComputeThinV);
+
+    cout<< "u = " << svd.matrixU() << endl;
+    cout<< "v = " << svd.matrixV() << endl;
+    cout<< "d = " << svd.singularValues().transpose() << endl;
+
+        VectorXf d_i = svd.singularValues();
+        double eff_m = 0;
+        for(j = 0; j < size; j ++){
+            if(d_i[j] < 1e-6) d_i[j] = 0.0;
+            else{
+                d_i[j] = 1.0 / d_i[j];
+                eff_m++;
+            }
+        }
+        MatrixXf R_i = svd.matrixV() * d_i.asDiagonal() * svd.matrixV().transpose();
+
+        cout<< "R_ i:\n" << R_i << endl;
+
+        VectorXf Q_diag(size);
+        for(j = 0; j < size; j ++) Q_diag(j) = R_i.col(j).dot(a.row(j).transpose());
+
+            cout<< "Q_diag = " << Q_diag.transpose() << endl;
+
+        VectorXf multi_rsq_buf(size);
+        for(j = 0; j < size; j ++){
+            if(fabs(Q_diag[j] - 1.0) < 0.001) multi_rsq_buf[j] = 1.0 - 1.0 / R_i(j,j);
+            else multi_rsq_buf[j] = 1.0;
+        }
+        VectorXf multi_rsq_buf_adj = multi_rsq_buf.array() - (1.0 - multi_rsq_buf.array()) * (eff_m / ((double)n - eff_m - 1.0));
+        cout<< " multi_rsq_buf = " << multi_rsq_buf.transpose() << endl;
+        cout<< " multi_rsq_buf_adj = " << multi_rsq_buf_adj.transpose() << endl;
+*/
 
     cout << "*******************************************************************" << endl;
     cout << "* Genome-wide Complex Trait Analysis (GCTA)" << endl;

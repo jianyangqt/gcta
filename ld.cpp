@@ -316,7 +316,7 @@ void gcta::get_ld_blk_pnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, vector<i
                 && (i - brk_pnt1[j] > 0.5 * wind_snp))) brk_pnt1.push_back(m - 1);
             else brk_pnt1[j - 1] = brk_pnt1[j] = m - 1;
         }
-        else if (_chr[_include[i]] != _chr[_include[brk_pnt1[j]]]) {
+        else if (_chr[_include[i]] != _chr[_include[brk_pnt1[j]]] || _bp[_include[i]] - _bp[_include[brk_pnt1[j]]] > 1e6) {
             if(chr_start 
                 || ((_bp[_include[i-1]] - _bp[_include[brk_pnt1[j]]] > 0.5 * wind_bp)
                 && (i - 1 - brk_pnt1[j] > 0.5 * wind_snp))){                
@@ -499,20 +499,19 @@ void gcta::calcu_max_ld_rsq(int wind_size, double rsq_cutoff, bool dominance_fla
     vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
     get_ld_blk_pnt_max_limit(brk_pnt1, brk_pnt2, brk_pnt3, wind_size, 20000);
 
-    eigenVector multi_rsq = eigenVector::Constant(m, -1.0);
-    eigenVector max_rsq = eigenVector::Constant(m, -1.0);
+    eigenVector multi_rsq = eigenVector::Constant(m, -1.0), max_rsq = eigenVector::Constant(m, -1.0), multi_rsq_adj = eigenVector::Constant(m, -1.0);
     vector<int> max_pos(m);
-    calcu_max_ld_rsq_blk(multi_rsq, max_rsq, max_pos, brk_pnt1, rsq_cutoff, dominance_flag);
-    if (brk_pnt2.size() > 1) calcu_max_ld_rsq_blk(multi_rsq, max_rsq, max_pos, brk_pnt2, rsq_cutoff, dominance_flag);
+    calcu_max_ld_rsq_blk(multi_rsq, multi_rsq_adj, max_rsq, max_pos, brk_pnt1, rsq_cutoff, dominance_flag);
+    if (brk_pnt2.size() > 1) calcu_max_ld_rsq_blk(multi_rsq, multi_rsq_adj, max_rsq, max_pos, brk_pnt2, rsq_cutoff, dominance_flag);
 
     string max_rsq_file = "";
     if(dominance_flag) max_rsq_file = _out + ".d.max_rsq.ld";
     else max_rsq_file = _out + ".max_rsq.ld";
     ofstream o_max_rsq(max_rsq_file.data());
-    o_max_rsq<<"SNP freq max_rsq max_snp multi_rsq"<<endl;
+    o_max_rsq<<"SNP freq max_rsq max_snp multi_rsq multi_rsq_adj"<<endl;
     for (i = 0; i < m; i++){
-        if(max_rsq[i] > 0.0) o_max_rsq << _snp_name[_include[i]] << " " << 0.5 * _mu[_include[i]] << " " << max_rsq[i] << " " << _snp_name[_include[max_pos[i]]] << " " << multi_rsq[i] << endl;
-        else o_max_rsq << _snp_name[_include[i]] << " " << 0.5 * _mu[_include[i]] << " NA NA NA" << endl;
+        if(max_rsq[i] > 0.0) o_max_rsq << _snp_name[_include[i]] << " " << 0.5 * _mu[_include[i]] << " " << max_rsq[i] << " " << _snp_name[_include[max_pos[i]]] << " " << multi_rsq[i] << " " <<multi_rsq_adj[i] << endl;
+        else o_max_rsq << _snp_name[_include[i]] << " " << 0.5 * _mu[_include[i]] << " NA NA NA NA" << endl;
     }
     o_max_rsq << endl;
     cout << "Maximum LD rsq for " << m << " SNPs have been saved in the file [" + max_rsq_file + "]." << endl;    
@@ -532,7 +531,7 @@ void gcta::get_ld_blk_pnt_max_limit(vector<int> &brk_pnt1, vector<int> &brk_pnt2
                 || (i - brk_pnt1[j] > 0.5 * wind_snp))) brk_pnt1.push_back(m - 1);
             else brk_pnt1[j - 1] = brk_pnt1[j] = m - 1;
         }
-        else if (_chr[_include[i]] != _chr[_include[brk_pnt1[j]]]) {
+        else if (_chr[_include[i]] != _chr[_include[brk_pnt1[j]]] || _bp[_include[i]] - _bp[_include[i-1]] > 1e6) {
             if(chr_start 
                 || ((_bp[_include[i-1]] - _bp[_include[brk_pnt1[j]]] > 0.5 * wind_bp)
                 || (i - 1 - brk_pnt1[j] > 0.5 * wind_snp))){                
@@ -571,7 +570,7 @@ void gcta::get_ld_blk_pnt_max_limit(vector<int> &brk_pnt1, vector<int> &brk_pnt2
     }
 }
 
-void gcta::calcu_max_ld_rsq_blk(eigenVector &multi_rsq, eigenVector &max_rsq, vector<int> &max_pos, vector<int> &brk_pnt, double rsq_cutoff, bool dominance_flag)
+void gcta::calcu_max_ld_rsq_blk(eigenVector &multi_rsq, eigenVector &multi_rsq_adj, eigenVector &max_rsq, vector<int> &max_pos, vector<int> &brk_pnt, double rsq_cutoff, bool dominance_flag)
 {
    int i = 0, j = 0, k = 0, n = _keep.size(), m = _include.size(), size = 0;
     double r_cutoff = sqrt(rsq_cutoff);
@@ -606,23 +605,30 @@ void gcta::calcu_max_ld_rsq_blk(eigenVector &multi_rsq, eigenVector &max_rsq, ve
             }
         }
 
-        SelfAdjointEigenSolver<MatrixXf> eigensolver(rsq_sub);       
-        VectorXf eval = eigensolver.eigenvalues();
-        double sum = eval.sum();
-        double eff_m = (sum*sum) / eval.squaredNorm();
+        JacobiSVD<MatrixXf> svd;
+        svd.compute(rsq_sub, ComputeThinV);
+        VectorXf d_i = svd.singularValues();
+        double eff_m = 0;
+        for(j = 0; j < size; j ++){
+        	if(d_i(j) < 1e-6) d_i(j) = 0.0;
+        	else{
+        		d_i(j) = 1.0 / d_i(j);
+        		eff_m++;
+        	}
+        }
 
         // debug
         cout << "size = " << size << "; eff_m = " << eff_m << endl;
-        cout << "eval = " << eval.transpose() << endl;
 
+        MatrixXf R_i = svd.matrixV() * d_i.asDiagonal() * svd.matrixV().transpose();
+        VectorXf Q_diag(size);
+        for(j = 0; j < size; j ++) Q_diag(j) = R_i.col(j).dot(rsq_sub.row(j).transpose());
         VectorXf multi_rsq_buf(size);
-        for(j = 0; j < size; j++){
-            VectorXf v_buf = eigensolver.eigenvectors().row(j).transpose();
-            multi_rsq_buf[j] = (v_buf.array()*v_buf.array()/eval.array()).sum();
-        }
-
-        multi_rsq_buf = 1.0 - 1.0 / multi_rsq_buf.array();
-        multi_rsq_buf = multi_rsq_buf.array() - (1.0 - multi_rsq_buf.array()) * (eff_m / ((double)n - eff_m - 1.0));
+    	for(j = 0; j < size; j ++){
+    		if(fabs(Q_diag[j] - 1.0) < 0.001) multi_rsq_buf[j] = 1.0 - 1.0 / R_i(j,j);
+    		else multi_rsq_buf[j] = 1.0;
+    	}
+        VectorXf multi_rsq_buf_adj = multi_rsq_buf.array() - (1.0 - multi_rsq_buf.array()) * (eff_m / ((double)n - eff_m - 1.0));
 
         rsq_sub.diagonal() = VectorXf::Zero(size);
         rsq_sub = rsq_sub.array() * rsq_sub.array();
@@ -636,12 +642,16 @@ void gcta::calcu_max_ld_rsq_blk(eigenVector &multi_rsq, eigenVector &max_rsq, ve
             if(multi_rsq_buf[j] < max_rsq_buf[j]) multi_rsq_buf[j] = max_rsq_buf[j];
         }
 
-        for(j = 0; j < size; j++){
+/*      for(j = 0; j < size; j++){
             if(multi_rsq_buf[j] > 1.0) multi_rsq_buf[j] = 1.0;
             if(max_rsq_buf[j] > 1.0) max_rsq_buf[j] = 1.0;
         }
+        */
         for (j = 0, k = brk_pnt[i]; j < size; j++, k++) {
-            if(multi_rsq[k] <= multi_rsq_buf[j]) multi_rsq[k] = multi_rsq_buf[j];
+            if(multi_rsq_adj[k] <= multi_rsq_buf_adj[j]){
+            	multi_rsq[k] = multi_rsq_buf[j];
+            	multi_rsq_adj[k] = multi_rsq_buf_adj[j];
+            }
             if(max_rsq[k] < max_rsq_buf[j]){
                 max_rsq[k] = max_rsq_buf[j];
                 max_pos[k] = max_pos_buf[j] + brk_pnt[i];
