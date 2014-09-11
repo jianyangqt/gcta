@@ -316,7 +316,7 @@ void gcta::get_ld_blk_pnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, vector<i
                 && (i - brk_pnt1[j] > 0.5 * wind_snp))) brk_pnt1.push_back(m - 1);
             else brk_pnt1[j - 1] = brk_pnt1[j] = m - 1;
         }
-        else if (_chr[_include[i]] != _chr[_include[brk_pnt1[j]]] || _bp[_include[i]] - _bp[_include[brk_pnt1[j]]] > 1e6) {
+        else if (_chr[_include[i]] != _chr[_include[brk_pnt1[j]]] || _bp[_include[i]] - _bp[_include[i-1]] > 1e6) {
             if(chr_start 
                 || ((_bp[_include[i-1]] - _bp[_include[brk_pnt1[j]]] > 0.5 * wind_bp)
                 && (i - 1 - brk_pnt1[j] > 0.5 * wind_snp))){                
