@@ -44,8 +44,8 @@ namespace CommFunc
     // standardise the vector or matrix to z-score
     double eigenMean(eigenVector vec, int nmiss);
     double eigenSd(eigenVector vec, double xmean, int nmiss);
-    eigenVector scale_vec(eigenVector vec, int nonmiss, bool onlymean=false);
-    eigenMatrix scale(eigenMatrix mat, VectorXi  nonmiss, bool byrow=false, bool onlymean=false);
+    eigenVector scale_vec(eigenVector vec, int nmiss, bool onlymean=false);
+    eigenMatrix scale(eigenMatrix mat, VectorXi  nmiss, bool byrow=false, bool onlymean=false);
 }
 
 #endif

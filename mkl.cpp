@@ -822,13 +822,13 @@ void gcta::calcu_grm_wt_mkl(string i_ld_file, float *X, vector<double> &sd_SNP, 
         }
     }
 
-    vector<double> mrsq_mb;
+    vector<double> mrsq_mb, min_wt_mb, max_wt_mb;
     wt = VectorXd::Zero(m);
     VectorXd snp_num = VectorXd::Zero(m);
     VectorXd max_rsq = VectorXd::Zero(m);
     double mrsq_cutoff = 0.0;
     // Read mean LD from file and calculate the mean LD in each MAF bin
-    if (!i_ld_file.empty()) read_mrsq_mb(i_ld_file, seq, mrsq_mb, wt, snp_num);
+    if (!i_ld_file.empty()) read_mrsq_mb(i_ld_file, seq, mrsq_mb, min_wt_mb, max_wt_mb, wt, snp_num);
     else {
         // calcualte LD between SNPs
         cout << "Calculating mean LD rsq (window size = at least " << wind_size / 1000 << "Kb in either direction; LD rsq threshold = " << rsq_cutoff << ") ... " << endl;

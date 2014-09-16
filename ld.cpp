@@ -270,7 +270,17 @@ void gcta::calcu_mean_rsq(int wind_size, double rsq_cutoff, bool dominance_flag)
 {
     check_autosome();
 
-    int i = 0, m = _include.size();
+    unsigned long i = 0, j = 0, k = 0, l = 0, n = _keep.size(), m = _include.size();
+    eigenVector ssx_sqrt_i;
+    if(dominance_flag){
+        make_XMat_d(_geno);
+        std_XMat_d(_geno, ssx_sqrt_i, true, true);
+    }
+    else{
+        make_XMat(_geno);
+        std_XMat(_geno, ssx_sqrt_i, false, true, true);
+    }
+    calcu_ssx_sqrt_i(ssx_sqrt_i);
 
     cout << "Calculating mean LD rsq between SNPs (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between blocks); LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
     if(dominance_flag) cout<<"(SNP genotypes are coded for dominance effects)"<<endl;
@@ -278,15 +288,15 @@ void gcta::calcu_mean_rsq(int wind_size, double rsq_cutoff, bool dominance_flag)
     get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, wind_size);
 
     eigenVector mean_rsq = eigenVector::Zero(m), snp_num = eigenVector::Zero(m), max_rsq = eigenVector::Zero(m);
-    calcu_ld_blk(brk_pnt1, brk_pnt3, mean_rsq, snp_num, max_rsq, false, rsq_cutoff, dominance_flag);
-    if (brk_pnt2.size() > 1) calcu_ld_blk(brk_pnt2, brk_pnt3, mean_rsq, snp_num, max_rsq, true, rsq_cutoff, dominance_flag);
+    calcu_ld_blk(ssx_sqrt_i, brk_pnt1, brk_pnt3, mean_rsq, snp_num, max_rsq, false, rsq_cutoff);
+    if (brk_pnt2.size() > 1) calcu_ld_blk(ssx_sqrt_i, brk_pnt2, brk_pnt3, mean_rsq, snp_num, max_rsq, true, rsq_cutoff);
 
     string mrsq_file = "";
     if(dominance_flag) mrsq_file = _out + ".d.mrsq.ld";
     else mrsq_file = _out + ".mrsq.ld";
     ofstream o_mrsq(mrsq_file.data());
-    o_mrsq<<"SNP chr bp freq mean_rsq snp_num max_rsq"<<endl;
-    for (i = 0; i < m; i++) o_mrsq << _snp_name[_include[i]] << " " << _chr[_include[i]] << " " << _bp[_include[i]] << " " << 0.5 * _mu[_include[i]] << " " << mean_rsq[i] << " " << snp_num[i] << " " << max_rsq[i] << endl;
+    o_mrsq<<"SNP freq mean_rsq snp_num max_rsq"<<endl;
+    for (i = 0; i < m; i++) o_mrsq << _snp_name[_include[i]] << " " << 0.5 * _mu[_include[i]] << " " << mean_rsq[i] << " " << snp_num[i] << " " << max_rsq[i] << endl;
     o_mrsq << endl;
     cout << "Mean and maximum LD rsq for " << m << " SNPs have been saved in the file [" + mrsq_file + "]." << endl;
 }
@@ -302,37 +312,21 @@ void gcta::calcu_ssx_sqrt_i(eigenVector &ssx_sqrt_i)
     }
 }
 
-void gcta::get_ld_blk_pnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, vector<int> &brk_pnt3, int wind_bp, int wind_snp)
+void gcta::get_ld_blk_pnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, vector<int> &brk_pnt3, int wind_size)
 {
     unsigned long i = 0, j = 0, k = 0, m = _include.size();
 
     brk_pnt1.clear();
     brk_pnt1.push_back(0);
-    bool chr_start = true;
     for (i = 1, j = 0; i < m; i++) {
-        if (i == (m - 1)){
-            if(chr_start 
-                || ((_bp[_include[i]] - _bp[_include[brk_pnt1[j]]] > 0.5 * wind_bp)
-                && (i - brk_pnt1[j] > 0.5 * wind_snp))) brk_pnt1.push_back(m - 1);
-            else brk_pnt1[j - 1] = brk_pnt1[j] = m - 1;
+        if (i == (m - 1)) brk_pnt1.push_back(m - 1);
+        else if (_chr[_include[i]] != _chr[_include[brk_pnt1[j]]]) {
+            brk_pnt1.push_back(i - 1);
+            j++;
+            brk_pnt1.push_back(i);
+            j++;
         }
-        else if (_chr[_include[i]] != _chr[_include[brk_pnt1[j]]] || _bp[_include[i]] - _bp[_include[i-1]] > 1e6) {
-            if(chr_start 
-                || ((_bp[_include[i-1]] - _bp[_include[brk_pnt1[j]]] > 0.5 * wind_bp)
-                && (i - 1 - brk_pnt1[j] > 0.5 * wind_snp))){                
-                brk_pnt1.push_back(i - 1);
-                j++;
-                brk_pnt1.push_back(i);
-                j++;
-            }
-            else{                
-                brk_pnt1[j - 1] = i - 1;
-                brk_pnt1[j] = i;
-            }
-            chr_start = true;
-        }
-        else if ((_bp[_include[i]] - _bp[_include[brk_pnt1[j]]] > wind_bp) && (i - brk_pnt1[j] >= wind_snp)) {
-            chr_start = false;
+        else if (_bp[_include[i]] - _bp[_include[brk_pnt1[j]]] > wind_size) {
             brk_pnt1.push_back(i - 1);
             j++;
             brk_pnt1.push_back(i);
@@ -355,18 +349,14 @@ void gcta::get_ld_blk_pnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, vector<i
     }
 }
 
-void gcta::calcu_ld_blk(vector<int> &brk_pnt, vector<int> &brk_pnt3, eigenVector &mean_rsq, eigenVector &snp_num, eigenVector &max_rsq, bool second, double rsq_cutoff, bool dominance_flag)
+void gcta::calcu_ld_blk(eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, vector<int> &brk_pnt3, eigenVector &mean_rsq, eigenVector &snp_num, eigenVector &max_rsq, bool second, double rsq_cutoff)
 {
-    int i = 0, j = 0, k = 0, s1 = 0, s2 = 0, n = _keep.size(), m = _include.size(), size = 0, size_limit = 10000;
+    unsigned long i = 0, j = 0, k = 0, s1 = 0, s2 = 0, n = _keep.size(), m = _include.size(), size = 0, size_limit = 10000;
 
     for (i = 0; i < brk_pnt.size() - 1; i++) {
         if (_chr[_include[brk_pnt[i]]] != _chr[_include[brk_pnt[i + 1]]]) continue;
         size = brk_pnt[i + 1] - brk_pnt[i] + 1;
         if (size < 3) continue;
-
-        // debug
-        cout << "size = " << size <<endl;
-
         if (second) {
             s1 = brk_pnt3[i] - brk_pnt[i];
             s2 = s1 + 1;
@@ -376,24 +366,12 @@ void gcta::calcu_ld_blk(vector<int> &brk_pnt, vector<int> &brk_pnt3, eigenVector
             s2 = size - 1;
         }
 
+        eigenVector ssx_sqrt_i_sub = ssx_sqrt_i.segment(brk_pnt[i],size);
         eigenVector rsq_size(size), mean_rsq_sub(size), max_rsq_sub = eigenVector::Constant(size, -1.0);
 
-        // make genotype matrix
-        vector<int> snp_indx(size);
-        for (j = brk_pnt[i], k = 0; j <= brk_pnt[i + 1]; j++, k++) snp_indx[k] = j;
-        MatrixXf X_sub;
-        if(dominance_flag) make_XMat_d_subset(X_sub, snp_indx, true);
-        else make_XMat_subset(X_sub, snp_indx, true);
-        eigenVector ssx_sqrt_i_sub(size);
-        for (j = 0; j < size; j++){
-            ssx_sqrt_i_sub[j] = X_sub.col(j).squaredNorm();
-            if (ssx_sqrt_i_sub[j] < 1.0e-50) ssx_sqrt_i_sub[j] = 0.0;
-            else ssx_sqrt_i_sub[j] = 1.0 / sqrt(ssx_sqrt_i_sub[j]);
-        }
-
-        if (size > size_limit) calcu_ld_blk_split(size, size_limit, X_sub, ssx_sqrt_i_sub, rsq_cutoff, rsq_size, mean_rsq_sub, max_rsq_sub, s1, s2, second);
+        if (size > size_limit) calcu_ld_blk_split(size, size_limit, brk_pnt[i], ssx_sqrt_i_sub, rsq_cutoff, rsq_size, mean_rsq_sub, max_rsq_sub, s1, s2, second);
         else {
-            MatrixXf rsq_sub = X_sub.transpose() * X_sub;
+            MatrixXf rsq_sub = _geno.block(0,brk_pnt[i],n,size).transpose() * _geno.block(0,brk_pnt[i],n,size);
             #pragma omp parallel for private(k)
             for (j = 0; j < size; j++) {
                 rsq_size[j] = 0.0;
@@ -433,9 +411,9 @@ void gcta::calcu_ld_blk(vector<int> &brk_pnt, vector<int> &brk_pnt3, eigenVector
     }
 }
 
-void gcta::calcu_ld_blk_split(int size, int size_limit, MatrixXf &X_sub, eigenVector &ssx_sqrt_i_sub, double rsq_cutoff, eigenVector &rsq_size, eigenVector &mean_rsq_sub, eigenVector &max_rsq_sub, int s1, int s2, bool second)
+void gcta::calcu_ld_blk_split(int size, int size_limit, int s_pnt, eigenVector &ssx_sqrt_i_sub, double rsq_cutoff, eigenVector &rsq_size, eigenVector &mean_rsq_sub, eigenVector &max_rsq_sub, int s1, int s2, bool second)
 {
-    int i = 0, j = 0, k = 0, m = 0, n = _keep.size();
+    unsigned long i = 0, j = 0, k = 0, m = 0, n = _keep.size();
     vector<int> brk_pnt_sub;
     brk_pnt_sub.push_back(0);
     for (i = size_limit; i < size - size_limit; i += size_limit) {
@@ -453,7 +431,7 @@ void gcta::calcu_ld_blk_split(int size, int size_limit, MatrixXf &X_sub, eigenVe
         if (size_sub < 3) continue;
 
         eigenVector ssx_sqrt_i_sub_sub = ssx_sqrt_i_sub.segment(brk_pnt_sub[i], size_sub);
-        MatrixXf rsq_sub_sub = X_sub.block(0,brk_pnt_sub[i],n,size_sub).transpose() * X_sub;
+        MatrixXf rsq_sub_sub = _geno.block(0,s_pnt,n,size).block(0,brk_pnt_sub[i],n,size_sub).transpose() * _geno.block(0,s_pnt,n,size);
         eigenVector rsq_size_sub(size_sub), mean_rsq_sub_sub(size_sub), max_rsq_sub_sub = eigenVector::Constant(size_sub, -1.0);
 
         #pragma omp parallel for private(k)
@@ -490,73 +468,48 @@ void gcta::calcu_ld_blk_split(int size, int size_limit, MatrixXf &X_sub, eigenVe
 // calculate maximum LD rsq between SNPs
 void gcta::calcu_max_ld_rsq(int wind_size, double rsq_cutoff, bool dominance_flag)
 {
-    int i = 0, m = _include.size(), max_size = 0.8 * _keep.size();
+    unsigned long i = 0, n = _keep.size(), m = _include.size();
 
-    cout << "Calculating maximum LD rsq between SNPs (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between blocks; LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
-    cout << "(Maximum number of SNPs allowed in a block = " << max_size << " due to computatinal limitation)" << endl;
+    eigenVector ssx_sqrt_i;    
+    if(dominance_flag){
+        make_XMat_d(_geno);
+        std_XMat_d(_geno, ssx_sqrt_i, true, true);
+    }
+    else{
+        make_XMat(_geno);
+        std_XMat(_geno, ssx_sqrt_i, false, true, true);
+    }
+    calcu_ssx_sqrt_i(ssx_sqrt_i);
+
+    cout << "Calculating maximum LD rsq between SNPs (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between blocks); LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
     if(dominance_flag) cout<<"(SNP genotypes are coded for dominance effects)"<<endl;
 
     vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
-    get_ld_blk_pnt_max_limit(brk_pnt1, brk_pnt2, brk_pnt3, wind_size, max_size);
+    get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, wind_size);
 
-    eigenVector multi_rsq = eigenVector::Constant(m, -1.0), max_rsq = eigenVector::Constant(m, -1.0), multi_rsq_adj = eigenVector::Constant(m, -1.0);
+    eigenVector multi_rsq = eigenVector::Constant(m, -1.0);
+    eigenVector max_rsq = eigenVector::Constant(m, -1.0);
     vector<int> max_pos(m);
-    calcu_max_ld_rsq_blk(multi_rsq, multi_rsq_adj, max_rsq, max_pos, brk_pnt1, rsq_cutoff, dominance_flag);
-    if (brk_pnt2.size() > 1) calcu_max_ld_rsq_blk(multi_rsq, multi_rsq_adj, max_rsq, max_pos, brk_pnt2, rsq_cutoff, dominance_flag);
+    calcu_max_ld_rsq_block(multi_rsq, max_rsq, max_pos, ssx_sqrt_i, brk_pnt1, rsq_cutoff);
+    if (brk_pnt2.size() > 1) calcu_max_ld_rsq_block(multi_rsq, max_rsq, max_pos, ssx_sqrt_i, brk_pnt2, rsq_cutoff);
 
     string max_rsq_file = "";
     if(dominance_flag) max_rsq_file = _out + ".d.max_rsq.ld";
     else max_rsq_file = _out + ".max_rsq.ld";
     ofstream o_max_rsq(max_rsq_file.data());
-    o_max_rsq<<"SNP freq max_rsq max_snp multi_rsq multi_rsq_adj"<<endl;
+    o_max_rsq<<"SNP freq max_rsq max_snp multi_rsq"<<endl;
     for (i = 0; i < m; i++){
-        if(max_rsq[i] > 0.0) o_max_rsq << _snp_name[_include[i]] << " " << 0.5 * _mu[_include[i]] << " " << max_rsq[i] << " " << _snp_name[_include[max_pos[i]]] << " " << multi_rsq[i] << " " <<multi_rsq_adj[i] << endl;
-        else o_max_rsq << _snp_name[_include[i]] << " " << 0.5 * _mu[_include[i]] << " NA NA NA NA" << endl;
+        if(max_rsq[i] > 0.0) o_max_rsq << _snp_name[_include[i]] << " " << 0.5 * _mu[_include[i]] << " " << max_rsq[i] << " " << _snp_name[_include[max_pos[i]]] << " " << multi_rsq[i] << endl;
+        else o_max_rsq << _snp_name[_include[i]] << " " << 0.5 * _mu[_include[i]] << " NA NA NA" << endl;
     }
     o_max_rsq << endl;
     cout << "Maximum LD rsq for " << m << " SNPs have been saved in the file [" + max_rsq_file + "]." << endl;    
 }
 
-void gcta::get_ld_blk_pnt_max_limit(vector<int> &brk_pnt1, vector<int> &brk_pnt2, vector<int> &brk_pnt3, int wind_bp, int wind_snp)
+void gcta::calcu_max_ld_rsq_block(eigenVector &multi_rsq, eigenVector &max_rsq, vector<int> &max_pos, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, double rsq_cutoff)
 {
-    unsigned long i = 0, j = 0, k = 0, m = _include.size();
-
-    brk_pnt1.clear();
-    brk_pnt1.push_back(0);
-    for (i = 1, j = 0; i < m; i++) {
-        if (i == (m - 1)) brk_pnt1.push_back(m - 1);
-        else if (_chr[_include[i]] != _chr[_include[brk_pnt1[j]]] || _bp[_include[i]] - _bp[_include[i-1]] > 1e6) {
-            brk_pnt1.push_back(i - 1);
-            j++;
-            brk_pnt1.push_back(i);
-            j++;
-        }
-        else if ((_bp[_include[i]] - _bp[_include[brk_pnt1[j]]] > wind_bp) || (i - brk_pnt1[j] >= wind_snp)) {
-            brk_pnt1.push_back(i - 1);
-            j++;
-            brk_pnt1.push_back(i);
-            j++;
-        }
-    }
-    stable_sort(brk_pnt1.begin(), brk_pnt1.end());
-    brk_pnt1.erase(unique(brk_pnt1.begin(), brk_pnt1.end()), brk_pnt1.end());
-
-    brk_pnt2.clear();
-    brk_pnt3.clear();
-    for (i = 1; i < brk_pnt1.size() && brk_pnt1.size() > 2; i++) {
-        if ((_chr[_include[brk_pnt1[i - 1]]] == _chr[_include[brk_pnt1[i]]]) && (brk_pnt1[i] - brk_pnt1[i - 1] > 1)) {
-            int i_buf = (brk_pnt1[i - 1] + brk_pnt1[i]) / 2;
-            brk_pnt2.push_back(i_buf);
-            brk_pnt2.push_back(i_buf + 1);
-            brk_pnt3.push_back(brk_pnt1[i]);
-            brk_pnt3.push_back(brk_pnt1[i]);
-        }
-    }
-}
-
-void gcta::calcu_max_ld_rsq_blk(eigenVector &multi_rsq, eigenVector &multi_rsq_adj, eigenVector &max_rsq, vector<int> &max_pos, vector<int> &brk_pnt, double rsq_cutoff, bool dominance_flag)
-{
-	int i = 0, j = 0, k = 0, n = _keep.size(), m = _include.size(), size = 0;
+    unsigned long i = 0, j = 0, k = 0, n = _keep.size(), m = _include.size(), size = 0;
+    double r_cutoff = sqrt(rsq_cutoff);
 
     for (i = 0; i < brk_pnt.size() - 1; i++)
     {
@@ -564,81 +517,35 @@ void gcta::calcu_max_ld_rsq_blk(eigenVector &multi_rsq, eigenVector &multi_rsq_a
         size = brk_pnt[i + 1] - brk_pnt[i] + 1;
         if (size < 3) continue;
 
-        // make genotype matrix
-        vector<int> snp_indx(size);
-        for (j = brk_pnt[i], k = 0; j <= brk_pnt[i + 1]; j++, k++) snp_indx[k] = j;
-        MatrixXf X_sub;
-        if(dominance_flag) make_XMat_d_subset(X_sub, snp_indx, true);
-        else make_XMat_subset(X_sub, snp_indx, true);
-        eigenVector ssx_sqrt_i_sub(size);
-        for (j = 0; j < size; j++){
-            ssx_sqrt_i_sub[j] = X_sub.col(j).squaredNorm();
-            if (ssx_sqrt_i_sub[j] < 1.0e-50) ssx_sqrt_i_sub[j] = 0.0;
-            else ssx_sqrt_i_sub[j] = 1.0 / sqrt(ssx_sqrt_i_sub[j]);
-        }
-
-        MatrixXf rsq_sub = X_sub.transpose() * X_sub;
+        MatrixXf rsq_sub(size, size);
+        rsq_sub = _geno.block(0,brk_pnt[i],n,size).transpose()*_geno.block(0,brk_pnt[i],n,size);
+        eigenVector ssx_sqrt_i_sub_sqrt = ssx_sqrt_i.segment(brk_pnt[i],size);
         #pragma omp parallel for private(k)
         for (j = 0; j < size; j++) {
             rsq_sub(j,j) = 1.0;
             for (k = j + 1; k < size; k++){
-                rsq_sub(j,k) *= (ssx_sqrt_i_sub[j] * ssx_sqrt_i_sub[k]);
+                rsq_sub(j,k) *= (ssx_sqrt_i_sub_sqrt[j] * ssx_sqrt_i_sub_sqrt[k]);
+                if(fabs(rsq_sub(j,k)) < r_cutoff) rsq_sub(j,k) = 0.0;
                 rsq_sub(k,j) = rsq_sub(j,k);
             }
         }
 
-        SelfAdjointEigenSolver<MatrixXf> pca(rsq_sub);
-
-                // debug
-       // ofstream tmp("tmp_R.txt");
-        //tmp<< rsq_sub.col(1998) << endl;
-
-
-        VectorXf d_i = pca.eigenvalues();
-        double eff_m = 0;
-        for(j = 0; j < size; j ++){
-        	if(d_i(j) < 0.0001) d_i(j) = 0.0;
-        	else{
-        		d_i(j) = 1.0 / d_i(j);
-        		eff_m++;
-        	}
-        }
+        SelfAdjointEigenSolver<MatrixXf> eigensolver(rsq_sub);       
+        VectorXf eval = eigensolver.eigenvalues();
+        double sum = eval.sum();
+        double eff_m = (sum*sum) / eval.squaredNorm();
 
         // debug
-        //ofstream tmp2("tmp_eval.txt");
-        //tmp2<<pca.eigenvalues()<< endl;
+        cout<<"eff_m = "<<eff_m<<endl;
 
-
-
-        // debug
-        cout << "size = " << size << "; eff_m = " << eff_m << endl;
-        MatrixXf R_i = pca.eigenvectors() * d_i.asDiagonal() * pca.eigenvectors().transpose();
-
-
-        //JacobiSVD<MatrixXf> svd;
-        /*svd.compute(rsq_sub, ComputeThinV);
-        VectorXf d_i = svd.singularValues();
-        double eff_m = 0;
-        for(j = 0; j < size; j ++){
-        	if(d_i(j) < 1e-6) d_i(j) = 0.0;
-        	else{
-        		d_i(j) = 1.0 / d_i(j);
-        		eff_m++;
-        	}
-        }
-
-        // debug
-        cout << "size = " << size << "; eff_m = " << eff_m << endl;
-
-        MatrixXf R_i = svd.matrixV() * d_i.asDiagonal() * svd.matrixV().transpose();*/
-        VectorXf Q_diag(size);
-        for(j = 0; j < size; j ++) Q_diag(j) = R_i.col(j).dot(rsq_sub.row(j).transpose());
         VectorXf multi_rsq_buf(size);
-    	for(j = 0; j < size; j ++){
-    		if(fabs(Q_diag[j] - 1.0) < 0.01) multi_rsq_buf[j] = 1.0 - 1.0 / R_i(j,j);
-    		else multi_rsq_buf[j] = 1.0;
-    	}
-        VectorXf multi_rsq_buf_adj = multi_rsq_buf.array() - (1.0 - multi_rsq_buf.array()) * (eff_m / ((double)n - eff_m - 1.0));
+        for(j = 0; j < size; j++){
+            VectorXf v_buf = eigensolver.eigenvectors().row(j).transpose();
+            multi_rsq_buf[j] = (v_buf.array()*v_buf.array()/eval.array()).sum();
+        }
+
+        multi_rsq_buf = 1.0 - 1.0 / multi_rsq_buf.array();
+        multi_rsq_buf = multi_rsq_buf.array() - (1.0 - multi_rsq_buf.array()) * (eff_m / ((double)n - eff_m - 1.0));
 
         rsq_sub.diagonal() = VectorXf::Zero(size);
         rsq_sub = rsq_sub.array() * rsq_sub.array();
@@ -652,16 +559,12 @@ void gcta::calcu_max_ld_rsq_blk(eigenVector &multi_rsq, eigenVector &multi_rsq_a
             if(multi_rsq_buf[j] < max_rsq_buf[j]) multi_rsq_buf[j] = max_rsq_buf[j];
         }
 
-/*      for(j = 0; j < size; j++){
+        for(j = 0; j < size; j++){
             if(multi_rsq_buf[j] > 1.0) multi_rsq_buf[j] = 1.0;
             if(max_rsq_buf[j] > 1.0) max_rsq_buf[j] = 1.0;
         }
-        */
         for (j = 0, k = brk_pnt[i]; j < size; j++, k++) {
-            if(multi_rsq_adj[k] <= multi_rsq_buf_adj[j]){
-            	multi_rsq[k] = multi_rsq_buf[j];
-            	multi_rsq_adj[k] = multi_rsq_buf_adj[j];
-            }
+            if(multi_rsq[k] <= multi_rsq_buf[j]) multi_rsq[k] = multi_rsq_buf[j];
             if(max_rsq[k] < max_rsq_buf[j]){
                 max_rsq[k] = max_rsq_buf[j];
                 max_pos[k] = max_pos_buf[j] + brk_pnt[i];

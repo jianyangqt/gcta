@@ -16,27 +16,18 @@
 #include "CommFunc.h"
 #include "StrFunc.h"
 #include "StatFunc.h"
-#include "eigen_func.h"
 #include <fstream>
 #include <iomanip>
 #include <bitset>
 #include <map>
 //#include <random>
 #include "zfstream.h"
-<<<<<<< HEAD
-=======
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
-#include <unsupported/Eigen/SparseExtra>
-#include <unsupported/Eigen/IterativeSolvers>
->>>>>>> 2284d5707771234ac2964ed9d38502a833e311f4
 #include <omp.h>
 #include <mkl_cblas.h>
 #include <mkl_lapack.h>
 #include "SimplexSolver.h"
-//#include "GlobalVarb.h"
+#include "GlobalVarb.h"
 
-using namespace Eigen;
 using namespace std;
 
 class gcta {
@@ -72,7 +63,7 @@ public:
     void read_indi_blup(string blup_indi_file);
     void save_XMat(bool miss_with_mu);
 
-    void make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, bool mlmassoc, int ldwt_mtd, string i_ld_file, double ldwt_wind, double ldwt_seg, double ldwt_rsq_cutoff, bool diag_f3_flag);
+    void make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, bool mlmassoc, int ldwt_mtd, string i_ld_file, double ldwt_wind, double ldwt_rsq_cutoff, bool diag_f3_flag);
     void make_grm_pca(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, double wind_size, bool mlmassoc);
     void save_grm(string grm_file, string keep_indi_file, string remove_indi_file, string sex_file, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool merge_grm_flag, bool output_grm_bin);
     void pca(string grm_file, string keep_indi_file, string remove_indi_file, double grm_cutoff, bool merge_grm_flag, int out_pc_num);
@@ -172,8 +163,6 @@ private:
     void makex_eigenVector(int j, eigenVector &x, bool resize = true, bool minus_2p = false);
     //void make_XMat_eigenMatrix(MatrixXf &X);
     bool make_XMat_subset(MatrixXf &X, vector<int> &snp_indx, bool divid_by_std);
-    bool make_XMat_d_subset(MatrixXf &X, vector<int> &snp_indx, bool divid_by_std);
-
 
     void calcu_mu(bool ssq_flag = false);
     void calcu_maf();
@@ -253,12 +242,11 @@ private:
     void EstLD(vector<int> &smpl, double wind_size, vector< vector<string> > &snp, vector< vector<double> > &r, vector<double> &r2, vector<double> &md_r2, vector<double> &max_r2, vector<string> &max_r2_snp, vector<double> &dL, vector<double> &dR, vector<int> &K, vector<string> &L_SNP, vector<string> &R_SNP, double alpha, bool IncldQ);
     eigenMatrix reg(vector<double> &y, vector<double> &x, vector<double> &rst, bool table = false);
     void rm_cor_snp(int m, int start, float *rsq, double rsq_cutoff, vector<int> &rm_snp_ID1);
-    void get_ld_blk_pnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, vector<int> &brk_pnt3, int wind_bp, int wind_snp = 0);
-    void get_ld_blk_pnt_max_limit(vector<int> &brk_pnt1, vector<int> &brk_pnt2, vector<int> &brk_pnt3, int wind_bp, int wind_snp);
-    void calcu_ld_blk(vector<int> &brk_pnt, vector<int> &brk_pnt3, eigenVector &mean_rsq, eigenVector &snp_num, eigenVector &max_rsq, bool second, double rsq_cutoff, bool dominance_flag = false);
-    void calcu_ld_blk_split(int size, int size_limit, MatrixXf &X_sub, eigenVector &ssx_sqrt_i_sub, double rsq_cutoff, eigenVector &rsq_size, eigenVector &mean_rsq_sub, eigenVector &max_rsq_sub, int s1, int s2, bool second);
+    void get_ld_blk_pnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, vector<int> &brk_pnt3, int wind_size);
+    void calcu_ld_blk(eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, vector<int> &brk_pnt3, eigenVector &mean_rsq, eigenVector &snp_num, eigenVector &max_rsq, bool second, double rsq_cutoff);
+    void calcu_ld_blk_split(int size, int size_limit, int s_pnt, eigenVector &ssx_sqrt_i_sub, double rsq_cutoff, eigenVector &rsq_size, eigenVector &mean_rsq_sub, eigenVector &max_rsq_sub, int s1, int s2, bool second);
     void calcu_ssx_sqrt_i(eigenVector &ssx_sqrt_i);
-    void calcu_max_ld_rsq_blk(eigenVector &multi_rsq, eigenVector &multi_rsq_adj, eigenVector &max_rsq, vector<int> &max_pos, vector<int> &brk_pnt, double rsq_cutoff, bool dominance_flag);
+    void calcu_max_ld_rsq_block(eigenVector &multi_rsq, eigenVector &max_rsq, vector<int> &max_pos, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, double rsq_cutoff);
     bool bending_eigenval_Xf(VectorXf &eval);
 
     // Joint analysis of GWAS MA results
@@ -308,21 +296,20 @@ private:
     void mlma_calcu_stat_covar(float *y, float *geno_mkl, unsigned long n, unsigned long m, eigenVector &beta, eigenVector &se, eigenVector &pval);
     void grm_minus_grm(float *grm, float *sub_grm);
 
-    // weighting GRM: ldwt_wind = window size for mean LD calculation; ld_seg = block size;
-    void calcu_ld_blk_ldwt(eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, vector<int> &brk_pnt3, eigenVector &mean_rsq, eigenVector &snp_num, eigenVector &max_rsq, bool second, double rsq_cutoff, bool adj);
-    void calcu_ld_blk_split_ldwt(int size, int size_limit, int s_pnt, eigenVector &ssx_sqrt_i_sub, double rsq_cutoff, eigenVector &rsq_size, eigenVector &mean_rsq_sub, eigenVector &max_rsq_sub, int s1, int s2, bool second, bool adj);
-    void calcu_lds(string i_ld_file, eigenVector &wt, int ldwt_wind, int ldwt_seg, double rsq_cutoff);
-    void get_lds_brkpnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, int ldwt_seg, int wind_snp_num=0);
-    void calcu_ldak(eigenVector &wt, int ldwt_seg, double rsq_cutoff);
-    void calcu_ldak_blk(eigenVector &wt, eigenVector &sum_rsq, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, bool second, double rsq_cutoff);
+    // weighting GRM
+    //void calcu_rsq_BlkDiagMat(float *X, vector<double> &sd_SNP, vector<int> &brk_pnt, eigenVector &wt, eigenVector &snp_num, double wt_ld_cut, bool average, int mtd);
+    //void wt_geno_ld_mb(string meanld_file, eigenVector &wt, eigenVector &snp_num, int ttl_snp_num, int mtd);
+    void calcu_lds(eigenVector &wt, int wind_size);
+    void get_lds_brkpnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, int wind_size);
+    void calcu_lds_blk(eigenVector &wt, eigenVector &log_maf, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, bool second);
+    void calcu_ldak(eigenVector &wt, int wind_size, double rsq_cutoff);
+    void calcu_ldak_blk(eigenVector &wt, eigenVector &ssx_sqrt_i, vector<int> &brk_pnt, bool second, double rsq_cutoff);
     void calcu_ldwt(string i_ld_file, eigenVector &wt, int wind_size, double rsq_cutoff);
-    void read_mrsq_mb(string i_ld_file, vector<float> &seq, vector<double> &mrsq_mb, eigenVector &wt, eigenVector &snp_m);
+    void read_mrsq_mb(string i_ld_file, vector<float> &seq, vector<double> &mrsq_mb, vector<double> &min_wt_mb, vector<double> &max_wt_mb, eigenVector &wt, eigenVector &snp_m);
     void adj_wt_4_maf(eigenVector &wt);
-    void cal_sum_rsq_mb(eigenVector &sum_rsq_mb);
     void col_std(MatrixXf &X);
     void assign_snp_2_mb(vector<float> &seq, vector< vector<int> > &maf_bin_pos, int mb_num);
-    void make_grm_pca_blk(vector<int> & maf_bin_pos_i, int ldwt_seg, double &trace);
-    void glpk_simplex_solver(MatrixXf &rsq, eigenVector &mrsq, eigenVector &wt, int maxiter);
+    void make_grm_pca_blk(vector<int> & maf_bin_pos_i, int wind_size, double &trace);
 
     // gene based association test
     void sbat_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, vector<int> &snp_chr, vector<int> &snp_bp, vector<double> &snp_pval);
