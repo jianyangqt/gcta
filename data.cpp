@@ -1395,48 +1395,6 @@ bool gcta::make_XMat_d(MatrixXf &X)
     return have_mis;
 }
 
-/*
-void gcta::make_XMat(MatrixXf &X, bool miss_with_mu)
-{
-    if (_mu.empty() && miss_with_mu) calcu_mu();
-
-    cout << "Recoding genotypes (individual major mode) ..." << endl;
-    int i = 0, j = 0, n = _keep.size, m = _include.size();
-    X.resize(0,0);
-    X.resize(n, m);
-
-    for (i = 0; i < n; i++) {
-        bool need2fill = false;
-        if (_dosage_flag) {
-            for (j = 0; j < m; j++) {
-                if (_geno_dose[_keep[i]][_include[j]] < 1e5) {
-                    if (_allele1[_include[j]] == _ref_A[_include[j]]) X[i][j] = _geno_dose[_keep[i]][_include[j]];
-                    else X[i][j] = 2.0 - _geno_dose[_keep[i]][_include[j]];
-                } else {
-                    X[i][j] = 1e6;
-                    need2fill = true;
-                }
-            }
-            _geno_dose[i].clear();
-        } else {
-            for (j = 0; j < m; j++) {
-                if (!_snp_1[_include[j]][_keep[i]] || _snp_2[_include[j]][_keep[i]]) {
-                    if (_allele1[_include[j]] == _ref_A[_include[j]]) X[i][j] = _snp_1[_include[j]][_keep[i]] + _snp_2[_include[j]][_keep[i]];
-                    else X[i][j] = 2.0 - (_snp_1[_include[j]][_keep[i]] + _snp_2[_include[j]][_keep[i]]);
-                } else {
-                    X[i][j] = 1e6;
-                    need2fill = true;
-                }
-            }
-        }
-        // Fill the missing genotype with the mean of x (2p)
-        for (j = 0; j < m && miss_with_mu && need2fill; j++) {
-            if (X[i][j] > 1e5) X[i][j] = _mu[_include[j]];
-        }
-    }
-}
-*/
-
 void gcta::std_XMat(MatrixXf &X, eigenVector &sd_SNP, bool grm_xchr_flag, bool miss_with_mu, bool divid_by_std)
 {
     if (_mu.empty()) calcu_mu();
@@ -1527,90 +1485,6 @@ void gcta::std_XMat_d(MatrixXf &X, eigenVector &sd_SNP, bool miss_with_mu, bool 
     }
 }
 
-/*
-void gcta::std_XMat(vector< vector<float> > &X, vector<double> &sd_SNP, bool grm_xchr_flag, bool divid_by_std)
-{
-    if (_mu.empty()) calcu_mu();
-
-    int i = 0, j = 0;
-    sd_SNP.clear();
-    sd_SNP.resize(_include.size()); // SD of each SNP, sqrt(2pq)
-    if (_dosage_flag) {
-        for (j = 0; j < _include.size(); j++) {
-            for (i = 0; i < _keep.size(); i++) sd_SNP[j] += (X[i][j] - _mu[_include[j]])*(X[i][j] - _mu[_include[j]]);
-            sd_SNP[j] /= (_keep.size() - 1.0);
-        }
-    } else {
-        for (j = 0; j < _include.size(); j++) sd_SNP[j] = _mu[_include[j]]*(1.0 - 0.5 * _mu[_include[j]]);
-    }
-    for (j = 0; j < _include.size(); j++) {
-        if (fabs(sd_SNP[j]) < 1.0e-50) sd_SNP[j] = 0.0;
-        else sd_SNP[j] = sqrt(1.0 / sd_SNP[j]);
-    }
-    for (i = 0; i < _keep.size(); i++) {
-        for (j = 0; j < _include.size(); j++) {
-            if (X[i][j] < 1e5) {
-                X[i][j] -= _mu[_include[j]];
-                if (divid_by_std) X[i][j] *= sd_SNP[j];
-            }
-        }
-    }
-
-    if (!grm_xchr_flag) return;
-    // for the X-chromosome
-    check_sex();
-    double f_buf = sqrt(0.5);
-    for (i = 0; i < _keep.size(); i++) {
-        if (_sex[_keep[i]] == 1) {
-            for (j = 0; j < _include.size(); j++) {
-                if (X[i][j] < 1e5) X[i][j] *= f_buf;
-            }
-        }
-    }
-}
-*/
-
-// SNP mode: each vector is the genotype of a SNP with all of individuals
-/*
-void gcta::make_XMat_SNPs(vector< vector<float> > &X, bool miss_with_mu) {
-    if (_mu.empty() && miss_with_mu) calcu_mu();
-
-    cout << "Recoding genotypes (SNP major mode) ..." << endl;
-    int i = 0, j = 0;
-    X.clear();
-    X.resize(_include.size());
-    for (i = 0; i < _include.size(); i++) X[i].resize(_keep.size());
-    for (i = 0; i < _keep.size(); i++) {
-        bool need2fill = false;
-        if (_dosage_flag) {
-            for (j = 0; j < _include.size(); j++) {
-                if (_geno_dose[_keep[i]][_include[j]] < 1e5) {
-                    if (_allele1[_include[j]] == _ref_A[_include[j]]) X[j][i] = _geno_dose[_keep[i]][_include[j]];
-                    else X[j][i] = 2.0 - _geno_dose[_keep[i]][_include[j]];
-                } else {
-                    X[j][i] = 1e6;
-                    need2fill = true;
-                }
-            }
-            _geno_dose[i].clear();
-        } else {
-            for (j = 0; j < _include.size(); j++) {
-                if (!_snp_1[_include[j]][_keep[i]] || _snp_2[_include[j]][_keep[i]]) {
-                    if (_allele1[_include[j]] == _ref_A[_include[j]]) X[j][i] = (_snp_1[_include[j]][_keep[i]] + _snp_2[_include[j]][_keep[i]]);
-                    else X[j][i] = 2.0 - (_snp_1[_include[j]][_keep[i]] + _snp_2[_include[j]][_keep[i]]);
-                } else {
-                    X[j][i] = 1e6;
-                    need2fill = true;
-                }
-            }
-        }
-        // Fill the missing genotype with the mean of x (2p)
-        for (j = 0; j < _include.size() && miss_with_mu && need2fill; j++) {
-            if (X[j][i] > 1e5) X[j][i] = _mu[_include[j]];
-        }
-    }
-}
-*/
 
 void gcta::makex_eigenVector(int j, eigenVector &x, bool resize, bool minus_2p)
 {
@@ -1624,38 +1498,6 @@ void gcta::makex_eigenVector(int j, eigenVector &x, bool resize, bool minus_2p)
         if (minus_2p) x[i] -= _mu[_include[j]];
     }
 }
-
-/*
-void gcta::make_XMat_eigenMatrix(MatrixXf &X)
-{
-    if (_mu.empty()) calcu_mu();
-
-    cout << "Recoding genotypes (individual major mode) ..." << endl;
-    int i = 0, j = 0, k = 0, n = _keep.size(), m = _include.size();
-
-    X.resize(n, m);
-    #pragma omp parallel for private(j)
-    for (i = 0; i < n; i++) {
-        if (_dosage_flag) {
-            for (j = 0; j < m; j++) {
-                if (_geno_dose[_keep[i]][_include[j]] < 1e5) {
-                    if (_allele1[_include[j]] == _ref_A[_include[j]]) X(i,j) = _geno_dose[_keep[i]][_include[j]];
-                    else X(i,j) = 2.0 - _geno_dose[_keep[i]][_include[j]];
-                } else X(i,j) = 1e6;
-            }
-            _geno_dose[i].clear();
-        }
-        else {
-            for (j = 0; j < _include.size(); j++) {
-                if (!_snp_1[_include[j]][_keep[i]] || _snp_2[_include[j]][_keep[i]]) {
-                    if (_allele1[_include[j]] == _ref_A[_include[j]]) X(i,j) = _snp_1[_include[j]][_keep[i]] + _snp_2[_include[j]][_keep[i]];
-                    else X(i,j) = 2.0 - (_snp_1[_include[j]][_keep[i]] + _snp_2[_include[j]][_keep[i]]);
-                } else X(i,j) = 1e6;
-            }
-        }
-    }
-}
-*/
 
 void gcta::save_XMat(bool miss_with_mu) {
     if (miss_with_mu && _mu.empty()) calcu_mu();
@@ -1702,7 +1544,6 @@ void gcta::save_XMat(bool miss_with_mu) {
     cout << "The recoded genotype matrix has been saved in the file [" + X_zFile + "] (in compressed text format)." << endl;
 }
 
-// subtract the mean
 bool gcta::make_XMat_subset(MatrixXf &X, vector<int> &snp_indx, bool divid_by_std)
 {
     if(snp_indx.empty()) return false;
@@ -1731,6 +1572,44 @@ bool gcta::make_XMat_subset(MatrixXf &X, vector<int> &snp_indx, bool divid_by_st
             sd_SNP[j] = _mu[k]*(1.0 - 0.5 * _mu[k]);
             if (fabs(sd_SNP[j]) < 1.0e-50) sd_SNP[j] = 0.0;
             else sd_SNP[j] = sqrt(1.0 / sd_SNP[j]);
+        } 
+        for (j = 0; j < m; j++) X.col(j) = X.col(j).array() * sd_SNP[j];
+    }
+
+    return true;
+}
+
+bool gcta::make_XMat_d_subset(MatrixXf &X, vector<int> &snp_indx, bool divid_by_std)
+{
+    if(snp_indx.empty()) return false;
+    if (_mu.empty()) calcu_mu();
+
+    int i = 0, j = 0, k = 0, n = _keep.size(), m = snp_indx.size();
+
+    X.resize(n, m);
+    #pragma omp parallel for private(j, k)
+    for (i = 0; i < n; i++) {
+        for (j = 0; j < m; j++) {
+            k = _include[snp_indx[j]];
+            if (!_snp_1[k][_keep[i]] || _snp_2[k][_keep[i]]) {
+                if (_allele1[k] == _ref_A[k]) X(i,j) = _snp_1[k][_keep[i]] + _snp_2[k][_keep[i]];
+                else X(i,j) = 2.0 - (_snp_1[k][_keep[i]] + _snp_2[k][_keep[i]]);
+                if (X(i,j) < 0.5) X(i,j) = 0.0;
+                else if (X(i,j) < 1.5) X(i,j) = _mu[k];
+                else X(i,j) = (2.0 * _mu[k] - 2.0);
+                X(i,j) -= 0.5 * _mu[k] * _mu[k];
+            } 
+            else X(i,j) = 0.0;
+        }
+    }
+
+    if(divid_by_std){
+        vector<double> sd_SNP(m);
+        for (j = 0; j < m; j++){
+            k = _include[snp_indx[j]];
+            sd_SNP[j] = _mu[k]*(1.0 - 0.5 * _mu[k]);
+            if (fabs(sd_SNP[j]) < 1.0e-50) sd_SNP[j] = 0.0;
+            else sd_SNP[j] = 1.0 / sd_SNP[j];
         } 
         for (j = 0; j < m; j++) X.col(j) = X.col(j).array() * sd_SNP[j];
     }

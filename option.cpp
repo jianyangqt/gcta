@@ -17,6 +17,52 @@ void option(int option_num, char* option_str[]);
 
 int main(int argc, char* argv[])
 {
+
+/*
+    MatrixXf a(3, 3);
+    a << 1, 0.12, -0.34, 0.12, 1, 0.54, -0.34, 0.54, 1;
+    SelfAdjointEigenSolver<MatrixXf> eigen(a);
+    cout<< "eigenvec = " << eigen.eigenvectors() << endl;
+    cout<< "eigenval = " << eigen.eigenvalues().transpose() << endl;
+
+
+    int size = 3, n = 100;
+    int j = 0;
+            JacobiSVD<MatrixXf> svd;
+        svd.compute(a, ComputeThinV);
+
+    cout<< "u = " << svd.matrixU() << endl;
+    cout<< "v = " << svd.matrixV() << endl;
+    cout<< "d = " << svd.singularValues().transpose() << endl;
+
+        VectorXf d_i = svd.singularValues();
+        double eff_m = 0;
+        for(j = 0; j < size; j ++){
+            if(d_i[j] < 1e-6) d_i[j] = 0.0;
+            else{
+                d_i[j] = 1.0 / d_i[j];
+                eff_m++;
+            }
+        }
+        MatrixXf R_i = svd.matrixV() * d_i.asDiagonal() * svd.matrixV().transpose();
+
+        cout<< "R_ i:\n" << R_i << endl;
+
+        VectorXf Q_diag(size);
+        for(j = 0; j < size; j ++) Q_diag(j) = R_i.col(j).dot(a.row(j).transpose());
+
+            cout<< "Q_diag = " << Q_diag.transpose() << endl;
+
+        VectorXf multi_rsq_buf(size);
+        for(j = 0; j < size; j ++){
+            if(fabs(Q_diag[j] - 1.0) < 0.001) multi_rsq_buf[j] = 1.0 - 1.0 / R_i(j,j);
+            else multi_rsq_buf[j] = 1.0;
+        }
+        VectorXf multi_rsq_buf_adj = multi_rsq_buf.array() - (1.0 - multi_rsq_buf.array()) * (eff_m / ((double)n - eff_m - 1.0));
+        cout<< " multi_rsq_buf = " << multi_rsq_buf.transpose() << endl;
+        cout<< " multi_rsq_buf_adj = " << multi_rsq_buf_adj.transpose() << endl;
+*/
+
     cout << "*******************************************************************" << endl;
     cout << "* Genome-wide Complex Trait Analysis (GCTA)" << endl;
     cout << "* version 1.24.5" << endl;
@@ -67,7 +113,7 @@ void option(int option_num, char* option_str[])
     // GRM
     bool ibc = false, ibc_all = false, grm_flag = false, grm_bin_flag = true, m_grm_flag = false, m_grm_bin_flag = true, make_grm_flag = false, make_grm_inbred_flag = false, dominance_flag = false, make_grm_xchar_flag = false, grm_out_bin_flag = true, make_grm_ldwt_flag = false, make_grm_wt_impRsq_flag = false, make_grm_f3_flag = false;
     bool grm_pca_flag = false, pca_flag = false;
-    double grm_adj_fac = -2.0, grm_cutoff = -2.0, rm_high_ld_cutoff = -1.0, ldwt_wind = 2e5;
+    double grm_adj_fac = -2.0, grm_cutoff = -2.0, rm_high_ld_cutoff = -1.0, ldwt_seg = 2e5;
     int dosage_compen = -2, out_pc_num = 20, make_grm_mtd = 0, make_grm_ldwt_mtd = -1, ttl_snp_num = -1;
     string grm_file = "", paa_file = "";
 
@@ -323,18 +369,18 @@ void option(int option_num, char* option_str[])
             thread_flag = true;
             i++;
             if (strcmp(argv[i], "gcta") == 0 || strncmp(argv[i], "--", 2) == 0) {
-                ldwt_wind = 200;
+                ldwt_seg = 200;
                 i--;
-            } else ldwt_wind = atoi(argv[i]);
-            cout << "--make-grm-ld " << ldwt_wind << endl;
-            if (ldwt_wind < 0 || ldwt_wind > 20000) throw ("\nError: block size for --make-grm-ld should be between 0Kb to 20Mb.\n");
-            ldwt_wind *= 1000;
+            } else ldwt_seg = atoi(argv[i]);
+            cout << "--make-grm-ld " << ldwt_seg << endl;
+            if (ldwt_seg < 0 || ldwt_seg > 20000) throw ("\nError: block size for --make-grm-ld should be between 0Kb to 20Mb.\n");
+            ldwt_seg *= 1000;
         } else if (strcmp(argv[i], "--make-grm-ld-alg") == 0) {
             make_grm_flag = true;
             make_grm_ldwt_flag = true;
             make_grm_ldwt_mtd = atoi(argv[++i]);
             cout << "--make-grm-ld-alg " << make_grm_ldwt_mtd << endl;
-            if (make_grm_ldwt_mtd < 0 || make_grm_ldwt_mtd > 2) throw ("\nError: --make-grm-ld-alg should be 0 or 2.\n");
+            if (make_grm_ldwt_mtd < 0 || make_grm_ldwt_mtd > 10) throw ("\nError: --make-grm-ld-alg should be 0 or 10.\n");
         } else if (strcmp(argv[i], "--make-grm-d") == 0 || strcmp(argv[i], "--make-grm-d-bin") == 0) {
             make_grm_flag = true;
             dominance_flag = true;
@@ -997,8 +1043,8 @@ void option(int option_num, char* option_str[])
             else if (!paa_file.empty()) pter_gcta->paa(paa_file);
             else if (ibc) pter_gcta->ibc(ibc_all);
             else if (make_grm_flag){
-                if(make_grm_ldwt_mtd == 2) pter_gcta->make_grm_pca(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, ldwt_wind, false);
-                else pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_ldwt_mtd, i_ld_file, ldwt_wind, LD_rsq_cutoff, make_grm_f3_flag);
+                if(make_grm_ldwt_mtd == 3) pter_gcta->make_grm_pca(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, LD_wind, false);
+                else pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_ldwt_mtd, i_ld_file, LD_wind, ldwt_seg, LD_rsq_cutoff, make_grm_f3_flag);
             }
             else if (recode || recode_nomiss) pter_gcta->save_XMat(recode_nomiss);
             else if (LD) pter_gcta->LD_Blocks(LD_step, LD_wind, LD_sig, LD_i, save_ram);
@@ -1041,8 +1087,8 @@ void option(int option_num, char* option_str[])
         if (max_maf > 0.0) pter_gcta->filter_snp_max_maf(max_maf);
         if (out_freq_flag) pter_gcta->save_freq(out_ssq_flag);
         else if (make_grm_flag){
-            if(make_grm_ldwt_mtd == 2) pter_gcta->make_grm_pca(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, ldwt_wind, false);
-            else pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_ldwt_mtd, i_ld_file, ldwt_wind, LD_rsq_cutoff, make_grm_f3_flag);
+            if(make_grm_ldwt_mtd == 3) pter_gcta->make_grm_pca(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, LD_wind, false);
+            else pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_ldwt_mtd, i_ld_file, LD_wind, ldwt_seg, LD_rsq_cutoff, make_grm_f3_flag);
         }
         else if (recode || recode_nomiss) pter_gcta->save_XMat(recode_nomiss);
         else if (LD_prune_rsq>-1.0) pter_gcta->LD_pruning_mkl(LD_prune_rsq, LD_wind);

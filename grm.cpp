@@ -34,7 +34,7 @@ void gcta::check_sex() {
     }
 }
 
-void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, bool mlmassoc, int ldwt_mtd, string i_ld_file, double ldwt_wind, double ldwt_rsq_cutoff, bool diag_f3_flag)
+void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, bool mlmassoc, int ldwt_mtd, string i_ld_file, double ldwt_wind, double ldwt_seg, double ldwt_rsq_cutoff, bool diag_f3_flag)
 {
     bool ldwt_flag = false, have_mis = false;
     if(ldwt_mtd > -1) ldwt_flag = true;
@@ -85,9 +85,9 @@ void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool outpu
     vector<int> neg;
     if (ldwt_flag) {
         //cout<<"Weighting the genotype based on LD ..."<<endl;
-        if (ldwt_mtd == 0) calcu_lds(wt, ldwt_wind);
-        else if(ldwt_mtd == 1) calcu_ldak(wt, ldwt_wind, ldwt_rsq_cutoff);
-        //adj_wt_4_maf(wt); // adjusting for systematic bias in weight due to MAF
+        if (ldwt_mtd == 0) calcu_lds(i_ld_file, wt, ldwt_wind, ldwt_seg, ldwt_rsq_cutoff);
+        else if(ldwt_mtd == 1) calcu_ldak(wt, ldwt_seg, ldwt_rsq_cutoff);
+        else if(ldwt_mtd == 2) calcu_ldwt(i_ld_file, wt, ldwt_wind, ldwt_rsq_cutoff);
         for(j = 0; j < m; j++){
             if(wt(j)<0.0) neg.push_back(j);
         }
@@ -95,8 +95,8 @@ void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool outpu
     } 
 
     // debug
-    cout<<"neg size = "<<neg.size()<<endl;
-    cout<<"wt.sum = "<<wt.sum()<<endl;
+    //cout<<"neg size = "<<neg.size()<<endl;
+    //cout<<"wt.sum = "<<wt.sum()<<endl;
 
     // Calculate A_N matrix
     if(have_mis){
@@ -158,11 +158,14 @@ void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool outpu
     if (denominator < 0.0) throw ("Error: the sum of the weights is negative!");
     _grm_N = _grm_N.array() * denominator; 
 
-    #ifdef SINGLE_PRECISION
-    _grm = _grm.array() / _grm_N.array(); 
-    #else
-    _grm = _grm.array() / _grm_N.cast<double>().array();
-    #endif
+    #pragma omp parallel for private(j)
+    for (i = 0; i < n; i++) {
+        for (j = 0; j <= i; j++) {
+            if(_grm_N(i,j) > 0) _grm(i,j) /= _grm_N(i,j);
+            else _grm(i,j) = 0.0;
+            _grm(j,i) = _grm(i,j);
+        }
+    }
 
     // debug
     calcu_grm_var(diag_m, diag_v, off_m, off_v);
@@ -170,27 +173,6 @@ void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool outpu
     cout<<"Variance of diagonals = "<<diag_v<<endl;
     cout<<"Mean of off-diagonals = " << off_m <<endl;
     cout<<"Variance of off-diagonals = " << off_v <<endl;
-
-/*    if (ldwt_flag) {
-
-
-        double diag_m_wt = 0.0, diag_v_wt = 0.0, off_m_wt = 0.0, off_v_wt = 0.0;
-        calcu_grm_var(diag_m_wt, diag_v_wt, off_m_wt, off_v_wt);
-
-    // debug
-    cout<<"\ngrm diagonals mean = "<<diag_m_wt<<endl;
-    cout<<"grm diagonals variance = "<<diag_v_wt<<endl;
-    cout<<"grm off-diag mean = " << off_m_wt <<endl;
-    cout<<"grm off-diag variance = " << off_v_wt <<endl;
-
-
-        eigenVector diag_new = (_grm.diagonal().array() - diag_m_wt) * sqrt(diag_v / diag_v_wt) + diag_m;
-        _grm = (_grm.array() - off_m_wt) * sqrt(off_v / off_v_wt) + off_m;
-        _grm.diagonal() = diag_new;
-
-    }
-
-    */ 
 
     // re-calcuate the diagonals (Fhat3+1)
     if (diag_f3_flag) {
