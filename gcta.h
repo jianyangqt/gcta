@@ -497,12 +497,6 @@ private:
     eigenMatrix _ecojo_wholeR;
     double _ecojo_p_cutoff;
     double _ecojo_collinear;
-    
-    // missing vaule
-    vector<missValue> _miss_row;
-    int *_miss_row_indx;
-    vector<missValue> _miss_col;
-    int *_miss_col_indx;
 };
 
 class locus_bp {

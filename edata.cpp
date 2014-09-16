@@ -14,7 +14,7 @@
 #include "CommFunc.h"
 
 // local function without declaration
-eigenMatrix init_X(eigenMatrix &X, vector<int> keep, vector<int> include) {
+eigenMatrix init_X(eigenMatrix X, vector<int> keep, vector<int> include) {
     eigenMatrix xbuf ( X );
     int i=0, j=0;
     int nrow = keep.size(), ncol = include.size();
@@ -27,51 +27,43 @@ eigenMatrix init_X(eigenMatrix &X, vector<int> keep, vector<int> include) {
     }
     return X;
 }
-eigenVector est_geno_mean(eigenMatrix geno_data, int *miss_indx, vector<missValue> miss_vale_pos, int mean_center) {
-    int i=0, ncol=geno_data.cols();
+
+eigenVector est_geno_mean(eigenMatrix geno_data, VectorXi nonmiss, int mean_center) {
+    int i=0, ncol=geno_data.cols(), nrow=geno_data.rows();
     eigenVector geno_mu(ncol), genobuf(ncol);
     
     if(mean_center) geno_mu.setZero();
     else {
-        for( i=0; i<ncol; i++) {
-            genobuf = geno_data.col(i);
-            geno_mu(i) = CommFunc::eigenMean(genobuf, miss_indx[i], miss_vale_pos[miss_indx[i]]);
-        }
+        for( i=0; i<ncol; i++)
+            geno_mu(i) = CommFunc::eigenMean(geno_data.col(i).array(), nonmiss(i));
     }
+    
     return geno_mu;
 }
 
-eigenVector est_geno_var(eigenMatrix geno_data, int *miss_indx, vector<missValue> miss_vale_pos, int var_center) {
-    int i=0, indxbuf =0, nmiss=0;
+eigenVector est_geno_var(eigenMatrix geno_data, eigenVector geno_mu, VectorXi nonmiss, int var_center) {
+    int i=0, indxbuf =0;
     int nrow = geno_data.rows(), ncol=geno_data.cols();
     double dbuf=0.0;
-    eigenVector genobuf, geno_var;
+    eigenVector geno_var;
     
     // var_center: 0 - method 2, 1 - method 1, 2 - method 3,
     if(!var_center) {
         // method 2
         geno_var.resize(ncol);
         for(i=0; i<ncol; i++) {
-            genobuf = geno_data.col(i);
-            indxbuf = miss_indx[i];
-            dbuf = CommFunc::eigenSd(genobuf, indxbuf, miss_vale_pos[indxbuf]);
-            dbuf = pow(dbuf, 2);
-            geno_var(i) = dbuf;
+            dbuf = CommFunc::eigenSd(geno_data.col(i).array(), geno_mu(i), nonmiss(i));
+            geno_var(i) = pow(dbuf, 2);
         }
     } else if( var_center == 1 ) {
         // method 1
-        geno_var.resize(ncol);
-        for( i=0; i<ncol; i++) geno_var(i) = 1;
+        geno_var.setOnes(ncol);
     } else {
         // method 3
         geno_var.resize(nrow);
         for( i=0; i<nrow; i++) {
-            genobuf = geno_data.row(i);
-            indxbuf = miss_indx[i];
-            dbuf = CommFunc::eigenSd(genobuf, indxbuf, miss_vale_pos[indxbuf]);
-            nmiss = indxbuf ? miss_vale_pos[indxbuf].num : 0;
-            dbuf = pow(dbuf, 2);
-            geno_var(i) = dbuf*(ncol-nmiss-1);
+            dbuf = CommFunc::eigenSd(geno_data.row(i).array(), geno_mu(i), nonmiss(i));
+            geno_var(i) = pow(dbuf, 2) * (double)(nonmiss(i)-1);
         }
     }
     return geno_var;
@@ -218,84 +210,66 @@ void gcta::make_erm(int erm_mtd, int erm_indi, bool output_bin)
     }
     // initialize the X
     _probe_data = init_X(_probe_data, _keep, _e_include);
+    
+    X_bool.setOnes(n,m);
     // get the missing value
-    X_bool = CommFunc::find_missing_X(_probe_data);
-    // initialize the positions of miss value
-    _miss_row_indx = CommFunc::find_missing_pos(X_bool, _miss_row_indx, _miss_row, true);
-    _miss_col_indx = CommFunc::find_missing_pos(X_bool, _miss_col_indx, _miss_col);
+    for( i =0; i<n; i++) {
+        for( j=0; j<m; j++) {
+            if(_probe_data(i, j) > 1e9) X_bool(i,j) = 0;
+        }
+    }
+    
+    // count the missing value in each row and column
+    VectorXi nonmiss_row =X_bool.rowwise().sum();
+    VectorXi nonmiss_col = X_bool.colwise().sum();
+    
     // pre-normalise the matrix
-    // method 1: standise the x to w
-    if(!erm_mtd) _probe_data = CommFunc::scale(_probe_data, _miss_col_indx, _miss_col);
-    // method 3: xij - meanj
-    else if(erm_mtd==2) _probe_data = CommFunc::scale(_probe_data, _miss_row_indx, _miss_row, true,  true);
     // --make-erm-indi: re-scale the individual-wised value
     if(erm_indi) {
-        _probe_data = CommFunc::scale(_probe_data, _miss_row_indx, _miss_row, true);
-        mean_center = var_center = 0;
+        _probe_data = CommFunc::scale(_probe_data, nonmiss_row, true);
     }
+    // method 1: standise the x to w
+   if(!erm_mtd) _probe_data = CommFunc::scale(_probe_data, nonmiss_col);
+    // method 3: xij - meanj
+    else if(erm_mtd==2) _probe_data = CommFunc::scale(_probe_data, nonmiss_row, true,  true);
     
     eigenVector geno_mu, geno_var;
     // method 1 and method 3: set the mean to zero
-    geno_mu = est_geno_mean( _probe_data, _miss_col_indx, _miss_col, mean_center );
+    geno_mu = est_geno_mean( _probe_data, nonmiss_col, mean_center );
+
     // method 1: var = m
     // method 2: var = sum(var(probe))
     // method 3: var = ssx(x.k), k - one individual
-    if(erm_mtd != 2) {
-        geno_var = est_geno_var(_probe_data, _miss_col_indx, _miss_col, var_center);
+     if(erm_mtd != 2) {
+        geno_var = est_geno_var(_probe_data, geno_mu, nonmiss_col, var_center);
     } else {
-        geno_var = est_geno_var(_probe_data, _miss_row_indx, _miss_row, var_center);
+        eigenVector genomubuf;
+        genomubuf.setZero(m);
+        geno_var = est_geno_var(_probe_data, genomubuf, nonmiss_row, var_center);
     }
 
     // estimate the _grm_N
     _grm_N.resize(n, n);
-    int ibuf=0, snbuf=0;
-    double sumvar = 0.0;
-    missValue missbuf;
-    string strbuf;
-    vector<string> vsbuf;
+    eigenVector genovarbuf;
     // method 1 and 2, _grm_N = sum(var) - missingness
     if(  erm_mtd != 2 ) {
-        sumvar = geno_var.sum();
-        for( i=0; i<n; i++ ) {
-            for( j=0; j<=i; j++) {
-                _grm_N(i,j) = sumvar;
-                // missing value exists in row i or row j
-                if( _miss_row_indx[i] || _miss_row_indx[j] ) {
-                    strbuf = _miss_row[_miss_row_indx[i]].pos + _miss_row[_miss_row_indx[j]].pos;
-                    StrFunc::split_string(strbuf, vsbuf);
-                    sort(vsbuf.begin(), vsbuf.end());
-                    vsbuf.erase(unique(vsbuf.begin(), vsbuf.end()), vsbuf.end());
-                    ibuf = vsbuf.size();
-                    for(k=0; k<ibuf; k++) {
-                        snbuf = atoi(vsbuf[k].c_str());
-                        _grm_N(i,j) -= geno_var(k);
-                    }
-                }
-            }
-        }
+        _grm_N = X_bool.cast<float>() * geno_var.cast<float>().asDiagonal() * X_bool.cast<float>().transpose();
     }  else {
         // method 3
-        for( i=0; i<n; i++ ) {
-            for( j=0; j<=i; j++) {
-                _grm_N(i,j) = sqrt(geno_var(i) * geno_var(j));
-            }
+        for(i=0; i<n; i++) {
+            for(j=0; j<=i; j++) _grm_N(i,j) = sqrt(geno_var(i) * geno_var(j));
         }
     }
     // geno_data - mu for each column
-    int indxbuf = 0, nmiss = 0, *posbuf = 0;
-    eigenVector vecbuf;
-    for( i = 0; i< m; i++) {
-        vecbuf = _probe_data.col(i);
-        for( j = 0; j < n; j++) vecbuf(j) -= geno_mu(i);
-        // set the missing value to zero
-        indxbuf = _miss_col_indx[i];
-        if(indxbuf) {
-            nmiss = _miss_col[indxbuf].num;
-            posbuf = CommFunc::split_miss_pos(_miss_col[indxbuf], posbuf);
-            vecbuf = CommFunc::assignVale(vecbuf, posbuf, nmiss);
+    // method 2, constrain the scale of individuals
+   if( !mean_center) {
+        for( i = 0; i< m; i++) {
+            _probe_data.col(i).array() -= geno_mu(i);
         }
-        _probe_data.col(i) = vecbuf;
     }
+    
+    // set missing value to zero
+    _probe_data = (_probe_data.array() < 1e9).select(_probe_data, 0);
     // Calculate A matrix
     _grm = _probe_data * _probe_data.transpose();
     
@@ -306,17 +280,12 @@ void gcta::make_erm(int erm_mtd, int erm_indi, bool output_bin)
             else _grm(i,j) = 0.0;
         }
     }
-    
     _grm = _grm.array() / _grm.diagonal().mean();
-    cout <<"All finished."<<endl;
     // Output A_N and A
     string out_buf = _out;
     _out += ".E";
     output_grm(output_bin);
     _out = out_buf;
-    
-    free(_miss_row_indx);
-    free(_miss_col_indx);
 }
 
 // data management for gene expression and methylation

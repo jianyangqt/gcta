@@ -41,10 +41,3 @@ typedef VectorXd eigenVector;
 typedef SparseMatrix<double> eigenSparseMat;
 typedef DynamicSparseMatrix<double> eigenDynSparseMat;
 #endif
-
-// for missing value
-struct missValue
-{
-    int num;
-    string pos;
-};

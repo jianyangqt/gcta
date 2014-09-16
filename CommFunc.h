@@ -41,17 +41,11 @@ namespace CommFunc
 	int rand_seed(); //positive value, return random seed using the system time
     void FileExist(string filename);
     
-    // find the missing value
-    VectorXi find_missing_vec(eigenVector vec);
-    MatrixXi find_missing_X(eigenMatrix mat);
-    int *find_missing_pos(MatrixXi miss_mat, int *miss_indx, vector<missValue> &miss_vale_pos, bool byrow=false);
-    int *split_miss_pos(missValue miss_vale_pos, int *miss_sn);
     // standardise the vector or matrix to z-score
-    eigenVector assignVale(eigenVector vec, int *indxbuf, int nmiss, double dbuf=0.0) ;
-    double eigenMean(eigenVector vec, int missindx, missValue miss_vale_pos);
-    double eigenSd(eigenVector vec, int missindx, missValue miss_vale_pos);
-    eigenVector scale_vec(eigenVector vec, int missindx, missValue miss_vale_pos, bool onlymean=false);
-    eigenMatrix scale(eigenMatrix mat, int *missindx, vector<missValue> miss_vale_pos, bool byrow=false, bool onlymean=false);
+    double eigenMean(eigenVector vec, int nmiss);
+    double eigenSd(eigenVector vec, double xmean, int nmiss);
+    eigenVector scale_vec(eigenVector vec, int nonmiss, bool onlymean=false);
+    eigenMatrix scale(eigenMatrix mat, VectorXi  nonmiss, bool byrow=false, bool onlymean=false);
 }
 
 #endif

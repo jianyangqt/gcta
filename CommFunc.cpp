@@ -124,174 +124,48 @@ void CommFunc::FileExist(string filename)
     if(!ifile) throw("Error: can not open the file ["+filename+"] to read.");
 }
 
-// find the missing value
-VectorXi CommFunc::find_missing_vec(eigenVector X) {
-    int i=0, j=0;
-    int length = X.size();
-    VectorXi miss_vec(length);
-    
-    miss_vec.setZero();
-    #pragma omp parallel for private(i)
-    for( i = 0; i<length; i++) {
-        if( X(i)<1e9 ) miss_vec(i)=1;
-    }
-    return miss_vec;
-}
-
-MatrixXi CommFunc::find_missing_X(eigenMatrix X) {
-    int i=0;
-    int nrow = X.rows(), ncol = X.cols();
-    MatrixXi miss_mat(nrow, ncol);
-    eigenVector xbuf;
-    VectorXi miss_vec;
-   
-    #pragma omp parallel for private(i)
-    for( i = 0; i<nrow; i++) {
-        xbuf = X.row(i);
-        miss_vec = find_missing_vec(xbuf);
-        miss_mat.row(i) = miss_vec;
-    }
-    return(miss_mat);
-}
-
-int *CommFunc::find_missing_pos(MatrixXi miss_mat, int *miss_indx, vector<missValue> &miss_vale_pos, bool byrow) {
-    int i=0, j=0, k=0, n=0, m=0, nonmiss=0;
-    int nrow=miss_mat.rows(), ncol=miss_mat.cols();
-    VectorXi miss_vec;
-    missValue mv_buf={0,""};
-    
-    if(byrow) {
-        n = nrow; m = ncol;
-    } else {
-        m = nrow; n = ncol;
-    }
-    
-    // initialize the variables
-    miss_indx = (int*) malloc (n*sizeof(int));
-    for( i=0; i<n; i++) miss_indx[i]=0;
-    miss_vale_pos.clear();
-    miss_vale_pos.push_back(mv_buf);
-    
-    ostringstream cvrt;
-    
-    for( i =0 ; i<n; i++) {
-        byrow ? (miss_vec = miss_mat.row(i)) : (miss_vec = miss_mat.col(i));
-        nonmiss = miss_vec.sum();
-        if( nonmiss == m ) continue;
-        else {
-            cvrt.str("");
-            mv_buf.num = m - nonmiss;
-            for( j=0; j<m; j++) {
-                if(miss_vec(j)) continue;
-                else cvrt <<j<<"," ;
-            }
-            mv_buf.pos = cvrt.str();
-            miss_vale_pos.push_back(mv_buf);
-            miss_indx[i] = ++k;
-        }
-    }
-    return miss_indx;
-}
-
-int *CommFunc::split_miss_pos(missValue miss_vale_pos, int *miss_sn) {
-    int i=0, nmiss=miss_vale_pos.num;
-    vector<string> indxstrbuf;
-    
-    miss_sn = (int*) malloc (nmiss*sizeof(int));
-    StrFunc::split_string(miss_vale_pos.pos, indxstrbuf);
-    for(i=0; i<nmiss; i++) {
-        istringstream (indxstrbuf[i]) >> miss_sn[i];
-    }
-    return miss_sn;
-}
-
 // standardise the vector or matrix to z-score
-eigenVector CommFunc::assignVale(eigenVector vec, int *indxbuf, int nmiss, double dbuf) {
-    int i = 0, length = vec.size();
-    if( nmiss > length ) cerr <<"Incorrect size of vector. CommFunc::assignVale"<<endl;
-    
-    for(i =0; i<nmiss; i++) {
-        vec(indxbuf[i]) = dbuf;
-    }
-    return vec;
-}
-
-double CommFunc::eigenMean(eigenVector vec, int missindx, missValue miss_vale_pos) {
-    int i=0, *indxbuf=0, nmiss=miss_vale_pos.num;
-    int nonmiss = vec.size() - nmiss;
+double CommFunc::eigenMean(eigenVector vec, int nonmiss) {
+    int n = vec.size();
     
     // set the missing value to zero
-    if(missindx) {
-        indxbuf = CommFunc::split_miss_pos(miss_vale_pos, indxbuf);
-        vec = CommFunc::assignVale(vec, indxbuf, nmiss);
-    }
+    vec = (vec.array() < 1e9).select(vec,0);
+
     return vec.sum()/(double)nonmiss;
 }
 
-double CommFunc::eigenSd(eigenVector vec, int missindx, missValue miss_vale_pos) {
-    int i=0, *indxbuf=0, nmiss=miss_vale_pos.num, length=vec.size();
-    int nonmiss = length - nmiss;
-    double sdbuf = 0.0;
+double CommFunc::eigenSd(eigenVector vec, double xmean, int nonmiss ) {
+    int n = vec.size();
     
-    // set the missing value to zero
-    if(missindx) {
-        indxbuf = CommFunc::split_miss_pos(miss_vale_pos, indxbuf);
-        vec = CommFunc::assignVale(vec, indxbuf, nmiss);
-    }
-    double meanbuf = vec.sum()/nonmiss;
-    // estimate the sd
-    if(missindx) vec = CommFunc::assignVale(vec, indxbuf, nmiss, meanbuf);
-    for(i=0; i<length; i++) {
-        sdbuf += pow((vec(i) - meanbuf), 2);
-    }
-    sdbuf = sqrt(sdbuf/(nonmiss-1));
-    
-    return sdbuf;
+    // set the missing value to average
+    vec.array() = (vec.array() < 1e9).select(vec,xmean);
+    vec.array() = vec.array() - xmean;
+    return sqrt(vec.dot(vec) / ((double)nonmiss-1));
 }
 
-eigenVector CommFunc::scale_vec(eigenVector vec, int missindx, missValue miss_vale_pos, bool onlymean) {
-    int i = 0, j =0, *indxbuf=0;
-    int length = vec.size(), nmiss = miss_vale_pos.num;
-    int nonmiss = length - nmiss;
-    missValue missvalebuf;
+eigenVector CommFunc::scale_vec(eigenVector vec, int nonmiss, bool onlymean) {
+    double meanbuf = CommFunc::eigenMean(vec, nonmiss);
+    double sdbuf = onlymean ? 1.0 : CommFunc::eigenSd(vec, meanbuf, nonmiss);
     
-    // set the missing value to zero
-    if(missindx) {
-        indxbuf = CommFunc::split_miss_pos(miss_vale_pos, indxbuf);
-        vec = CommFunc::assignVale(vec, indxbuf, nmiss);
-    }
+    vec.array() = ( vec.array() - meanbuf) / sdbuf;
+    // set missing value to 1e10
+    double crt=1e9/sdbuf;
+    vec = (vec.array() < crt ).select(vec, 1e10);
     
-    // estimate the average
-    double meanbuf = vec.sum()/(double)nonmiss;
-    // estimate the sd
-    if(missindx) vec = CommFunc::assignVale(vec, indxbuf, nmiss, meanbuf);
-    double sdbuf = onlymean ? 1.0 : eigenSd(vec, 0, miss_vale_pos);
-    // transformed to z-score
-    for( i=0; i<length; i++) vec(i) = (vec(i) - meanbuf)/sdbuf;
-    // set missing value as 1e10
-    if(missindx) {
-        vec = CommFunc::assignVale(vec, indxbuf, nmiss, 1e10);
-    }
     return vec;
 }
 
-eigenMatrix CommFunc::scale(eigenMatrix mat, int *missindx, vector<missValue> miss_vale_pos, bool byrow, bool onlymean) {
-    int i = 0, missnum=0, nrow=mat.rows(), ncol=mat.cols();
+eigenMatrix CommFunc::scale(eigenMatrix mat, VectorXi nonmiss, bool byrow, bool onlymean) {
+    int i = 0, nrow=mat.rows(), ncol=mat.cols();
     eigenVector vecbuf;
     
     if(byrow) {
         for( i = 0; i < nrow; i++) {
-            vecbuf = mat.row(i);
-            missnum = missindx[i];
-            vecbuf = CommFunc::scale_vec(vecbuf, missnum, miss_vale_pos[missnum], onlymean);
-            mat.row(i) = vecbuf;
+            mat.row(i).array() = CommFunc::scale_vec(mat.row(i).array(), nonmiss(i), onlymean);
         }
     } else {
         for( i = 0; i< ncol; i++) {
-            vecbuf = mat.col(i);
-            missnum = missindx[i];
-            vecbuf = CommFunc::scale_vec(vecbuf, missnum, miss_vale_pos[missnum], onlymean);
-            mat.col(i) = vecbuf;
+            mat.col(i).array() = CommFunc::scale_vec(mat.col(i).array(), nonmiss(i), onlymean);
         }
     }
     return mat;
