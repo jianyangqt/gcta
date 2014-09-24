@@ -490,7 +490,7 @@ void gcta::calcu_ld_blk_split(int size, int size_limit, MatrixXf &X_sub, eigenVe
 // calculate maximum LD rsq between SNPs
 void gcta::calcu_max_ld_rsq(int wind_size, double rsq_cutoff, bool dominance_flag)
 {
-    int i = 0, m = _include.size(), max_size = 0.8 * _keep.size();
+    int i = 0, m = _include.size(), max_size = 0.9 * _keep.size();
 
     cout << "Calculating maximum LD rsq between SNPs (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between blocks; LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
     cout << "(Maximum number of SNPs allowed in a block = " << max_size << " due to computatinal limitation)" << endl;
@@ -499,7 +499,7 @@ void gcta::calcu_max_ld_rsq(int wind_size, double rsq_cutoff, bool dominance_fla
     vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
     get_ld_blk_pnt_max_limit(brk_pnt1, brk_pnt2, brk_pnt3, wind_size, max_size);
 
-    eigenVector multi_rsq = eigenVector::Constant(m, -1.0), max_rsq = eigenVector::Constant(m, -1.0), multi_rsq_adj = eigenVector::Constant(m, -1.0);
+    eigenVector multi_rsq = eigenVector::Constant(m, -1.0), max_rsq = eigenVector::Constant(m, -999), multi_rsq_adj = eigenVector::Constant(m, -999);
     vector<int> max_pos(m);
     calcu_max_ld_rsq_blk(multi_rsq, multi_rsq_adj, max_rsq, max_pos, brk_pnt1, rsq_cutoff, dominance_flag);
     if (brk_pnt2.size() > 1) calcu_max_ld_rsq_blk(multi_rsq, multi_rsq_adj, max_rsq, max_pos, brk_pnt2, rsq_cutoff, dominance_flag);
@@ -510,7 +510,7 @@ void gcta::calcu_max_ld_rsq(int wind_size, double rsq_cutoff, bool dominance_fla
     ofstream o_max_rsq(max_rsq_file.data());
     o_max_rsq<<"SNP freq max_rsq max_snp multi_rsq multi_rsq_adj"<<endl;
     for (i = 0; i < m; i++){
-        if(max_rsq[i] > 0.0) o_max_rsq << _snp_name[_include[i]] << " " << 0.5 * _mu[_include[i]] << " " << max_rsq[i] << " " << _snp_name[_include[max_pos[i]]] << " " << multi_rsq[i] << " " <<multi_rsq_adj[i] << endl;
+        if(max_rsq[i] > 0.0 || multi_rsq[i] > -998) o_max_rsq << _snp_name[_include[i]] << " " << 0.5 * _mu[_include[i]] << " " << max_rsq[i] << " " << _snp_name[_include[max_pos[i]]] << " " << multi_rsq[i] << " " <<multi_rsq_adj[i] << endl;
         else o_max_rsq << _snp_name[_include[i]] << " " << 0.5 * _mu[_include[i]] << " NA NA NA NA" << endl;
     }
     o_max_rsq << endl;
@@ -587,7 +587,8 @@ void gcta::calcu_max_ld_rsq_blk(eigenVector &multi_rsq, eigenVector &multi_rsq_a
             }
         }
 
-        SelfAdjointEigenSolver<MatrixXf> pca(rsq_sub);
+
+        SelfAdjointEigenSolver<MatrixXf> pca(rsq_sub.array());
 
                 // debug
        // ofstream tmp("tmp_R.txt");
@@ -597,7 +598,7 @@ void gcta::calcu_max_ld_rsq_blk(eigenVector &multi_rsq, eigenVector &multi_rsq_a
         VectorXf d_i = pca.eigenvalues();
         double eff_m = 0;
         for(j = 0; j < size; j ++){
-        	if(d_i(j) < 0.0001) d_i(j) = 0.0;
+        	if(d_i(j) < 1e-5) d_i(j) = 0.0;
         	else{
         		d_i(j) = 1.0 / d_i(j);
         		eff_m++;
@@ -613,6 +614,7 @@ void gcta::calcu_max_ld_rsq_blk(eigenVector &multi_rsq, eigenVector &multi_rsq_a
         // debug
         cout << "size = " << size << "; eff_m = " << eff_m << endl;
         MatrixXf R_i = pca.eigenvectors() * d_i.asDiagonal() * pca.eigenvectors().transpose();
+        R_i = R_i.array();
 
 
         //JacobiSVD<MatrixXf> svd;
@@ -637,6 +639,7 @@ void gcta::calcu_max_ld_rsq_blk(eigenVector &multi_rsq, eigenVector &multi_rsq_a
     	for(j = 0; j < size; j ++){
     		if(fabs(Q_diag[j] - 1.0) < 0.01) multi_rsq_buf[j] = 1.0 - 1.0 / R_i(j,j);
     		else multi_rsq_buf[j] = 1.0;
+            if(multi_rsq_buf[j] > 1.0) multi_rsq_buf[j] = 1.0;
     	}
         VectorXf multi_rsq_buf_adj = multi_rsq_buf.array() - (1.0 - multi_rsq_buf.array()) * (eff_m / ((double)n - eff_m - 1.0));
 

@@ -17,52 +17,6 @@ void option(int option_num, char* option_str[]);
 
 int main(int argc, char* argv[])
 {
-
-/*
-    MatrixXf a(3, 3);
-    a << 1, 0.12, -0.34, 0.12, 1, 0.54, -0.34, 0.54, 1;
-    SelfAdjointEigenSolver<MatrixXf> eigen(a);
-    cout<< "eigenvec = " << eigen.eigenvectors() << endl;
-    cout<< "eigenval = " << eigen.eigenvalues().transpose() << endl;
-
-
-    int size = 3, n = 100;
-    int j = 0;
-            JacobiSVD<MatrixXf> svd;
-        svd.compute(a, ComputeThinV);
-
-    cout<< "u = " << svd.matrixU() << endl;
-    cout<< "v = " << svd.matrixV() << endl;
-    cout<< "d = " << svd.singularValues().transpose() << endl;
-
-        VectorXf d_i = svd.singularValues();
-        double eff_m = 0;
-        for(j = 0; j < size; j ++){
-            if(d_i[j] < 1e-6) d_i[j] = 0.0;
-            else{
-                d_i[j] = 1.0 / d_i[j];
-                eff_m++;
-            }
-        }
-        MatrixXf R_i = svd.matrixV() * d_i.asDiagonal() * svd.matrixV().transpose();
-
-        cout<< "R_ i:\n" << R_i << endl;
-
-        VectorXf Q_diag(size);
-        for(j = 0; j < size; j ++) Q_diag(j) = R_i.col(j).dot(a.row(j).transpose());
-
-            cout<< "Q_diag = " << Q_diag.transpose() << endl;
-
-        VectorXf multi_rsq_buf(size);
-        for(j = 0; j < size; j ++){
-            if(fabs(Q_diag[j] - 1.0) < 0.001) multi_rsq_buf[j] = 1.0 - 1.0 / R_i(j,j);
-            else multi_rsq_buf[j] = 1.0;
-        }
-        VectorXf multi_rsq_buf_adj = multi_rsq_buf.array() - (1.0 - multi_rsq_buf.array()) * (eff_m / ((double)n - eff_m - 1.0));
-        cout<< " multi_rsq_buf = " << multi_rsq_buf.transpose() << endl;
-        cout<< " multi_rsq_buf_adj = " << multi_rsq_buf_adj.transpose() << endl;
-*/
-
     cout << "*******************************************************************" << endl;
     cout << "* Genome-wide Complex Trait Analysis (GCTA)" << endl;
     cout << "* version 1.24.5" << endl;
@@ -161,8 +115,9 @@ void option(int option_num, char* option_str[])
     string subpopu_file = "";
 
     // gene-based association test
+    bool sbat_seg_flag = false;
     string sbat_sAssoc_file = "", sbat_gAnno_file = "", sbat_snpset_file = "";
-    int sbat_wind = 50000;
+    int sbat_wind = 50000, sbat_seg_size = 1e5;
 
     // gene expression data
     string efile="", eR_file = "", ecojo_ma_file="";
@@ -824,6 +779,17 @@ void option(int option_num, char* option_str[])
             cout << "--sbat-wind " << sbat_wind << endl;
             if (sbat_wind < 20 || sbat_wind > 1000) throw ("\nError: invalid value for --sbat-wind. Valid range: 20 ~ 1000\n");
             sbat_wind *= 1000;
+        } else if (strcmp(argv[i], "--sbat-seg") == 0) {
+            sbat_seg_flag = true;
+            thread_flag = true;
+            i++;
+            if (strcmp(argv[i], "gcta") == 0 || strncmp(argv[i], "--", 2) == 0) {
+                sbat_seg_size = 100;
+                i--;
+            } else sbat_seg_size = atoi(argv[i]);
+            cout << "--sbat-seg " << sbat_seg_size << endl;
+            if (sbat_seg_size < 10 || sbat_seg_size > 10000) throw ("\nError: invalid value for --sbat-seg. Valid range: 10 ~ 10000\n");
+            sbat_seg_size *= 1000;
         }
         else if (strcmp(argv[i], "--efile") == 0) {
             efile = argv[++i];
@@ -1019,7 +985,8 @@ void option(int option_num, char* option_str[])
             else if (!subpopu_file.empty()) pter_gcta->Fst(subpopu_file);
             else if (!sbat_sAssoc_file.empty()){
                 if(!sbat_gAnno_file.empty()) pter_gcta->sbat_gene(sbat_sAssoc_file, sbat_gAnno_file, sbat_wind);
-                if(!sbat_snpset_file.empty()) pter_gcta->sbat(sbat_sAssoc_file, sbat_snpset_file);
+                else if(!sbat_snpset_file.empty()) pter_gcta->sbat(sbat_sAssoc_file, sbat_snpset_file);
+                else if(sbat_seg_flag) pter_gcta->sbat_seg(sbat_sAssoc_file, sbat_seg_size);
             }
         }
     } else if (dose_beagle_flag || dose_mach_flag || dose_mach_gz_flag) {

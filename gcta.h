@@ -142,6 +142,7 @@ public:
     // gene based association test
     void sbat_gene(string sAssoc_file, string gAnno_file, int wind);
     void sbat(string sAssoc_file, string snpset_file);
+    void sbat_seg(string sAssoc_file, int seg_size);
 
     /////////////////////////
     // gene expresion data
@@ -340,6 +341,8 @@ private:
     void sbat_read_geneAnno(string gAnno_file, vector<string> &gene_name, vector<int> &gene_chr, vector<int> &gene_bp1, vector<int> &gene_bp2);
     void sbat_read_snpset(string snpset_file, vector<string> &set_name, vector< vector<string> > &snpset);
     void sbat_calcu_lambda(vector<int> &snp_indx, VectorXd &eigenval);
+    void get_sbat_seg_blk(int seg_size, vector< vector<int> > &snp_set_indx, vector<int> &set_chr, vector<int> &set_start_bp, vector<int> &set_end_bp);
+
 
     //////////////////////
     // gene expresion data

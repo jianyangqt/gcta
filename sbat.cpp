@@ -187,8 +187,8 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind)
         if((i + 1) % 100 == 0 || (i + 1) == gene_num) cout << i + 1 << " of " << gene_num << " genes.\r";
     }
 
-    string filename = _out + ".sbat";
-    cout << "\nSaving the results of the gene-based association analysese to [" + filename + "] ..." << endl;
+    string filename = _out + ".gene.sbat";
+    cout << "\nSaving the results of the SBAT analyses to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
     if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
     ofile << "Gene\tChr\tStart\tEnd\tNo.SNPs\tSNP_start\tSNP_end\tChisq(Obs)\tPvalue" << endl;
@@ -284,11 +284,11 @@ void gcta::sbat(string sAssoc_file, string snpset_file)
             set_pval[i] = StatFunc::pchisqsum(chisq_o[i], eigenval);
         }
 
-        if((i + 1) % 100 == 0 || (i + 1) == set_num) cout << i + 1 << " of " << set_num << " genes.\r";
+        if((i + 1) % 100 == 0 || (i + 1) == set_num) cout << i + 1 << " of " << set_num << " sets.\r";
     }
 
     string filename = _out + ".sbat";
-    cout << "\nSaving the results of the set-based association analysese to [" + filename + "] ..." << endl;
+    cout << "\nSaving the results of the SBAT analyses to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
     if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
     ofile << "Set\tNo.SNPs\tChisq(Obs)\tPvalue" << endl;
@@ -297,6 +297,106 @@ void gcta::sbat(string sAssoc_file, string snpset_file)
         ofile << set_name[i] << "\t" << snp_num_in_set[i] << "\t" << chisq_o[i] << "\t" << set_pval[i] << endl;
     }
     ofile.close();
+}
+
+void gcta::sbat_seg(string sAssoc_file, int seg_size)
+{
+    int i = 0, j = 0;
+
+       // read SNP association results
+    vector<string> snp_name;
+    vector<int> snp_chr, snp_bp;
+    vector<double> snp_pval;
+    sbat_read_snpAssoc(sAssoc_file, snp_name, snp_chr, snp_bp, snp_pval);
+    vector<double> snp_chisq(snp_pval.size());
+    for (i = 0; i < snp_pval.size(); i++) snp_chisq[i] = StatFunc::qchisq(snp_pval[i], 1);   
+
+    // run gene-based test
+    if (_mu.empty()) calcu_mu();
+    cout << "\nRunning set-based association test (SBAT) at genomic segments with a length of " << seg_size/1000 << "Kb ..." << endl;
+    vector< vector<int> > snp_set_indx;
+    vector<int> set_chr, set_start_bp, set_end_bp;
+    get_sbat_seg_blk(seg_size, snp_set_indx, set_chr, set_start_bp, set_end_bp);
+    int set_num = snp_set_indx.size();
+    vector<double> set_pval(set_num), chisq_o(set_num);
+    vector<int> snp_num_in_set(set_num);
+    for (i = 0; i < set_num; i++) {
+        bool skip = false;
+        vector<int> snp_indx = snp_set_indx[i];
+        if(snp_indx.size() < 1) skip = true;
+        snp_num_in_set[i] = snp_indx.size();
+        if(!skip && snp_num_in_set[i] > 20000){
+            cout<<"Warning: Too many SNPs in the set on [chr" << set_chr[i] << ":" << set_start_bp[i] << "-" << set_end_bp[i] << "]. Maximum limit is 20000. This gene is ignored in the analysis."<<endl;
+            skip = true;  
+        } 
+        if(skip){
+            set_pval[i] = 2.0;
+            snp_num_in_set[i] = 0;
+            continue;
+        }
+        chisq_o[i] = 0;
+        for (j = 0; j < snp_indx.size(); j++) chisq_o[i] += snp_chisq[snp_indx[j]];
+        if(snp_num_in_set[i] == 1) set_pval[i] = StatFunc::pchisq(chisq_o[i], 1.0);
+        else {
+            VectorXd eigenval;
+            sbat_calcu_lambda(snp_indx, eigenval);
+            set_pval[i] = StatFunc::pchisqsum(chisq_o[i], eigenval);
+        }
+
+        if((i + 1) % 100 == 0 || (i + 1) == set_num) cout << i + 1 << " of " << set_num << " sets.\r";
+    }
+
+    string filename = _out + ".seg.sbat";
+    cout << "\nSaving the results of the segment-based SBAT analyses to [" + filename + "] ..." << endl;
+    ofstream ofile(filename.c_str());
+    if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
+    ofile << "Chr\tStart\tEnd\tNo.SNPs\tChisq(Obs)\tPvalue" << endl;
+    for (i = 0; i < set_num; i++) {
+        if(set_pval[i]>1.5) continue;
+        ofile << set_chr[i] << "\t" << set_start_bp[i] << "\t"<< set_end_bp[i] << "\t" << snp_num_in_set[i] << "\t" << chisq_o[i] << "\t" << set_pval[i] << endl;
+    }
+    ofile.close();
+}
+
+void gcta::get_sbat_seg_blk(int seg_size, vector< vector<int> > &snp_set_indx, vector<int> &set_chr, vector<int> &set_start_bp, vector<int> &set_end_bp)
+{
+    int i = 0, j = 0, k = 0, m = _include.size();
+
+    vector<int> brk_pnt;
+    brk_pnt.push_back(0);
+    for (i = 1, j = 0; i < m; i++) {
+        if (i == (m - 1)) brk_pnt.push_back(m - 1);
+        else if (_chr[_include[i]] != _chr[_include[brk_pnt[j]]]) {
+            brk_pnt.push_back(i - 1);
+            j++;
+            brk_pnt.push_back(i);
+            j++;
+        }
+        else if (_bp[_include[i]] - _bp[_include[brk_pnt[j]]] > seg_size) {
+            brk_pnt.push_back(i - 1);
+            j++;
+            brk_pnt.push_back(i);
+            j++;
+        }
+    }
+    stable_sort(brk_pnt.begin(), brk_pnt.end());
+    brk_pnt.erase(unique(brk_pnt.begin(), brk_pnt.end()), brk_pnt.end());
+
+    snp_set_indx.clear();
+    set_chr.clear();
+    set_start_bp.clear();
+    set_end_bp.clear();
+    for (i = 0; i < brk_pnt.size() - 1; i+=2) {
+        int size = brk_pnt[i + 1] - brk_pnt[i] + 1;
+        vector<int> snp_indx(size);
+        for (j = brk_pnt[i], k = 0; j <= brk_pnt[i + 1]; j++, k++){
+            snp_indx[k] = j;  
+        } 
+        snp_set_indx.push_back(snp_indx);
+        set_chr.push_back(_chr[_include[brk_pnt[i]]]);
+        set_start_bp.push_back(_bp[_include[brk_pnt[i]]]);
+        set_end_bp.push_back(_bp[_include[brk_pnt[i + 1]]]);
+    }
 }
 
 void gcta::sbat_calcu_lambda(vector<int> &snp_indx, VectorXd &eigenval)
