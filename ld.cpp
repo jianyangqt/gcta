@@ -487,6 +487,109 @@ void gcta::calcu_ld_blk_split(int size, int size_limit, MatrixXf &X_sub, eigenVe
     }
 }
 
+void gcta::ld_seg(string i_ld_file, int seg_size, int wind_size, double rsq_cutoff, bool dominance_flag)
+{
+    int i = 0, j = 0, k = 0, m = 0;
+    vector<float> mrsq, snp_num, max_rsq;
+    vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
+
+    if(!i_ld_file.empty()){
+        ifstream ild(i_ld_file.c_str());
+        if (!ild) throw ("Error: can not open the file [" + i_ld_file + "] to read.");
+
+        vector<string> snp_name;
+        vector<int> chr, bp;
+        vector<double> freq;
+        string snp_name_buf, str_buf;
+        int i_buf = 0;
+        double fbuf = 0.0;
+        cout << "Reading LD mean rsq for SNPs from [" + i_ld_file + "] ..." << endl;
+        getline(ild, str_buf); // get the header
+        while (ild) {
+            ild >> snp_name_buf;
+            if (ild.eof()) break;
+            snp_name.push_back(snp_name_buf);
+            if(!(ild >> i_buf)) throw("Error: in the file [" + i_ld_file + "].");
+            if (i_buf < 1 || i_buf > 50) throw ("Error: invalid value of \"chr\" for the SNP " + snp_name_buf + ".");
+            chr.push_back(i_buf);
+            if(!(ild >> i_buf)) throw("Error: in the file [" + i_ld_file + "].");
+            if (i_buf < 0) throw ("Error: invalid value of \"bp\" for the SNP " + snp_name_buf + ".");
+            bp.push_back(i_buf);
+            if(!(ild >> fbuf)) throw("Error: in the file [" + i_ld_file + "].");
+            if (fbuf < 0.0 || fbuf > 1.0) throw ("Error: invalid value of \"allele frequency\" for the SNP " + snp_name_buf + ".");
+            freq.push_back(fbuf*2.0);
+            if(!(ild >> fbuf)) throw("Error: in the file [" + i_ld_file + "].");
+            if (fbuf < -1.0 || fbuf > 1.0) throw ("Error: invalid value of \"mean LD rsq\" for the SNP " + snp_name_buf + ".");
+            mrsq.push_back(fbuf);
+            if(!(ild >> fbuf)) throw("Error: in the file [" + i_ld_file + "].");
+            if (fbuf < 0) throw ("Error: invalid value of \"number of SNPs in LD\" for the SNP " + snp_name_buf + ".");
+            snp_num.push_back(fbuf);
+            if(!(ild >> fbuf)) throw("Error: in the file [" + i_ld_file + "].");
+            if (fbuf < 0 || fbuf > 2.0) throw ("Error: invalid value of \"max LD rsq\" for the SNP " + snp_name_buf + ".");
+            max_rsq.push_back(fbuf);
+            m++;
+            getline(ild, str_buf);
+        }
+        ild.close();
+        cout << "LD mean rsq for " << m << " SNPs read from [" + i_ld_file + "]." << endl;
+
+        _snp_num = m;
+        _snp_name = snp_name;
+        _chr = chr;
+        _bp = bp;
+        _mu = freq;
+        init_include();
+    }
+    else {
+        if(_snp_name.size() < 1) throw("Error: need to input the LD file or PLINK files for LD calculation.");
+        check_autosome();
+        cout << "Calculating mean LD rsq between SNPs (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size / 2000<<"Kb between blocks); LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
+        if(dominance_flag) cout<<"(SNP genotypes are coded for dominance effects)"<<endl;
+        get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, wind_size);
+        eigenVector mrsq_buf = eigenVector::Zero(m), snp_num_buf = eigenVector::Zero(m), max_rsq_buf = eigenVector::Zero(m);
+        calcu_ld_blk(brk_pnt1, brk_pnt3, mrsq_buf, snp_num_buf, max_rsq_buf, false, rsq_cutoff, dominance_flag);
+        if (brk_pnt2.size() > 1) calcu_ld_blk(brk_pnt2, brk_pnt3, mrsq_buf, snp_num_buf, max_rsq_buf, true, rsq_cutoff, dominance_flag);
+        mrsq.resize(m);
+        snp_num.resize(m);
+        max_rsq.resize(m);
+        for(i = 0; i < m; i++){
+            mrsq[i] = mrsq_buf(i);
+            snp_num[i] = snp_num_buf(i);
+            max_rsq[i] = max_rsq_buf(i);
+        }
+    }
+
+    get_lds_brkpnt(brk_pnt1, brk_pnt2, seg_size);
+    int size = 0, mean_size = 0, count = 0;
+    for (i = 0; i < brk_pnt1.size() - 1; i++) {
+        size = brk_pnt1[i + 1] - brk_pnt1[i] + 1;
+        if (size > 2){
+            mean_size += size; 
+            count++;
+        }
+    }
+    mean_size /= count;
+    get_lds_brkpnt(brk_pnt1, brk_pnt2, 0, mean_size);
+
+    vector<double> lds(m);
+    for (i = 0; i < brk_pnt1.size() - 1; i += 2){
+        size = brk_pnt1[i + 1] - brk_pnt1[i] + 1;
+        double ld_score = 0.0;
+        for(j = brk_pnt1[i]; j <= brk_pnt1[i + 1]; j++) ld_score += mrsq[j] * snp_num[j] + 1.0; 
+        ld_score /= (double)size;
+        for(j = brk_pnt1[i]; j <= brk_pnt1[i + 1]; j++) lds[j] = ld_score; 
+    }
+
+    string lds_file;
+    if(dominance_flag) lds_file = _out + ".d.mrsq.ld";
+    else lds_file = _out + ".mrsq.ld";
+    ofstream o_lds(lds_file.data());
+    o_lds<<"SNP chr bp freq mean_rsq snp_num max_rsq mean_lds"<<endl;
+    for (i = 0; i < m; i++) o_lds << _snp_name[_include[i]] << " " << _chr[_include[i]] << " " << _bp[_include[i]] << " " << 0.5 * _mu[_include[i]] << " " << mrsq[i] << " " << snp_num[i] << " " << max_rsq[i] << " " << lds[i] << endl;
+    o_lds << endl;
+    cout << "Mean and maximum LD rsq for " << m << " SNPs have been saved in the file [" + lds_file + "]." << endl;
+}
+
 // calculate maximum LD rsq between SNPs
 void gcta::calcu_max_ld_rsq(int wind_size, double rsq_cutoff, bool dominance_flag)
 {

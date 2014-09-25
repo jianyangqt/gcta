@@ -72,10 +72,10 @@ void option(int option_num, char* option_str[])
     string grm_file = "", paa_file = "";
 
     // LD
-    string LD_file = "", i_ld_file = "";
-    bool LD = false, LD_search = false, LD_i = false, ld_mean_rsq_flag = false, ld_max_rsq_flag = false;
+    string LD_file = "";
+    bool LD = false, LD_search = false, LD_i = false, ld_mean_rsq_flag = false, ld_max_rsq_flag = false, ld_mean_rsq_seg_flag = false;
     int LD_step = 10;
-    double LD_wind = 1e7, LD_sig = 0.05, LD_prune_rsq = -1.0, LD_rsq_cutoff = 0.0;
+    double LD_wind = 1e7, LD_sig = 0.05, LD_prune_rsq = -1.0, LD_rsq_cutoff = 0.0, LD_seg = 1e5;
 
     // initialize paramters for simulation based on real genotype data
     bool simu_qt_flag = false, simu_cc = false, simu_emb_flag = false, simu_output_causal = false;
@@ -447,6 +447,19 @@ void option(int option_num, char* option_str[])
             ld_max_rsq_flag = true;
             thread_flag = true;
             cout << "--ld-max-rsq" << endl;
+        } else if (strcmp(argv[i], "--ld-mean-rsq-seg") == 0) {
+            ld_mean_rsq_seg_flag = true;
+            thread_flag = true;
+            i++;
+            if (strcmp(argv[i], "gcta") == 0 || strncmp(argv[i], "--", 2) == 0) {
+                LD_seg = 1e5;
+                i--;
+            } else LD_seg = atoi(argv[i]);
+            cout << "--ld-mean-rsq-seg" << endl;
+            if (LD_seg < 10) throw ("\nError: input value for --ld-mean-rsq-seg needs to be > 10.\n");
+        } else if (strcmp(argv[i], "--ld-file") == 0) {
+            LD_file = argv[++i];
+            cout << "--ld-file " << LD_file << endl;
         }
         // simulation based on real genotype data
         else if (strcmp(argv[i], "--simu-qt") == 0) {
@@ -967,12 +980,13 @@ void option(int option_num, char* option_str[])
             else if (ibc) pter_gcta->ibc(ibc_all);
             else if (make_grm_flag){
                 if(make_grm_ldwt_mtd == 3) pter_gcta->make_grm_pca(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, LD_wind, false);
-                else pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_ldwt_mtd, i_ld_file, LD_wind, ldwt_seg, LD_rsq_cutoff, make_grm_f3_flag);
+                else pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_ldwt_mtd, LD_file, LD_wind, ldwt_seg, LD_rsq_cutoff, make_grm_f3_flag);
             }
             else if (recode || recode_nomiss) pter_gcta->save_XMat(recode_nomiss);
             else if (LD) pter_gcta->LD_Blocks(LD_step, LD_wind, LD_sig, LD_i, save_ram);
             else if (LD_prune_rsq>-1.0) pter_gcta->LD_pruning_mkl(LD_prune_rsq, LD_wind);
             else if (ld_mean_rsq_flag) pter_gcta->calcu_mean_rsq(LD_wind, LD_rsq_cutoff, dominance_flag);
+            else if (ld_mean_rsq_seg_flag) pter_gcta->ld_seg("", LD_seg, LD_wind, LD_rsq_cutoff, dominance_flag);
             else if (ld_max_rsq_flag) pter_gcta ->calcu_max_ld_rsq(LD_wind, LD_rsq_cutoff, dominance_flag);
             else if (blup_snp_flag) pter_gcta->blup_snp_geno();
             else if (mlma_flag) pter_gcta->mlma(grm_file, phen_file, qcovar_file, covar_file, mphen, MaxIter, reml_priors, reml_priors_var, no_constrain, within_family, make_grm_inbred_flag, mlma_no_adj_covar);
@@ -1012,7 +1026,7 @@ void option(int option_num, char* option_str[])
         if (out_freq_flag) pter_gcta->save_freq(out_ssq_flag);
         else if (make_grm_flag){
             if(make_grm_ldwt_mtd == 3) pter_gcta->make_grm_pca(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, LD_wind, false);
-            else pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_ldwt_mtd, i_ld_file, LD_wind, ldwt_seg, LD_rsq_cutoff, make_grm_f3_flag);
+            else pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_ldwt_mtd, LD_file, LD_wind, ldwt_seg, LD_rsq_cutoff, make_grm_f3_flag);
         }
         else if (recode || recode_nomiss) pter_gcta->save_XMat(recode_nomiss);
         else if (LD_prune_rsq>-1.0) pter_gcta->LD_pruning_mkl(LD_prune_rsq, LD_wind);
@@ -1034,7 +1048,9 @@ void option(int option_num, char* option_str[])
     } else if (grm_flag || m_grm_flag) {
         if (pca_flag) pter_gcta->pca(grm_file, kp_indi_file, rm_indi_file, grm_cutoff, m_grm_flag, out_pc_num);
         else if (make_grm_flag) pter_gcta->save_grm(grm_file, kp_indi_file, rm_indi_file, update_sex_file, grm_cutoff, grm_adj_fac, dosage_compen, m_grm_flag, grm_out_bin_flag);
-    } else throw ("Error: no analysis has been launched by the option(s).\n");
+    }
+    else if (ld_mean_rsq_seg_flag) pter_gcta->ld_seg(LD_file, LD_seg, LD_wind, LD_rsq_cutoff, dominance_flag);
+    else throw ("Error: no analysis has been launched by the option(s).\n");
 
     delete pter_gcta;
 }

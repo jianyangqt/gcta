@@ -109,6 +109,7 @@ public:
     void LD_Blocks(int stp, double wind_size, double alpha, bool IncldQ = true, bool save_ram = false);
     void calcu_mean_rsq(int wind_size, double rsq_cutoff, bool dominance_flag);
     void calcu_max_ld_rsq(int wind_size, double rsq_cutoff, bool dominance_flag);
+    void ld_seg(string i_ld_file, int seg_size, int wind_size, double rsq_cutoff, bool dominance_flag);
 
     void genet_dst(string bfile, string hapmap_genet_map);
 
