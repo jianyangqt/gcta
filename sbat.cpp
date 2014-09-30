@@ -379,15 +379,14 @@ void gcta::get_sbat_seg_blk(int seg_size, vector< vector<int> > &snp_set_indx, v
             j++;
         }
     }
-    stable_sort(brk_pnt.begin(), brk_pnt.end());
-    brk_pnt.erase(unique(brk_pnt.begin(), brk_pnt.end()), brk_pnt.end());
 
     snp_set_indx.clear();
     set_chr.clear();
     set_start_bp.clear();
     set_end_bp.clear();
-    for (i = 0; i < brk_pnt.size() - 1; i+=2) {
+    for (i = 0; i < brk_pnt.size() - 1; i++) {
         int size = brk_pnt[i + 1] - brk_pnt[i] + 1;
+        if(size < 3 && (i%2 != 0)) continue;
         vector<int> snp_indx(size);
         for (j = brk_pnt[i], k = 0; j <= brk_pnt[i + 1]; j++, k++){
             snp_indx[k] = j;  

@@ -238,19 +238,6 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
     _r_indx.clear();
     vector<int> kp;
     if (grm_flag) {
-
-            // debug
-        double diag_m = 0.0, diag_v = 0.0, off_m = 0.0, off_v = 0.0;
-        calcu_grm_var(diag_m, diag_v, off_m, off_v);
-        cout<<"\nThe GRM:"<<endl;
-        cout<<"Mean of diagonals = "<<diag_m<<endl;
-        cout<<"Variance of diagonals = "<<diag_v<<endl;
-        cout<<"Mean of off-diagonals = " << off_m <<endl;
-        cout<<"Variance of off-diagonals = " << off_v <<endl;
-        cout<<endl;
-
-
-
         for (i = 0; i < 1 + qE_fac_num + E_fac_num + 1; i++) _r_indx.push_back(i);
         if (!no_lrt) drop_comp(drop);
         _A.resize(_r_indx.size());
@@ -1219,22 +1206,12 @@ void gcta::ai_reml(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector
     calcu_tr_PA(P, tr_PA);
     R = -0.5 * (tr_PA - R);
 
-        // debug
-    cout<<"AI matrix: "<<endl;
-    cout<<Hi<<endl;
-
-
     // Calculate variance component
     if (!inverse_H(Hi)) throw ("Error: the information matrix is not invertible.");
     /*{
         cout<<"Warning: the information matrix is singular and a small constant (0.1% of the mean of the diagonal elements) is added to the diagonals."<<endl;
         if(!inverse_H(Hi)) throw("Error: the information matrix is not invertible.");
     }*/
-
-    // debug
-    cout<<"Inverse of AI matrix: "<<endl;
-    cout<<Hi<<endl;
-
 
     eigenVector delta(_r_indx.size());
     delta = Hi*R;
@@ -1408,20 +1385,27 @@ void gcta::HE_reg(string grm_file, string phen_file, string keep_indi_file, stri
            }
        }*/
 
-    vector<double> y(n), x(n), rst;
+    vector<double> y_cp(n), y_sd(n), x(n), rst;
     for (i = 0, k = 0; i < _n; i++) {
         for (j = 0; j < i; j++, k++) {
-            y[k] = (_y[i] - _y[j])*(_y[i] - _y[j]);
+            y_sd[k] = (_y[i] - _y[j])*(_y[i] - _y[j]);
+            y_cp[k] = _y[i]*_y[j];
             x[k] = _grm(i, j);
         }
     }
-    eigenMatrix reg_sum = reg(y, x, rst, true);
+    eigenMatrix reg_sum_sd = reg(y_sd, x, rst, true);
+    eigenMatrix reg_sum_cp = reg(y_cp, x, rst, true);
 
     stringstream ss;
+    ss << "HE-SD" << endl;
     ss << "Coefficient\tEstimate\tSE\tP\n";
-    ss << "Intercept\t" << reg_sum.row(0) << endl;
-    ss << "Slope\t" << reg_sum.row(1) << endl;
-    ss << "V(G)/Vp\t" << -1 * reg_sum(1, 0) / reg_sum(0.0) << "\t" << reg_sum(1, 1) / fabs(reg_sum(0.0)) << endl;
+    ss << "Intercept\t" << reg_sum_sd.row(0) << endl;
+    ss << "Slope\t" << reg_sum_sd.row(1) << endl;
+    //ss << "V(G)/Vp\t" << -1 * reg_sum(1, 0) / reg_sum(0.0) << "\t" << reg_sum(1, 1) / fabs(reg_sum(0.0)) << endl;
+    ss << "\nHE-CP" << endl;
+    ss << "Coefficient\tEstimate\tSE\tP\n";
+    ss << "Intercept\t" << reg_sum_cp.row(0) << endl;
+    ss << "Slope\t" << reg_sum_cp.row(1) << endl;
 
     cout << ss.str() << endl;
     string ofile = _out + ".HEreg";

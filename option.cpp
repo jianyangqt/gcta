@@ -447,7 +447,7 @@ void option(int option_num, char* option_str[])
             ld_max_rsq_flag = true;
             thread_flag = true;
             cout << "--ld-max-rsq" << endl;
-        } else if (strcmp(argv[i], "--ld-mean-rsq-seg") == 0) {
+        } else if (strcmp(argv[i], "--ld-mean-rsq-region") == 0) {
             ld_mean_rsq_seg_flag = true;
             thread_flag = true;
             i++;
@@ -455,8 +455,9 @@ void option(int option_num, char* option_str[])
                 LD_seg = 1e5;
                 i--;
             } else LD_seg = atoi(argv[i]);
-            cout << "--ld-mean-rsq-seg" << endl;
+            cout << "--ld-mean-rsq-region" << endl;
             if (LD_seg < 10) throw ("\nError: input value for --ld-mean-rsq-seg needs to be > 10.\n");
+            LD_seg *= 1000;
         } else if (strcmp(argv[i], "--ld-file") == 0) {
             LD_file = argv[++i];
             cout << "--ld-file " << LD_file << endl;
@@ -790,7 +791,7 @@ void option(int option_num, char* option_str[])
         } else if (strcmp(argv[i], "--sbat-wind") == 0) {
             sbat_wind = atoi(argv[++i]);
             cout << "--sbat-wind " << sbat_wind << endl;
-            if (sbat_wind < 20 || sbat_wind > 1000) throw ("\nError: invalid value for --sbat-wind. Valid range: 20 ~ 1000\n");
+            if (sbat_wind < 0 || sbat_wind > 1000) throw ("\nError: invalid value for --sbat-wind. Valid range: 0 ~ 1000\n");
             sbat_wind *= 1000;
         } else if (strcmp(argv[i], "--sbat-seg") == 0) {
             sbat_seg_flag = true;
