@@ -421,6 +421,7 @@ void gcta::rm_cor_indi(double grm_cutoff) {
 
     int i = 0, j = 0, i_buf = 0;
 
+    // identify the positions where you see a value > than the threshold
     vector<int> rm_grm_ID1, rm_grm_ID2;
     for (i = 0; i < _keep.size(); i++) {
         for (j = 0; j < i; j++) {
@@ -430,6 +431,8 @@ void gcta::rm_cor_indi(double grm_cutoff) {
             }
         }
     }
+
+    // count the number of appearance of each "position" in the vector, which involves a few steps
     vector<int> rm_uni_ID(rm_grm_ID1);
     rm_uni_ID.insert(rm_uni_ID.end(), rm_grm_ID2.begin(), rm_grm_ID2.end());
     stable_sort(rm_uni_ID.begin(), rm_uni_ID.end());
@@ -439,6 +442,8 @@ void gcta::rm_cor_indi(double grm_cutoff) {
         i_buf = count(rm_grm_ID1.begin(), rm_grm_ID1.end(), rm_uni_ID[i]) + count(rm_grm_ID2.begin(), rm_grm_ID2.end(), rm_uni_ID[i]);
         rm_uni_ID_count.insert(pair<int, int>(rm_uni_ID[i], i_buf));
     }
+
+    // swapping
     map<int, int>::iterator iter1, iter2;
     for (i = 0; i < rm_grm_ID1.size(); i++) {
         iter1 = rm_uni_ID_count.find(rm_grm_ID1[i]);
@@ -449,6 +454,7 @@ void gcta::rm_cor_indi(double grm_cutoff) {
             rm_grm_ID2[i] = i_buf;
         }
     }
+    
     stable_sort(rm_grm_ID1.begin(), rm_grm_ID1.end());
     rm_grm_ID1.erase(unique(rm_grm_ID1.begin(), rm_grm_ID1.end()), rm_grm_ID1.end());
     vector<string> removed_ID;
