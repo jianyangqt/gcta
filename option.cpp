@@ -116,6 +116,7 @@ void option(int option_num, char* option_str[])
 
     // gene-based association test
     bool sbat_seg_flag = false;
+    bool sbat_multi_flag = false;
     string sbat_sAssoc_file = "", sbat_gAnno_file = "", sbat_snpset_file = "";
     int sbat_wind = 50000, sbat_seg_size = 1e5;
 
@@ -776,6 +777,11 @@ void option(int option_num, char* option_str[])
             subpopu_file = argv[++i];
             cout << "--fst " << subpopu_file << endl;
             CommFunc::FileExist(subpopu_file);
+        } else if (strcmp(argv[i], "--sbat-multi") == 0) {
+            sbat_multi_flag = true;
+            sbat_sAssoc_file = argv[++i];
+            cout << "--sbat-multi " << sbat_sAssoc_file << endl;
+            CommFunc::FileExist(sbat_sAssoc_file);
         } else if (strcmp(argv[i], "--sbat") == 0) {
             sbat_sAssoc_file = argv[++i];
             cout << "--sbat " << sbat_sAssoc_file << endl;
@@ -998,6 +1004,7 @@ void option(int option_num, char* option_str[])
             else if (simu_qt_flag || simu_cc) pter_gcta->GWAS_simu(bfile, simu_rep, simu_causal, simu_case_num, simu_control_num, simu_h2, simu_K, simu_seed, simu_output_causal, simu_emb_flag);
             else if (make_bed_flag) pter_gcta->save_plink();
             else if (!subpopu_file.empty()) pter_gcta->Fst(subpopu_file);
+            else if (sbat_multi_flag) pter_gcta->sbat_multi(sbat_sAssoc_file, sbat_snpset_file);
             else if (!sbat_sAssoc_file.empty()){
                 if(!sbat_gAnno_file.empty()) pter_gcta->sbat_gene(sbat_sAssoc_file, sbat_gAnno_file, sbat_wind);
                 else if(!sbat_snpset_file.empty()) pter_gcta->sbat(sbat_sAssoc_file, sbat_snpset_file);

@@ -24,7 +24,7 @@
 #include "CommFunc.h"
 #include "StrFunc.h"
 #include "StatFunc.h"
-#include "eigen_func.h"
+//#include "eigen_func.h"
 #include <fstream>
 #include <iomanip>
 #include <bitset>
@@ -144,6 +144,7 @@ public:
     void sbat_gene(string sAssoc_file, string gAnno_file, int wind);
     void sbat(string sAssoc_file, string snpset_file);
     void sbat_seg(string sAssoc_file, int seg_size);
+    void sbat_multi(string sAssoc_file, string snpset_file);
 
     /////////////////////////
     // gene expresion data
@@ -343,6 +344,10 @@ private:
     void sbat_read_snpset(string snpset_file, vector<string> &set_name, vector< vector<string> > &snpset);
     void sbat_calcu_lambda(vector<int> &snp_indx, VectorXd &eigenval);
     void get_sbat_seg_blk(int seg_size, vector< vector<int> > &snp_set_indx, vector<int> &set_chr, vector<int> &set_start_bp, vector<int> &set_end_bp);
+
+    // gene based multivar test
+    void sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigenVector set_se, double &Vscore);
+    void sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, vector<int> &snp_chr, vector<int> &snp_bp, vector<double> &snp_pval, vector<double> &snp_beta, vector<double> &snp_btse);
 
 
     //////////////////////

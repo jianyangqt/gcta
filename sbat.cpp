@@ -422,3 +422,189 @@ void gcta::sbat_calcu_lambda(vector<int> &snp_indx, VectorXd &eigenval)
     SelfAdjointEigenSolver<MatrixXf> saes(C);
     eigenval = saes.eigenvalues().cast<double>();
 }
+
+void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigenVector set_se, double &Vscore)
+{
+    int i = 0, j = 0, k = 0, n = _keep.size(), m = snp_indx.size();
+    VectorXd eigenval;
+
+    MatrixXf X;
+    MatrixXd SE;
+    MatrixXd V;
+
+    make_XMat_subset(X, snp_indx, false);
+
+    VectorXd sumsq_x(m);
+    for (j = 0; j < m; j++) sumsq_x[j] = X.col(j).dot(X.col(j));
+
+    MatrixXf C = X.transpose() * X;
+    X.resize(0,0);
+    #pragma omp parallel for private(j)
+    for (i = 0; i < m; i++) {
+        for (j = 0; j < m; j++) {
+            double d_buf = sqrt(sumsq_x[i] * sumsq_x[j]);
+            if(d_buf>0.0) C(i,j) /= d_buf;
+            else C(i,j) = 0.0;
+        }
+    }
+
+    // calculate and report on multi test
+    SE = set_se * set_se.transpose();
+    V = SE.array() * C.cast<double>().array();
+    V.diagonal() = V.diagonal() * (1+0.000001);
+    Vscore = set_beta.transpose() * V.inverse() * set_beta;
+    double Vscore_p = StatFunc::pchisq(Vscore, set_beta.size());
+
+    //SelfAdjointEigenSolver<MatrixXf> saes(C);
+    //eigenval = saes.eigenvalues().cast<double>();
+
+}
+
+void gcta::sbat_multi(string sAssoc_file, string snpset_file)
+{
+    int i = 0, j = 0, ii=0;
+    double Vscore = 0;
+
+    // read SNP set file
+    vector<string> set_name;
+    vector< vector<string> > snpset;
+    sbat_read_snpset(snpset_file, set_name, snpset);
+    int set_num = set_name.size();
+
+    // read SNP 'multi association results (including se & or)
+    vector<string> snp_name;
+    vector<int> snp_chr, snp_bp;
+    vector<double> snp_pval;
+    vector<double> snp_beta; // reads - or (log converted later in function)
+    vector<double> snp_btse; // se
+    eigenVector set_beta;
+    eigenVector set_se;
+    cout << sAssoc_file << " file" << endl;
+    sbat_multi_read_snpAssoc(sAssoc_file, snp_name, snp_chr, snp_bp, snp_pval, snp_beta, snp_btse);
+    vector<double> snp_chisq(snp_pval.size());
+    //for (i = 0; i < snp_pval.size(); i++) snp_chisq[i] = StatFunc::qchisq(snp_pval[i], 1);
+    
+    // run multi test
+    if (_mu.empty()) calcu_mu();
+    cout << "\nRunning set-based association test (SBAT)..." << endl;
+    vector<double> set_pval(set_num), chisq_o(set_num);
+    vector<int> snp_num_in_set(set_num);
+    map<string, int>::iterator iter;
+    map<string, int> snp_name_map;
+    for (i = 0; i < snp_name.size(); i++) snp_name_map.insert(pair<string,int>(snp_name[i], i));
+    for (i = 0; i < set_num; i++) {
+        bool skip = false;
+        if(snpset[i].size() < 1) skip = true;
+        vector<int> snp_indx;
+        for(j = 0; j < snpset[i].size(); j++){
+            iter = snp_name_map.find(snpset[i][j]);
+            if(iter!=snp_name_map.end()) snp_indx.push_back(iter->second);
+        }
+        snp_num_in_set[i] = snp_indx.size();
+        if(!skip && snp_num_in_set[i] > 20000){
+            cout<<"Warning: Too many SNPs in the set ["<<set_name[i]<<"]. Maximum limit is 20000. This gene is ignored in the analysis."<<endl;
+            skip = true;
+        }
+        if(skip){
+            set_pval[i] = 2.0;
+            snp_num_in_set[i] = 0;
+            continue;
+        }
+        chisq_o[i] = 0;
+
+        if((i + 1) % 100 == 0 || (i + 1) == set_num) cout << i + 1 << " of " << set_num << " sets.\r";
+
+        set_beta.resize(snpset[i].size());
+        set_se.resize(snpset[i].size());
+        for (ii = 0; ii < snpset[i].size(); ii++)
+        {
+            set_beta[ii] = snp_beta[snp_indx[ii]];
+            set_se[ii] = snp_btse[snp_indx[ii]];
+        }
+
+        //convert from OR to BETA
+        for(int i2 = 0 ; i2 < set_beta.size() ; i2++) set_beta[i2] = log(set_beta[i2]);
+
+        //cout << "beta..." << set_beta << endl;
+        //cout << "transpose..." << set_beta.transpose() << endl;
+        //cout << "setbtse" << endl << set_se << endl;
+        sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vscore);
+        //cout << "Chisq " << Vscore << endl;
+        chisq_o[i] = Vscore;
+        set_pval[i] = StatFunc::pchisq(Vscore, set_beta.size());
+        //cout << "Pvalue " <<  set_pval[i] << endl;
+
+    }
+
+    string filename = _out + ".sbat";
+    cout << "\nSaving the results of the SBAT analyses to [" + filename + "] ..." << endl;
+    ofstream ofile(filename.c_str());
+    if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
+    ofile << "Set\tNo.SNPs\tChisq(Obs)\tPvalue" << endl;
+    for (i = 0; i < set_num; i++) {
+        if(set_pval[i]>1.5) continue;
+        ofile << set_name[i] << "\t" << snp_num_in_set[i] << "\t" << chisq_o[i] << "\t" << set_pval[i] << endl;
+    }
+    ofile.close();
+}
+
+void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, vector<int> &snp_chr, vector<int> &snp_bp, vector<double> &snp_pval, vector<double> &snp_beta, vector<double> &snp_btse)
+{
+    ifstream in_snpAssoc(snpAssoc_file.c_str());
+    if (!in_snpAssoc) throw ("Error: can not open the file [" + snpAssoc_file + "] to read.");
+    cout << "\nReading SNP association results from [" + snpAssoc_file + "]." << endl;
+    string str_buf;
+    vector<string> vs_buf;
+    map<string, int>::iterator iter;
+    while (getline(in_snpAssoc, str_buf)) { 
+        if (StrFunc::split_string(str_buf, vs_buf) != 4) throw ("Error: in line \"" + str_buf + "\".");
+        iter = _snp_name_map.find(vs_buf[0]);
+        if (iter == _snp_name_map.end()) continue;
+        snp_name.push_back(vs_buf[0]);
+        snp_pval.push_back(atof(vs_buf[1].c_str()));
+        snp_beta.push_back(atof(vs_buf[2].c_str()));
+        snp_btse.push_back(atof(vs_buf[3].c_str()));
+    }
+    in_snpAssoc.close();
+    snp_name.erase(unique(snp_name.begin(), snp_name.end()), snp_name.end());
+    cout << "Association p-values of " << snp_name.size() << " SNPs have been included." << endl;
+
+    update_id_map_kp(snp_name, _snp_name_map, _include);
+    vector<string> snp_name_buf(snp_name);
+    vector<double> snp_pval_buf(snp_pval);
+    vector<double> snp_beta_buf(snp_beta);
+    vector<double> snp_btse_buf(snp_btse);
+    snp_name.clear();
+    snp_pval.clear();
+    snp_beta.clear();
+    snp_btse.clear();
+    snp_name.resize(_include.size());
+    snp_pval.resize(_include.size());
+    snp_beta.resize(_include.size());
+    snp_btse.resize(_include.size());
+    int i = 0;
+    map<string, int> snp_name_buf_map;
+    for (i = 0; i < snp_name_buf.size(); i++) snp_name_buf_map.insert(pair<string,int>(snp_name_buf[i], i));
+    #pragma omp parallel for
+    for (i = 0; i < _include.size(); i++) {
+        map<string, int>::iterator iter = snp_name_buf_map.find(_snp_name[_include[i]]);
+        snp_name[i] = snp_name_buf[iter->second];
+        snp_pval[i] = snp_pval_buf[iter->second];
+        snp_beta[i] = snp_beta_buf[iter->second];
+        snp_btse[i] = snp_btse_buf[iter->second];
+    }
+    snp_chr.resize(_include.size());
+    snp_bp.resize(_include.size());
+    #pragma omp parallel for
+    for (i = 0; i < _include.size(); i++) {
+        snp_chr[i] = _chr[_include[i]];
+        snp_bp[i] = _bp[_include[i]];
+    }
+    if (_include.size() < 1) throw ("Error: no SNP is included in the analysis.");
+    else if (_chr[_include[0]] < 1) throw ("Error: chromosome information is missing.");
+    else if (_bp[_include[0]] < 1) throw ("Error: bp information is missing.");
+}
+
+
+
+
