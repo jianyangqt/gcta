@@ -448,13 +448,54 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
         }
     }
 
-    // calculate and report on multi test
-    SE = set_se * set_se.transpose();
-    V = SE.array() * C.cast<double>().array();
-    V.diagonal() = V.diagonal() * (1+0.000001);
-    Vscore = set_beta.transpose() * V.inverse() * set_beta;
-    double Vscore_p = StatFunc::pchisq(Vscore, set_beta.size());
+    //Hard coded currently
+    double new_cutoff = 0.95;
+    vector<int> rm_ID1;
 
+    /*DEBUG
+    cout << C.size() << " <- C size" << endl;
+    cout << C.row(0).size() << " <- C row size" << endl;
+    */
+
+    rm_cor_sbat(C,new_cutoff,m,rm_ID1);
+
+    vector<int> new_C_indx; 
+    int alt = 0;
+    //List of matrix elements to keep
+    for (int aa=0 ; aa<m; aa++) {
+        if (rm_ID1.size() > 0) {
+            if (rm_ID1[alt] == aa) alt++;
+            else new_C_indx.push_back(aa);
+        }
+        else new_C_indx.push_back(aa);
+    }
+
+    //New matrix with correlation correction - currently always does correction
+    MatrixXf D(new_C_indx.size(),new_C_indx.size());
+
+    eigenVector snp_beta(new_C_indx.size());
+    eigenVector snp_btse(new_C_indx.size());
+
+    for (i = 0 ; i < new_C_indx.size() ; i++) {
+       for (j = 0 ; j < new_C_indx.size() ; j++) {
+           D(i,j) = C(new_C_indx[i],new_C_indx[j]);
+       }
+        snp_beta[i] = set_beta[new_C_indx[i]];
+        snp_btse[i] = set_se[new_C_indx[i]];
+    }
+
+    /* DEBUG
+    cout << "Number of snps retained: " << new_C_indx.size() << endl;
+    cout << "Number of snps beta array: " << snp_beta.size() << endl;
+    for (int aa=0 ; aa<new_C_indx.size() ; aa++) cout << " . " << new_C_indx[aa];
+    */
+
+    SE = snp_btse * snp_btse.transpose();
+    V = SE.array() * D.cast<double>().array();
+    V.diagonal() = V.diagonal() * (1+0.000001);
+    Vscore = snp_beta.transpose() * V.inverse() * snp_beta;
+    double Vscore_p = StatFunc::pchisq(Vscore, snp_beta.size());
+    
     //SelfAdjointEigenSolver<MatrixXf> saes(C);
     //eigenval = saes.eigenvalues().cast<double>();
 
@@ -471,20 +512,18 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
     sbat_read_snpset(snpset_file, set_name, snpset);
     int set_num = set_name.size();
 
-    // read SNP 'multi association results (including se & or)
+    // read SNP 'multi association results (including se & BETA/or)
     vector<string> snp_name;
     vector<int> snp_chr, snp_bp;
     vector<double> snp_pval;
-    vector<double> snp_beta; // reads - or (log converted later in function)
+    vector<double> snp_beta; // BETA - can be converted to log (code commented out futher down)
     vector<double> snp_btse; // se
     eigenVector set_beta;
     eigenVector set_se;
     cout << sAssoc_file << " file" << endl;
     sbat_multi_read_snpAssoc(sAssoc_file, snp_name, snp_chr, snp_bp, snp_pval, snp_beta, snp_btse);
     vector<double> snp_chisq(snp_pval.size());
-    //for (i = 0; i < snp_pval.size(); i++) snp_chisq[i] = StatFunc::qchisq(snp_pval[i], 1);
     
-    // run multi test
     if (_mu.empty()) calcu_mu();
     cout << "\nRunning set-based association test (SBAT)..." << endl;
     vector<double> set_pval(set_num), chisq_o(set_num);
@@ -523,19 +562,15 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
         }
 
         //convert from OR to BETA
-        for(int i2 = 0 ; i2 < set_beta.size() ; i2++) set_beta[i2] = log(set_beta[i2]);
+        //for(int i2 = 0 ; i2 < set_beta.size() ; i2++) set_beta[i2] = log(set_beta[i2]);
 
-        //cout << "beta..." << set_beta << endl;
-        //cout << "transpose..." << set_beta.transpose() << endl;
-        //cout << "setbtse" << endl << set_se << endl;
         sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vscore);
-        //cout << "Chisq " << Vscore << endl;
         chisq_o[i] = Vscore;
         set_pval[i] = StatFunc::pchisq(Vscore, set_beta.size());
-        //cout << "Pvalue " <<  set_pval[i] << endl;
 
     }
 
+    cout << "Currently assuming BETA not OR score" << endl;
     string filename = _out + ".sbat";
     cout << "\nSaving the results of the SBAT analyses to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
@@ -606,5 +641,63 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
 }
 
 
+void gcta::rm_cor_sbat(MatrixXf &R, double R_cutoff, int m, vector<int> &rm_ID1) {
+    //Slightly modified version of rm_cor_indi from grm.cpp
+    
+    cout << "Pruning the R matrix with a cutoff of " << R_cutoff << " ..." << endl;
 
+    //don't forget ABS values
+
+    int i = 0, j = 0, i_buf = 0;
+   // vector<int> rm_ID1, rm_ID2;
+    vector<int> rm_ID2;
+
+    //use this as bases for rm cor
+    float aval = 0;
+    #pragma omp parallel for private(j)
+    for (i = 0; i < m; i++) {
+        for (j = 0; j < i; j++) {
+            aval = R(i,j);
+            if (aval < 0) aval=aval*-1;
+            if (aval > R_cutoff ) { 
+            //if (R(i,j) > R_cutoff ) { 
+                rm_ID1.push_back(i);
+                rm_ID2.push_back(j);
+            }
+        }
+    }
+
+    // count the number of appearance of each "position" in the vector, which involves a few steps
+    vector<int> rm_uni_ID(rm_ID1);
+    rm_uni_ID.insert(rm_uni_ID.end(), rm_ID2.begin(), rm_ID2.end());
+    stable_sort(rm_uni_ID.begin(), rm_uni_ID.end());
+    rm_uni_ID.erase(unique(rm_uni_ID.begin(), rm_uni_ID.end()), rm_uni_ID.end());
+    map<int, int> rm_uni_ID_count;
+    for (i = 0; i < rm_uni_ID.size(); i++) {
+        i_buf = count(rm_ID1.begin(), rm_ID1.end(), rm_uni_ID[i]) + count(rm_ID2.begin(), rm_ID2.end(), rm_uni_ID[i]);
+        rm_uni_ID_count.insert(pair<int, int>(rm_uni_ID[i], i_buf));
+    }
+
+    // swapping
+    map<int, int>::iterator iter1, iter2;
+    for (i = 0; i < rm_ID1.size(); i++) {
+        iter1 = rm_uni_ID_count.find(rm_ID1[i]);
+        iter2 = rm_uni_ID_count.find(rm_ID2[i]);
+        if (iter1->second < iter2->second) {
+            i_buf = rm_ID1[i];
+            rm_ID1[i] = rm_ID2[i];
+            rm_ID2[i] = i_buf;
+        }
+    }
+
+
+    stable_sort(rm_ID1.begin(), rm_ID1.end());
+    rm_ID1.erase(unique(rm_ID1.begin(), rm_ID1.end()), rm_ID1.end());
+    vector<string> removed_ID;
+    for (i = 0; i < rm_ID1.size(); i++) removed_ID.push_back(_fid[rm_ID1[i]] + ":" + _pid[rm_ID1[i]]);
+
+    // update _keep and _id_map
+    update_id_map_rm(removed_ID, _id_map, _keep);
+
+    }
 

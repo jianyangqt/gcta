@@ -10,7 +10,7 @@
 
 # Set this variable to either UNIX, MAC or WIN
 SYS = UNIX
-OUTPUT = ~/scratch/bin/gcta64_test
+OUTPUT = ./gcta64_testing
 
 MKLROOT = /opt/intel/mkl
 
@@ -23,7 +23,7 @@ CXX_WIN = C:\CodeBlocks\MinGW\bin\mingw32-g++.exe
 CXX_MAC = g++
 
 # Any other compiler flags here ( -Wall, -g, etc)
-CXXFLAGS = -w -O3 -m64 -fopenmp -I ../Lib/eigen -DEIGEN_NO_DEBUG -msse2 -std=c++0x -I.
+CXXFLAGS = -w -O3 -m64 -fopenmp -I ~/Lib/eigen -DEIGEN_NO_DEBUG -msse2 -std=c++0x -I.
 
 ifdef SINGLE_PRECISION
  CXXFLAGS += -DSINGLE_PRECISION=1
@@ -32,8 +32,8 @@ endif
 # Some system specific flags
 
 ifeq ($(SYS),WIN)
- CXXFLAGS += -DWIN -static -I ../Lib/zlib
- LIB += ../Lib/zlib/zlib.lib 
+ CXXFLAGS += -DWIN -static -I ~/Lib/zlib
+ LIB += ~/Lib/zlib/zlib.lib 
  CXX = $(CXX_WIN)
 endif
 
