@@ -346,7 +346,7 @@ private:
     void get_sbat_seg_blk(int seg_size, vector< vector<int> > &snp_set_indx, vector<int> &set_chr, vector<int> &set_start_bp, vector<int> &set_end_bp);
 
     // gene based multivar test
-    void sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigenVector set_se, double &Vscore);
+    void sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigenVector set_se, double &Vscore, double &Vscore_p, int &snp_count);
     void sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, vector<int> &snp_chr, vector<int> &snp_bp, vector<double> &snp_pval, vector<double> &snp_beta, vector<double> &snp_btse);
     void rm_cor_sbat(MatrixXf &R, double R_cutoff, int m, vector<int> &rm_ID1);
 

@@ -423,7 +423,7 @@ void gcta::sbat_calcu_lambda(vector<int> &snp_indx, VectorXd &eigenval)
     eigenval = saes.eigenvalues().cast<double>();
 }
 
-void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigenVector set_se, double &Vscore)
+void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigenVector set_se, double &Vscore, double &Vscore_p, int &snp_count)
 {
     int i = 0, j = 0, k = 0, n = _keep.size(), m = snp_indx.size();
     VectorXd eigenval;
@@ -470,7 +470,10 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
         else new_C_indx.push_back(aa);
     }
 
+    //cout << " C matrix " << endl << C << endl;
+
     //New matrix with correlation correction - currently always does correction
+    //UPDATE _include/global variable?? - maybe
     MatrixXf D(new_C_indx.size(),new_C_indx.size());
 
     eigenVector snp_beta(new_C_indx.size());
@@ -484,6 +487,10 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
         snp_btse[i] = set_se[new_C_indx[i]];
     }
 
+    //cout << " D matrix " << endl << D << endl;
+
+    snp_count = snp_beta.size();
+
     /* DEBUG
     cout << "Number of snps retained: " << new_C_indx.size() << endl;
     cout << "Number of snps beta array: " << snp_beta.size() << endl;
@@ -494,7 +501,7 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     V = SE.array() * D.cast<double>().array();
     V.diagonal() = V.diagonal() * (1+0.000001);
     Vscore = snp_beta.transpose() * V.inverse() * snp_beta;
-    double Vscore_p = StatFunc::pchisq(Vscore, snp_beta.size());
+    Vscore_p = StatFunc::pchisq(Vscore, snp_beta.size());
     
     //SelfAdjointEigenSolver<MatrixXf> saes(C);
     //eigenval = saes.eigenvalues().cast<double>();
@@ -505,6 +512,8 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
 {
     int i = 0, j = 0, ii=0;
     double Vscore = 0;
+    double Vscore_p = 0;
+    int snp_count = 0;
 
     // read SNP set file
     vector<string> set_name;
@@ -564,9 +573,10 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
         //convert from OR to BETA
         //for(int i2 = 0 ; i2 < set_beta.size() ; i2++) set_beta[i2] = log(set_beta[i2]);
 
-        sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vscore);
+        snp_count = 0;
+        sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vscore, Vscore_p, snp_count);
         chisq_o[i] = Vscore;
-        set_pval[i] = StatFunc::pchisq(Vscore, set_beta.size());
+        set_pval[i] = Vscore_p;
 
     }
 
@@ -575,10 +585,10 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
     cout << "\nSaving the results of the SBAT analyses to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
     if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
-    ofile << "Set\tNo.SNPs\tChisq(Obs)\tPvalue" << endl;
+    ofile << "Set\tSet.SNPs\tNo.SNPs\tChisq(Obs)\tPvalue" << endl;
     for (i = 0; i < set_num; i++) {
         if(set_pval[i]>1.5) continue;
-        ofile << set_name[i] << "\t" << snp_num_in_set[i] << "\t" << chisq_o[i] << "\t" << set_pval[i] << endl;
+        ofile << set_name[i] << "\t" << snp_num_in_set[i] << "\t" << snp_count << "\t" << chisq_o[i] << "\t" << set_pval[i] << endl;
     }
     ofile.close();
 }
