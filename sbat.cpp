@@ -514,6 +514,7 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
     double Vscore = 0;
     double Vscore_p = 0;
     int snp_count = 0;
+    vector<int> num_snp_tested;
 
     // read SNP set file
     vector<string> set_name;
@@ -573,8 +574,9 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
         //convert from OR to BETA
         //for(int i2 = 0 ; i2 < set_beta.size() ; i2++) set_beta[i2] = log(set_beta[i2]);
 
-        snp_count = 0;
+        snp_count=0;
         sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vscore, Vscore_p, snp_count);
+        num_snp_tested.push_back(snp_count);
         chisq_o[i] = Vscore;
         set_pval[i] = Vscore_p;
 
@@ -588,7 +590,7 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
     ofile << "Set\tSet.SNPs\tNo.SNPs\tChisq(Obs)\tPvalue" << endl;
     for (i = 0; i < set_num; i++) {
         if(set_pval[i]>1.5) continue;
-        ofile << set_name[i] << "\t" << snp_num_in_set[i] << "\t" << snp_count << "\t" << chisq_o[i] << "\t" << set_pval[i] << endl;
+        ofile << set_name[i] << "\t" << snp_num_in_set[i] << "\t" << num_snp_tested[i] << "\t" << chisq_o[i] << "\t" << set_pval[i] << endl;
     }
     ofile.close();
 }
