@@ -423,7 +423,7 @@ void gcta::sbat_calcu_lambda(vector<int> &snp_indx, VectorXd &eigenval)
     eigenval = saes.eigenvalues().cast<double>();
 }
 
-void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigenVector set_se, double &Vscore, double &Vscore_p, int &snp_count)
+void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigenVector set_se, double &Vscore, double &Vscore_p, int &snp_count, vector<string> &snp_name)
 {
     int i = 0, j = 0, k = 0, n = _keep.size(), m = snp_indx.size();
     VectorXd eigenval;
@@ -449,7 +449,7 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     }
 
     //Hard coded currently
-    double new_cutoff = 0.95;
+    double new_cutoff = 0.9486833; //sqrt(0.9)
     vector<int> rm_ID1;
 
     /*DEBUG
@@ -480,6 +480,7 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     eigenVector snp_btse(new_C_indx.size());
 
     for (i = 0 ; i < new_C_indx.size() ; i++) {
+       //cout << "snp: " << snp_name[new_C_indx[i]] << endl;
        for (j = 0 ; j < new_C_indx.size() ; j++) {
            D(i,j) = C(new_C_indx[i],new_C_indx[j]);
        }
@@ -487,7 +488,15 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
         snp_btse[i] = set_se[new_C_indx[i]];
     }
 
-    //cout << " D matrix " << endl << D << endl;
+    /*
+    cout << " C matrix " << endl << C << endl;
+    cout << " D matrix " << endl << D << endl;
+    cout << " B  vector " << endl << snp_beta << endl;
+    cout << " SE vector " << endl << snp_btse << endl;
+    cout << " New Index " << endl;
+    for (int abc = 0 ; abc < new_C_indx.size() ; abc++) cout << new_C_indx[abc] << " ";
+    cout << endl;
+    */
 
     snp_count = snp_beta.size();
 
@@ -507,6 +516,8 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     //eigenval = saes.eigenvalues().cast<double>();
 
 }
+
+
 
 void gcta::sbat_multi(string sAssoc_file, string snpset_file)
 {
@@ -535,7 +546,7 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
     vector<double> snp_chisq(snp_pval.size());
     
     if (_mu.empty()) calcu_mu();
-    cout << "\nRunning set-based association test (SBAT)..." << endl;
+    cout << "\nRunning set-based multivariate association test (SBAT-MULTI)..." << endl;
     vector<double> set_pval(set_num), chisq_o(set_num);
     vector<int> snp_num_in_set(set_num);
     map<string, int>::iterator iter;
@@ -575,7 +586,8 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
         //for(int i2 = 0 ; i2 < set_beta.size() ; i2++) set_beta[i2] = log(set_beta[i2]);
 
         snp_count=0;
-        sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vscore, Vscore_p, snp_count);
+        sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vscore, Vscore_p, snp_count, snp_name);
+        //if not invertible -> call normal sbat / return "cant calc"
         num_snp_tested.push_back(snp_count);
         chisq_o[i] = Vscore;
         set_pval[i] = Vscore_p;
@@ -670,8 +682,7 @@ void gcta::rm_cor_sbat(MatrixXf &R, double R_cutoff, int m, vector<int> &rm_ID1)
     for (i = 0; i < m; i++) {
         for (j = 0; j < i; j++) {
             aval = R(i,j);
-            if (aval < 0) aval=aval*-1;
-            if (aval > R_cutoff ) { 
+            if (fabs(aval) > R_cutoff ) { 
             //if (R(i,j) > R_cutoff ) { 
                 rm_ID1.push_back(i);
                 rm_ID2.push_back(j);
@@ -712,4 +723,163 @@ void gcta::rm_cor_sbat(MatrixXf &R, double R_cutoff, int m, vector<int> &rm_ID1)
     update_id_map_rm(removed_ID, _id_map, _keep);
 
     }
+
+void gcta::sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind)
+{
+    int i = 0, j = 0, ii=0;
+    double Vscore = 0;
+    double Vscore_p = 0;
+    int snp_count = 0;
+    vector<int> num_snp_tested;
+
+    // read SNP 'multi association results (including se & BETA/or)
+    vector<string> snp_name;
+    vector<int> snp_chr, snp_bp;
+    vector<double> snp_pval;
+    vector<double> snp_beta; // BETA - can be converted to log (code commented out futher down)
+    vector<double> snp_btse; // se
+    eigenVector set_beta;
+    eigenVector set_se;
+    cout << sAssoc_file << " file" << endl;
+    sbat_multi_read_snpAssoc(sAssoc_file, snp_name, snp_chr, snp_bp, snp_pval, snp_beta, snp_btse);
+    vector<double> snp_chisq(snp_pval.size());
+
+    // get start and end of chr
+    int snp_num = snp_name.size();
+    map<int, string> chr_begin_snp, chr_end_snp;
+    chr_begin_snp.insert(pair<int, string>(snp_chr[0], snp_name[0]));
+    for (i = 1; i < snp_num; i++) {
+        if (snp_chr[i] != snp_chr[i - 1]) {
+            chr_begin_snp.insert(pair<int, string>(snp_chr[i], snp_name[i]));
+            chr_end_snp.insert(pair<int, string>(snp_chr[i - 1], snp_name[i - 1]));
+        }
+    }
+    chr_end_snp.insert(pair<int, string>(snp_chr[snp_num - 1], snp_name[snp_num - 1]));
+    
+    // read gene list
+    vector<string> gene_name;
+    vector<int> gene_chr, gene_bp1, gene_bp2;
+    sbat_read_geneAnno(gAnno_file, gene_name, gene_chr, gene_bp1, gene_bp2);
+
+    // map genes to SNPs
+    cout << "Mapping the physical positions of genes to SNP data (gene bounaries: " << wind / 1000 << "Kb away from UTRs) ..." << endl;
+
+    int gene_num = gene_name.size();
+    vector<string> gene2snp_1(gene_num), gene2snp_2(gene_num);
+    vector<locus_bp>::iterator iter;
+    map<int, string>::iterator chr_iter;
+    vector<locus_bp> snp_vec;
+    for (i = 0; i < snp_num; i++) snp_vec.push_back(locus_bp(snp_name[i], snp_chr[i], snp_bp[i]));
+    #pragma omp parallel for private(iter, chr_iter)
+    for (i = 0; i < gene_num; i++) {
+        iter = find_if(snp_vec.begin(), snp_vec.end(), locus_bp(gene_name[i], gene_chr[i], gene_bp1[i] - wind));
+        if (iter != snp_vec.end()) gene2snp_1[i] = iter->locus_name;
+        else gene2snp_1[i] = "NA";
+    }
+    #pragma omp parallel for private(iter, chr_iter)
+    for (i = 0; i < gene_num; i++) {
+        if (gene2snp_1[i] == "NA") {
+            gene2snp_2[i] = "NA";
+            continue;
+        }
+        iter = find_if(snp_vec.begin(), snp_vec.end(), locus_bp(gene_name[i], gene_chr[i], gene_bp2[i] + wind));
+        if (iter != snp_vec.end()){
+            if (iter->bp ==  gene_bp2[i] + wind) gene2snp_2[i] = iter->locus_name;
+            else {
+                if(iter!=snp_vec.begin()){
+                    iter--;
+                    gene2snp_2[i] = iter->locus_name;
+                }
+                else gene2snp_2[i] = "NA";
+            }
+        }
+        else {
+            chr_iter = chr_end_snp.find(gene_chr[i]);
+            if (chr_iter == chr_end_snp.end()) gene2snp_2[i] = "NA";
+            else gene2snp_2[i] = chr_iter->second;
+        }
+    }
+    int mapped = 0;
+    for (i = 0; i < gene_num; i++) {
+        if (gene2snp_1[i] != "NA" && gene2snp_2[i] != "NA") mapped++;
+    }
+    if (mapped < 1) throw ("Error: no gene can be mapped to the SNP data. Please check the input data regarding chr and bp.");
+    else cout << mapped << " genes have been mapped to SNP data." << endl;
+
+    // run sbat multi gene-based test
+    
+    if (_mu.empty()) calcu_mu();
+    cout << "\nRunning set-based association test (SBAT) for genes ..." << endl;
+    vector<double> gene_pval(gene_num), chisq_o(gene_num);
+    vector<int> snp_num_in_gene(gene_num);
+    map<string, int>::iterator iter1, iter2;
+    map<string, int> snp_name_map;
+    for (i = 0; i < snp_name.size(); i++) snp_name_map.insert(pair<string,int>(snp_name[i], i));
+    for (i = 0; i < gene_num; i++) {
+        iter1 = snp_name_map.find(gene2snp_1[i]);
+        iter2 = snp_name_map.find(gene2snp_2[i]);
+        bool skip = false;
+        if (iter1 == snp_name_map.end() || iter2 == snp_name_map.end() || iter1->second >= iter2->second) skip = true;
+        snp_num_in_gene[i] = iter2->second - iter1->second + 1;
+        if(!skip && snp_num_in_gene[i] > 10000){
+            cout<<"Warning: Too many SNPs in the gene region ["<<gene_name[i]<<"]. Maximum limit is 10000. This gene is ignored in the analysis."<<endl;
+            skip = true;  
+        } 
+        if(skip){
+            gene_pval[i] = 2.0;
+            snp_num_in_gene[i] = 0;
+            continue;
+        }
+
+        cout << gene_name[i] << " <- gene name " << endl;
+        cout << snp_num_in_gene[i] << " snp num in gene " << endl;
+
+        vector<int> snp_indx;
+        for (j = iter1->second; j <= iter2->second; j++) snp_indx.push_back(j);            
+ 
+        set_beta.resize(snp_num_in_gene[i]);
+        set_se.resize(snp_num_in_gene[i]);
+        for (ii = 0; ii < snp_num_in_gene[i]; ii++)
+        {
+            set_beta[ii] = snp_beta[snp_indx[ii]];
+            set_se[ii] = snp_btse[snp_indx[ii]];
+        }
+
+        
+        chisq_o[i] = 0;
+        for (j = iter1->second; j <= iter2->second; j++) chisq_o[i] += snp_chisq[j];
+        if(snp_num_in_gene[i] == 1) gene_pval[i] = StatFunc::pchisq(chisq_o[i], 1.0); //may change this - normal sbat 
+        else {
+            vector<int> snp_indx;
+            for (j = iter1->second; j <= iter2->second; j++) snp_indx.push_back(j);            
+            VectorXd eigenval;
+
+            snp_count=0;
+            sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vscore, Vscore_p, snp_count, snp_name);
+            num_snp_tested.push_back(snp_count);
+            chisq_o[i] = Vscore;
+            gene_pval[i] = Vscore_p;
+
+        }
+
+        if((i + 1) % 100 == 0 || (i + 1) == gene_num) cout << i + 1 << " of " << gene_num << " genes.\r";
+       
+    }
+
+    
+    string filename = _out + ".gene.sbat";
+    cout << "\nSaving the results of the SBAT analyses to [" + filename + "] ..." << endl;
+    ofstream ofile(filename.c_str());
+    if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
+    ofile << "Gene\tChr\tStart\tEnd\tNo.SNPs\tSNPsTested\tSNP_start\tSNP_end\tChisq(Obs)\tPvalue" << endl;
+    for (i = 0; i < gene_num; i++) {
+        if(gene_pval[i]>1.5) continue;
+        ofile << gene_name[i] << "\t" << gene_chr[i] << "\t" << gene_bp1[i] << "\t" << gene_bp2[i] << "\t";
+        ofile << snp_num_in_gene[i] << "\t" << num_snp_tested[i] << "\t" << gene2snp_1[i] << "\t" << gene2snp_2[i] << "\t" << chisq_o[i] << "\t" << gene_pval[i] << endl;
+        //else ofile << "0\tNA\tNA\tNA\tNA" << endl;
+    }
+    ofile.close();
+    
+}
+
 

@@ -1004,7 +1004,10 @@ void option(int option_num, char* option_str[])
             else if (simu_qt_flag || simu_cc) pter_gcta->GWAS_simu(bfile, simu_rep, simu_causal, simu_case_num, simu_control_num, simu_h2, simu_K, simu_seed, simu_output_causal, simu_emb_flag);
             else if (make_bed_flag) pter_gcta->save_plink();
             else if (!subpopu_file.empty()) pter_gcta->Fst(subpopu_file);
-            else if (sbat_multi_flag) pter_gcta->sbat_multi(sbat_sAssoc_file, sbat_snpset_file);
+            else if (sbat_multi_flag) {
+                if(!sbat_gAnno_file.empty()) pter_gcta->sbat_multi_gene(sbat_sAssoc_file, sbat_gAnno_file, sbat_wind);
+                else pter_gcta->sbat_multi(sbat_sAssoc_file, sbat_snpset_file);
+            }
             else if (!sbat_sAssoc_file.empty()){
                 if(!sbat_gAnno_file.empty()) pter_gcta->sbat_gene(sbat_sAssoc_file, sbat_gAnno_file, sbat_wind);
                 else if(!sbat_snpset_file.empty()) pter_gcta->sbat(sbat_sAssoc_file, sbat_snpset_file);
