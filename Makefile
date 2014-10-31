@@ -81,6 +81,7 @@ SRC = bivar_reml.cpp \
            popu_genet.cpp \
            raw_geno.cpp \
            sbat.cpp \
+           mbat.cpp \
            SimplexSolver.cpp \
            StatFunc.cpp \
            StrFunc.cpp \

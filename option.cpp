@@ -117,6 +117,7 @@ void option(int option_num, char* option_str[])
     // gene-based association test
     bool sbat_seg_flag = false;
     bool sbat_multi_flag = false;
+    bool reduce_cor = false; //option to remove overly correlated snps in SBAT test
     string sbat_sAssoc_file = "", sbat_gAnno_file = "", sbat_snpset_file = "";
     int sbat_wind = 50000, sbat_seg_size = 1e5;
 
@@ -777,6 +778,9 @@ void option(int option_num, char* option_str[])
             subpopu_file = argv[++i];
             cout << "--fst " << subpopu_file << endl;
             CommFunc::FileExist(subpopu_file);
+        } else if (strcmp(argv[i], "--reduce-cor") == 0) {
+            reduce_cor = true;
+            cout << "--reduce-cor" << endl;
         } else if (strcmp(argv[i], "--sbat-multi") == 0) {
             sbat_multi_flag = true;
             sbat_sAssoc_file = argv[++i];
@@ -1009,9 +1013,9 @@ void option(int option_num, char* option_str[])
                 else pter_gcta->sbat_multi(sbat_sAssoc_file, sbat_snpset_file);
             }
             else if (!sbat_sAssoc_file.empty()){
-                if(!sbat_gAnno_file.empty()) pter_gcta->sbat_gene(sbat_sAssoc_file, sbat_gAnno_file, sbat_wind);
-                else if(!sbat_snpset_file.empty()) pter_gcta->sbat(sbat_sAssoc_file, sbat_snpset_file);
-                else if(sbat_seg_flag) pter_gcta->sbat_seg(sbat_sAssoc_file, sbat_seg_size);
+                if(!sbat_gAnno_file.empty()) pter_gcta->sbat_gene(sbat_sAssoc_file, sbat_gAnno_file, sbat_wind, reduce_cor);
+                else if(!sbat_snpset_file.empty()) pter_gcta->sbat(sbat_sAssoc_file, sbat_snpset_file, reduce_cor);
+                else if(sbat_seg_flag) pter_gcta->sbat_seg(sbat_sAssoc_file, sbat_seg_size, reduce_cor);
             }
         }
     } else if (dose_beagle_flag || dose_mach_flag || dose_mach_gz_flag) {

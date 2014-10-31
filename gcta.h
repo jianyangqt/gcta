@@ -141,9 +141,9 @@ public:
     void mlma_loco(string phen_file, string qcovar_file, string covar_file, int mphen, int MaxIter, vector<double> reml_priors, vector<double> reml_priors_var, bool no_constrain, bool inbred, bool no_adj_covar);
 
     // gene based association test
-    void sbat_gene(string sAssoc_file, string gAnno_file, int wind);
-    void sbat(string sAssoc_file, string snpset_file);
-    void sbat_seg(string sAssoc_file, int seg_size);
+    void sbat_gene(string sAssoc_file, string gAnno_file, int wind, bool reduce_cor);
+    void sbat(string sAssoc_file, string snpset_file, bool reduce_cor);
+    void sbat_seg(string sAssoc_file, int seg_size, bool reduce_cor);
     void sbat_multi(string sAssoc_file, string snpset_file);
     void sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind);
 
@@ -343,7 +343,7 @@ private:
     void sbat_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, vector<int> &snp_chr, vector<int> &snp_bp, vector<double> &snp_pval);
     void sbat_read_geneAnno(string gAnno_file, vector<string> &gene_name, vector<int> &gene_chr, vector<int> &gene_bp1, vector<int> &gene_bp2);
     void sbat_read_snpset(string snpset_file, vector<string> &set_name, vector< vector<string> > &snpset);
-    void sbat_calcu_lambda(vector<int> &snp_indx, VectorXd &eigenval);
+    void sbat_calcu_lambda(vector<int> &snp_indx, VectorXd &eigenval, int &snp_count, bool reduce_cor);
     void get_sbat_seg_blk(int seg_size, vector< vector<int> > &snp_set_indx, vector<int> &set_chr, vector<int> &set_start_bp, vector<int> &set_end_bp);
 
     // gene based multivar test
