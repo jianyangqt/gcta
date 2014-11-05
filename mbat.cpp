@@ -202,26 +202,65 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
     if (!in_snpAssoc) throw ("Error: can not open the file [" + snpAssoc_file + "] to read.");
     cout << "\nReading SNP association results from [" + snpAssoc_file + "]." << endl;
     string str_buf;
-    vector<string> vs_buf;
+    string A1_buf, A2_buf;
+    vector<string> ref_A_buf, bad_A1, bad_A2, bad_refA;
+    vector<string> vs_buf, bad_snp;
+    vector<string> snplist;
+    int i=0, count = 0;
     map<string, int>::iterator iter;
     while (getline(in_snpAssoc, str_buf)) { 
-        if (StrFunc::split_string(str_buf, vs_buf) != 4) throw ("Error: in line \"" + str_buf + "\".");
+        if (StrFunc::split_string(str_buf, vs_buf) != 7) throw ("Error: in line \"" + str_buf + "\".");
         iter = _snp_name_map.find(vs_buf[0]);
+        i = iter->second;
         if (iter == _snp_name_map.end()) continue;
         snp_name.push_back(vs_buf[0]);
-        snp_pval.push_back(atof(vs_buf[1].c_str()));
-        snp_beta.push_back(atof(vs_buf[2].c_str()));
-        snp_btse.push_back(atof(vs_buf[3].c_str()));
+        A1_buf = vs_buf[1];
+        A2_buf = vs_buf[2];
+        // ignore bp for now
+        snp_beta.push_back(atof(vs_buf[4].c_str()));
+        snp_btse.push_back(atof(vs_buf[5].c_str()));
+        snp_pval.push_back(atof(vs_buf[6].c_str()));
+
+        if (A1_buf != _allele1[i] && A1_buf != _allele2[i]) {
+            bad_snp.push_back(_snp_name[i]);
+            bad_A1.push_back(_allele1[i]);
+            bad_A2.push_back(_allele2[i]);
+            bad_refA.push_back(A1_buf);
+            continue;
+        }
+        //update reference Allele based on assoc data
+        else if (A1_buf == _allele1[iter->second]) {
+            _ref_A[iter->second] = _allele1[iter->second];
+            _other_A[iter->second] = _allele2[iter->second];
+        }
+        else if (A1_buf == _allele2[iter->second]) {
+            _ref_A[iter->second] = _allele2[iter->second];
+            _other_A[iter->second] = _allele1[iter->second];
+        }
+        ref_A_buf.push_back(A1_buf);
+        //do i need to change _mu??
+        
+
     }
     in_snpAssoc.close();
     snp_name.erase(unique(snp_name.begin(), snp_name.end()), snp_name.end());
+
+    snplist = snp_name;
+    update_id_map_kp(snplist, _snp_name_map, _include);
+
+
+    //
+    vector<int> indx(_include.size()); 
+    map<string, int> id_map;
+    for (i = 0; i < snplist.size(); i++) id_map.insert(pair<string, int>(snplist[i], i));
+
     cout << "Association p-values of " << snp_name.size() << " SNPs have been included." << endl;
 
-    update_id_map_kp(snp_name, _snp_name_map, _include);
     vector<string> snp_name_buf(snp_name);
     vector<double> snp_pval_buf(snp_pval);
     vector<double> snp_beta_buf(snp_beta);
     vector<double> snp_btse_buf(snp_btse);
+
     snp_name.clear();
     snp_pval.clear();
     snp_beta.clear();
@@ -230,7 +269,7 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
     snp_pval.resize(_include.size());
     snp_beta.resize(_include.size());
     snp_btse.resize(_include.size());
-    int i = 0;
+    i = 0;
     map<string, int> snp_name_buf_map;
     for (i = 0; i < snp_name_buf.size(); i++) snp_name_buf_map.insert(pair<string,int>(snp_name_buf[i], i));
     #pragma omp parallel for
@@ -251,6 +290,9 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
     if (_include.size() < 1) throw ("Error: no SNP is included in the analysis.");
     else if (_chr[_include[0]] < 1) throw ("Error: chromosome information is missing.");
     else if (_bp[_include[0]] < 1) throw ("Error: bp information is missing.");
+
+
+    cout << _include.size() << " include size " << endl;
 }
 
 
@@ -308,6 +350,7 @@ void gcta::rm_cor_sbat(MatrixXf &R, double R_cutoff, int m, vector<int> &rm_ID1)
     vector<string> removed_ID;
     for (i = 0; i < rm_ID1.size(); i++) removed_ID.push_back(_fid[rm_ID1[i]] + ":" + _pid[rm_ID1[i]]);
 
+    //NEEDS TO BE DELETED
     // update _keep and _id_map
     update_id_map_rm(removed_ID, _id_map, _keep);
 
