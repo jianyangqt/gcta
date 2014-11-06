@@ -70,16 +70,17 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     eigenVector snp_btse(new_C_indx.size());
 
     for (i = 0 ; i < new_C_indx.size() ; i++) {
-       cout << new_C_indx[i] << " a " << snp_name[new_C_indx[i]] << " b " << snp_beta[new_C_indx[i]] << endl;
+       // cout << new_C_indx[i] << " a " << snp_name[new_C_indx[i]] << " b " << snp_beta[new_C_indx[i]] << endl;
        //cout << "snp: " << snp_name[new_C_indx[i]] << endl;
        for (j = 0 ; j < new_C_indx.size() ; j++) {
            D(i,j) = C(new_C_indx[i],new_C_indx[j]);
+           //if (D(i,j) > 0.9486 & i!=j) cout << " D i j " << D(i,j) << endl; //print if rm cor didn't work...
        }
         snp_beta[i] = set_beta[new_C_indx[i]];
         snp_btse[i] = set_se[new_C_indx[i]];
     }
 
-    /*
+    /* 
     cout << " C matrix " << endl << C << endl;
     cout << " D matrix " << endl << D << endl;
     cout << " B  vector " << endl << snp_beta << endl;
@@ -347,12 +348,12 @@ void gcta::rm_cor_sbat(MatrixXf &R, double R_cutoff, int m, vector<int> &rm_ID1)
 
     stable_sort(rm_ID1.begin(), rm_ID1.end());
     rm_ID1.erase(unique(rm_ID1.begin(), rm_ID1.end()), rm_ID1.end());
-    vector<string> removed_ID;
-    for (i = 0; i < rm_ID1.size(); i++) removed_ID.push_back(_fid[rm_ID1[i]] + ":" + _pid[rm_ID1[i]]);
+    //vector<string> removed_ID;
+    //for (i = 0; i < rm_ID1.size(); i++) removed_ID.push_back(_fid[rm_ID1[i]] + ":" + _pid[rm_ID1[i]]);
 
     //NEEDS TO BE DELETED
     // update _keep and _id_map
-    update_id_map_rm(removed_ID, _id_map, _keep);
+    // update_id_map_rm(removed_ID, _id_map, _keep);
 
     }
 
@@ -487,7 +488,7 @@ void gcta::sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind)
             //VectorXd eigenval;
 
             //snp details
-            for (int aa = 0 ; aa < snp_name.size() ; aa++) cout << "nonfiltersnp: " << snp_name[aa] << endl;
+            //for (int aa = 0 ; aa < snp_name.size() ; aa++) cout << "nonfiltersnp: " << snp_name[aa] << endl;
 
             snp_count=0;
             sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vscore, Vscore_p, snp_count, snp_name);
