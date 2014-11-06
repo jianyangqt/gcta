@@ -41,11 +41,6 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     double new_cutoff = 0.9486833; //sqrt(0.9)
     vector<int> rm_ID1;
 
-    /*DEBUG
-    cout << C.size() << " <- C size" << endl;
-    cout << C.row(0).size() << " <- C row size" << endl;
-    */
-
     rm_cor_sbat(C,new_cutoff,m,rm_ID1);
     cout << "new index" << endl;
 
@@ -70,11 +65,8 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     eigenVector snp_btse(new_C_indx.size());
 
     for (i = 0 ; i < new_C_indx.size() ; i++) {
-       // cout << new_C_indx[i] << " a " << snp_name[new_C_indx[i]] << " b " << snp_beta[new_C_indx[i]] << endl;
-       //cout << "snp: " << snp_name[new_C_indx[i]] << endl;
        for (j = 0 ; j < new_C_indx.size() ; j++) {
            D(i,j) = C(new_C_indx[i],new_C_indx[j]);
-           //if (D(i,j) > 0.9486 & i!=j) cout << " D i j " << D(i,j) << endl; //print if rm cor didn't work...
        }
         snp_beta[i] = set_beta[new_C_indx[i]];
         snp_btse[i] = set_se[new_C_indx[i]];
@@ -104,9 +96,6 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     Vscore = snp_beta.transpose() * V.inverse() * snp_beta;
     Vscore_p = StatFunc::pchisq(Vscore, snp_beta.size());
     
-    //SelfAdjointEigenSolver<MatrixXf> saes(C);
-    //eigenval = saes.eigenvalues().cast<double>();
-
 }
 
 void gcta::sbat_multi(string sAssoc_file, string snpset_file)
@@ -239,7 +228,7 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
             _other_A[iter->second] = _allele1[iter->second];
         }
         ref_A_buf.push_back(A1_buf);
-        //do i need to change _mu??
+        //do i need to change _mu or anything else??
         
 
     }
@@ -249,8 +238,6 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
     snplist = snp_name;
     update_id_map_kp(snplist, _snp_name_map, _include);
 
-
-    //
     vector<int> indx(_include.size()); 
     map<string, int> id_map;
     for (i = 0; i < snplist.size(); i++) id_map.insert(pair<string, int>(snplist[i], i));
@@ -300,9 +287,7 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
 void gcta::rm_cor_sbat(MatrixXf &R, double R_cutoff, int m, vector<int> &rm_ID1) {
     //Slightly modified version of rm_cor_indi from grm.cpp
     
-    cout << "Pruning the R matrix with a cutoff of " << R_cutoff << " ..." << endl;
-
-    //don't forget ABS values
+    cout << "Removing correlated snps with a cutoff of " << R_cutoff << " ..." << endl;
 
     int i = 0, j = 0, i_buf = 0;
    // vector<int> rm_ID1, rm_ID2;
@@ -348,12 +333,6 @@ void gcta::rm_cor_sbat(MatrixXf &R, double R_cutoff, int m, vector<int> &rm_ID1)
 
     stable_sort(rm_ID1.begin(), rm_ID1.end());
     rm_ID1.erase(unique(rm_ID1.begin(), rm_ID1.end()), rm_ID1.end());
-    //vector<string> removed_ID;
-    //for (i = 0; i < rm_ID1.size(); i++) removed_ID.push_back(_fid[rm_ID1[i]] + ":" + _pid[rm_ID1[i]]);
-
-    //NEEDS TO BE DELETED
-    // update _keep and _id_map
-    // update_id_map_rm(removed_ID, _id_map, _keep);
 
     }
 
