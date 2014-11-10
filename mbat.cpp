@@ -131,6 +131,7 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
     map<string, int>::iterator iter;
     map<string, int> snp_name_map;
     for (i = 0; i < snp_name.size(); i++) snp_name_map.insert(pair<string,int>(snp_name[i], i));
+    cout << "snps inserted" << endl;
     for (i = 0; i < set_num; i++) {
         bool skip = false;
         if(snpset[i].size() < 1) skip = true;
@@ -151,20 +152,32 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
         }
         chisq_o[i] = 0;
 
+        cout << "another" << endl;
+
         if((i + 1) % 100 == 0 || (i + 1) == set_num) cout << i + 1 << " of " << set_num << " sets.\r";
 
-        set_beta.resize(snpset[i].size());
-        set_se.resize(snpset[i].size());
-        for (ii = 0; ii < snpset[i].size(); ii++)
+
+        //set_beta.resize(snpset[i].size());
+        //set_se.resize(snpset[i].size());
+        set_beta.resize(snp_indx.size()); //better index?
+        set_se.resize(snp_indx.size());
+
+        cout << "resize" << endl;
+        cout << snp_indx.size() << " size " << endl;
+        cout << snpset[i].size() << " size " << endl;
+
+        for (ii = 0; ii < snp_indx.size(); ii++) //was snpset[i].size()
         {
             set_beta[ii] = snp_beta[snp_indx[ii]];
             set_se[ii] = snp_btse[snp_indx[ii]];
         }
+        cout << "done that much" << endl;
 
         //convert from OR to BETA
         //for(int i2 = 0 ; i2 < set_beta.size() ; i2++) set_beta[i2] = log(set_beta[i2]);
 
         snp_count=0;
+        cout << "multi_calcu_V" << endl;
         sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vscore, Vscore_p, snp_count, snp_name);
         //if not invertible -> call normal sbat / return "cant calc"
         num_snp_tested.push_back(snp_count);
@@ -467,7 +480,8 @@ void gcta::sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind)
             //VectorXd eigenval;
 
             //snp details
-            //for (int aa = 0 ; aa < snp_name.size() ; aa++) cout << "nonfiltersnp: " << snp_name[aa] << endl;
+            cout << "Kept snps" << endl;
+            for (int aa = 0 ; aa < snp_name.size() ; aa++) cout << snp_name[aa] << endl;
 
             snp_count=0;
             sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vscore, Vscore_p, snp_count, snp_name);
