@@ -64,6 +64,9 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     eigenVector snp_beta(new_C_indx.size());
     eigenVector snp_btse(new_C_indx.size());
 
+    cout << snp_name.size() << " snp name size" << endl;
+    cout << "post filter snps" << endl;
+
     for (i = 0 ; i < new_C_indx.size() ; i++) {
        for (j = 0 ; j < new_C_indx.size() ; j++) {
            D(i,j) = C(new_C_indx[i],new_C_indx[j]);
@@ -71,6 +74,14 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
         snp_beta[i] = set_beta[new_C_indx[i]];
         snp_btse[i] = set_se[new_C_indx[i]];
     }
+
+    //write good snps (kept) to file
+        string goodsnpfile = _out + ".goodsnps";
+        ofstream ogoodsnp(goodsnpfile.c_str());
+        //ogoodsnp << "SNP" << endl;
+        for (i = 0; i < new_C_indx.size(); i++) ogoodsnp << snp_name[new_C_indx[i]] << endl;
+        ogoodsnp.close();
+    
 
     /* 
     cout << " C matrix " << endl << C << endl;
@@ -82,7 +93,7 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     cout << endl;
     */
 
-    snp_count = snp_beta.size();
+    snp_count = new_C_indx.size();
 
     /* DEBUG
     cout << "Number of snps retained: " << new_C_indx.size() << endl;
@@ -104,7 +115,7 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
     double Vscore = 0;
     double Vscore_p = 0;
     int snp_count = 0;
-    vector<int> num_snp_tested;
+    //vector<int> num_snp_tested;
 
     // read SNP set file
     vector<string> set_name;
@@ -130,6 +141,7 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
     vector<int> snp_num_in_set(set_num);
     map<string, int>::iterator iter;
     map<string, int> snp_name_map;
+    vector<int> num_snp_tested(set_num);
     for (i = 0; i < snp_name.size(); i++) snp_name_map.insert(pair<string,int>(snp_name[i], i));
     cout << "snps inserted" << endl;
     for (i = 0; i < set_num; i++) {
@@ -148,6 +160,7 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
         if(skip){
             set_pval[i] = 2.0;
             snp_num_in_set[i] = 0;
+            num_snp_tested[i] = 0;
             continue;
         }
         chisq_o[i] = 0;
@@ -162,16 +175,12 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
         set_beta.resize(snp_indx.size()); //better index?
         set_se.resize(snp_indx.size());
 
-        cout << "resize" << endl;
-        cout << snp_indx.size() << " size " << endl;
-        cout << snpset[i].size() << " size " << endl;
 
         for (ii = 0; ii < snp_indx.size(); ii++) //was snpset[i].size()
         {
             set_beta[ii] = snp_beta[snp_indx[ii]];
             set_se[ii] = snp_btse[snp_indx[ii]];
         }
-        cout << "done that much" << endl;
 
         //convert from OR to BETA
         //for(int i2 = 0 ; i2 < set_beta.size() ; i2++) set_beta[i2] = log(set_beta[i2]);
@@ -180,7 +189,7 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
         cout << "multi_calcu_V" << endl;
         sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vscore, Vscore_p, snp_count, snp_name);
         //if not invertible -> call normal sbat / return "cant calc"
-        num_snp_tested.push_back(snp_count);
+        num_snp_tested[i] = snp_count;
         chisq_o[i] = Vscore;
         set_pval[i] = Vscore_p;
 
@@ -191,7 +200,7 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
     cout << "\nSaving the results of the SBAT analyses to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
     if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
-    ofile << "Set\tSet.SNPs\tNo.SNPs\tChisq(Obs)\tPvalue" << endl;
+    ofile << "Set\tSet.SNPs\tSNPsTested\tChisq(Obs)\tPvalue" << endl;
     for (i = 0; i < set_num; i++) {
         if(set_pval[i]>1.5) continue;
         ofile << set_name[i] << "\t" << snp_num_in_set[i] << "\t" << num_snp_tested[i] << "\t" << chisq_o[i] << "\t" << set_pval[i] << endl;
@@ -231,6 +240,17 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
             bad_refA.push_back(A1_buf);
             continue;
         }
+        //MAYBE NOT NEEDED?
+        if (A2_buf != _allele1[i] && A2_buf != _allele2[i]) {
+            //also ignore bad A2?? -- new?
+            bad_snp.push_back(_snp_name[i]);
+            bad_A1.push_back(_allele1[i]);
+            bad_A2.push_back(_allele2[i]);
+            bad_refA.push_back(A1_buf);
+            continue;
+        }
+ 
+
         //update reference Allele based on assoc data
         else if (A1_buf == _allele1[iter->second]) {
             _ref_A[iter->second] = _allele1[iter->second];
@@ -355,7 +375,6 @@ void gcta::sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind)
     double Vscore = 0;
     double Vscore_p = 0;
     int snp_count = 0;
-    vector<int> num_snp_tested;
 
     // read SNP 'multi association results (including se & BETA/or)
     vector<string> snp_name;
@@ -390,6 +409,7 @@ void gcta::sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind)
     cout << "Mapping the physical positions of genes to SNP data (gene bounaries: " << wind / 1000 << "Kb away from UTRs) ..." << endl;
 
     int gene_num = gene_name.size();
+    vector<int> num_snp_tested(gene_num);
     vector<string> gene2snp_1(gene_num), gene2snp_2(gene_num);
     vector<locus_bp>::iterator iter;
     map<int, string>::iterator chr_iter;
@@ -473,28 +493,30 @@ void gcta::sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind)
         
         chisq_o[i] = 0;
         for (j = iter1->second; j <= iter2->second; j++) chisq_o[i] += snp_chisq[j];
-        if(snp_num_in_gene[i] == 1) gene_pval[i] = StatFunc::pchisq(chisq_o[i], 1.0); //may change this - normal sbat 
+        if(snp_num_in_gene[i] == 1) {
+            gene_pval[i] = StatFunc::pchisq(chisq_o[i], 1.0); //may change this - normal sbat 
+            num_snp_tested[i]=1;
+        }
         else {
-            //vector<int> snp_indx;
+            //vector<int> snp_indx; 
             //for (j = iter1->second; j <= iter2->second; j++) snp_indx.push_back(j);            
             //VectorXd eigenval;
 
             //snp details
-            cout << "Kept snps" << endl;
-            for (int aa = 0 ; aa < snp_name.size() ; aa++) cout << snp_name[aa] << endl;
+            //cout << "Kept snps" << endl;
+            //for (int aa = 0 ; aa < snp_name.size() ; aa++) cout << snp_name[aa] << endl;
 
             snp_count=0;
             sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vscore, Vscore_p, snp_count, snp_name);
-            num_snp_tested.push_back(snp_count);
+            num_snp_tested[i]=snp_count;
             chisq_o[i] = Vscore;
             gene_pval[i] = Vscore_p;
 
         }
 
         if((i + 1) % 100 == 0 || (i + 1) == gene_num) cout << i + 1 << " of " << gene_num << " genes.\r";
-       
-    }
 
+    }
     
     string filename = _out + ".gene.sbat";
     cout << "\nSaving the results of the SBAT analyses to [" + filename + "] ..." << endl;
