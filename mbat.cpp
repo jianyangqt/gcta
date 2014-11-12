@@ -231,16 +231,13 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
     map<string, int>::iterator iter;
     while (getline(in_snpAssoc, str_buf)) { 
         if (StrFunc::split_string(str_buf, vs_buf) != 7) throw ("Error: in line \"" + str_buf + "\".");
+
+        A1_buf = vs_buf[1];
+        A2_buf = vs_buf[2];
+
         iter = _snp_name_map.find(vs_buf[0]);
         i = iter->second;
         if (iter == _snp_name_map.end()) continue;
-        snp_name.push_back(vs_buf[0]);
-        A1_buf = vs_buf[1];
-        A2_buf = vs_buf[2];
-        // ignore bp for now
-        snp_beta.push_back(atof(vs_buf[4].c_str()));
-        snp_btse.push_back(atof(vs_buf[5].c_str()));
-        snp_pval.push_back(atof(vs_buf[6].c_str()));
 
         if (A1_buf != _allele1[i] && A1_buf != _allele2[i]) {
             bad_snp.push_back(_snp_name[i]);
@@ -260,8 +257,16 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
         }
  
 
+        snp_name.push_back(vs_buf[0]);
+       // ignore bp for now
+        snp_beta.push_back(atof(vs_buf[4].c_str()));
+        snp_btse.push_back(atof(vs_buf[5].c_str()));
+        snp_pval.push_back(atof(vs_buf[6].c_str()));
+
+
+
         //update reference Allele based on assoc data
-        else if (A1_buf == _allele1[iter->second]) {
+        if (A1_buf == _allele1[iter->second]) {
             _ref_A[iter->second] = _allele1[iter->second];
             _other_A[iter->second] = _allele2[iter->second];
         }
