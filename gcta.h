@@ -350,6 +350,7 @@ private:
     void sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigenVector set_se, double &Vscore, double &Vscore_p, int &snp_count, vector<string> &snp_name);
     void sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, vector<int> &snp_chr, vector<int> &snp_bp, vector<double> &snp_pval, vector<double> &snp_beta, vector<double> &snp_btse);
     void rm_cor_sbat(MatrixXf &R, double R_cutoff, int m, vector<int> &rm_ID1);
+    int sbat_rm_colin(MatrixXf R);
 
 
     //////////////////////
