@@ -117,12 +117,13 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
         }
     }
 
-    //print pre correlation reduction snps
+    /* DEBUG
     string pgoodsnpfile = _out + ".presnps";
     ofstream pogoodsnp(pgoodsnpfile.c_str());
     pogoodsnp << "snp beta se" << endl;
     for (i = 0; i < snp_kept.size(); i++) pogoodsnp << snp_kept[i] << " " << set_beta[i] << " " << set_se[i] << endl;
     pogoodsnp.close();
+    */
 
     eigenVector snp_beta = set_beta;
     eigenVector snp_btse = set_se;
@@ -173,12 +174,14 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
 
     cout << "index size " <<  new_C_indx.size() << endl;
 
+    /* DEBUG
     string rgoodsnpfile = _out + ".rsnps";
     ofstream rogoodsnp(rgoodsnpfile.c_str());
     //ogoodsnp << "SNP" << endl;
     rogoodsnp << "snp beta se" << endl;
     for (i = 0; i < new_C_indx.size(); i++) rogoodsnp << snp_keep[i] << " "  << snp_beta[i] << " " << snp_btse[i] << endl;
     rogoodsnp.close();
+    */
  
 
     /* 
@@ -210,6 +213,7 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     //V.diagonal() = V.diagonal() * (1+0.000001);
     Vscore = snp_beta.transpose() * V.inverse() * snp_beta;
     Vscore_p = StatFunc::pchisq(Vscore, snp_beta.size());
+    cout << "out " << Vscore << " " << Vscore_p << endl;
     
 }
 
