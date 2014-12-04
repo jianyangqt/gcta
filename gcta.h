@@ -78,8 +78,12 @@ public:
     void save_freq(bool ssq_flag);
     void extract_snp(string snplistfile);
     void extract_single_snp(string snpname);
+    void extract_region_snp(string snpname, int wind_size);
+    void extract_region_bp(int chr, int bp, int wind_size);
     void exclude_snp(string snplistfile);
     void exclude_single_snp(string snpname);
+    void exclude_region_snp(string snpname, int wind_size);
+    void exclude_region_bp(int chr, int bp, int wind_size);
     void extract_chr(int chr_start, int chr_end);
     void filter_snp_maf(double maf);
     void filter_snp_max_maf(double max_maf);
@@ -100,6 +104,7 @@ public:
     void HE_reg(string grm_file, string phen_file, string keep_indi_file, string remove_indi_file, int mphen);
     void blup_snp_geno();
     void blup_snp_dosage();
+    void set_reml_force_inv();
 
     // bivariate REML analysis
     void fit_bivar_reml(string grm_file, string phen_file, string qcovar_file, string covar_file, string keep_indi_file, string remove_indi_file, string sex_file, int mphen, int mphen2, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool m_grm_flag, bool pred_rand_eff, bool est_fix_eff, int reml_mtd, int MaxIter, vector<double> reml_priors, vector<double> reml_priors_var, vector<int> drop, bool no_lrt, double prevalence, double prevalence2, bool no_constrain, bool ignore_Ce, vector<double> &fixed_rg_val, bool bivar_no_constrain);
@@ -198,9 +203,9 @@ private:
     // grm
     void calcu_grm_var(double &diag_m, double &diag_v, double &off_m, double &off_v);
     int read_grm_id(string grm_file, vector<string> &grm_id, bool out_id_log, bool read_id_only);
-    void read_grm(string grm_file, vector<string> &grm_id, bool out_id_log = true, bool read_id_only = false);
+    void read_grm(string grm_file, vector<string> &grm_id, bool out_id_log = true, bool read_id_only = false, bool dont_read_N = false);
     void read_grm_gz(string grm_file, vector<string> &grm_id, bool out_id_log = true, bool read_id_only = false);
-    void read_grm_bin(string grm_file, vector<string> &grm_id, bool out_id_log = true, bool read_id_only = false);
+    void read_grm_bin(string grm_file, vector<string> &grm_id, bool out_id_log = true, bool read_id_only = false, bool dont_read_N = false);
     void read_grm_filenames(string merge_grm_file, vector<string> &grm_files, bool out_log = true);
     void merge_grm(string merge_grm_file);
     void rm_cor_indi(double grm_cutoff);
@@ -457,6 +462,7 @@ private:
     bool _reml_diag_one;
     bool _reml_have_bend_A;
     int _V_inv_mtd;
+    bool _reml_force_inv;
 
     // within-family reml analysis
     bool _within_family;

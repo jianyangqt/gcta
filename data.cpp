@@ -40,6 +40,7 @@ gcta::gcta(int autosome_num, double rm_ld_cutoff, string out)
     _within_family = false;
     _reml_have_bend_A = false;
     _V_inv_mtd = 0;
+    _reml_force_inv = false;
 }
 
 gcta::gcta() {
@@ -930,6 +931,41 @@ void gcta::extract_single_snp(string snpname)
     else cout << "Only the SNP [" + snpname + "] is included in the analysis." << endl;
 }
 
+void gcta::extract_region_snp(string snpname, int wind_size)
+{
+    cout << "Extracting SNPs " << wind_size/1000 << "kb away from the SNP [" << snpname << "] in either direction ..." << endl;
+    map<string, int>::iterator iter;
+    iter = _snp_name_map.find(snpname);
+    int i = 0, j = 0;
+    vector<string> snplist;
+    if(iter==_snp_name_map.end()) throw ("Error: can not find the SNP [" + snpname + "] in the data.");
+    else{
+        int bp = _bp[iter->second];
+        int chr = _chr[iter->second];
+        for(i = 0; i < _include.size(); i++){
+            j = _include[i];
+            if(_chr[j] == chr && abs(_bp[j]-bp) <= wind_size) snplist.push_back(_snp_name[j]);
+        }
+    }
+    if(snplist.empty()) throw ("Error: on SNP found in this region.");
+    update_id_map_kp(snplist, _snp_name_map, _include);
+    cout << _include.size() << " SNPs are extracted." << endl;
+}
+
+void gcta::extract_region_bp(int chr, int bp, int wind_size)
+{
+    cout << "Extracting SNPs " << wind_size/1000 << "kb away from the position [chr=" << chr <<"; bp="<< bp << "] in either direction ..." << endl;
+    int i = 0, j = 0;
+    vector<string> snplist;
+    for(i = 0; i < _include.size(); i++){
+        j = _include[i];
+        if(_chr[j] == chr && abs(_bp[j]-bp) <= wind_size) snplist.push_back(_snp_name[j]);
+    }
+    if(snplist.empty()) throw ("Error: on SNP found in this region.");
+    update_id_map_kp(snplist, _snp_name_map, _include);
+    cout << _include.size() << " SNPs are extracted." << endl;
+}
+
 void gcta::exclude_snp(string snplistfile)
 {
     vector<string> snplist;
@@ -937,6 +973,41 @@ void gcta::exclude_snp(string snplistfile)
     int prev_size = _include.size();
     update_id_map_rm(snplist, _snp_name_map, _include);
     cout << prev_size - _include.size() << " SNPs are excluded from [" + snplistfile + "] and there are " << _include.size() << " SNPs remaining." << endl;
+}
+
+void gcta::exclude_region_snp(string snpname, int wind_size)
+{
+    cout << "Excluding SNPs " << wind_size/1000 << "kb away from the SNP [" << snpname << "] in either direction ..." << endl;
+    map<string, int>::iterator iter;
+    iter = _snp_name_map.find(snpname);
+    int i = 0, j = 0;
+    vector<string> snplist;
+    if(iter==_snp_name_map.end()) throw ("Error: can not find the SNP [" + snpname + "] in the data.");
+    else{
+        int bp = _bp[iter->second];
+        int chr = _chr[iter->second];
+        for(i = 0; i < _include.size(); i++){
+            j = _include[i];
+            if(_chr[j] == chr && abs(_bp[j]-bp) <= wind_size) snplist.push_back(_snp_name[j]);
+        }
+    }
+    if(snplist.empty()) throw ("Error: on SNP found in this region.");
+    update_id_map_rm(snplist, _snp_name_map, _include);
+    cout << _include.size() << " SNPs have been excluded." << endl;
+}
+
+void gcta::exclude_region_bp(int chr, int bp, int wind_size)
+{
+    cout << "Extracting SNPs " << wind_size/1000 << "kb away from the position [chr=" << chr <<"; bp="<< bp << "] in either direction ..." << endl;
+    int i = 0, j = 0;
+    vector<string> snplist;
+    for(i = 0; i < _include.size(); i++){
+        j = _include[i];
+        if(_chr[j] == chr && abs(_bp[j]-bp) <= wind_size) snplist.push_back(_snp_name[j]);
+    }
+    if(snplist.empty()) throw ("Error: on SNP found in this region.");
+    update_id_map_rm(snplist, _snp_name_map, _include);
+    cout << _include.size() << " SNPs are excludeed." << endl;
 }
 
 void gcta::exclude_single_snp(string snpname)

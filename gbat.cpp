@@ -100,7 +100,7 @@ void gcta::gbat_calcu_ld(MatrixXf &X, eigenVector &sumsq_x, int snp1_indx, int s
     }
 }
 
-void gcta::gbat(string sAssoc_file, string gAnno_file, int wind)
+void gcta::gbat(string sAssoc_file, string gAnno_file, int wind, int simu_num)
 {
     int i = 0, j = 0;
 
@@ -236,139 +236,49 @@ void gcta::gbat(string sAssoc_file, string gAnno_file, int wind)
     ofile.close();
 }
 
-void gcta::sbat(string sAssoc_file, string snpset_file)
-{
+double gcta::gbat_simu_p(int &seed, int size, eigenMatrix &L, int simu_num, double chisq_o) {
     int i = 0, j = 0;
+    vector<float> simu_chisq(simu_num);
 
-    // read SNP association results
-    vector<string> snp_name;
-    vector<int> snp_chr, snp_bp;
-    vector<double> snp_pval;
-    gbat_read_snpAssoc(sAssoc_file, snp_name, snp_chr, snp_bp, snp_pval);
-    vector<double> snp_chisq(snp_pval.size());
-    for (i = 0; i < snp_pval.size(); i++) snp_chisq[i] = StatFunc::qchisq(snp_pval[i], 1);
+    // debug
+    cout << "here simulation start." << endl;
 
-    // get start and end of chr
-    int snp_num = snp_name.size();
-    map<int, string> chr_begin_snp, chr_end_snp;
-    chr_begin_snp.insert(pair<int, string>(snp_chr[0], snp_name[0]));
-    for (i = 1; i < snp_num; i++) {
-        if (snp_chr[i] != snp_chr[i - 1]) {
-            chr_begin_snp.insert(pair<int, string>(snp_chr[i], snp_name[i]));
-            chr_end_snp.insert(pair<int, string>(snp_chr[i - 1], snp_name[i - 1]));
-        }
-    }
-    chr_end_snp.insert(pair<int, string>(snp_chr[snp_num - 1], snp_name[snp_num - 1]));
-    
-    // read gene list
-    vector<string> gene_name;
-    vector<int> gene_chr, gene_bp1, gene_bp2;
-    gbat_read_geneAnno(gAnno_file, gene_name, gene_chr, gene_bp1, gene_bp2);
+    //default_random_engine eng;
+    // normal_distribution<float> rnorm(0.0, 1.0);
 
-    // map genes to SNPs
-    cout << "Mapping the physical positions of genes to SNP data (gene bounaries: " << wind / 1000 << "Kb away from UTRs) ..." << endl;
 
-    int gene_num = gene_name.size();
-    vector<string> gene2snp_1(gene_num), gene2snp_2(gene_num);
-    vector<locus_bp>::iterator iter;
-    map<int, string>::iterator chr_iter;
-    vector<locus_bp> snp_vec;
-    for (i = 0; i < snp_num; i++) snp_vec.push_back(locus_bp(snp_name[i], snp_chr[i], snp_bp[i]));
-    #pragma omp parallel for private(iter, chr_iter)
-    for (i = 0; i < gene_num; i++) {
-        iter = find_if(snp_vec.begin(), snp_vec.end(), locus_bp(gene_name[i], gene_chr[i], gene_bp1[i] - wind));
-        if (iter != snp_vec.end()) gene2snp_1[i] = iter->locus_name;
-        else gene2snp_1[i] = "NA";
-    }
-    #pragma omp parallel for private(iter, chr_iter)
-    for (i = 0; i < gene_num; i++) {
-        if (gene2snp_1[i] == "NA") {
-            gene2snp_2[i] = "NA";
-            continue;
-        }
-        iter = find_if(snp_vec.begin(), snp_vec.end(), locus_bp(gene_name[i], gene_chr[i], gene_bp2[i] + wind));
-        if (iter != snp_vec.end()){
-            if (iter->bp ==  gene_bp2[i] + wind) gene2snp_2[i] = iter->locus_name;
-            else {
-                if(iter!=snp_vec.begin()){
-                    iter--;
-                    gene2snp_2[i] = iter->locus_name;
-                }
-                else gene2snp_2[i] = "NA";
-            }
-        }
-        else {
-            chr_iter = chr_end_snp.find(gene_chr[i]);
-            if (chr_iter == chr_end_snp.end()) gene2snp_2[i] = "NA";
-            else gene2snp_2[i] = chr_iter->second;
-        }
-    }
-    int mapped = 0;
-    for (i = 0; i < gene_num; i++) {
-        if (gene2snp_1[i] != "NA" && gene2snp_2[i] != "NA") mapped++;
-    }
-    if (mapped < 1) throw ("Error: no gene can be mapped to the SNP data. Please check the input data regarding chr and bp.");
-    else cout << mapped << " genes have been mapped to SNP data." << endl;
-
-    // recoding genotype
-    MatrixXf X;
-    eigenVector sumsq_x(_include.size());
-    make_XMat(X);
     #pragma omp parallel for private(j)
-    for(i = 0; i < _keep.size(); i++){
-        for(j = 0; j < _include.size(); j++){
-            if(X(i,j) < 1e5) X(i,j) -= _mu[_include[j]];
-            else X(i,j) = 0.0;
-        }
-    }
-    for (i = 0; i < _include.size(); i++) sumsq_x[i] = X.col(i).dot(X.col(i));
+    for (i = 0; i < simu_num; i++) {
+        eigenVector vec(size);
+        //for(j=0; j<size; j++) vec[j]=rnorm(eng);
 
-    // run gene-based test
-    cout << "\nRunning gene-based association test (GBAT)..." << endl;
-    vector<double> gene_pval(gene_num), chisq_o(gene_num);
-    vector<int> snp_num_in_gene(gene_num);
-    map<string, int>::iterator iter1, iter2;
-    map<string, int> snp_name_map;
-    for (i = 0; i < snp_name.size(); i++) snp_name_map.insert(pair<string,int>(snp_name[i], i));
-    for (i = 0; i < gene_num; i++) {
-        iter1 = snp_name_map.find(gene2snp_1[i]);
-        iter2 = snp_name_map.find(gene2snp_2[i]);
-        bool skip = false;
-        if (iter1 == snp_name_map.end() || iter2 == snp_name_map.end() || iter1->second >= iter2->second) skip = true;
-        snp_num_in_gene[i] = iter2->second - iter1->second + 1;
-        if(!skip && snp_num_in_gene[i] > 10000){
-            cout<<"Warning: Too many SNPs in the gene region ["<<gene_name[i]<<"]. Maximum limit is 10000. This gene is ignored in the analysis."<<endl;
-            skip = true;  
-        } 
-        if(skip){
-            gene_pval[i] = 2.0;
-            snp_num_in_gene[i] = 0;
-            continue;
-        }
-        chisq_o[i] = 0;
-        for (j = iter1->second; j <= iter2->second; j++) chisq_o[i] += snp_chisq[j];
-        MatrixXf C;
-        gbat_calcu_ld(X, sumsq_x, iter1->second, iter2->second, C); // iter2->second-1 because iter2 is one step further
-        if(snp_num_in_gene[i] == 1) gene_pval[i] = StatFunc::pchisq(chisq_o[i], 1.0);
-        else {
-            SelfAdjointEigenSolver<MatrixXf> saes(C);
-            gene_pval[i] = StatFunc::pchisqsum(chisq_o[i], saes.eigenvalues().cast<double>());
-        }
+        // debug
+        /*eigenVector tmp=L*vec;
+        cout<<"vec*L: "<<endl;
+        cout<<tmp<<endl;*/
 
-        if((i + 1) % 100 == 0 || (i + 1) == gene_num) cout << i + 1 << " of " << gene_num << " genes.\r";
+        simu_chisq[i] = (L * vec).squaredNorm();
     }
 
-    string filename = _out + ".gbat";
-    cout << "\nSaving the results of the gene-based association analysese to [" + filename + "] ..." << endl;
-    ofstream ofile(filename.c_str());
-    if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
-    ofile << "Gene\tChr\tStart\tEnd\tNo.SNPs\tSNP_start\tSNP_end\tChisq(Obs)\tPvalue" << endl;
-    for (i = 0; i < gene_num; i++) {
-        if(gene_pval[i]>1.5) continue;
-        ofile << gene_name[i] << "\t" << gene_chr[i] << "\t" << gene_bp1[i] << "\t" << gene_bp2[i] << "\t";
-        ofile << snp_num_in_gene[i] << "\t" << gene2snp_1[i] << "\t" << gene2snp_2[i] << "\t" << chisq_o[i] << "\t" << gene_pval[i] << endl;
-        //else ofile << "0\tNA\tNA\tNA\tNA" << endl;
-    }
-    ofile.close();
+    // debug
+    /*cout<<"chisq_o = "<<chisq_o<<endl;
+    cout<<"simu_chisq = ";
+    for(i=0; i<simu_num; i++) cout<<simu_chisq[i]<<" ";
+    cout<<endl;*/
+
+    // debug
+    cout << "here find start." << endl;
+
+
+    int pos = (upper_bound(simu_chisq.begin(), simu_chisq.end(), chisq_o) - simu_chisq.begin());
+
+    // debug
+    cout << "here find end." << endl;
+
+
+    // debug
+    //cout<<"pos = "<<pos<<endl;
+
+    double pval = (double) (simu_num - pos) / (double) (simu_num);
+    return (pval);
 }
-

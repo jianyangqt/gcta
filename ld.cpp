@@ -598,10 +598,10 @@ void gcta::ld_seg(string i_ld_file, int seg_size, int wind_size, double rsq_cuto
 // calculate maximum LD rsq between SNPs
 void gcta::calcu_max_ld_rsq(int wind_size, double rsq_cutoff, bool dominance_flag)
 {
-    int i = 0, m = _include.size(), max_size = 0.9 * _keep.size();
+    int i = 0, m = _include.size(), max_size = 0.3 * _keep.size();
 
     cout << "Calculating maximum LD rsq between SNPs (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between blocks; LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
-    cout << "(Maximum number of SNPs allowed in a block = " << max_size << " due to computatinal limitation)" << endl;
+    cout << "(Maximum number of SNPs allowed in a block = " << max_size << " due to computational limitation)" << endl;
     if(dominance_flag) cout<<"(SNP genotypes are coded for dominance effects)"<<endl;
 
     vector<int> brk_pnt1, brk_pnt2, brk_pnt3;

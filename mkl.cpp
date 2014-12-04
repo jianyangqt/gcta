@@ -404,7 +404,9 @@ bool gcta::comput_inverse_logdet_LDLT_mkl(eigenMatrix &Vi, double &logdet)
     dpotrf(&uplo, &int_n, Vi_mkl, &int_n, &info);
     //spotrf( &uplo, &n, Vi_mkl, &n, &info );
     if (info < 0) throw ("Error: Cholesky decomposition failed. Invalid values found in the matrix.\n");
-    else if (info > 0) return false; //Vi.diagonal()=Vi.diagonal().array()+Vi.diagonal().mean()*1e-3;
+    else if (info > 0){
+        if(_reml_force_inv) return false;
+    }
     else {
         logdet = 0.0;
         for (i = 0; i < n; i++) {
@@ -416,7 +418,7 @@ bool gcta::comput_inverse_logdet_LDLT_mkl(eigenMatrix &Vi, double &logdet)
         dpotri(&uplo, &int_n, Vi_mkl, &int_n, &info);
         //spotri( &uplo, &n, Vi_mkl, &n, &info );
         if (info < 0) throw ("Error: invalid values found in the varaince-covaraince (V) matrix.\n");
-        else if (info > 0) return false; // Vi.diagonal()=Vi.diagonal().array()+Vi.diagonal().mean()*1e-3;
+        else if (info > 0) return false;
         else {
             #pragma omp parallel for private(j)
             for (j = 0; j < n; j++) {
@@ -453,7 +455,7 @@ bool gcta::comput_inverse_logdet_LU_mkl(eigenMatrix &Vi, double &logdet)
     if (INFO < 0) throw ("Error: LU decomposition failed. Invalid values found in the matrix.\n");
     else if (INFO > 0) {
         delete[] Vi_mkl;
-        return (false); //Vi.diagonal()=Vi.diagonal().array()+Vi.diagonal().mean()*1e-3;
+        return false;
     } else {
         logdet = 0.0;
         for (i = 0; i < n; i++) {
@@ -464,7 +466,7 @@ bool gcta::comput_inverse_logdet_LU_mkl(eigenMatrix &Vi, double &logdet)
         // Calcualte V inverse
         dgetri(&N, Vi_mkl, &N, IPIV, WORK, &LWORK, &INFO);
         if (INFO < 0) throw ("Error: invalid values found in the varaince-covaraince (V) matrix.\n");
-        else if (INFO > 0) return false; // Vi.diagonal()=Vi.diagonal().array()+Vi.diagonal().mean()*1e-3;
+        else if (INFO > 0) return false;
         else {
             #pragma omp parallel for private(j)
             for (j = 0; j < n; j++) {

@@ -329,9 +329,9 @@ int gcta::read_grm_id(string grm_file, vector<string> &grm_id, bool out_id_log, 
     return (n);
 }
 
-void gcta::read_grm(string grm_file, vector<string> &grm_id, bool out_id_log, bool read_id_only)
+void gcta::read_grm(string grm_file, vector<string> &grm_id, bool out_id_log, bool read_id_only, bool dont_read_N)
 {
-    if (_grm_bin_flag) read_grm_bin(grm_file, grm_id, out_id_log, read_id_only);
+    if (_grm_bin_flag) read_grm_bin(grm_file, grm_id, out_id_log, read_id_only, dont_read_N);
     else read_grm_gz(grm_file, grm_id, out_id_log, read_id_only);
 }
 
@@ -378,7 +378,8 @@ void gcta::read_grm_gz(string grm_file, vector<string> &grm_id, bool out_id_log,
     cout << "Pairwise genetic relationships between " << n << " individuals are included from [" + grm_gzfile + "]." << endl;
 }
 
-void gcta::read_grm_bin(string grm_file, vector<string> &grm_id, bool out_id_log, bool read_id_only) {
+void gcta::read_grm_bin(string grm_file, vector<string> &grm_id, bool out_id_log, bool read_id_only, bool dont_read_N)
+{
     int i = 0, j = 0, n = read_grm_id(grm_file, grm_id, out_id_log, read_id_only);
 
     if (read_id_only) return;
@@ -398,20 +399,22 @@ void gcta::read_grm_bin(string grm_file, vector<string> &grm_id, bool out_id_log
     }
     A_bin.close();
 
-    string grm_Nfile = grm_file + ".grm.N.bin";
-    ifstream N_bin(grm_Nfile.c_str(), ios::in | ios::binary);
-    if (!N_bin.is_open()) throw ("Error: can not open the file [" + grm_Nfile + "] to read.");
-    _grm_N.resize(n, n);
-    cout << "Reading the number of SNPs for the GRM from [" + grm_Nfile + "]." << endl;
-    size = sizeof (float);
-    f_buf = 0.0;
-    for (i = 0; i < n; i++) {
-        for (j = 0; j <= i; j++) {
-            if (!(N_bin.read((char*) &f_buf, size))) throw ("Error: the size of the [" + grm_Nfile + "] file is incomplete?");
-            _grm_N(j, i) = _grm_N(i, j) = f_buf;
+    if(!dont_read_N){
+        string grm_Nfile = grm_file + ".grm.N.bin";
+        ifstream N_bin(grm_Nfile.c_str(), ios::in | ios::binary);
+        if (!N_bin.is_open()) throw ("Error: can not open the file [" + grm_Nfile + "] to read.");
+        _grm_N.resize(n, n);
+        cout << "Reading the number of SNPs for the GRM from [" + grm_Nfile + "]." << endl;
+        size = sizeof (float);
+        f_buf = 0.0;
+        for (i = 0; i < n; i++) {
+            for (j = 0; j <= i; j++) {
+                if (!(N_bin.read((char*) &f_buf, size))) throw ("Error: the size of the [" + grm_Nfile + "] file is incomplete?");
+                _grm_N(j, i) = _grm_N(i, j) = f_buf;
+            }
         }
+        N_bin.close();
     }
-    N_bin.close();
 
     cout << "Pairwise genetic relationships between " << n << " individuals are included from [" + grm_binfile + "]." << endl;
 }

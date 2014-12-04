@@ -38,7 +38,7 @@ void gcta::mlma(string grm_file, string phen_file, string qcovar_file, string co
         update_id_map_kp(covar_ID, _id_map, _keep);
     }
     if(grm_flag){
-        read_grm(grm_file, grm_id);
+        read_grm(grm_file, grm_id, true, false, true);
         update_id_map_kp(grm_id, _id_map, _keep);
     }
     else{

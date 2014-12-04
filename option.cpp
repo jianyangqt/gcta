@@ -60,7 +60,7 @@ void option(int option_num, char* option_str[])
     string bfile = "", bfile2 = "", update_sex_file = "", update_freq_file = "", update_refA_file = "", kp_indi_file = "", rm_indi_file = "", extract_snp_file = "", exclude_snp_file = "", extract_snp_name = "", exclude_snp_name = "", out = "gcta";
     bool SNP_major = false, bfile_flag = false, make_bed_flag = false, dose_mach_flag = false, dose_mach_gz_flag = false, dose_beagle_flag = false, bfile2_flag = false, out_freq_flag = false, out_ssq_flag = false;
     bool ref_A = false, recode = false, recode_nomiss = false, save_ram = false, autosome_flag = false;
-    int autosome_num = 22, extract_chr_start = 0, extract_chr_end = 0;
+    int autosome_num = 22, extract_chr_start = 0, extract_chr_end = 0, extract_region_chr = 0, extract_region_bp = 0, extract_region_wind = 0, exclude_region_chr = 0, exclude_region_bp = 0, exclude_region_wind = 0;
     string dose_file = "", dose_info_file = "", update_impRsq_file = "";
     double maf = 0.0, max_maf = 0.0, dose_Rsq_cutoff = 0.0;
 
@@ -93,7 +93,7 @@ void option(int option_num, char* option_str[])
     string hapmap_genet_dst_file = "";
 
     // REML analysis
-    bool prevalence_flag = false;
+    bool prevalence_flag = false, reml_force_inv_fac_flag = false;
     int mphen = 1, mphen2 = 2, reml_mtd = 0, MaxIter = 100;
     double prevalence = -2.0, prevalence2 = -2.0;
     bool reml_flag = false, pred_rand_eff = false, est_fix_eff = false, blup_snp_flag = false, no_constrain = false, reml_lrt_flag = false, no_lrt = false, bivar_reml_flag = false, ignore_Ce = false, within_family = false, reml_bending = false, HE_reg_flag = false, reml_diag_one = false, bivar_no_constrain = false;
@@ -227,9 +227,35 @@ void option(int option_num, char* option_str[])
         } else if (strcmp(argv[i], "--extract-snp") == 0) {
             extract_snp_name = argv[++i];
             cout << "--extract-snp " << extract_snp_name << endl;
+        } else if (strcmp(argv[i], "--extract-region-snp") == 0) {
+            extract_snp_name = argv[++i];
+            extract_region_wind = atoi(argv[++i]);
+            cout << "--extract-region-snp " << extract_snp_name << " " << extract_region_wind << "Kb" << endl;
+            extract_region_wind *= 1000;
+            if(extract_region_wind < 1000 || extract_region_wind > 1e8) throw("\nError: the second paramter of --extract-region is distance in Kb unit. It should take value between 1 and 1e5.");
+        } else if (strcmp(argv[i], "--extract-region-bp") == 0) {
+            extract_region_chr = atoi(argv[++i]);
+            extract_region_bp = atoi(argv[++i]);
+            extract_region_wind = atoi(argv[++i]);
+            cout << "--extract-region-bp " << extract_region_chr << " " << extract_region_bp << " " << extract_region_wind << "Kb" << endl;
+            extract_region_wind *= 1000;
+            if(extract_region_wind < 1000 || extract_region_wind > 1e8) throw("\nError: the second paramter of --extract-region is distance in Kb unit. It should take value between 1 and 1e5.");
         } else if (strcmp(argv[i], "--exclude-snp") == 0) {
             exclude_snp_name = argv[++i];
             cout << "--exclude-snp " << exclude_snp_name << endl;
+        } else if (strcmp(argv[i], "--exclude-region-snp") == 0) {
+            exclude_snp_name = argv[++i];
+            exclude_region_wind = atoi(argv[++i]);
+            cout << "--exclude-region-snp " << exclude_snp_name << exclude_region_wind << "Kb" << endl;
+            exclude_region_wind *= 1000;
+            if(exclude_region_wind < 1000 || exclude_region_wind > 1e8) throw("\nError: the second paramter of --exclude-region is distance in Kb unit. It should take value between 1 and 1e5.");
+        } else if (strcmp(argv[i], "--exclude-region-bp") == 0) {
+            exclude_region_chr = atoi(argv[++i]);
+            exclude_region_bp = atoi(argv[++i]);
+            exclude_region_wind = atoi(argv[++i]);
+            cout << "--exclude-region-bp " << exclude_region_chr << " " << exclude_region_bp << " " << exclude_region_wind << "Kb" << endl;
+            exclude_region_wind *= 1000;
+            if(exclude_region_wind < 1000 || exclude_region_wind > 1e8) throw("\nError: the second paramter of --exclude-region is distance in Kb unit. It should take value between 1 and 1e5.");
         } else if (strcmp(argv[i], "--maf") == 0) {
             maf = atof(argv[++i]);
             cout << "--maf " << maf << endl;
@@ -588,6 +614,9 @@ void option(int option_num, char* option_str[])
             MaxIter = atoi(argv[++i]);
             cout << "--reml-maxit " << MaxIter << endl;
             if (MaxIter < 1 || MaxIter > 10000) throw ("\nError: --reml-maxit should be within the range from 1 to 10000.\n");
+        } else if (strcmp(argv[i], "--reml-force-inv") == 0) {
+            reml_force_inv_fac_flag = true;
+            cout << "--reml-force-inv " << endl;
         } else if (strcmp(argv[i], "--reml-bending") == 0) {
             reml_bending = true;
             cout << "--reml-bending " << endl;
@@ -657,12 +686,12 @@ void option(int option_num, char* option_str[])
             i--;
             if (K_buf.size() < 1 || K_buf.size() > 2) throw ("\nError: --reml-bivar-prevalence. Please specify the prevalences of the two diseases.");
             if (K_buf.size() == 2) {
-                if (K_buf[0] < 0.0 || K_buf[0] > 1.0 || K_buf[1] < 0.0 || K_buf[1] > 1.0) throw ("\nError: --reml-bivar-prevalence. Disease prevalence should be betwen 0 and 1.");
+                if (K_buf[0] < 0.0 || K_buf[0] > 1.0 || K_buf[1] < 0.0 || K_buf[1] > 1.0) throw ("\nError: --reml-bivar-prevalence. Disease prevalence should be between 0 and 1.");
                 cout << "--reml-bivar-prevalence " << K_buf[0] << " " << K_buf[1] << endl;
                 prevalence = K_buf[0];
                 prevalence2 = K_buf[1];
             } else {
-                if (K_buf[0] < 0.0 || K_buf[0] > 1.0) throw ("\nError: --reml-bivar-prevalence. Disease prevalence should be betwen 0 and 1.");
+                if (K_buf[0] < 0.0 || K_buf[0] > 1.0) throw ("\nError: --reml-bivar-prevalence. Disease prevalence should be between 0 and 1.");
                 cout << "--reml-bivar-prevalence " << K_buf[0] << endl;
                 prevalence = prevalence2 = K_buf[0];
             }
@@ -934,6 +963,7 @@ void option(int option_num, char* option_str[])
     // Implement
     cout << endl;
     gcta *pter_gcta = new gcta(autosome_num, rm_high_ld_cutoff, out); //, *pter_gcta2=new gcta(autosome_num, rm_high_ld_cutoff, out);
+    if(reml_force_inv_fac_flag) pter_gcta->set_reml_force_inv();
     if (grm_bin_flag || m_grm_bin_flag) pter_gcta->enable_grm_bin_flag();
     //if(simu_unlinked_flag) pter_gcta->simu_geno_unlinked(simu_unlinked_n, simu_unlinked_m, simu_unlinked_maf);
     if (!RG_fname_file.empty()) {
@@ -964,10 +994,18 @@ void option(int option_num, char* option_str[])
             if (!blup_indi_file.empty()) pter_gcta->read_indi_blup(blup_indi_file);
             pter_gcta->read_bimfile(bfile + ".bim");
             if (!extract_snp_file.empty()) pter_gcta->extract_snp(extract_snp_file);
-            if (!exclude_snp_file.empty()) pter_gcta->exclude_snp(exclude_snp_file);
             if (extract_chr_start > 0) pter_gcta->extract_chr(extract_chr_start, extract_chr_end);
-            if (!extract_snp_name.empty()) pter_gcta->extract_single_snp(extract_snp_name);
-            if (!exclude_snp_name.empty()) pter_gcta->exclude_single_snp(exclude_snp_name);
+            if(extract_region_chr>0) pter_gcta->extract_region_bp(extract_region_chr, extract_region_bp, extract_region_wind);
+            if (!extract_snp_name.empty()){
+                if(extract_region_wind>0) pter_gcta->extract_region_snp(extract_snp_name, extract_region_wind);
+                else pter_gcta->extract_single_snp(extract_snp_name);
+            }
+            if (!exclude_snp_file.empty()) pter_gcta->exclude_snp(exclude_snp_file);
+            if(exclude_region_chr>0) pter_gcta->exclude_region_bp(exclude_region_chr, exclude_region_bp, exclude_region_wind);
+            if (!exclude_snp_name.empty()) {
+                if(exclude_region_wind>0) pter_gcta->exclude_region_snp(exclude_snp_name, exclude_region_wind);
+                else pter_gcta->exclude_single_snp(exclude_snp_name);
+            }
             if (!update_refA_file.empty()) pter_gcta->update_ref_A(update_refA_file);
             if (LD) pter_gcta->read_LD_target_SNPs(LD_file);
             pter_gcta->read_bedfile(bfile + ".bed");

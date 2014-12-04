@@ -12,6 +12,11 @@
 
 #include "gcta.h"
 
+void gcta::set_reml_force_inv()
+{
+    _reml_force_inv = true;
+}
+
 void gcta::read_phen(string phen_file, vector<string> &phen_ID, vector< vector<string> > &phen_buf, int mphen, int mphen2) {
     // Read phenotype data
     ifstream in_phen(phen_file.c_str());
@@ -163,13 +168,13 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
     vector< vector<string> > phen_buf, qcovar, covar, GE, qGE; // save individuals by column
 
     if (grm_flag) {
-        read_grm(grm_file, grm_id);
+        read_grm(grm_file, grm_id, true, false, !(adj_grm_fac > -1.0));
         update_id_map_kp(grm_id, _id_map, _keep);
         grm_files.push_back(grm_file);
     } else if (m_grm_flag) {
         read_grm_filenames(grm_file, grm_files, false);
         for (i = 0; i < grm_files.size(); i++) {
-            read_grm(grm_files[i], grm_id, false, true);
+            read_grm(grm_files[i], grm_id, false, true, !(adj_grm_fac > -1.0));
             update_id_map_kp(grm_id, _id_map, _keep);
         }
     }
@@ -254,7 +259,6 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
             cout << "Mean of diagonal elements of the GRM = " << diag_mean << endl;
 #pragma omp parallel for private(j)
             for (i = 0; i < _n; i++) {
-                //(_A[0])(i,i)=diag_mean;
                 for (j = 0; j <= i; j++) {
                     (_A[0])(i, j) /= (_A[0])(i, i);
                     (_A[0])(j, i) = (_A[0])(i, j);
@@ -274,7 +278,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
         cout << "There are " << grm_files.size() << " GRM file names specified in the file [" + grm_file + "]." << endl;
         for (i = 0; i < grm_files.size(); i++, pos++) {
             cout << "Reading the GRM from the " << i + 1 << "th file ..." << endl;
-            read_grm(grm_files[i], grm_id);
+            read_grm(grm_files[i], grm_id, true, false, !(adj_grm_fac > -1.0));
             if (adj_grm_fac>-1.0) adj_grm(adj_grm_fac);
             if (dosage_compen>-1) dc(dosage_compen);
             StrFunc::match(uni_id, grm_id, kp);
@@ -526,7 +530,7 @@ double gcta::transform_hsq_L(double P, double K, double hsq) {
 
 int gcta::constrain_varcmp(eigenVector &varcmp) {
     int pos = 0;
-    double delta = 0.0;
+    double delta = 0.0, constr_scale = 1e-6;
     int i = 0, num = 0;
     vector<int> constrain(_r_indx.size());
 
@@ -534,8 +538,8 @@ int gcta::constrain_varcmp(eigenVector &varcmp) {
         for (i = 0, num = 0; i < _bivar_pos[0].size(); i++) {
             pos = _bivar_pos[0][i];
             if (varcmp[pos] < 0) {
-                delta += _y_Ssq * 1e-6 - varcmp[pos];
-                varcmp[pos] = _y_Ssq * 1e-6;
+                delta += _y_Ssq * constr_scale - varcmp[pos];
+                varcmp[pos] = _y_Ssq * constr_scale;
                 constrain[i] = 1;
                 num++;
             }
@@ -549,8 +553,8 @@ int gcta::constrain_varcmp(eigenVector &varcmp) {
         for (i = 0, num = 0; i < _bivar_pos[1].size(); i++) {
             pos = _bivar_pos[1][i];
             if (varcmp[pos] < 0) {
-                delta += _y_Ssq * 1e-6 - varcmp[pos];
-                varcmp[pos] = _y_Ssq * 1e-6;
+                delta += _y_Ssq * constr_scale - varcmp[pos];
+                varcmp[pos] = _y_Ssq * constr_scale;
                 constrain[i] = 1;
                 num++;
             }
@@ -570,8 +574,8 @@ int gcta::constrain_varcmp(eigenVector &varcmp) {
 
     for (i = 0; i < _r_indx.size(); i++) {
         if (varcmp[i] < 0) {
-            delta += _y_Ssq * 1e-6 - varcmp[i];
-            varcmp[i] = _y_Ssq * 1e-6;
+            delta += _y_Ssq * constr_scale - varcmp[i];
+            varcmp[i] = _y_Ssq * constr_scale;
             constrain[i] = 1;
             num++;
         }
@@ -691,9 +695,9 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
             cout << rg_name[i] << "\t" << rg[i] << "\t" << sqrt(rg_var[i]) << endl;
         }
     }
-    cout << "\nVariance/Covariance Matrix of the estimates:" << endl;
+    cout << "\nSampling variance/covariance of the estimates of variance components:" << endl;
     for (i = 0; i < _r_indx.size(); i++) {
-        for (j = 0; j <= i; j++) cout << setiosflags(ios::scientific) << Hi(i, j) << "\t";
+        for (j = 0; j < _r_indx.size(); j++) cout << setiosflags(ios::scientific) << Hi(i, j) << "\t";
         cout << endl;
     }
     if (est_fix_eff) {
@@ -898,6 +902,8 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
             //if(_reml_max_iter==1) cout<<"logL: "<<lgL<<endl;
         }
         if (constrain_num * 2 > _r_indx.size()) throw ("Error: analysis stopped because more than half of the variance components are constrained. The result would be unreliable.\n Please have a try to add the option --reml-no-constrain.");
+        // added by Jian Yang on 22 Oct 2014
+        //if (constrain_num == _r_indx.size()) throw ("Error: analysis stopped because all variance components are constrained. You may have a try of adding the option --reml-no-constrain.");
 
         // convergence
         dlogL = lgL - prev_lgL;
@@ -910,6 +916,12 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         }
         prev_varcmp = varcmp;
         prev_lgL = lgL;
+
+        // added by Jian Yang on 28th Oct 2014
+        //if(varcmp.minCoeff()<0.0 && _reml_mtd != 2){
+        //    _reml_mtd = 2;
+        //    cout << "Switching to EM-REML algorithm because of having negative estimate(s) of variance component(s) ..." << endl;
+        //}
     }
     if (iter == _reml_max_iter) {
         stringstream errmsg;
@@ -990,7 +1002,8 @@ void gcta::calcu_sum_hsq(double Vp, double VarVp, double &sum_hsq, double &var_s
     var_sum_hsq = (V1/Vp)*(V1/Vp)*(VarV1/(V1*V1)+VarVp/(Vp*Vp)-(2*Cov12)/(V1*Vp));
 }
 
-bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, int &iter) {
+bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, int &iter)
+{
     int i = 0, j = 0, k = 0;
     string errmsg = "\nError: the V (variance-covariance) matrix is not invertible.";
 
@@ -998,27 +1011,23 @@ bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, i
     if (_r_indx.size() == 1) {
         Vi.diagonal() = eigenVector::Constant(_n, 1.0 / prev_varcmp[0]);
         logdet = _n * log(prev_varcmp[0]);
-    } else {
+    } 
+    else {
         for (i = 0; i < _r_indx.size(); i++) Vi += (_A[_r_indx[i]]) * prev_varcmp[i];
-
-        /*
-                if(!comput_inverse_logdet_LDLT_mkl(Vi, logdet)){
-            cout<<"Warning: the variance-covaraince matrix V is singular and a small constant (0.1% of the mean of the diagonal elements) is added to the diagonals. Therefore, the results may not be reliable."<<endl;
-            Vi.diagonal()=Vi.diagonal().array()+Vi.diagonal().mean()*1e-3;
-            if(!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) throw("Error: the variance-covaraince matrix V is not invertible.");
-                }
-         */
-
+        
         if (_V_inv_mtd == 0) {
             if (!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) {
-                cout<<"Note: the variance-covaraince matrix V is non-positive definite. Switching from Cholesky to LU decomposition approach. The results might not be reliable!"<<endl;
-                _V_inv_mtd = 1;
+                if(_reml_force_inv) {
+                    cout<<"Note: the variance-covaraince matrix V is non-positive definite. Switching from Cholesky to LU decomposition approach. The results might not be reliable!"<<endl;
+                    _V_inv_mtd = 1;
+                }
+                else throw("Error: the variance-covaraince matrix V is not positive definite.");
             }
         }
         if (_V_inv_mtd == 1) {
             if (!comput_inverse_logdet_LU_mkl(Vi, logdet)) {
                 if (_reml_have_bend_A) throw ("Error: the variance-covaraince matrix V is not invertible.");
-                cout << "Warning: the variance-covaraince matrix V is not invertible." << endl;
+                cout << "Warning: the variance-covaraince matrix V is still not invertible." << endl;
                 bend_A();
                 _reml_have_bend_A = true;
                 iter = -1;
@@ -1070,19 +1079,18 @@ bool gcta::comput_inverse_logdet_LDLT(eigenMatrix &Vi, double &logdet) {
     LDLT<eigenMatrix> ldlt(Vi);
     eigenVector d = ldlt.vectorD();
 
-    bool singular = false;
-    if (d.minCoeff() < 0) singular = true;
-    if (singular) Vi.diagonal() = Vi.diagonal().array() + Vi.diagonal().mean()*1e-3;
+    if (d.minCoeff() < 0) return false;
     else {
         logdet = 0.0;
         for (i = 0; i < n; i++) logdet += log(d[i]);
         Vi.setIdentity();
         ldlt.solveInPlace(Vi);
     }
-    return !singular;
+    return true;
 }
 
-void gcta::comput_inverse_logdet_PLU(eigenMatrix &Vi, double &logdet) {
+void gcta::comput_inverse_logdet_PLU(eigenMatrix &Vi, double &logdet)
+{
     int n = Vi.cols();
 
     PartialPivLU<eigenMatrix> lu(Vi);
@@ -1104,17 +1112,17 @@ double gcta::comput_inverse_logdet_LU(eigenMatrix &Vi, string errmsg) {
     return logdet;
 }
 
-bool gcta::inverse_H(eigenMatrix &H) {    
-    LDLT<eigenMatrix> ldlt(H);
-    eigenVector d = ldlt.vectorD();
-    bool singular = false;
-    if (d.minCoeff() < 0) singular = true;
-    //if (singular) H.diagonal() = H.diagonal().array() + H.diagonal().mean()*1e-3;
-    if(!singular) {
-        H.setIdentity();
-        ldlt.solveInPlace(H);
+bool gcta::inverse_H(eigenMatrix &H)
+{    
+    double d_buf = 0.0;
+    if (!comput_inverse_logdet_LDLT_mkl(H, d_buf)) {
+        if(_reml_force_inv) {
+            cout<<"Note: the information matrix is non-positive definite. Switching from Cholesky to LU decomposition approach. The results might not be reliable!"<<endl;
+            if (!comput_inverse_logdet_LU_mkl(H, d_buf)) return false;
+        }
+        else return false;
     }
-    return !singular;
+    else return true;
 }
 
 double gcta::calcu_P(eigenMatrix &Vi, eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatrix &P) {
@@ -1151,10 +1159,6 @@ void gcta::calcu_Hi(eigenMatrix &P, eigenMatrix &Hi) {
     }
 
     if (!inverse_H(Hi)) throw ("Error: the information matrix is not invertible.");
-    /*{
-        cout<<"Warning: the information matrix is singular and a small constant (0.1% of the mean of the diagonal elements) is added to the diagonals. Therefore, the results may not be reliable."<<endl;
-        if(!inverse_H(Hi)) throw("Error: the information matrix is not invertible.");
-    }*/
 }
 
 // use REML equation to estimate variance component
@@ -1208,10 +1212,6 @@ void gcta::ai_reml(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector
 
     // Calculate variance component
     if (!inverse_H(Hi)) throw ("Error: the information matrix is not invertible.");
-    /*{
-        cout<<"Warning: the information matrix is singular and a small constant (0.1% of the mean of the diagonal elements) is added to the diagonals."<<endl;
-        if(!inverse_H(Hi)) throw("Error: the information matrix is not invertible.");
-    }*/
 
     eigenVector delta(_r_indx.size());
     delta = Hi*R;
@@ -1238,6 +1238,11 @@ void gcta::em_reml(eigenMatrix &P, eigenVector &Py, eigenVector &prev_varcmp, ei
 
     // Calculate variance component
     for (i = 0; i < _r_indx.size(); i++) varcmp(i) = (prev_varcmp(i) * _n - prev_varcmp(i) * prev_varcmp(i) * tr_PA(i) + prev_varcmp(i) * prev_varcmp(i) * R(i)) / _n;
+
+    // added by Jian Yang 28 Oct 2014
+    //eigenVector d = varcmp.array() - prev_varcmp.array();
+    //double (d.array() / prev_varcmp.array())
+    //varcmp = (varcmp.array() - prev_varcmp.array())*2 + prev_varcmp.array();
 }
 
 // input P, calculate tr(PA)
@@ -1348,7 +1353,7 @@ void gcta::HE_reg(string grm_file, string phen_file, string keep_indi_file, stri
     vector<string> phen_ID, grm_id;
     vector< vector<string> > phen_buf; // save individuals by column
 
-    read_grm(grm_file, grm_id);
+    read_grm(grm_file, grm_id, true, false, true);
     update_id_map_kp(grm_id, _id_map, _keep);
     read_phen(phen_file, phen_ID, phen_buf, mphen);
     update_id_map_kp(phen_ID, _id_map, _keep);

@@ -634,32 +634,32 @@ double StatFunc::pchisqsum(double x, VectorXd lambda) {
 }
 
 double StatFunc::psadd(double x, VectorXd lambda) {
-double d = lambda.maxCoeff();
-if (d <= 0.0) return 2.0;
-lambda = lambda.array() / d;
-x = x / d;
+    double d = lambda.maxCoeff();
+    if (d <= 0.0) return 2.0;
+    lambda = lambda.array() / d;
+    x = x / d;
 
-double lmin = 0.0;
-double m = lambda.minCoeff();
-if (m < 0.0) lmin = 0.499995 / m;
-else if (x > lambda.sum()) lmin = -0.01;
-else lmin = -0.5 * (double) lambda.size() / x;
-double lmax = 0.499995 / lambda.maxCoeff();
+    double lmin = 0.0;
+    double m = lambda.minCoeff();
+    if (m < 0.0) lmin = 0.499995 / m;
+    else if (x > lambda.sum()) lmin = -0.01;
+    else lmin = -0.5 * (double) lambda.size() / x;
+    double lmax = 0.499995 / lambda.maxCoeff();
 
-double hatzeta = Brents_Kp_min_x(lambda, x, lmin, lmax, 1e-08);
-if(hatzeta > lmax + 9) return 2.0;
-double sign = (hatzeta < 0.0) ? -1.0 : 1.0;
-double w = sign * sqrt(2 * (hatzeta * x - K(hatzeta, lambda)));
-double v = hatzeta * sqrt(Kpp(hatzeta, lambda));
+    double hatzeta = Brents_Kp_min_x(lambda, x, lmin, lmax, 1e-08);
+    if(hatzeta > lmax + 9) return 2.0;
+    double sign = (hatzeta < 0.0) ? -1.0 : 1.0;
+    double w = sign * sqrt(2 * (hatzeta * x - K(hatzeta, lambda)));
+    double v = hatzeta * sqrt(Kpp(hatzeta, lambda));
 
-// debug
-//cout<<"hatzeta = "<<hatzeta<<endl;
-//cout<<"w = "<<w<<endl;
-//cout<<"v = "<<v<<endl;
+    // debug
+    //cout<<"hatzeta = "<<hatzeta<<endl;
+    //cout<<"w = "<<w<<endl;
+    //cout<<"v = "<<v<<endl;
 
-
-if (fabs(hatzeta) < 1e-04) return 2.0;
-else return pnorm(w + log(v / w) / w);
+    
+    if (fabs(hatzeta) < 1e-04) return 2.0;
+    else return pnorm(w + log(v / w) / w);
 }
 
 double StatFunc::psatt(double x, VectorXd lambda) {

@@ -8,6 +8,8 @@
 #       MacOS                       MAC
 # ---------------------------------------------------------------------
 
+export TMPDIR=/state/partition1/tmp
+
 # Set this variable to either UNIX, MAC or WIN
 SYS = UNIX
 OUTPUT = ~/scratch/bin/gcta64_test
@@ -57,6 +59,7 @@ endif
 HDR += CommFunc.h \
 	   cdflib.h \
 	   dcdflib.h \
+	   eigen_func.h \
            gcta.h \
 	   ipmpar.h \
            SimplexSolver.h \
@@ -65,6 +68,7 @@ HDR += CommFunc.h \
            zfstream.h
 SRC = bivar_reml.cpp \
            CommFunc.cpp \
+	   eigen_func.cpp \
            data.cpp \
 	   dcdflib.cpp \
            edata.cpp \
