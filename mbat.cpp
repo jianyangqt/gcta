@@ -120,7 +120,6 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
             else C(i,j) = 0.0;
         }
     }
-
     /* DEBUG
     string pgoodsnpfile = _out + ".presnps";
     ofstream pogoodsnp(pgoodsnpfile.c_str());
@@ -129,20 +128,50 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     pogoodsnp.close();
     */
 
-    eigenVector snp_beta = set_beta;
-    eigenVector snp_btse = set_se;
-    vector<string> snp_keep = snp_kept;
+    /* DO INITIAL PAIRWISE CORRELATION CORRECTION/REMOVAL */
+    double new_cutoff = 0.9486833; //sqrt(0.9)
+    vector<int> rm_ID1;
+    rm_cor_sbat(C,new_cutoff,m,rm_ID1);
+     vector<int> new_C_indx;
+     int alt = 0;
+     //List of matrix elements to keep
+     for (int aa=0 ; aa<m; aa++) {
+         if (rm_ID1.size() > 0) {
+             if (rm_ID1[alt] == aa) alt++;
+             else new_C_indx.push_back(aa);
+         }
+         else new_C_indx.push_back(aa);
+     }
+
+    MatrixXf D(new_C_indx.size(),new_C_indx.size());
+    eigenVector snp_beta(new_C_indx.size());
+    eigenVector snp_btse(new_C_indx.size());
+    vector<string> snp_keep;
+    for (i = 0 ; i < new_C_indx.size() ; i++) {
+        for (j = 0 ; j < new_C_indx.size() ; j++) {
+            D(i,j) = C(new_C_indx[i],new_C_indx[j]);
+        }
+        snp_beta[i] = set_beta[new_C_indx[i]];
+        snp_btse[i] = set_se[new_C_indx[i]];
+        snp_keep.push_back(snp_kept[new_C_indx[i]]);
+    }
+    /* END INITIAL PAIRWISE */
+
+    //eigenVector snp_beta = set_beta;
+    //eigenVector snp_btse = set_se;
+    //vector<string> snp_keep = snp_kept;
 
     //Because resize is destructive, write values to tmp vector, resize, and assign from temp vector
-    eigenVector tmp_beta = set_beta;
-    eigenVector tmp_btse = set_se;
-    vector<string> tmp_keep = snp_kept;
+    eigenVector tmp_beta = snp_beta;
+    eigenVector tmp_btse = snp_btse;
+    vector<string> tmp_keep = snp_keep;
 
     //Remove colinearity
-    MatrixXf D = C;
+    //MatrixXf D = C; - already defined in pairwise
+    C = D;
     int pos;
     int count = 0;
-    vector<int> new_C_indx;
+    //vector<int> new_C_indx;
     vector<int> removed_snp;
     do {
         tmp_beta = snp_beta;
