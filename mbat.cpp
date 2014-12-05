@@ -12,13 +12,19 @@
 
 #include "gcta.h"
 
-//Part of algorithm to itteratively remove collinearity from R matrix 
-//Return which row to remove, or -1
-int gcta::sbat_rm_colin(MatrixXf R)
+/*
+ * Iterative VIF (Variance Inflation Factor) method to reduce collinearity.
+ * Returns position of snp with the highest VIF in correlation matrix (to remove)
+ * Returns -1 if no snps to remove with VIF greater than threshold (10)
+ * Continue calling this function, and reducing correlation matrix until -1 returned
+ */
+
+int gcta::sbat_VIF_iter_rm_colin(MatrixXf R)
 {
         SelfAdjointEigenSolver<MatrixXf> pca(R.array());
         int j, n, k;
         int size = R.col(0).size();
+        int threshold = 10; //VIF threshold to remove snp
 
         VectorXf d_i = pca.eigenvalues(); //degree freedom LD matrix
         double eff_m = 0;
@@ -55,7 +61,7 @@ int gcta::sbat_rm_colin(MatrixXf R)
             if(multi_rsq_buf[j] < max_rsq_buf[j]) multi_rsq_buf[j] = max_rsq_buf[j];
         }
 
-       //Ignore brk_pnt??
+       //Ignoring break point
         /*
         for (j = 0, k = brk_pnt[i]; j < size; j++, k++) {
             if(multi_rsq_adj[k] <= multi_rsq_buf_adj[j]){
@@ -72,8 +78,6 @@ int gcta::sbat_rm_colin(MatrixXf R)
         VectorXf vif(size);
         float max = 0;
         int pos = -1;
-        int threshold = 10;
-
 
         for (j = 0 ; j < size ; j++ )
         {
@@ -129,6 +133,7 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     eigenVector snp_btse = set_se;
     vector<string> snp_keep = snp_kept;
 
+    //Because resize is destructive, write values to tmp vector, resize, and assign from temp vector
     eigenVector tmp_beta = set_beta;
     eigenVector tmp_btse = set_se;
     vector<string> tmp_keep = snp_kept;
@@ -140,25 +145,30 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     vector<int> new_C_indx;
     vector<int> removed_snp;
     do {
-        //does assignment resize automatically?
         tmp_beta = snp_beta;
         tmp_btse = snp_btse;
         tmp_keep = snp_keep;
 
         new_C_indx.resize(0);
-        pos = sbat_rm_colin(D);
+        pos = sbat_VIF_iter_rm_colin(D);
+        /*
         if (pos > -1) {
             cout << "Remove colinearity from " << C.col(0).size() << " snps" <<  endl;
-        }
+        } 
+        */
+        //Build new index
         for (i = 0 ; i < C.col(0).size() ; i++) {
             if (pos == i) continue;
             new_C_indx.push_back(i);
         }
 
-        D.resize(new_C_indx.size(),new_C_indx.size()); //destructive resize
+        //Resize is destructive
+        D.resize(new_C_indx.size(),new_C_indx.size()); 
         snp_beta.resize(new_C_indx.size());
         snp_btse.resize(new_C_indx.size());
         snp_keep.resize(new_C_indx.size());
+
+        //Rebuild & assign new correlation matrix & beta, se, etc
         for (i = 0 ; i < new_C_indx.size() ; i++) {
            for (j = 0 ; j < new_C_indx.size() ; j++) {
                D(i,j) = C(new_C_indx[i],new_C_indx[j]);
@@ -167,13 +177,15 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
            snp_btse[i] = tmp_btse[new_C_indx[i]];
            snp_keep[i] = tmp_keep[new_C_indx[i]];
         }
-        C.resize(new_C_indx.size(),new_C_indx.size());
+
+        //Eigen resizes the matrix on the left-hand side automatically so that it matches the size of the matrix on the right-hand size
         C = D;
         count++;
     } while (pos > -1);
 
     cout << "index size " <<  new_C_indx.size() << endl;
 
+    
     /* DEBUG
     string rgoodsnpfile = _out + ".rsnps";
     ofstream rogoodsnp(rgoodsnpfile.c_str());
@@ -182,7 +194,7 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     for (i = 0; i < new_C_indx.size(); i++) rogoodsnp << snp_keep[i] << " "  << snp_beta[i] << " " << snp_btse[i] << endl;
     rogoodsnp.close();
     */
- 
+   
 
     /* 
     cout << " C matrix " << endl << C << endl;
@@ -204,12 +216,8 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     for (int aa=0 ; aa<new_C_indx.size() ; aa++) cout << " . " << new_C_indx[aa];
     */
 
-    cout << " ABOUT TO CALC CHISQ " << endl;
-
     SE = snp_btse * snp_btse.transpose();
     V = SE.array() * D.cast<double>().array();
-    //Remove this?
-    ////lets try..
     //V.diagonal() = V.diagonal() * (1+0.000001);
     Vscore = snp_beta.transpose() * V.inverse() * snp_beta;
     Vscore_p = StatFunc::pchisq(Vscore, snp_beta.size());
