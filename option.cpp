@@ -1025,7 +1025,7 @@ void option(int option_num, char* option_str[])
             else if (LD) pter_gcta->LD_Blocks(LD_step, LD_wind, LD_sig, LD_i, save_ram);
             else if (LD_prune_rsq>-1.0) pter_gcta->LD_pruning_mkl(LD_prune_rsq, LD_wind);
             else if (ld_mean_rsq_flag) pter_gcta->calcu_mean_rsq(LD_wind, LD_rsq_cutoff, dominance_flag);
-            else if (ld_mean_rsq_seg_flag) pter_gcta->ld_seg("", LD_seg, LD_wind, LD_rsq_cutoff, dominance_flag);
+            else if (ld_mean_rsq_seg_flag) pter_gcta->ld_seg(LD_file, LD_seg, LD_wind, LD_rsq_cutoff, dominance_flag);
             else if (ld_max_rsq_flag) pter_gcta ->calcu_max_ld_rsq(LD_wind, LD_rsq_cutoff, dominance_flag);
             else if (blup_snp_flag) pter_gcta->blup_snp_geno();
             else if (mlma_flag) pter_gcta->mlma(grm_file, phen_file, qcovar_file, covar_file, mphen, MaxIter, reml_priors, reml_priors_var, no_constrain, within_family, make_grm_inbred_flag, mlma_no_adj_covar);

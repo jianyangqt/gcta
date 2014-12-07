@@ -536,9 +536,9 @@ void gcta::ld_seg(string i_ld_file, int seg_size, int wind_size, double rsq_cuto
         for(i = 0; i < m; i++) _include[i] = i;
     }
     else {
-        if(_snp_name.size() < 1) throw("Error: need to input the LD file or PLINK files for LD calculation.");
+        m = _include.size();
         check_autosome();
-        cout << "Calculating mean LD rsq between SNPs (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size / 2000<<"Kb between blocks); LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
+        cout << "\nCalculating mean LD rsq between SNPs (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size / 2000<<"Kb between blocks); LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
         if(dominance_flag) cout<<"(SNP genotypes are coded for dominance effects)"<<endl;
         get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, wind_size);
         eigenVector mrsq_buf = eigenVector::Zero(m), snp_num_buf = eigenVector::Zero(m), max_rsq_buf = eigenVector::Zero(m);
