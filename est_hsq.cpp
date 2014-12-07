@@ -1018,7 +1018,7 @@ bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, i
         if (_V_inv_mtd == 0) {
             if (!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) {
                 if(_reml_force_inv) {
-                    cout<<"Note: the variance-covaraince matrix V is non-positive definite. Switching from Cholesky to LU decomposition approach. The results might not be reliable!"<<endl;
+                    cout<<"Warning: the variance-covaraince matrix V is non-positive definite. Switching from Cholesky to LU decomposition approach. The results might not be reliable!"<<endl;
                     _V_inv_mtd = 1;
                 }
                 else throw("Error: the variance-covaraince matrix V is not positive definite.");
@@ -1026,13 +1026,18 @@ bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, i
         }
         if (_V_inv_mtd == 1) {
             if (!comput_inverse_logdet_LU_mkl(Vi, logdet)) {
-                if (_reml_have_bend_A) throw ("Error: the variance-covaraince matrix V is not invertible.");
+                /*if (_reml_have_bend_A) throw ("Error: the variance-covaraince matrix V is not invertible.");
                 cout << "Warning: the variance-covaraince matrix V is still not invertible." << endl;
                 bend_A();
                 _reml_have_bend_A = true;
                 iter = -1;
                 cout << "Restarting iterations ..." << endl;
                 return false;
+                */
+                cout<<"Warning: the variance-covaraince matrix is invertible. A small positive value is added to the diagonals. The results might not be reliable!"<<endl;
+                double d_buf = Vi.diagonal().mean() * 0.001;
+                for(j = 0; j < _n ; j++) Vi(j,j) += d_buf;
+                if (!comput_inverse_logdet_LU_mkl(Vi, logdet)) throw ("Error: the variance-covaraince matrix V is not invertible.");
             }
         }
     }
@@ -1115,13 +1120,20 @@ double gcta::comput_inverse_logdet_LU(eigenMatrix &Vi, string errmsg) {
 bool gcta::inverse_H(eigenMatrix &H)
 {    
     double d_buf = 0.0;
-    if (!comput_inverse_logdet_LDLT_mkl(H, d_buf)) {
-        if(_reml_force_inv) {
-            cout<<"Note: the information matrix is non-positive definite. Switching from Cholesky to LU decomposition approach. The results might not be reliable!"<<endl;
-            if (!comput_inverse_logdet_LU_mkl(H, d_buf)) return false;
+    if (!comput_inverse_logdet_LDLT_mkl(H, d_buf)) return false;
+    /*{
+        /*if(_reml_force_inv) {
+            cout<<"Warning: the information matrix is non-positive definite. Switching from Cholesky to LU decomposition approach. The results might not be reliable!"<<endl;
+            if (!comput_inverse_logdet_LU_mkl(H, d_buf)){
+                cout<<"Warning: the information matrix is invertible. A small positive value is added to the diagonals. The results might not be reliable!"<<endl;
+                int i = 0;
+                d_buf = H.diagonal().mean() * 0.001;
+                for(i = 0; i < H.rows(); i++) H(i,i) += d_buf;
+                if (!comput_inverse_logdet_LU_mkl(H, d_buf)) return false;
+            }
         }
         else return false;
-    }
+    }*/
     else return true;
 }
 
