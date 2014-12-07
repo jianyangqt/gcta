@@ -217,7 +217,7 @@ void gcta::make_grm_mkl(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool o
     }
 
     // Weighting genotypes by LD mean rsq
-    VectorXd wt;
+    eigenVector wt;
     if (wt_ld_flag) {
         //cout<<"Weighting the genotype based on LD ..."<<endl;
         calcu_grm_wt_mkl(ld_wt_ld_file, _geno_mkl, sd_SNP_buf, wt, ld_wt_wind, ld_wt_rsq_cutoff, ld_wt_mtd, ttl_snp_num);
@@ -617,10 +617,9 @@ void gcta::calcu_mean_rsq_mkl(int wind_size, double rsq_cutoff)
     vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
     get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, wind_size*2);
 
-    VectorXd mean_rsq = VectorXd::Zero(m);
-
-    VectorXd snp_num = VectorXd::Zero(m);
-    VectorXd max_rsq = VectorXd::Zero(m);
+    eigenVector mean_rsq = eigenVector::Zero(m);
+    eigenVector snp_num = eigenVector::Zero(m);
+    eigenVector max_rsq = eigenVector::Zero(m);
     calcu_ld_blk_mkl(_geno_mkl, sd_SNP, brk_pnt1, brk_pnt3, mean_rsq, snp_num, max_rsq, false, rsq_cutoff);
     if (brk_pnt2.size() > 1) calcu_ld_blk_mkl(_geno_mkl, sd_SNP, brk_pnt2, brk_pnt3, mean_rsq, snp_num, max_rsq, true, rsq_cutoff);
 
@@ -650,7 +649,7 @@ void gcta::calcu_ssx_sqrt_i_mkl(float *X_std, vector<double> &ssx_sqrt_i)
     }
 }
 
-void gcta::calcu_ld_blk_mkl(float *X, vector<double> &ssx, vector<int> &brk_pnt, vector<int> &brk_pnt3, VectorXd &mean_rsq, VectorXd &snp_num, VectorXd &max_rsq, bool second, double rsq_cutoff)
+void gcta::calcu_ld_blk_mkl(float *X, vector<double> &ssx, vector<int> &brk_pnt, vector<int> &brk_pnt3, eigenVector &mean_rsq, eigenVector &snp_num, eigenVector &max_rsq, bool second, double rsq_cutoff)
 {
     unsigned long i = 0, j = 0, k = 0, l = 0, s1 = 0, s2 = 0, n = _keep.size(), m = _include.size(), size = 0, size_limit = 10000;
 
@@ -793,7 +792,7 @@ void gcta::calcu_ld_blk_split_mkl(int size, int size_limit, float *X_sub, vector
 
 ////////////////////
 // LD weighting approach
-void gcta::calcu_grm_wt_mkl(string i_ld_file, float *X, vector<double> &sd_SNP, VectorXd &wt, int wind_size, double rsq_cutoff, int wt_mtd, int ttl_snp_num)
+void gcta::calcu_grm_wt_mkl(string i_ld_file, float *X, vector<double> &sd_SNP, eigenVector &wt, int wind_size, double rsq_cutoff, int wt_mtd, int ttl_snp_num)
 {
     unsigned long i = 0, j = 0, k = 0, l = 0, n = _keep.size(), m = _include.size();
 
@@ -825,9 +824,9 @@ void gcta::calcu_grm_wt_mkl(string i_ld_file, float *X, vector<double> &sd_SNP, 
     }
 
     vector<double> mrsq_mb;
-    wt = VectorXd::Zero(m);
-    VectorXd snp_num = VectorXd::Zero(m);
-    VectorXd max_rsq = VectorXd::Zero(m);
+    wt = eigenVector::Zero(m);
+    eigenVector snp_num = eigenVector::Zero(m);
+    eigenVector max_rsq = eigenVector::Zero(m);
     double mrsq_cutoff = 0.0;
     // Read mean LD from file and calculate the mean LD in each MAF bin
     if (!i_ld_file.empty()) read_mrsq_mb(i_ld_file, seq, mrsq_mb, wt, snp_num);

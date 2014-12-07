@@ -317,9 +317,9 @@ private:
     bool comput_inverse_logdet_LU_mkl_array(int n, float *Vi, double &logdet);
     void LD_pruning_blk_mkl(float *X, vector<int> &brk_pnt, double rsq_cutoff, vector<int> &rm_snp_ID1);
     void calcu_ssx_sqrt_i_mkl(float *X_std, vector<double> &ssx);
-    void calcu_ld_blk_mkl(float *X, vector<double> &ssx, vector<int> &brk_pnt, vector<int> &brk_pnt3, VectorXd &mean_rsq, VectorXd &snp_num, VectorXd &max_rsq, bool second, double rsq_cutoff);
+    void calcu_ld_blk_mkl(float *X, vector<double> &ssx, vector<int> &brk_pnt, vector<int> &brk_pnt3, eigenVector &mean_rsq, eigenVector &snp_num, eigenVector &max_rsq, bool second, double rsq_cutoff);
     void calcu_ld_blk_split_mkl(int size, int size_limit, float *X_sub, vector<double> &ssx_sub, double rsq_cutoff, vector<double> &rsq_size, vector<double> &mean_rsq_sub, vector<double> &max_rsq_sub, int s1, int s2, bool second);
-    void calcu_grm_wt_mkl(string i_ld_file, float *X, vector<double> &sd_SNP, VectorXd &wt, int wind_size, double rsq_cutoff, int wt_mtd, int ttl_snp_num);
+    void calcu_grm_wt_mkl(string i_ld_file, float *X, vector<double> &sd_SNP, eigenVector &wt, int wind_size, double rsq_cutoff, int wt_mtd, int ttl_snp_num);
 
     // mlma
     void mlma_calcu_stat(float *y, float *geno_mkl, unsigned long n, unsigned long m, eigenVector &beta, eigenVector &se, eigenVector &pval);
