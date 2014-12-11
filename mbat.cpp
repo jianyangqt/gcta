@@ -13,14 +13,21 @@
 #include "gcta.h"
 
 /*
- * Iterative VIF (Variance Inflation Factor) method to reduce collinearity.
- * Returns position of snp with the highest VIF in correlation matrix (to remove)
- * Returns -1 if no snps to remove with VIF greater than threshold (10)
- * Continue calling this function, and reducing correlation matrix until -1 returned
+ * Todo: Replace MatrixXf with eigenMatrix
+ * Print which/how many snps removed, why
+ * Explain vif/etc
  */
 
 int gcta::sbat_VIF_iter_rm_colin(MatrixXf R)
 {
+    /*
+     * Iterative VIF (Variance Inflation Factor) method to reduce collinearity.
+     * Calcualtes VIF for correlation Matrix R
+     * Returns position in matrix of largest VIF with size > threshold (to remove)
+     * If all are < threshold, return -1
+     *
+     */
+    
         SelfAdjointEigenSolver<MatrixXf> pca(R.array());
         int j, n, k;
         int size = R.col(0).size();
@@ -39,7 +46,7 @@ int gcta::sbat_VIF_iter_rm_colin(MatrixXf R)
         MatrixXf R_i = pca.eigenvectors() * d_i.asDiagonal() * pca.eigenvectors().transpose();
         R_i = R_i.array();
 
-       VectorXf Q_diag(size);
+        VectorXf Q_diag(size);
         for(j = 0; j < size; j ++) Q_diag(j) = R_i.col(j).dot(R.row(j).transpose());
         VectorXf multi_rsq_buf(size);
     	for(j = 0; j < size; j ++){
@@ -47,7 +54,9 @@ int gcta::sbat_VIF_iter_rm_colin(MatrixXf R)
     		else multi_rsq_buf[j] = 1.0;
             if(multi_rsq_buf[j] > 1.0) multi_rsq_buf[j] = 1.0;
     	}
-        VectorXf multi_rsq_buf_adj = multi_rsq_buf.array() - (1.0 - multi_rsq_buf.array()) * (eff_m / ((double)n - eff_m - 1.0)); //ignore adjust for now
+
+        //Not used
+        //VectorXf multi_rsq_buf_adj = multi_rsq_buf.array() - (1.0 - multi_rsq_buf.array()) * (eff_m / ((double)n - eff_m - 1.0)); 
 
         R.diagonal() = VectorXf::Zero(size);
         R = R.array() * R.array();
@@ -60,20 +69,6 @@ int gcta::sbat_VIF_iter_rm_colin(MatrixXf R)
             max_rsq_buf[j] = R.col(j)[max_pos_buf[j]];
             if(multi_rsq_buf[j] < max_rsq_buf[j]) multi_rsq_buf[j] = max_rsq_buf[j];
         }
-
-       //Ignoring break point
-        /*
-        for (j = 0, k = brk_pnt[i]; j < size; j++, k++) {
-            if(multi_rsq_adj[k] <= multi_rsq_buf_adj[j]){
-            	multi_rsq[k] = multi_rsq_buf[j];
-            	multi_rsq_adj[k] = multi_rsq_buf_adj[j];
-            }
-            if(max_rsq[k] < max_rsq_buf[j]){
-                max_rsq[k] = max_rsq_buf[j];
-                max_pos[k] = max_pos_buf[j] + brk_pnt[i];
-            }
-        }
-        */
 
         VectorXf vif(size);
         float max = 0;
@@ -93,12 +88,12 @@ int gcta::sbat_VIF_iter_rm_colin(MatrixXf R)
             }
        }
 
-        return pos;
+       return pos;
 }
 
-void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigenVector set_se, double &Vscore, double &Vscore_p, int &snp_count, vector<string> &snp_kept)
+void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigenVector set_se, double &Vchisq, double &Vpvalue, int &snp_count, vector<string> &snp_kept)
 {
-    int i = 0, j = 0, k = 0, n = _keep.size(), m = snp_indx.size();
+    int i = 0, j = 0, k = 0, n = _keep.size(), msnps = snp_indx.size();
     VectorXd eigenval;
 
     MatrixXf X;
@@ -107,14 +102,14 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
 
     make_XMat_subset(X, snp_indx, false);
 
-    VectorXd sumsq_x(m);
-    for (j = 0; j < m; j++) sumsq_x[j] = X.col(j).dot(X.col(j));
+    VectorXd sumsq_x(msnps);
+    for (j = 0; j < msnps; j++) sumsq_x[j] = X.col(j).dot(X.col(j));
 
     MatrixXf C = X.transpose() * X;
     X.resize(0,0);
     #pragma omp parallel for private(j)
-    for (i = 0; i < m; i++) {
-        for (j = 0; j < m; j++) {
+    for (i = 0; i < msnps; i++) {
+        for (j = 0; j < msnps; j++) {
             double d_buf = sqrt(sumsq_x[i] * sumsq_x[j]);
             if(d_buf>0.0) C(i,j) /= d_buf;
             else C(i,j) = 0.0;
@@ -128,21 +123,29 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     pogoodsnp.close();
     */
 
-    /* DO INITIAL PAIRWISE CORRELATION CORRECTION/REMOVAL */
-    double new_cutoff = 0.9486833; //sqrt(0.9)
+    /*
+     * Remove highly correlated pairs of snps
+     * Ensuring max correlation in matrix is sqrt(R)
+     */ 
+    double maxRval = 0.9;
+    double new_cutoff = sqrt(maxRval);
+    //double new_cutoff = 0.9486833; //sqrt(0.9)
     vector<int> rm_ID1;
-    rm_cor_sbat(C,new_cutoff,m,rm_ID1);
-     vector<int> new_C_indx;
-     int alt = 0;
-     //List of matrix elements to keep
-     for (int aa=0 ; aa<m; aa++) {
-         if (rm_ID1.size() > 0) {
-             if (rm_ID1[alt] == aa) alt++;
-             else new_C_indx.push_back(aa);
-         }
-         else new_C_indx.push_back(aa);
-     }
+    rm_cor_sbat(C,new_cutoff,msnps,rm_ID1);
+    vector<int> new_C_indx;
+    int alt = 0;
+    //List of matrix elements to keep
+    for (int aa=0 ; aa<msnps; aa++) {
+    if (rm_ID1.size() > 0) {
+        if (rm_ID1[alt] == aa) alt++;
+        else new_C_indx.push_back(aa);
+        }
+    else new_C_indx.push_back(aa);
+    }
 
+    /* Rebuild Matrix without correlated snps
+     * Using new new_C_indx list of snps to keep 
+     */
     MatrixXf D(new_C_indx.size(),new_C_indx.size());
     eigenVector snp_beta(new_C_indx.size());
     eigenVector snp_btse(new_C_indx.size());
@@ -155,24 +158,23 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
         snp_btse[i] = set_se[new_C_indx[i]];
         snp_keep.push_back(snp_kept[new_C_indx[i]]);
     }
-    /* END INITIAL PAIRWISE */
 
-    //eigenVector snp_beta = set_beta;
-    //eigenVector snp_btse = set_se;
-    //vector<string> snp_keep = snp_kept;
+    /* 
+     * Remove colinearity
+     * Using VIF (sbat_VIF_iter_rm_colin)
+     * New MatrixF C in use
+     */
 
-    //Because resize is destructive, write values to tmp vector, resize, and assign from temp vector
+    int pairwise_remain = new_C_indx.size();
+ 
+    //Because resize is destructive, 
     eigenVector tmp_beta = snp_beta;
     eigenVector tmp_btse = snp_btse;
     vector<string> tmp_keep = snp_keep;
 
-    //Remove colinearity
-    //MatrixXf D = C; - already defined in pairwise
     C = D;
     int pos;
     int count = 0;
-    //vector<int> new_C_indx;
-    vector<int> removed_snp;
     do {
         tmp_beta = snp_beta;
         tmp_btse = snp_btse;
@@ -180,12 +182,7 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
 
         new_C_indx.resize(0);
         pos = sbat_VIF_iter_rm_colin(D);
-        /*
-        if (pos > -1) {
-            cout << "Remove colinearity from " << C.col(0).size() << " snps" <<  endl;
-        } 
-        */
-        //Build new index
+        /* Build new index, excluding value with highest VIF (or pos -1, none excluded) */
         for (i = 0 ; i < C.col(0).size() ; i++) {
             if (pos == i) continue;
             new_C_indx.push_back(i);
@@ -207,58 +204,44 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
            snp_keep[i] = tmp_keep[new_C_indx[i]];
         }
 
-        //Eigen resizes the matrix on the left-hand side automatically so that it matches the size of the matrix on the right-hand size
+        /* Eigen resizes the matrix on the left-hand side automatically so 
+         * that it matches the size of the matrix on the right-hand size 
+         */
+
         C = D;
         count++;
+
     } while (pos > -1);
 
-    cout << "index size " <<  new_C_indx.size() << endl;
+    /* Number of snps kepy */
+    snp_count = new_C_indx.size();
 
-    
-    /* DEBUG
+    SE = snp_btse * snp_btse.transpose();
+    V = SE.array() * D.cast<double>().array();
+    Vchisq = snp_beta.transpose() * V.inverse() * snp_beta;
+    Vpvalue = StatFunc::pchisq(Vchisq, snp_beta.size());
+
+    /* Print stats to std out */
+    cout << "Initial snps " << msnps << " Pairwise " << pairwise_remain << " Collinearity " <<  snp_count;
+    cout << " Chisq " << Vchisq << " Pvalue " << Vpvalue << endl;
+
+    /* DEBUG OPTION  */
+    /* Print rsnps - list of snps kept after removing correlation & collinearity */
+    /*
     string rgoodsnpfile = _out + ".rsnps";
     ofstream rogoodsnp(rgoodsnpfile.c_str());
-    //ogoodsnp << "SNP" << endl;
     rogoodsnp << "snp beta se" << endl;
     for (i = 0; i < new_C_indx.size(); i++) rogoodsnp << snp_keep[i] << " "  << snp_beta[i] << " " << snp_btse[i] << endl;
     rogoodsnp.close();
     */
-   
 
-    /* 
-    cout << " C matrix " << endl << C << endl;
-    
-    cout << " D matrix " << endl << D << endl;
-    cout << " B  vector " << endl << snp_beta << endl;
-    cout << " SE vector " << endl << snp_btse << endl;
-    
-    cout << " New Index " << endl;
-    for (int abc = 0 ; abc < new_C_indx.size() ; abc++) cout << new_C_indx[abc] << " ";
-    cout << endl;
-    */
-
-    snp_count = new_C_indx.size();
-
-    /* DEBUG
-    cout << "Number of snps retained: " << new_C_indx.size() << endl;
-    cout << "Number of snps beta array: " << snp_beta.size() << endl;
-    for (int aa=0 ; aa<new_C_indx.size() ; aa++) cout << " . " << new_C_indx[aa];
-    */
-
-    SE = snp_btse * snp_btse.transpose();
-    V = SE.array() * D.cast<double>().array();
-    //V.diagonal() = V.diagonal() * (1+0.000001);
-    Vscore = snp_beta.transpose() * V.inverse() * snp_beta;
-    Vscore_p = StatFunc::pchisq(Vscore, snp_beta.size());
-    cout << "out " << Vscore << " " << Vscore_p << endl;
-    
 }
 
 void gcta::sbat_multi(string sAssoc_file, string snpset_file)
 {
     int i = 0, j = 0, ii=0;
-    double Vscore = 0;
-    double Vscore_p = 0;
+    double Vchisq = 0; //chisq value
+    double Vpvalue = 0; //pvalue
     int snp_count = 0;
     //vector<int> num_snp_tested;
 
@@ -314,12 +297,8 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
 
         if((i + 1) % 100 == 0 || (i + 1) == set_num) cout << i + 1 << " of " << set_num << " sets.\r";
 
-
-        //set_beta.resize(snpset[i].size());
-        //set_se.resize(snpset[i].size());
         set_beta.resize(snp_indx.size()); //better index?
         set_se.resize(snp_indx.size());
-
 
         for (ii = 0; ii < snp_indx.size(); ii++) //was snpset[i].size()
         {
@@ -332,11 +311,11 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
 
         snp_count=0;
         cout << "multi_calcu_V" << endl;
-        sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vscore, Vscore_p, snp_count, snp_name);
+        sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vchisq, Vpvalue, snp_count, snp_name);
         //if not invertible -> call normal sbat / return "cant calc"
         num_snp_tested[i] = snp_count;
-        chisq_o[i] = Vscore;
-        set_pval[i] = Vscore_p;
+        chisq_o[i] = Vchisq;
+        set_pval[i] = Vpvalue;
 
     }
 
@@ -367,7 +346,7 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
     int i=0, count = 0;
     map<string, int>::iterator iter;
     while (getline(in_snpAssoc, str_buf)) { 
-        if (StrFunc::split_string(str_buf, vs_buf) != 7) throw ("Error: in line \"" + str_buf + "\".");
+        if (StrFunc::split_string(str_buf, vs_buf) != 8) throw ("Error: in line \"" + str_buf + "\".");
 
         A1_buf = vs_buf[1];
         A2_buf = vs_buf[2];
@@ -393,8 +372,6 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
             bad_refA.push_back(A1_buf);
             continue;
         }
- 
-
 
         //update reference Allele based on assoc data
         if (A1_buf == _allele1[iter->second]) {
@@ -413,9 +390,6 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
         snp_beta.push_back(beta_buf); 
         snp_btse.push_back(atof(vs_buf[5].c_str()));
         snp_pval.push_back(atof(vs_buf[6].c_str()));
-
-
-        
 
     }
     in_snpAssoc.close();
@@ -529,8 +503,8 @@ void gcta::rm_cor_sbat(MatrixXf &R, double R_cutoff, int m, vector<int> &rm_ID1)
 void gcta::sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind)
 {
     int i = 0, j = 0, ii=0;
-    double Vscore = 0;
-    double Vscore_p = 0;
+    double Vchisq = 0;
+    double Vpvalue = 0;
     int snp_count = 0;
 
     // read SNP 'multi association results (including se & BETA/or)
@@ -538,7 +512,7 @@ void gcta::sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind)
     vector<int> snp_chr, snp_bp;
     vector<double> snp_pval;
     vector<double> snp_beta; // BETA - can be converted to log (code commented out futher down)
-    vector<double> snp_btse; // se
+    vector<double> snp_btse; 
     eigenVector set_beta;
     eigenVector set_se;
     cout << sAssoc_file << " file" << endl;
@@ -609,7 +583,6 @@ void gcta::sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind)
     else cout << mapped << " genes have been mapped to SNP data." << endl;
 
     // run sbat multi gene-based test
-
     
     if (_mu.empty()) calcu_mu();
     cout << "\nRunning set-based association test (SBAT) for genes ..." << endl;
@@ -658,37 +631,13 @@ void gcta::sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind)
             num_snp_tested[i]=1;
         }
         else {
-            //vector<int> snp_indx; 
-            //for (j = iter1->second; j <= iter2->second; j++) snp_indx.push_back(j);            
-            //VectorXd eigenval;
-
-            //snp details
-            //cout << "Kept snps" << endl;
-            //for (int aa = 0 ; aa < snp_name.size() ; aa++) cout << snp_name[aa] << endl;
-            
-        //write good snps (kept) to file DEBUG
-        //
-        /*
-        string ngoodsnpfile = _out + ".ngoodsnps";
-        ofstream nogoodsnp(ngoodsnpfile.c_str());
-        //ogoodsnp << "SNP" << endl;
-        nogoodsnp << "before multi" << endl;
-        nogoodsnp << "snp beta se" << endl;
-        for (i = 0; i < set_beta.size(); i++) nogoodsnp << snp_kept[i] << " " << set_beta[i] << " " << set_se[i] << endl;
-        nogoodsnp.close();
-        */
- 
-
             snp_count=0;
-            sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vscore, Vscore_p, snp_count, snp_kept);
+            sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vchisq, Vpvalue, snp_count, snp_kept);
             num_snp_tested[i]=snp_count;
-            chisq_o[i] = Vscore;
-            gene_pval[i] = Vscore_p;
-
+            chisq_o[i] = Vchisq;
+            gene_pval[i] = Vpvalue;
         }
-
         if((i + 1) % 100 == 0 || (i + 1) == gene_num) cout << i + 1 << " of " << gene_num << " genes.\r";
-
     }
     
     string filename = _out + ".gene.mbat";
