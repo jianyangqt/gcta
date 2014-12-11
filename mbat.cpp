@@ -35,6 +35,7 @@ int gcta::sbat_VIF_iter_rm_colin(MatrixXf R)
 
         VectorXf d_i = pca.eigenvalues(); //degree freedom LD matrix
         double eff_m = 0;
+        #pragma omp parallel for
         for(j = 0; j < size; j ++){
         	if(d_i(j) < 1e-5) d_i(j) = 0.0;
         	else{
@@ -49,6 +50,7 @@ int gcta::sbat_VIF_iter_rm_colin(MatrixXf R)
         VectorXf Q_diag(size);
         for(j = 0; j < size; j ++) Q_diag(j) = R_i.col(j).dot(R.row(j).transpose());
         VectorXf multi_rsq_buf(size);
+        #pragma omp parallel for
     	for(j = 0; j < size; j ++){
     		if(fabs(Q_diag[j] - 1.0) < 0.01) multi_rsq_buf[j] = 1.0 - 1.0 / R_i(j,j);
     		else multi_rsq_buf[j] = 1.0;
@@ -63,6 +65,7 @@ int gcta::sbat_VIF_iter_rm_colin(MatrixXf R)
         VectorXf max_rsq_buf(size);
         vector<int> max_pos_buf(size);
         VectorXf::Index max_pos_pnt;
+        #pragma omp parallel for
         for(j = 0; j < size; j++){
             R.col(j).maxCoeff(&max_pos_pnt);
             max_pos_buf[j] = (int)max_pos_pnt;
@@ -132,6 +135,7 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     //double new_cutoff = 0.9486833; //sqrt(0.9)
     vector<int> rm_ID1;
     rm_cor_sbat(C,new_cutoff,msnps,rm_ID1);
+    cout << "removed cor" << endl;
     vector<int> new_C_indx;
     int alt = 0;
     //List of matrix elements to keep
@@ -143,6 +147,7 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     else new_C_indx.push_back(aa);
     }
 
+    cout << "Rebuild matrix" << endl;
     /* Rebuild Matrix without correlated snps
      * Using new new_C_indx list of snps to keep 
      */
@@ -172,6 +177,7 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     eigenVector tmp_btse = snp_btse;
     vector<string> tmp_keep = snp_keep;
 
+    cout << "Run VIF collin" << endl;
     C = D;
     int pos;
     int count = 0;
@@ -212,6 +218,8 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
         count++;
 
     } while (pos > -1);
+
+    cout << "Do main calc" << endl;
 
     /* Number of snps kepy */
     snp_count = new_C_indx.size();
@@ -459,7 +467,8 @@ void gcta::rm_cor_sbat(MatrixXf &R, double R_cutoff, int m, vector<int> &rm_ID1)
 
     //use this as bases for rm cor
     float aval = 0;
-    #pragma omp parallel for private(j)
+    //Crashes when --threads used...
+    // #pragma omp parallel for //private(j)
     for (i = 0; i < m; i++) {
         for (j = 0; j < i; j++) {
             aval = R(i,j);
