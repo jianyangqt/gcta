@@ -570,7 +570,7 @@ void gcta::pca(string grm_file, string keep_indi_file, string remove_indi_file, 
     string eval_file = _out + ".eigenval";
     ofstream o_eval(eval_file.c_str());
     if (!o_eval) throw ("Error: can not open the file [" + eval_file + "] to read.");
-    for (i = n - 1; i >= (n - out_pc_num); i--) o_eval << eval(i) << endl;
+    for (i = n - 1; i >= 0; i--) o_eval << eval(i) << endl;
     o_eval.close();
     cout << "Eigenvalues of " << n << " individuals have been saved in [" + eval_file + "]." << endl;
     string evec_file = _out + ".eigenvec";
