@@ -121,8 +121,8 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     /* DEBUG
     string pgoodsnpfile = _out + ".presnps";
     ofstream pogoodsnp(pgoodsnpfile.c_str());
-    pogoodsnp << "snp beta se" << endl;
-    for (i = 0; i < snp_kept.size(); i++) pogoodsnp << snp_kept[i] << " " << set_beta[i] << " " << set_se[i] << endl;
+    pogoodsnp << "snp" << endl;
+    for (i = 0; i < snp_kept.size(); i++) pogoodsnp << snp_kept[i] << endl;
     pogoodsnp.close();
     */
 
@@ -226,7 +226,12 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
 
     SE = snp_btse * snp_btse.transpose();
     V = SE.array() * D.cast<double>().array();
-    Vchisq = snp_beta.transpose() * V.inverse() * snp_beta;
+
+    double logdet = 0; //ok?
+    if (!comput_inverse_logdet_LDLT(V, logdet)) cout << "Error: the V matrix is not invertible." << endl;
+    Vchisq = snp_beta.transpose() * V * snp_beta;
+    //Vchisq = snp_beta.transpose() * V.inverse() * snp_beta;
+
     Vpvalue = StatFunc::pchisq(Vchisq, snp_beta.size());
 
     /* Print stats to std out */
@@ -663,5 +668,4 @@ void gcta::sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind)
     ofile.close();
     
 }
-
 
