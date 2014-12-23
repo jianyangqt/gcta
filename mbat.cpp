@@ -105,6 +105,25 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
 
     make_XMat_subset(X, snp_indx, false);
 
+    /* DEBUG */
+    cout << " X matrix " << endl;
+    for (j = 0; j < 10; j++) {
+        for (i = 0; i < 10; i++) {
+            cout << X(j,i) << " "; 
+        }
+        cout << endl;
+    }
+    cout << "_include ... _mu " << endl;
+    for (j = 0; j < 10; j++) {
+        k = _include[snp_indx[j]];
+        //cout << !_snp_1[k][_keep[j]] << " ";
+        //cout <<  _snp_2[k][_keep[j]] << " ";
+        cout << _mu[k] << " ";
+    }
+    cout << endl;
+
+    /* DEBUG */
+
     VectorXd sumsq_x(msnps);
     for (j = 0; j < msnps; j++) sumsq_x[j] = X.col(j).dot(X.col(j));
 
@@ -118,13 +137,17 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
             else C(i,j) = 0.0;
         }
     }
-    /* DEBUG
+
+    //cout << " INITIAL COR MATRIX " << endl << C << endl;
+
+    /* DEBUG */
     string pgoodsnpfile = _out + ".presnps";
     ofstream pogoodsnp(pgoodsnpfile.c_str());
     pogoodsnp << "snp" << endl;
     for (i = 0; i < snp_kept.size(); i++) pogoodsnp << snp_kept[i] << endl;
+    //for (i = 0; i < new_C_indx.size(); i++) rogoodsnp << snp_keep[i] << " "  << snp_beta[i] << " " << snp_btse[i] << endl;
     pogoodsnp.close();
-    */
+    /*  */
 
     /*
      * Remove highly correlated pairs of snps
@@ -164,6 +187,16 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
         snp_keep.push_back(snp_kept[new_C_indx[i]]);
     }
 
+    //cout << " COR MATRIX REBUILT " << endl << D << endl;
+
+
+    /* DEBUG -mid snps, which have only had correlation max removal */
+    string midgoodsnpfile = _out + ".midsnps";
+    ofstream midogoodsnp(midgoodsnpfile.c_str());
+    midogoodsnp << "snp" << endl;
+    for (i = 0; i < snp_keep.size(); i++) midogoodsnp << snp_keep[i] << endl;
+    midogoodsnp.close();
+ 
     /* 
      * Remove colinearity
      * Using VIF (sbat_VIF_iter_rm_colin)
@@ -240,13 +273,15 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
 
     /* DEBUG OPTION  */
     /* Print rsnps - list of snps kept after removing correlation & collinearity */
-    /*
+    // /*
+    
     string rgoodsnpfile = _out + ".rsnps";
     ofstream rogoodsnp(rgoodsnpfile.c_str());
-    rogoodsnp << "snp beta se" << endl;
-    for (i = 0; i < new_C_indx.size(); i++) rogoodsnp << snp_keep[i] << " "  << snp_beta[i] << " " << snp_btse[i] << endl;
+    rogoodsnp << "snp" << endl;
+    for (i = 0; i < new_C_indx.size(); i++) rogoodsnp << snp_keep[i] << endl;
+    //for (i = 0; i < new_C_indx.size(); i++) rogoodsnp << snp_keep[i] << " "  << snp_beta[i] << " " << snp_btse[i] << endl;
     rogoodsnp.close();
-    */
+   // */ 
 
 }
 
@@ -353,7 +388,7 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
     string str_buf;
     string A1_buf, A2_buf;
     double beta_buf;
-    vector<string> ref_A_buf, bad_A1, bad_A2, bad_refA;
+    vector<string> bad_A1, bad_A2, bad_refA;
     vector<string> vs_buf, bad_snp;
     vector<string> snplist;
     int i=0, count = 0;
@@ -390,16 +425,16 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
         if (A1_buf == _allele1[iter->second]) {
             _ref_A[iter->second] = _allele1[iter->second];
             _other_A[iter->second] = _allele2[iter->second];
+            // i the correct index?
         }
         else if (A1_buf == _allele2[iter->second]) {
             _ref_A[iter->second] = _allele2[iter->second];
             _other_A[iter->second] = _allele1[iter->second];
+            if (!_mu.empty()) _mu[iter->second] = 2.0 - _mu[iter->second];
         }
-        ref_A_buf.push_back(A1_buf);
-        //do i need to change _mu or anything else??
-        
+
         snp_name.push_back(vs_buf[0]);
-       // ignore bp for now
+        // ignore freq for now
         snp_beta.push_back(beta_buf); 
         snp_btse.push_back(atof(vs_buf[5].c_str()));
         snp_pval.push_back(atof(vs_buf[6].c_str()));
@@ -408,6 +443,7 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
     in_snpAssoc.close();
     snp_name.erase(unique(snp_name.begin(), snp_name.end()), snp_name.end());
 
+    if (_mu.empty()) calcu_mu();
     snplist = snp_name;
     update_id_map_kp(snplist, _snp_name_map, _include);
 
