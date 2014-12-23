@@ -105,25 +105,6 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
 
     make_XMat_subset(X, snp_indx, false);
 
-    /* DEBUG */
-    cout << " X matrix " << endl;
-    for (j = 0; j < 10; j++) {
-        for (i = 0; i < 10; i++) {
-            cout << X(j,i) << " "; 
-        }
-        cout << endl;
-    }
-    cout << "_include ... _mu " << endl;
-    for (j = 0; j < 10; j++) {
-        k = _include[snp_indx[j]];
-        //cout << !_snp_1[k][_keep[j]] << " ";
-        //cout <<  _snp_2[k][_keep[j]] << " ";
-        cout << _mu[k] << " ";
-    }
-    cout << endl;
-
-    /* DEBUG */
-
     VectorXd sumsq_x(msnps);
     for (j = 0; j < msnps; j++) sumsq_x[j] = X.col(j).dot(X.col(j));
 
@@ -138,15 +119,13 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
         }
     }
 
-    //cout << " INITIAL COR MATRIX " << endl << C << endl;
-
     /* DEBUG */
-    string pgoodsnpfile = _out + ".presnps";
-    ofstream pogoodsnp(pgoodsnpfile.c_str());
-    pogoodsnp << "snp" << endl;
-    for (i = 0; i < snp_kept.size(); i++) pogoodsnp << snp_kept[i] << endl;
+    //string pgoodsnpfile = _out + ".presnps";
+    //ofstream pogoodsnp(pgoodsnpfile.c_str());
+    //pogoodsnp << "snp" << endl;
+    //for (i = 0; i < snp_kept.size(); i++) pogoodsnp << snp_kept[i] << endl;
     //for (i = 0; i < new_C_indx.size(); i++) rogoodsnp << snp_keep[i] << " "  << snp_beta[i] << " " << snp_btse[i] << endl;
-    pogoodsnp.close();
+    //pogoodsnp.close();
     /*  */
 
     /*
@@ -191,11 +170,11 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
 
 
     /* DEBUG -mid snps, which have only had correlation max removal */
-    string midgoodsnpfile = _out + ".midsnps";
-    ofstream midogoodsnp(midgoodsnpfile.c_str());
-    midogoodsnp << "snp" << endl;
-    for (i = 0; i < snp_keep.size(); i++) midogoodsnp << snp_keep[i] << endl;
-    midogoodsnp.close();
+    //string midgoodsnpfile = _out + ".midsnps";
+    //ofstream midogoodsnp(midgoodsnpfile.c_str());
+    //midogoodsnp << "snp" << endl;
+    //for (i = 0; i < snp_keep.size(); i++) midogoodsnp << snp_keep[i] << endl;
+    //midogoodsnp.close();
  
     /* 
      * Remove colinearity
@@ -251,8 +230,6 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
         count++;
 
     } while (pos > -1);
-
-    cout << "Do main calc" << endl;
 
     /* Number of snps kepy */
     snp_count = new_C_indx.size();
