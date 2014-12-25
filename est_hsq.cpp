@@ -1124,9 +1124,9 @@ double gcta::comput_inverse_logdet_LU(eigenMatrix &Vi, string errmsg) {
 bool gcta::inverse_H(eigenMatrix &H)
 {    
     double d_buf = 0.0;
-    if (!comput_inverse_logdet_LDLT_mkl(H, d_buf)) return false;
-    /*{
-        /*if(_reml_force_inv) {
+    if (!comput_inverse_logdet_LDLT_mkl(H, d_buf)) // return false;
+    {
+        if(_reml_force_inv) {
             cout<<"Warning: the information matrix is non-positive definite. Switching from Cholesky to LU decomposition approach. The results might not be reliable!"<<endl;
             if (!comput_inverse_logdet_LU_mkl(H, d_buf)){
                 cout<<"Warning: the information matrix is invertible. A small positive value is added to the diagonals. The results might not be reliable!"<<endl;
@@ -1137,7 +1137,7 @@ bool gcta::inverse_H(eigenMatrix &H)
             }
         }
         else return false;
-    }*/
+    }
     else return true;
 }
 
