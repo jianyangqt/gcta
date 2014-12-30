@@ -105,6 +105,7 @@ public:
     void blup_snp_geno();
     void blup_snp_dosage();
     void set_reml_force_inv();
+    void set_reml_force_converge();
 
     // bivariate REML analysis
     void fit_bivar_reml(string grm_file, string phen_file, string qcovar_file, string covar_file, string keep_indi_file, string remove_indi_file, string sex_file, int mphen, int mphen2, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool m_grm_flag, bool pred_rand_eff, bool est_fix_eff, int reml_mtd, int MaxIter, vector<double> reml_priors, vector<double> reml_priors_var, vector<int> drop, bool no_lrt, double prevalence, double prevalence2, bool no_constrain, bool ignore_Ce, vector<double> &fixed_rg_val, bool bivar_no_constrain);
@@ -234,8 +235,8 @@ private:
     bool comput_inverse_logdet_LDLT(eigenMatrix &Vi, double &logdet);
     void bend_A();
     bool bending_eigenval(eigenVector &eval);
-    void comput_inverse_logdet_PLU(eigenMatrix &Vi, double &logdet);
-    double comput_inverse_logdet_LU(eigenMatrix &Vi, string errmsg);
+    bool comput_inverse_logdet_PLU(eigenMatrix &Vi, double &logdet);
+    bool comput_inverse_logdet_LU(eigenMatrix &Vi, double &logdet);
     double calcu_P(eigenMatrix &Vi, eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatrix &P);
     void calcu_Hi(eigenMatrix &P, eigenMatrix &Hi);
     void reml_equation(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector &varcmp);
@@ -463,6 +464,8 @@ private:
     bool _reml_have_bend_A;
     int _V_inv_mtd;
     bool _reml_force_inv;
+    bool _reml_AI_not_invertible;
+    bool _reml_force_converge;
 
     // within-family reml analysis
     bool _within_family;

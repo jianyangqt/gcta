@@ -17,6 +17,11 @@ void gcta::set_reml_force_inv()
     _reml_force_inv = true;
 }
 
+void gcta::set_reml_force_converge()
+{
+    _reml_force_converge = true;
+}
+
 void gcta::read_phen(string phen_file, vector<string> &phen_ID, vector< vector<string> > &phen_buf, int mphen, int mphen2) {
     // Read phenotype data
     ifstream in_phen(phen_file.c_str());
@@ -588,7 +593,8 @@ int gcta::constrain_varcmp(eigenVector &varcmp) {
     return num;
 }
 
-void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_priors, vector<double> &reml_priors_var, double prevalence, double prevalence2, bool no_constrain, bool no_lrt, bool mlmassoc) {
+void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_priors, vector<double> &reml_priors_var, double prevalence, double prevalence2, bool no_constrain, bool no_lrt, bool mlmassoc)
+{
     int i = 0, j = 0, k = 0;
 
     // Initialize variance component
@@ -626,6 +632,7 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
         }
     }
     if (est_fix_eff) _b = Xt_Vi_X_i * (Vi_X.transpose() * _y);
+    
     // calculate Hsq and SE
     double Vp = 0.0, Vp2 = 0.0, VarVp = 0.0, VarVp2 = 0.0, Vp_f = 0.0, VarVp_f = 0.0;
     vector<double> Hsq(_r_indx.size() - 1), VarHsq(_r_indx.size() - 1);
@@ -695,10 +702,12 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
             cout << rg_name[i] << "\t" << rg[i] << "\t" << sqrt(rg_var[i]) << endl;
         }
     }
-    cout << "\nSampling variance/covariance of the estimates of variance components:" << endl;
-    for (i = 0; i < _r_indx.size(); i++) {
-        for (j = 0; j < _r_indx.size(); j++) cout << setiosflags(ios::scientific) << Hi(i, j) << "\t";
-        cout << endl;
+    if(!_reml_force_converge || !_reml_AI_not_invertible){
+        cout << "\nSampling variance/covariance of the estimates of variance components:" << endl;
+        for (i = 0; i < _r_indx.size(); i++) {
+            for (j = 0; j < _r_indx.size(); j++) cout << setiosflags(ios::scientific) << Hi(i, j) << "\t";
+            cout << endl;
+        }
     }
     if (est_fix_eff) {
         cout << "Estimate" << (_X_c > 1 ? "s" : "") << "of fixed effect" << (_X_c > 1 ? "s" : "") << ":" << endl;
@@ -848,7 +857,8 @@ double gcta::lgL_reduce_mdl(bool no_constrain) {
     return lgL;
 }
 
-double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatrix &Hi, eigenVector &Py, eigenVector &varcmp, bool prior_var_flag, bool no_constrain, bool reml_bivar_fix_rg) {
+double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatrix &Hi, eigenVector &Py, eigenVector &varcmp, bool prior_var_flag, bool no_constrain, bool reml_bivar_fix_rg)
+{
     /*if(reml_bivar_fix_rg){
         if(no_constrain){
             no_constrain=false;
@@ -860,7 +870,7 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
     int i = 0, constrain_num = 0, iter = 0, reml_mtd_tmp = _reml_mtd;
     double logdet = 0.0, logdet_Xt_Vi_X = 0.0, prev_lgL = -1e20, lgL = -1e20, dlogL = 1000.0;
     eigenVector prev_varcmp(varcmp), varcomp_init(varcmp);
-
+    bool converged_flag = false;
     for (iter = 0; iter < _reml_max_iter; iter++) {
         if (reml_bivar_fix_rg) update_A(prev_varcmp);
         if (iter == 0) {
@@ -888,6 +898,21 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         else if (_reml_mtd == 2) em_reml(_P, Py, prev_varcmp, varcmp);
         lgL = -0.5 * (logdet_Xt_Vi_X + logdet + (_y.transpose() * Py)(0, 0));
 
+        if(_reml_force_converge && _reml_AI_not_invertible) break;
+            /*{
+            if(_reml_mtd != 1){
+                cout<<"Warning: the information matrix is not invertible. Trying to fix the problem using the REML equation approach."<<endl;
+                _reml_mtd = 1;
+                _reml_AI_not_invertible = false;
+                iter--;
+                continue;
+            }
+            else {
+                cout<<"Warning: the information matrix is not invertible using the REML equation approach."<<endl;
+                break;
+            }
+        }*/
+
         // output log
         if (!no_constrain) constrain_num = constrain_varcmp(varcmp);
         if (_bivar_reml && !_bivar_no_constrain) constrain_rg(varcmp);
@@ -908,6 +933,7 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         // convergence
         dlogL = lgL - prev_lgL;
         if ((varcmp - prev_varcmp).squaredNorm() / varcmp.squaredNorm() < 1e-8 && (fabs(dlogL) < 1e-4 || (fabs(dlogL) < 1e-2 && dlogL < 0))) {
+            converged_flag = true;
             if (_reml_mtd == 2) {
                 calcu_Hi(_P, Hi);
                 Hi = 2 * Hi;
@@ -916,19 +942,17 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         }
         prev_varcmp = varcmp;
         prev_lgL = lgL;
-
-        // added by Jian Yang on 28th Oct 2014
-        //if(varcmp.minCoeff()<0.0 && _reml_mtd != 2){
-        //    _reml_mtd = 2;
-        //    cout << "Switching to EM-REML algorithm because of having negative estimate(s) of variance component(s) ..." << endl;
-        //}
     }
-    if (iter == _reml_max_iter) {
-        stringstream errmsg;
-        errmsg << "Error: Log-likelihood not converged (stop after " << _reml_max_iter << " iteractions). \nYou can specify the option --reml-maxit to allow for more iterations." << endl;
-        if (_reml_max_iter > 1) throw (errmsg.str());
-    } else cout << "Log-likelihood ratio converged." << endl;
-
+    
+    if(converged_flag) cout << "Log-likelihood ratio converged." << endl;
+    else {
+        if(_reml_force_converge) cout << "Warning: Log-likelihood not converged. Results are not reliable." <<endl;
+        else if(iter == _reml_max_iter){
+            stringstream errmsg;
+            errmsg << "Error: Log-likelihood not converged (stop after " << _reml_max_iter << " iteractions). \nYou can specify the option --reml-maxit to allow for more iterations." << endl;
+            if (_reml_max_iter > 1) throw (errmsg.str());
+        }
+    }
     return lgL;
 }
 
@@ -1018,26 +1042,22 @@ bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, i
         if (_V_inv_mtd == 0) {
             if (!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) {
                 if(_reml_force_inv) {
-                    cout<<"Warning: the variance-covaraince matrix V is non-positive definite. Switching from Cholesky to LU decomposition approach. The results might not be reliable!"<<endl;
+                    cout<<"Warning: the variance-covaraince matrix V is non-positive definite." << endl;
                     _V_inv_mtd = 1;
                 }
                 else throw("Error: the variance-covaraince matrix V is not positive definite.");
             }
         }
         if (_V_inv_mtd == 1) {
-            if (!comput_inverse_logdet_LU_mkl(Vi, logdet)) {
-                /*if (_reml_have_bend_A) throw ("Error: the variance-covaraince matrix V is not invertible.");
-                cout << "Warning: the variance-covaraince matrix V is still not invertible." << endl;
-                bend_A();
-                _reml_have_bend_A = true;
-                iter = -1;
-                cout << "Restarting iterations ..." << endl;
-                return false;
-                */
+            if(!_reml_force_converge){
+                cout << "Switching from Cholesky to LU decomposition approach. The results might not be reliable!" << endl;
+                if (!comput_inverse_logdet_LU_mkl(Vi, logdet)) throw ("Error: the variance-covaraince matrix V is still not invertible using LU decomposition.");
+            }
+            else{
                 cout<<"Warning: the variance-covaraince matrix is invertible. A small positive value is added to the diagonals. The results might not be reliable!"<<endl;
                 double d_buf = Vi.diagonal().mean() * 0.001;
                 for(j = 0; j < _n ; j++) Vi(j,j) += d_buf;
-                if (!comput_inverse_logdet_LU_mkl(Vi, logdet)) throw ("Error: the variance-covaraince matrix V is not invertible.");
+                comput_inverse_logdet_LU_mkl(Vi, logdet);
             }
         }
     }
@@ -1098,34 +1118,37 @@ bool gcta::comput_inverse_logdet_LDLT(eigenMatrix &Vi, double &logdet) {
     return true;
 }
 
-void gcta::comput_inverse_logdet_PLU(eigenMatrix &Vi, double &logdet)
+bool gcta::comput_inverse_logdet_PLU(eigenMatrix &Vi, double &logdet)
 {
     int n = Vi.cols();
 
     PartialPivLU<eigenMatrix> lu(Vi);
+    if (lu.determinant()<1e-6) return false;
     eigenVector u = lu.matrixLU().diagonal();
     logdet = 0.0;
     for (int i = 0; i < n; i++) logdet += log(fabs(u[i]));
     Vi = lu.inverse();
+    return true;
 }
 
-double gcta::comput_inverse_logdet_LU(eigenMatrix &Vi, string errmsg) {
-    double logdet = 0.0;
+bool gcta::comput_inverse_logdet_LU(eigenMatrix &Vi, double &logdet)
+{
     int n = Vi.cols();
 
     FullPivLU<eigenMatrix> lu(Vi);
+    if (!lu.isInvertible()) return false;
     eigenVector u = lu.matrixLU().diagonal();
-    if (!lu.isInvertible()) throw (errmsg);
+    logdet = 0.0;
     for (int i = 0; i < n; i++) logdet += log(fabs(u[i]));
     Vi = lu.inverse();
-    return logdet;
+    return true;
 }
 
 bool gcta::inverse_H(eigenMatrix &H)
 {    
     double d_buf = 0.0;
-    if (!comput_inverse_logdet_LDLT_mkl(H, d_buf)) // return false;
-    {
+    if (!comput_inverse_logdet_LDLT_mkl(H, d_buf)) return false;
+    /*{
         if(_reml_force_inv) {
             cout<<"Warning: the information matrix is non-positive definite. Switching from Cholesky to LU decomposition approach. The results might not be reliable!"<<endl;
             if (!comput_inverse_logdet_LU_mkl(H, d_buf)){
@@ -1137,21 +1160,23 @@ bool gcta::inverse_H(eigenMatrix &H)
             }
         }
         else return false;
-    }
+    }*/
     else return true;
 }
 
-double gcta::calcu_P(eigenMatrix &Vi, eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatrix &P) {
+double gcta::calcu_P(eigenMatrix &Vi, eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatrix &P)
+{
     Vi_X = Vi*_X;
     Xt_Vi_X_i = _X.transpose() * Vi_X;
-    double logdet_Xt_Vi_X = comput_inverse_logdet_LU(Xt_Vi_X_i, "\nError: the X^t * V^-1 * X matrix is not invertible. Please check the covariate(s) and/or the environmental factor(s).");
+    double logdet_Xt_Vi_X = 0.0;
+    if(!comput_inverse_logdet_LU(Xt_Vi_X_i, logdet_Xt_Vi_X)) throw("\nError: the X^t * V^-1 * X matrix is not invertible. Please check the covariate(s) and/or the environmental factor(s).");
     P = Vi - Vi_X * Xt_Vi_X_i * Vi_X.transpose();
     return logdet_Xt_Vi_X;
 }
 
 // input P, calculate PA and Hi
-
-void gcta::calcu_Hi(eigenMatrix &P, eigenMatrix &Hi) {
+void gcta::calcu_Hi(eigenMatrix &P, eigenMatrix &Hi)
+{
     int i = 0, j = 0, k = 0, l = 0;
     double d_buf = 0.0;
 
@@ -1174,15 +1199,23 @@ void gcta::calcu_Hi(eigenMatrix &P, eigenMatrix &Hi) {
         }
     }
 
-    if (!inverse_H(Hi)) throw ("Error: the information matrix is not invertible.");
+    if (!inverse_H(Hi)){
+        if(_reml_force_converge){
+            cout << "Warning: the information matrix is not invertible." << endl;
+            _reml_AI_not_invertible = true;
+        }
+        else throw ("Error: the information matrix is not invertible.");
+    }
 }
 
 // use REML equation to estimate variance component
 // input P, calculate PA, H, R and varcmp
 
-void gcta::reml_equation(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector &varcmp) {
+void gcta::reml_equation(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector &varcmp)
+{
     // Calculate Hi
     calcu_Hi(P, Hi);
+    if(_reml_AI_not_invertible) return;
 
     // Calculate R
     Py = P*_y;
@@ -1200,7 +1233,8 @@ void gcta::reml_equation(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigen
 // use REML equation to estimate variance component
 // input P, calculate PA, H, R and varcmp
 
-void gcta::ai_reml(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector &prev_varcmp, eigenVector &varcmp, double dlogL) {
+void gcta::ai_reml(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector &prev_varcmp, eigenVector &varcmp, double dlogL)
+{
     int i = 0, j = 0;
 
     Py = P*_y;
@@ -1227,7 +1261,14 @@ void gcta::ai_reml(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector
     R = -0.5 * (tr_PA - R);
 
     // Calculate variance component
-    if (!inverse_H(Hi)) throw ("Error: the information matrix is not invertible.");
+    if (!inverse_H(Hi)){
+        if(_reml_force_converge){
+            cout << "Warning: the information matrix is not invertible." << endl;
+            _reml_AI_not_invertible = true;
+            return;
+        }
+        else throw ("Error: the information matrix is not invertible.");
+    }
 
     eigenVector delta(_r_indx.size());
     delta = Hi*R;
@@ -1237,7 +1278,8 @@ void gcta::ai_reml(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector
 
 // input P, calculate varcmp
 
-void gcta::em_reml(eigenMatrix &P, eigenVector &Py, eigenVector &prev_varcmp, eigenVector &varcmp) {
+void gcta::em_reml(eigenMatrix &P, eigenVector &Py, eigenVector &prev_varcmp, eigenVector &varcmp)
+{
     int i = 0;
 
     // Calculate trace(PA)
@@ -1255,14 +1297,11 @@ void gcta::em_reml(eigenMatrix &P, eigenVector &Py, eigenVector &prev_varcmp, ei
     // Calculate variance component
     for (i = 0; i < _r_indx.size(); i++) varcmp(i) = (prev_varcmp(i) * _n - prev_varcmp(i) * prev_varcmp(i) * tr_PA(i) + prev_varcmp(i) * prev_varcmp(i) * R(i)) / _n;
 
-    // added by Jian Yang 28 Oct 2014
-    //eigenVector d = varcmp.array() - prev_varcmp.array();
-    //double (d.array() / prev_varcmp.array())
-    //varcmp = (varcmp.array() - prev_varcmp.array())*2 + prev_varcmp.array();
+    // added by Jian Yang Dec 2014
+    //varcmp = (varcmp.array() - prev_varcmp.array())*2 + prev_varcmp.array();        
 }
 
 // input P, calculate tr(PA)
-
 void gcta::calcu_tr_PA(eigenMatrix &P, eigenVector &tr_PA) {
     int i = 0, k = 0, l = 0;
     double d_buf = 0.0;

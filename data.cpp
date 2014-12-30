@@ -41,6 +41,8 @@ gcta::gcta(int autosome_num, double rm_ld_cutoff, string out)
     _reml_have_bend_A = false;
     _V_inv_mtd = 0;
     _reml_force_inv = false;
+    _reml_AI_not_invertible = false;
+    _reml_force_converge = false;
 }
 
 gcta::gcta() {
@@ -67,6 +69,9 @@ gcta::gcta() {
     _within_family = false;
     _reml_have_bend_A = false;
     _V_inv_mtd = 0;
+    _reml_force_inv = false;
+    _reml_AI_not_invertible = false;
+    _reml_force_converge = false;
 }
 
 gcta::~gcta() {
