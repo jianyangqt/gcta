@@ -930,6 +930,13 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         // added by Jian Yang on 22 Oct 2014
         //if (constrain_num == _r_indx.size()) throw ("Error: analysis stopped because all variance components are constrained. You may have a try of adding the option --reml-no-constrain.");
 
+        if(_reml_force_converge && prev_lgL > lgL){
+            varcmp = prev_varcmp;
+            calcu_Hi(_P, Hi);
+            Hi = 2 * Hi;
+            break;
+        }
+
         // convergence
         dlogL = lgL - prev_lgL;
         if ((varcmp - prev_varcmp).squaredNorm() / varcmp.squaredNorm() < 1e-8 && (fabs(dlogL) < 1e-4 || (fabs(dlogL) < 1e-2 && dlogL < 0))) {
