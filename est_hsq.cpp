@@ -1062,7 +1062,7 @@ bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, i
             }
             else{
                 cout<<"Warning: the variance-covaraince matrix is invertible. A small positive value is added to the diagonals. The results might not be reliable!"<<endl;
-                double d_buf = Vi.diagonal().mean() * 0.001;
+                double d_buf = Vi.diagonal().mean() * 0.01;
                 for(j = 0; j < _n ; j++) Vi(j,j) += d_buf;
                 comput_inverse_logdet_LU_mkl(Vi, logdet);
             }
