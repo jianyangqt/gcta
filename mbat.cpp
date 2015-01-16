@@ -16,6 +16,7 @@
  * Todo: Replace MatrixXf with eigenMatrix
  * Print which/how many snps removed, why
  * Explain vif/etc
+ * Add gcta-maf warning if given maf .. can be left blank too?
  */
 
 int gcta::sbat_VIF_iter_rm_colin(MatrixXf R)
@@ -250,15 +251,18 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
 
     /* DEBUG OPTION  */
     /* Print rsnps - list of snps kept after removing correlation & collinearity */
-    // /*
     
+  
+ 
     string rgoodsnpfile = _out + ".rsnps";
     ofstream rogoodsnp(rgoodsnpfile.c_str());
     rogoodsnp << "snp" << endl;
     for (i = 0; i < new_C_indx.size(); i++) rogoodsnp << snp_keep[i] << endl;
     //for (i = 0; i < new_C_indx.size(); i++) rogoodsnp << snp_keep[i] << " "  << snp_beta[i] << " " << snp_btse[i] << endl;
     rogoodsnp.close();
-   // */ 
+
+ 
+    
 
 }
 
@@ -365,17 +369,23 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
     string str_buf;
     string A1_buf, A2_buf;
     double beta_buf;
+    double freq_buf;
     vector<string> bad_A1, bad_A2, bad_refA;
     vector<string> vs_buf, bad_snp;
     vector<string> snplist;
     int i=0, count = 0;
     map<string, int>::iterator iter;
+    int bad_freq = 0;
+    //always calcu maf
+    if (_mu.empty()) calcu_mu();
     while (getline(in_snpAssoc, str_buf)) { 
         if (StrFunc::split_string(str_buf, vs_buf) != 8) throw ("Error: in line \"" + str_buf + "\".");
 
         A1_buf = vs_buf[1];
         A2_buf = vs_buf[2];
         beta_buf = atof(vs_buf[4].c_str());
+        if (strcmp(vs_buf[3].c_str(), "NA") == 0) freq_buf = 0.0;
+        else freq_buf = atof(vs_buf[3].c_str());
 
         iter = _snp_name_map.find(vs_buf[0]);
         i = iter->second;
@@ -410,17 +420,33 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
             if (!_mu.empty()) _mu[iter->second] = 2.0 - _mu[iter->second];
         }
 
+        //Remove mis-matched alleles between summary data and reference
+        //"NA" currently returns a 0 ... which is ok for our purposes
+       //cout << _mu[iter->second] * 0.5 << " " << freq_buf << endl;
+    
+        if (fabs(freq_buf - (_mu[iter->second] *0.5)) > 0.1  || freq_buf == 0) {
+            bad_snp.push_back(_snp_name[i]);
+            bad_A1.push_back(_allele1[i]);
+            bad_A2.push_back(_allele2[i]);
+            bad_refA.push_back(A1_buf);
+            bad_freq+=1;
+            continue;
+        }
+   
+        
+
         snp_name.push_back(vs_buf[0]);
-        // ignore freq for now
+        //snp_freq.push_back(freq_buf);
         snp_beta.push_back(beta_buf); 
         snp_btse.push_back(atof(vs_buf[5].c_str()));
         snp_pval.push_back(atof(vs_buf[6].c_str()));
 
     }
+
+    cout << bad_freq << " mismatched freq snps removed" << endl;
     in_snpAssoc.close();
     snp_name.erase(unique(snp_name.begin(), snp_name.end()), snp_name.end());
 
-    if (_mu.empty()) calcu_mu();
     snplist = snp_name;
     update_id_map_kp(snplist, _snp_name_map, _include);
 
