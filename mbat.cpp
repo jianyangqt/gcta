@@ -253,6 +253,7 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     /* Print rsnps - list of snps kept after removing correlation & collinearity */
     
   
+    /*
  
     string rgoodsnpfile = _out + ".rsnps";
     ofstream rogoodsnp(rgoodsnpfile.c_str());
@@ -261,6 +262,7 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     //for (i = 0; i < new_C_indx.size(); i++) rogoodsnp << snp_keep[i] << " "  << snp_beta[i] << " " << snp_btse[i] << endl;
     rogoodsnp.close();
 
+    */
  
     
 
@@ -430,6 +432,7 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
             bad_A2.push_back(_allele2[i]);
             bad_refA.push_back(A1_buf);
             bad_freq+=1;
+            cout << _snp_name[i] << endl; //temp display bad removed snp for wrong freq
             continue;
         }
    
@@ -708,3 +711,85 @@ void gcta::sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind)
     
 }
 
+
+void gcta::mbat_seg(string sAssoc_file, int seg_size, bool reduce_cor)
+{
+    int i = 0, j = 0, ii = 0;
+    int snp_count;
+
+       // read SNP association results
+    vector<string> snp_name;
+    vector<int> snp_chr, snp_bp;
+    vector<double> snp_pval;
+    vector<double> snp_beta;
+    vector<double> snp_btse;
+    sbat_multi_read_snpAssoc(sAssoc_file, snp_name, snp_chr, snp_bp, snp_pval, snp_beta, snp_btse);
+    vector<double> snp_chisq(snp_pval.size());
+
+    double Vchisq = 0;
+    double Vpvalue = 0;
+
+    eigenVector set_beta;
+    eigenVector set_se;
+
+    for (i = 0; i < snp_pval.size(); i++) snp_chisq[i] = StatFunc::qchisq(snp_pval[i], 1);   
+
+    // run gene-based test
+    if (_mu.empty()) calcu_mu();
+    cout << "\nRunning set-based association test (SBAT) at genomic segments with a length of " << seg_size/1000 << "Kb ..." << endl;
+    vector< vector<int> > snp_set_indx;
+    vector<int> set_chr, set_start_bp, set_end_bp;
+    get_sbat_seg_blk(seg_size, snp_set_indx, set_chr, set_start_bp, set_end_bp);
+    int set_num = snp_set_indx.size();
+    vector<double> set_pval(set_num), chisq_o(set_num);
+    vector<int> snp_num_in_set(set_num);
+    vector<int> num_snp_tested(set_num);
+    for (i = 0; i < set_num; i++) {
+        bool skip = false;
+        vector<int> snp_indx = snp_set_indx[i];
+        if(snp_indx.size() < 1) skip = true;
+        snp_num_in_set[i] = snp_indx.size();
+        if(!skip && snp_num_in_set[i] > 20000){
+            cout<<"Warning: Too many SNPs in the set on [chr" << set_chr[i] << ":" << set_start_bp[i] << "-" << set_end_bp[i] << "]. Maximum limit is 20000. This gene is ignored in the analysis."<<endl;
+            skip = true;  
+        } 
+        if(skip){
+            set_pval[i] = 2.0;
+            snp_num_in_set[i] = 0;
+            continue;
+        }
+        chisq_o[i] = 0;
+        for (j = 0; j < snp_indx.size(); j++) chisq_o[i] += snp_chisq[snp_indx[j]];
+        if(snp_num_in_set[i] == 1) set_pval[i] = StatFunc::pchisq(chisq_o[i], 1.0);
+        else {
+
+            set_beta.resize(snp_indx.size()); //better index?
+            set_se.resize(snp_indx.size());
+
+            for (ii = 0; ii < snp_indx.size(); ii++) //was snpset[i].size()
+            {   
+                set_beta[ii] = snp_beta[snp_indx[ii]];
+                set_se[ii] = snp_btse[snp_indx[ii]];
+            }   
+
+            snp_count=0;
+            sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vchisq, Vpvalue, snp_count, snp_name);
+            num_snp_tested[i] = snp_count;
+            chisq_o[i] = Vchisq;
+            set_pval[i] = Vpvalue;
+        }
+
+        if((i + 1) % 100 == 0 || (i + 1) == set_num) cout << i + 1 << " of " << set_num << " sets.\r";
+    }
+
+    string filename = _out + ".seg.mbat";
+    cout << "\nSaving the results of the segment-based MBAT analyses to [" + filename + "] ..." << endl;
+    ofstream ofile(filename.c_str());
+    if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
+    ofile << "Chr\tStart\tEnd\tSet.SNPs\tSNPsTested\tChisq(Obs)\tPvalue" << endl;
+    for (i = 0; i < set_num; i++) {
+        if(set_pval[i]>1.5) continue;
+        ofile << set_chr[i] << "\t" << set_start_bp[i] << "\t"<< set_end_bp[i] << "\t" << snp_num_in_set[i] << "\t" << num_snp_tested[i] << "\t" << chisq_o[i] << "\t" << set_pval[i] << endl;
+    }
+    ofile.close();
+}

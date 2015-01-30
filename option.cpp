@@ -23,6 +23,7 @@ int main(int argc, char* argv[])
     cout << "* (C) 2010-2013 Jian Yang, Hong Lee, Michael Goddard and Peter Visscher" << endl;
     cout << "* The University of Queensland" << endl;
     cout << "* MIT License" << endl;
+    cout << "* WARNING: Unstable Development Version " << endl;
     cout << "*******************************************************************" << endl;
 
     long int time_used = 0, start = time(NULL);
@@ -1010,6 +1011,7 @@ void option(int option_num, char* option_str[])
             else if (!subpopu_file.empty()) pter_gcta->Fst(subpopu_file);
             else if (sbat_multi_flag) {
                 if(!sbat_gAnno_file.empty()) pter_gcta->sbat_multi_gene(sbat_sAssoc_file, sbat_gAnno_file, sbat_wind);
+                else if(sbat_seg_flag) pter_gcta->mbat_seg(sbat_sAssoc_file, sbat_seg_size, reduce_cor);
                 else pter_gcta->sbat_multi(sbat_sAssoc_file, sbat_snpset_file);
             }
             else if (!sbat_sAssoc_file.empty()){
