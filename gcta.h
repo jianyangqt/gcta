@@ -144,6 +144,7 @@ public:
     void sbat_gene(string sAssoc_file, string gAnno_file, int wind, bool reduce_cor);
     void sbat(string sAssoc_file, string snpset_file, bool reduce_cor);
     void sbat_seg(string sAssoc_file, int seg_size, bool reduce_cor);
+    void mbat_seg(string sAssoc_file, int seg_size, bool reduce_cor);
     void sbat_multi(string sAssoc_file, string snpset_file);
     void sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind);
 
@@ -350,8 +351,8 @@ private:
     void sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigenVector set_se, double &Vscore, double &Vscore_p, int &snp_count, vector<string> &snp_name);
     void sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, vector<int> &snp_chr, vector<int> &snp_bp, vector<double> &snp_pval, vector<double> &snp_beta, vector<double> &snp_btse);
     void rm_cor_sbat(MatrixXf &R, double R_cutoff, int m, vector<int> &rm_ID1);
-    int sbat_rm_colin(MatrixXf R);
-
+    void rm_ld_inv_beta(eigenMatrix &VR, int m, double off_m, double off_sd, vector<int> &rm_ID0);
+    int sbat_VIF_iter_rm_colin(MatrixXf R);
 
     //////////////////////
     // gene expresion data

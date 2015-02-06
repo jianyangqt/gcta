@@ -104,11 +104,14 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     MatrixXd SE;
     MatrixXd V;
 
+    int init_snps = msnps;
+
     make_XMat_subset(X, snp_indx, false);
 
     VectorXd sumsq_x(msnps);
     for (j = 0; j < msnps; j++) sumsq_x[j] = X.col(j).dot(X.col(j));
 
+    //Build correlation matrix
     MatrixXf C = X.transpose() * X;
     X.resize(0,0);
     #pragma omp parallel for private(j)
@@ -119,6 +122,60 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
             else C(i,j) = 0.0;
         }
     }
+
+    //BETA FIX - test for correlated/ld linked snps with inverse betas
+    vector<int> rm_ID0;
+    eigenVector beta = set_beta; //redundant?
+    eigenMatrix B = beta * beta.transpose();
+    eigenMatrix VR = C.cast<double>().array() * B.cast<double>().array();
+
+    double off_m = 0.0;
+    double off_v = 0.0;
+    double off_sd = 0.0;
+    double off_num = 0.5 * msnps * (msnps-1.0);
+    for (i = 1; i < msnps; i++) off_m += VR.row(i).segment(0, i).sum();
+    off_m /= off_num;
+    for (i = 1; i < msnps; i++) off_v += (VR.row(i).segment(0, i) -  eigenVector::Constant(i, off_m).transpose()).squaredNorm();
+    off_v /= (off_num - 1.0);
+    off_sd = sqrt(off_v);
+    cout << "off_m " << off_m << endl;
+    cout << "off_v " << off_v << endl;
+    cout << "off_sd " << off_sd << endl;
+
+    int m = msnps;
+    rm_ld_inv_beta(VR,m,off_m,off_sd,rm_ID0);
+
+    vector<int> new_C0_indx;
+    int alt = 0;
+    //List of matrix elements to keep
+    for (int aa=0 ; aa<msnps; aa++) {
+    if (rm_ID0.size() > 0) {
+        if (rm_ID0[alt] == aa) alt++;
+        else new_C0_indx.push_back(aa);
+        }
+    else new_C0_indx.push_back(aa);
+    }
+
+
+    /* Rebuild Matrix without beta high ld inv error
+     * Using new new_C_indx list of snps to keep 
+     */
+    MatrixXf NC(new_C0_indx.size(),new_C0_indx.size());
+    eigenVector snp_beta(new_C0_indx.size());
+    eigenVector snp_btse(new_C0_indx.size());
+    vector<string> snp_keep;
+    for (i = 0 ; i < new_C0_indx.size() ; i++) {
+        for (j = 0 ; j < new_C0_indx.size() ; j++) {
+            NC(i,j) = C(new_C0_indx[i],new_C0_indx[j]);
+        }
+        snp_beta[i] = set_beta[new_C0_indx[i]];
+        snp_btse[i] = set_se[new_C0_indx[i]];
+        snp_keep.push_back(snp_kept[new_C0_indx[i]]);
+    }
+
+
+    int beta_inv_remain = new_C0_indx.size();
+
 
     /* DEBUG */
     //string pgoodsnpfile = _out + ".presnps";
@@ -133,14 +190,16 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
      * Remove highly correlated pairs of snps
      * Ensuring max correlation in matrix is sqrt(R)
      */ 
+    //update size
+    msnps = new_C0_indx.size();
     double maxRval = 0.9;
     double new_cutoff = sqrt(maxRval);
     //double new_cutoff = 0.9486833; //sqrt(0.9)
     vector<int> rm_ID1;
-    rm_cor_sbat(C,new_cutoff,msnps,rm_ID1);
+    rm_cor_sbat(NC,new_cutoff,msnps,rm_ID1);
     cout << "removed cor" << endl;
     vector<int> new_C_indx;
-    int alt = 0;
+    alt = 0;
     //List of matrix elements to keep
     for (int aa=0 ; aa<msnps; aa++) {
     if (rm_ID1.size() > 0) {
@@ -150,21 +209,26 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     else new_C_indx.push_back(aa);
     }
 
-    cout << "Rebuild matrix" << endl;
     /* Rebuild Matrix without correlated snps
      * Using new new_C_indx list of snps to keep 
      */
+
+    //Because resize is destructive, 
+    eigenVector tmp_beta = snp_beta;
+    eigenVector tmp_btse = snp_btse;
+    vector<string> tmp_keep = snp_keep;
+
     MatrixXf D(new_C_indx.size(),new_C_indx.size());
-    eigenVector snp_beta(new_C_indx.size());
-    eigenVector snp_btse(new_C_indx.size());
-    vector<string> snp_keep;
+    snp_beta(new_C_indx.size());
+    snp_btse(new_C_indx.size());
+    snp_keep.clear();
     for (i = 0 ; i < new_C_indx.size() ; i++) {
         for (j = 0 ; j < new_C_indx.size() ; j++) {
-            D(i,j) = C(new_C_indx[i],new_C_indx[j]);
+            D(i,j) = NC(new_C_indx[i],new_C_indx[j]);
         }
-        snp_beta[i] = set_beta[new_C_indx[i]];
-        snp_btse[i] = set_se[new_C_indx[i]];
-        snp_keep.push_back(snp_kept[new_C_indx[i]]);
+        snp_beta[i] = tmp_beta[new_C_indx[i]];
+        snp_btse[i] = tmp_btse[new_C_indx[i]];
+        snp_keep.push_back(tmp_keep[new_C_indx[i]]);
     }
 
     //cout << " COR MATRIX REBUILT " << endl << D << endl;
@@ -186,11 +250,11 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     int pairwise_remain = new_C_indx.size();
  
     //Because resize is destructive, 
-    eigenVector tmp_beta = snp_beta;
-    eigenVector tmp_btse = snp_btse;
-    vector<string> tmp_keep = snp_keep;
+    tmp_beta = snp_beta;
+    tmp_btse = snp_btse;
+    tmp_keep = snp_keep;
 
-    cout << "Run VIF collin" << endl;
+    //Run VIF Colin
     C = D;
     int pos;
     int count = 0;
@@ -232,6 +296,7 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
 
     } while (pos > -1);
 
+
     /* Number of snps kepy */
     snp_count = new_C_indx.size();
 
@@ -246,14 +311,13 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     Vpvalue = StatFunc::pchisq(Vchisq, snp_beta.size());
 
     /* Print stats to std out */
-    cout << "Initial snps " << msnps << " Pairwise " << pairwise_remain << " Collinearity " <<  snp_count;
+    cout << "Initial snps " << init_snps << " BetaInv " << beta_inv_remain << " Pairwise " << pairwise_remain << " Collinearity " <<  snp_count;
     cout << " Chisq " << Vchisq << " Pvalue " << Vpvalue << endl;
 
     /* DEBUG OPTION  */
     /* Print rsnps - list of snps kept after removing correlation & collinearity */
     
   
-    /*
  
     string rgoodsnpfile = _out + ".rsnps";
     ofstream rogoodsnp(rgoodsnpfile.c_str());
@@ -262,7 +326,7 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     //for (i = 0; i < new_C_indx.size(); i++) rogoodsnp << snp_keep[i] << " "  << snp_beta[i] << " " << snp_btse[i] << endl;
     rogoodsnp.close();
 
-    */
+    
  
     
 
@@ -425,17 +489,21 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
         //Remove mis-matched alleles between summary data and reference
         //"NA" currently returns a 0 ... which is ok for our purposes
        //cout << _mu[iter->second] * 0.5 << " " << freq_buf << endl;
+       //this should be made an option --freq-check
     
+       
+      
         if (fabs(freq_buf - (_mu[iter->second] *0.5)) > 0.1  || freq_buf == 0) {
             bad_snp.push_back(_snp_name[i]);
             bad_A1.push_back(_allele1[i]);
             bad_A2.push_back(_allele2[i]);
             bad_refA.push_back(A1_buf);
             bad_freq+=1;
-            cout << _snp_name[i] << endl; //temp display bad removed snp for wrong freq
+            // cout << _snp_name[i] << endl; //temp display bad removed snp for wrong freq
             continue;
         }
    
+        
         
 
         snp_name.push_back(vs_buf[0]);
@@ -501,6 +569,60 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
     cout << _include.size() << " include size " << endl;
 
 }
+
+void gcta::rm_ld_inv_beta(eigenMatrix &VR, int m, double off_m, double off_sd, vector<int> &rm_ID0) {
+    //Slightly modified version of rm_cor_indi from grm.cpp
+
+    int i = 0, j = 0, i_buf = 0;
+   // vector<int> rm_ID1, rm_ID2;
+    vector<int> rm_ID2;
+
+    //use this as bases for rm cor
+    float aval = 0;
+    //Crashes when --threads used...
+    // #pragma omp parallel for //private(j)
+    for (i = 0; i < m; i++) {
+        for (j = 0; j < i; j++) {
+            if (VR(i,j) < 0 ) {
+                if ((VR(i,j) - off_m) < (-1.96 * off_sd)){  
+                    //cout << VR(i,j) << endl;
+                    //cout << VR(i,j) - off_m << endl;
+                    rm_ID0.push_back(i);
+                    rm_ID2.push_back(j);
+                }
+            }
+        }
+    }
+
+    // count the number of appearance of each "position" in the vector, which involves a few steps
+    vector<int> rm_uni_ID(rm_ID0);
+    rm_uni_ID.insert(rm_uni_ID.end(), rm_ID2.begin(), rm_ID2.end());
+    stable_sort(rm_uni_ID.begin(), rm_uni_ID.end());
+    rm_uni_ID.erase(unique(rm_uni_ID.begin(), rm_uni_ID.end()), rm_uni_ID.end());
+    map<int, int> rm_uni_ID_count;
+    for (i = 0; i < rm_uni_ID.size(); i++) {
+        i_buf = count(rm_ID0.begin(), rm_ID0.end(), rm_uni_ID[i]) + count(rm_ID2.begin(), rm_ID2.end(), rm_uni_ID[i]);
+        rm_uni_ID_count.insert(pair<int, int>(rm_uni_ID[i], i_buf));
+    }
+
+    // swapping
+    map<int, int>::iterator iter1, iter2;
+    for (i = 0; i < rm_ID0.size(); i++) {
+        iter1 = rm_uni_ID_count.find(rm_ID0[i]);
+        iter2 = rm_uni_ID_count.find(rm_ID2[i]);
+        if (iter1->second < iter2->second) {
+            i_buf = rm_ID0[i];
+            rm_ID0[i] = rm_ID2[i];
+            rm_ID2[i] = i_buf;
+        }
+    }
+
+
+    stable_sort(rm_ID0.begin(), rm_ID0.end());
+    rm_ID0.erase(unique(rm_ID0.begin(), rm_ID0.end()), rm_ID0.end());
+
+    }
+
 
 
 void gcta::rm_cor_sbat(MatrixXf &R, double R_cutoff, int m, vector<int> &rm_ID1) {
