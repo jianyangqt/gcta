@@ -90,35 +90,37 @@ int gcta::sbat_VIF_iter_rm_colin(MatrixXf R)
        return pos;
 }
 
-//Given summary statistic data, calculate p-value for a set of snps
-void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigenVector set_se, double &Vchisq, double &Vpvalue, int &snp_count, vector<string> &snp_kept, vector<string> &set_A1)
+//SBAT_MULTI_CALCU_V
+//Input summary statistic data, calculate p-value for a set of snps
+//Calculates correlation matrix C, and performs three QC steps:
+//  removal of both pairs of snps with mismatching ld/beta signs
+//  removal of snps with correlation > sqrt(maxRval)
+//  removal of colinear snps (based on VIF threshold)
+//Finally calculates chisq and pvalue from beta, se and correlation
+//matrix of remaining snps
+void gcta::sbat_multi_calcu_V(
+        vector<int> &snp_indx, 
+        eigenVector set_beta, 
+        eigenVector set_se, 
+        double &Vchisq, 
+        double &Vpvalue, 
+        int &snp_count, 
+        vector<string> &snp_kept, 
+        vector<string> &set_A1)
 {
-    int i = 0, j = 0, k = 0, n = _keep.size(), msnps = snp_indx.size();
-    VectorXd eigenval;
-
-    MatrixXf X;
+    int i = 0, j = 0, k = 0, n = _keep.size();
+    int msnps = snp_indx.size();
+    int init_snps = msnps; 
+    double maxRval = 0.9;
+    double new_cutoff = sqrt(maxRval); 
     MatrixXd SE;
     MatrixXd V;
+    MatrixXf C;
 
-    int init_snps = msnps;
+    // ---- Build correlation matrix ----
+    make_cor_matrix(C, snp_indx);
 
-    make_XMat_subset(X, snp_indx, false);
-
-    VectorXd sumsq_x(msnps);
-    for (j = 0; j < msnps; j++) sumsq_x[j] = X.col(j).dot(X.col(j));
-
-    //Build correlation matrix
-    MatrixXf C = X.transpose() * X;
-    X.resize(0,0);
-    #pragma omp parallel for private(j)
-    for (i = 0; i < msnps; i++) {
-        for (j = 0; j < msnps; j++) {
-            double d_buf = sqrt(sumsq_x[i] * sumsq_x[j]);
-            if(d_buf>0.0) C(i,j) /= d_buf;
-            else C(i,j) = 0.0;
-        }
-    }
-
+    // ---- QC 1: Remove snps in high ld with beta mismatch ----
     int beta_inv_remain=0;
     beta_qc(snp_kept, set_beta, set_se, C, set_A1, beta_inv_remain);
     if (beta_inv_remain < 1) {
@@ -126,63 +128,17 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
         Vpvalue = 2;
         return;
     }
- 
-
-    //BETA FIX - test for correlated/ld linked snps with inverse betas
-    /*
-    vector<int> rm_ID0, rm_IDi, rm_IDj; //used to print details of removal (ie. A1, beta, R)
-    eigenVector beta = set_beta; //redundant
-    eigenMatrix B = beta * beta.transpose();
-    eigenMatrix VR = C.cast<double>().array() * B.cast<double>().array();
-
-    double off_m = 0.0;
-    double off_v = 0.0;
-    double off_sd = 0.0;
-    double off_num = 0.5 * msnps * (msnps-1.0);
-    for (i = 1; i < msnps; i++) off_m += VR.row(i).segment(0, i).sum();
-    off_m /= off_num;
-    for (i = 1; i < msnps; i++) off_v += (VR.row(i).segment(0, i) -  eigenVector::Constant(i, off_m).transpose()).squaredNorm();
-    off_v /= (off_num - 1.0);
-    off_sd = sqrt(off_v);
-
-    cout << "off sd , off_m " << off_sd << " " <<  off_m << endl;
-    vector<int> new_C_indx;
-    rm_ld_inv_beta(VR,msnps,off_m,off_sd,rm_ID0,rm_IDi,rm_IDj);
-    recalculate_ndx(msnps, rm_ID0, new_C_indx);
-
-    if (new_C_indx.size() == 0) {
-        cout << "warning: " << rm_ID0.size() << " snps removed from gene due to beta/ld mismatch" << endl;
-        Vpvalue = 2;
-        return;
-    }
-    
-    eigenVector snp_beta = set_beta;
-    eigenVector snp_btse = set_se;
-    vector<string> snp_keep = snp_kept;
-
-    rebuild_matrix(snp_beta, snp_btse, snp_keep, new_C_indx, C); 
-    write_beta_summary(rm_IDi, rm_IDj, snp_kept, set_A1, set_beta, C);
-
-    int beta_inv_remain = new_C_indx.size();
- 
-    */
-   
     msnps = beta_inv_remain;
-    double maxRval = 0.9;
-    double new_cutoff = sqrt(maxRval); //double new_cutoff = 0.9486833; //sqrt(0.9)
+
+    // ---- QC 2: Remove highly correlated pairs of snps ---
     vector<int> rm_ID1;
     vector<int> new_C_indx;
-
-    // Remove highly correlated pairs of snps
     rm_cor_sbat(C,new_cutoff,msnps,rm_ID1);
     recalculate_ndx(msnps, rm_ID1, new_C_indx);
     rebuild_matrix(set_beta, set_se, snp_kept, new_C_indx, C); 
     int pairwise_remain = new_C_indx.size();
 
-    cout << "rebuilt after rm cor " << endl;
- 
-    //Because resize is destructive, 
-    //Remove colinearity 
+    // ---- QC 3: Remove colinear snps ----
     int pos;
     int count = 0;
     do {
@@ -199,31 +155,57 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
 
     } while (pos > -1);
 
-    cout << "rebuilt after rm col " << endl;
-
-    snp_count = new_C_indx.size(); //Final count of snps
+    // ---- Main calc: pvalue of set of snps (mbat) ----
+    snp_count = new_C_indx.size();  
     SE = set_se * set_se.transpose();
     V = SE.array() * C.cast<double>().array();
-
-    cout << "V done " << endl;
 
     double logdet = 0; //confirm ok
     if (!comput_inverse_logdet_LDLT(V, logdet)) cout << "Error: the V matrix is not invertible." << endl;
 
     Vchisq = set_beta.transpose() * V * set_beta;
-
-    cout << "almost V done with Vchisq: " << Vchisq << endl;
-
     Vpvalue = StatFunc::pchisq(Vchisq, set_beta.size());
 
-    /* Print stats to std out */
+    // ---- Print stats to std out  ---- 
     cout << "Initial snps " << init_snps << " BetaInv " << beta_inv_remain << " Pairwise " << pairwise_remain << " Collinearity " <<  snp_count;
     cout << " Chisq " << Vchisq << " Pvalue " << Vpvalue << endl;
 
     write_snp_summary(snp_kept, set_beta, set_se, ".rsnps");
+
 }
 
-void gcta::beta_qc(vector<string> &snp_kept, eigenVector &set_beta, eigenVector &set_se, MatrixXf &C, vector<string> &set_A1, int &beta_inv_remain) {
+void gcta::make_cor_matrix(MatrixXf &C, vector<int> &snp_indx)
+{
+    int msnps = snp_indx.size();
+    int i, j;
+    MatrixXf X;
+    make_XMat_subset(X, snp_indx, false);
+    VectorXd sumsq_x(msnps);
+
+    for (j = 0; j < msnps; j++) sumsq_x[j] = X.col(j).dot(X.col(j));
+
+    //Build correlation matrix
+    //------------------------
+    C = X.transpose() * X;
+    X.resize(0,0);
+    #pragma omp parallel for private(j)
+    for (i = 0; i < msnps; i++) {
+        for (j = 0; j < msnps; j++) {
+            double d_buf = sqrt(sumsq_x[i] * sumsq_x[j]);
+            if(d_buf>0.0) C(i,j) /= d_buf;
+            else C(i,j) = 0.0;
+        }
+    }
+}
+
+void gcta::beta_qc(
+        vector<string> &snp_kept, 
+        eigenVector &set_beta, 
+        eigenVector &set_se, 
+        MatrixXf &C, 
+        vector<string> &set_A1, 
+        int &beta_inv_remain) 
+{
     //BETA FIX - test for correlated/ld linked snps with inverse betas
     vector<int> rm_ID0, rm_IDi, rm_IDj; //used to print details of removal (ie. A1, beta, R)
     eigenVector beta = set_beta; //redundant
@@ -262,7 +244,13 @@ void gcta::beta_qc(vector<string> &snp_kept, eigenVector &set_beta, eigenVector 
 // Rebuild Matrix without correlated snps
 // Using new new_C_indx list of snps to keep 
 // Use tmp vectors because resize is destructive
-void gcta::rebuild_matrix(eigenVector &snp_beta, eigenVector &snp_btse, vector<string> &snp_keep, vector<int> &new_C_indx, MatrixXf &C) {
+void gcta::rebuild_matrix(
+        eigenVector &snp_beta, 
+        eigenVector &snp_btse, 
+        vector<string> &snp_keep, 
+        vector<int> &new_C_indx, 
+        MatrixXf &C) 
+{
     eigenVector tmp_beta = snp_beta;
     eigenVector tmp_btse = snp_btse;
     vector<string> tmp_keep = snp_keep;
@@ -300,7 +288,14 @@ void gcta::recalculate_ndx(int &msnps, vector<int> &rm_ID1, vector<int> &new_C_i
 }
 
 //Write to file pairs of snps with problematic ld and beta values (eg. positive correlation and opposite betas)
-void gcta::write_beta_summary(vector<int> &rm_IDi, vector<int> &rm_IDj, vector<string> &snp_kept, vector<string> &set_A1, eigenVector &set_beta, MatrixXf &C) {
+void gcta::write_beta_summary(
+        vector<int> &rm_IDi, 
+        vector<int> &rm_IDj, 
+        vector<string> &snp_kept, 
+        vector<string> &set_A1, 
+        eigenVector &set_beta, 
+        MatrixXf &C) 
+{
     string pgoodsnpfile = _out + ".betasnps";
     ofstream pogoodsnp(pgoodsnpfile.c_str());
     pogoodsnp << "snpi A1i betai snpj A1j betaj Rij"  << endl;
@@ -308,15 +303,25 @@ void gcta::write_beta_summary(vector<int> &rm_IDi, vector<int> &rm_IDj, vector<s
     if (rm_IDi.size() > 0) {
         for (int i = 0; i < rm_IDi.size(); i++) 
         {
-                pogoodsnp << snp_kept[rm_IDi[i]] << " " << set_A1[rm_IDi[i]] << " " << set_beta[rm_IDi[i]] << " " 
-                          << snp_kept[rm_IDj[i]] << " " << set_A1[rm_IDj[i]] << " " << set_beta[rm_IDj[i]] << " " << C(rm_IDi[i],rm_IDj[i]) << endl;
+                pogoodsnp << snp_kept[rm_IDi[i]] << " " 
+                          << set_A1[rm_IDi[i]]   << " " 
+                          << set_beta[rm_IDi[i]] << " " 
+                          << snp_kept[rm_IDj[i]] << " " 
+                          << set_A1[rm_IDj[i]]   << " " 
+                          << set_beta[rm_IDj[i]] << " " 
+                          << C(rm_IDi[i],rm_IDj[i]) << endl;
         }
     }
     pogoodsnp.close();
 }
 
 //Write out snp, beta and se details for sets of snps at current point of analysis (eg. before or after correlation correction)
-void gcta::write_snp_summary(vector<string> &snp_keep, eigenVector &snp_beta, eigenVector &snp_btse, string postfix) {
+void gcta::write_snp_summary(
+        vector<string> &snp_keep, 
+        eigenVector &snp_beta, 
+        eigenVector &snp_btse, 
+        string postfix) 
+{
     string rgoodsnpfile = _out + postfix;
     ofstream rogoodsnp(rgoodsnpfile.c_str());
     rogoodsnp << "snp" << endl;
@@ -373,7 +378,8 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
         }
         snp_num_in_set[i] = snp_indx.size();
         if(!skip && snp_num_in_set[i] > 20000){
-            cout<<"Warning: Too many SNPs in the set ["<<set_name[i]<<"]. Maximum limit is 20000. This gene is ignored in the analysis."<<endl;
+            cout << "Warning: Too many SNPs in the set ["<<set_name[i]<<"].";
+            cout << "Maximum limit is 20000. This gene is ignored in the analysis." << endl;
             skip = true;
         }
         if(skip){
@@ -398,14 +404,11 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
             set_A1.push_back(snp_A1[snp_indx[ii]]);
 
         }
-
-        //convert from OR to BETA
+        //OPTIONAL: convert from OR to BETA
         //for(int i2 = 0 ; i2 < set_beta.size() ; i2++) set_beta[i2] = log(set_beta[i2]);
-
         snp_count=0;
         cout << "multi_calcu_V" << endl;
         sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vchisq, Vpvalue, snp_count, snp_name, set_A1);
-        //if not invertible -> call normal sbat / return "cant calc"
         num_snp_tested[i] = snp_count;
         chisq_o[i] = Vchisq;
         set_pval[i] = Vpvalue;
@@ -425,7 +428,15 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
     ofile.close();
 }
 
-void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, vector<int> &snp_chr, vector<int> &snp_bp, vector<double> &snp_pval, vector<double> &snp_beta, vector<double> &snp_btse, vector<string> &snp_A1)
+void gcta::sbat_multi_read_snpAssoc(
+        string snpAssoc_file, 
+        vector<string> &snp_name, 
+        vector<int> &snp_chr, 
+        vector<int> &snp_bp, 
+        vector<double> &snp_pval, 
+        vector<double> &snp_beta, 
+        vector<double> &snp_btse, 
+        vector<string> &snp_A1)
 {
     ifstream in_snpAssoc(snpAssoc_file.c_str());
     if (!in_snpAssoc) throw ("Error: can not open the file [" + snpAssoc_file + "] to read.");
@@ -489,9 +500,7 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
         //"NA" currently returns a 0 ... which is ok for our purposes
        //cout << _mu[iter->second] * 0.5 << " " << freq_buf << endl;
        //this should be made an option --freq-check
-    
       /*  NO LONGER DOING THIS
-      
         if (fabs(freq_buf - (_mu[iter->second] *0.5)) > 0.1  || freq_buf == 0) {
             bad_snp.push_back(_snp_name[i]);
             bad_A1.push_back(_allele1[i]);
@@ -501,13 +510,10 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
             // cout << _snp_name[i] << endl; //temp display bad removed snp for wrong freq
             continue;
         }
-   
         */
-        
-        
 
         snp_name.push_back(vs_buf[0]);
-        //snp_freq.push_back(freq_buf);
+      //snp_freq.push_back(freq_buf);
         snp_beta.push_back(beta_buf); 
         snp_btse.push_back(atof(vs_buf[5].c_str()));
         snp_pval.push_back(atof(vs_buf[6].c_str()));
@@ -575,11 +581,17 @@ void gcta::sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_na
 
 
 
-void gcta::rm_ld_inv_beta(eigenMatrix &VR, int m, double off_m, double off_sd, vector<int> &rm_ID0, vector<int> &rm_IDi, vector<int> &rm_IDj) {
+void gcta::rm_ld_inv_beta(
+        eigenMatrix &VR, 
+        int m, double off_m, double off_sd, 
+        vector<int> &rm_ID0, 
+        vector<int> &rm_IDi, 
+        vector<int> &rm_IDj) 
+{
+    int STN_DEV = 1.96;
     //Return equal length rm_IDi and rm_IDj of pairs of snps to remove. 
     //Using only lower diag... 
-    //
-    cout << " conservative removal " << endl;
+    cout << "conservative removal of beta ld qc" << endl;
 
     int i = 0, j = 0, i_buf = 0;
 
@@ -587,8 +599,7 @@ void gcta::rm_ld_inv_beta(eigenMatrix &VR, int m, double off_m, double off_sd, v
     for (i = 0; i < m; i++) {
         for (j = 0; j < i; j++) {
             if (VR(i,j) < 0 ) {
-                if ((VR(i,j) - off_m) < (-1.96 * off_sd)){  
-                //if ((VR(i,j) - off_m) < (-3.09 * off_sd)){  
+                if ((VR(i,j) - off_m) < (-STN_DEV * off_sd)){  
                     rm_ID0.push_back(i);
                     rm_ID0.push_back(j);
                     rm_IDi.push_back(i);
@@ -758,7 +769,8 @@ void gcta::sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind)
     sbat_read_geneAnno(gAnno_file, gene_name, gene_chr, gene_bp1, gene_bp2);
 
     // map genes to SNPs
-    cout << "Mapping the physical positions of genes to SNP data (gene boundaries: " << wind / 1000 << "Kb away from UTRs) ..." << endl;
+    cout << "Mapping the physical positions of genes to SNP data (gene boundaries: ";
+    cout << wind / 1000 << "Kb away from UTRs) ..." << endl;
 
     int gene_num = gene_name.size();
     vector<int> num_snp_tested(gene_num);
@@ -800,7 +812,10 @@ void gcta::sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind)
     for (i = 0; i < gene_num; i++) {
         if (gene2snp_1[i] != "NA" && gene2snp_2[i] != "NA") mapped++;
     }
-    if (mapped < 1) throw ("Error: no gene can be mapped to the SNP data. Please check the input data regarding chr and bp.");
+    if (mapped < 1)
+    {
+        throw ("Error: no gene can be mapped to the SNP data. Please check the input data regarding chr and bp.");
+    }
     else cout << mapped << " genes have been mapped to SNP data." << endl;
 
     // run sbat multi gene-based test
@@ -870,7 +885,8 @@ void gcta::sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind)
     for (i = 0; i < gene_num; i++) {
         if(gene_pval[i]>1.5) continue;
         ofile << gene_name[i] << "\t" << gene_chr[i] << "\t" << gene_bp1[i] << "\t" << gene_bp2[i] << "\t";
-        ofile << snp_num_in_gene[i] << "\t" << num_snp_tested[i] << "\t" << gene2snp_1[i] << "\t" << gene2snp_2[i] << "\t" << chisq_o[i] << "\t" << gene_pval[i] << endl;
+        ofile << snp_num_in_gene[i] << "\t" << num_snp_tested[i] << "\t" << gene2snp_1[i] << "\t";
+        ofile << gene2snp_2[i] << "\t" << chisq_o[i] << "\t" << gene_pval[i] << endl;
         //else ofile << "0\tNA\tNA\tNA\tNA" << endl;
     }
     ofile.close();
@@ -883,7 +899,6 @@ void gcta::mbat_seg(string sAssoc_file, int seg_size, bool reduce_cor)
     int i = 0, j = 0, ii = 0;
     int snp_count;
 
-       // read SNP association results
     vector<string> snp_name;
     vector<string> snp_A1;
     vector<string> set_A1;
@@ -904,7 +919,8 @@ void gcta::mbat_seg(string sAssoc_file, int seg_size, bool reduce_cor)
 
     // run gene-based test
     if (_mu.empty()) calcu_mu();
-    cout << "\nRunning set-based association test (SBAT) at genomic segments with a length of " << seg_size/1000 << "Kb ..." << endl;
+    cout << "\nRunning set-based association test (SBAT)";
+    cout << "at genomic segments with a length of " << seg_size/1000 << "Kb ..." << endl;
     vector< vector<int> > snp_set_indx;
     vector<int> set_chr, set_start_bp, set_end_bp;
     get_sbat_seg_blk(seg_size, snp_set_indx, set_chr, set_start_bp, set_end_bp);
@@ -918,7 +934,9 @@ void gcta::mbat_seg(string sAssoc_file, int seg_size, bool reduce_cor)
         if(snp_indx.size() < 1) skip = true;
         snp_num_in_set[i] = snp_indx.size();
         if(!skip && snp_num_in_set[i] > 20000){
-            cout<<"Warning: Too many SNPs in the set on [chr" << set_chr[i] << ":" << set_start_bp[i] << "-" << set_end_bp[i] << "]. Maximum limit is 20000. This gene is ignored in the analysis."<<endl;
+            cout << "Warning: Too many SNPs in the set on [chr" << set_chr[i] << ":";
+            cout << set_start_bp[i] << "-" << set_end_bp[i];
+            cout << "]. Maximum limit is 20000. This gene is ignored in the analysis." << endl;
             skip = true;  
         } 
         if(skip){
@@ -958,7 +976,9 @@ void gcta::mbat_seg(string sAssoc_file, int seg_size, bool reduce_cor)
     ofile << "Chr\tStart\tEnd\tSet.SNPs\tSNPsTested\tChisq(Obs)\tPvalue" << endl;
     for (i = 0; i < set_num; i++) {
         if(set_pval[i]>1.5) continue;
-        ofile << set_chr[i] << "\t" << set_start_bp[i] << "\t"<< set_end_bp[i] << "\t" << snp_num_in_set[i] << "\t" << num_snp_tested[i] << "\t" << chisq_o[i] << "\t" << set_pval[i] << endl;
+        ofile << set_chr[i] << "\t" << set_start_bp[i] << "\t"<< set_end_bp[i];
+        ofile << "\t" << snp_num_in_set[i] << "\t" << num_snp_tested[i];
+        ofile << "\t" << chisq_o[i] << "\t" << set_pval[i] << endl;
     }
     ofile.close();
 }
