@@ -146,8 +146,7 @@ void gcta::sbat_multi_calcu_V(
         pos = sbat_VIF_iter_rm_colin(C);
         /* Build new index, excluding value with highest VIF (or pos -1, none excluded) */
         for (i = 0 ; i < C.col(0).size() ; i++) {
-            if (pos == i) continue;
-            new_C_indx.push_back(i);
+            if (pos != i) new_C_indx.push_back(i);
         }
         //todo: speed up by storing relative index and not rebuilding each time
         rebuild_matrix(set_beta, set_se, snp_kept, new_C_indx, C); 
