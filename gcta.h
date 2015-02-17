@@ -357,6 +357,7 @@ private:
     void write_beta_summary(vector<int> &rm_IDi, vector<int> &rm_IDj, vector<string> &snp_kept, vector<string> &set_A1, eigenVector &set_beta, MatrixXf &C);
     void write_snp_summary(vector<string> &snp_keep, eigenVector &snp_beta, eigenVector &snp_btse, string postfix);
     void rebuild_matrix(eigenVector &snp_beta, eigenVector &snp_btse, vector<string> &snp_keep, vector<int> &new_C_indx, MatrixXf &C); 
+    void beta_qc(vector<string> &snp_kept, eigenVector &set_beta, eigenVector &set_se, MatrixXf &C, vector<string> &set_A1, int &beta_inv_remain);
 
     //////////////////////
     // gene expresion data

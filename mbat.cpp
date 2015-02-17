@@ -119,7 +119,17 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
         }
     }
 
+    int beta_inv_remain=0;
+    beta_qc(snp_kept, set_beta, set_se, C, set_A1, beta_inv_remain);
+    if (beta_inv_remain < 1) {
+        cout << "warning: " << beta_inv_remain << " snps (all) removed from gene due to beta/ld mismatch" << endl;
+        Vpvalue = 2;
+        return;
+    }
+ 
+
     //BETA FIX - test for correlated/ld linked snps with inverse betas
+    /*
     vector<int> rm_ID0, rm_IDi, rm_IDj; //used to print details of removal (ie. A1, beta, R)
     eigenVector beta = set_beta; //redundant
     eigenMatrix B = beta * beta.transpose();
@@ -135,11 +145,8 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     off_v /= (off_num - 1.0);
     off_sd = sqrt(off_v);
 
-    //int m = msnps;
-
     cout << "off sd , off_m " << off_sd << " " <<  off_m << endl;
     vector<int> new_C_indx;
-
     rm_ld_inv_beta(VR,msnps,off_m,off_sd,rm_ID0,rm_IDi,rm_IDj);
     recalculate_ndx(msnps, rm_ID0, new_C_indx);
 
@@ -148,7 +155,6 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
         Vpvalue = 2;
         return;
     }
- 
     
     eigenVector snp_beta = set_beta;
     eigenVector snp_btse = set_se;
@@ -159,16 +165,18 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
 
     int beta_inv_remain = new_C_indx.size();
  
+    */
    
-    msnps = new_C_indx.size();
+    msnps = beta_inv_remain;
     double maxRval = 0.9;
     double new_cutoff = sqrt(maxRval); //double new_cutoff = 0.9486833; //sqrt(0.9)
     vector<int> rm_ID1;
+    vector<int> new_C_indx;
 
     // Remove highly correlated pairs of snps
     rm_cor_sbat(C,new_cutoff,msnps,rm_ID1);
     recalculate_ndx(msnps, rm_ID1, new_C_indx);
-    rebuild_matrix(snp_beta, snp_btse, snp_keep, new_C_indx, C); 
+    rebuild_matrix(set_beta, set_se, snp_kept, new_C_indx, C); 
     int pairwise_remain = new_C_indx.size();
 
     cout << "rebuilt after rm cor " << endl;
@@ -186,7 +194,7 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
             new_C_indx.push_back(i);
         }
         //todo: speed up by storing relative index and not rebuilding each time
-        rebuild_matrix(snp_beta, snp_btse, snp_keep, new_C_indx, C); 
+        rebuild_matrix(set_beta, set_se, snp_kept, new_C_indx, C); 
         count++;
 
     } while (pos > -1);
@@ -194,7 +202,7 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     cout << "rebuilt after rm col " << endl;
 
     snp_count = new_C_indx.size(); //Final count of snps
-    SE = snp_btse * snp_btse.transpose();
+    SE = set_se * set_se.transpose();
     V = SE.array() * C.cast<double>().array();
 
     cout << "V done " << endl;
@@ -202,17 +210,53 @@ void gcta::sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigen
     double logdet = 0; //confirm ok
     if (!comput_inverse_logdet_LDLT(V, logdet)) cout << "Error: the V matrix is not invertible." << endl;
 
-    Vchisq = snp_beta.transpose() * V * snp_beta;
+    Vchisq = set_beta.transpose() * V * set_beta;
 
     cout << "almost V done with Vchisq: " << Vchisq << endl;
 
-    Vpvalue = StatFunc::pchisq(Vchisq, snp_beta.size());
+    Vpvalue = StatFunc::pchisq(Vchisq, set_beta.size());
 
     /* Print stats to std out */
     cout << "Initial snps " << init_snps << " BetaInv " << beta_inv_remain << " Pairwise " << pairwise_remain << " Collinearity " <<  snp_count;
     cout << " Chisq " << Vchisq << " Pvalue " << Vpvalue << endl;
 
-    write_snp_summary(snp_keep, snp_beta, snp_btse, ".rsnps");
+    write_snp_summary(snp_kept, set_beta, set_se, ".rsnps");
+}
+
+void gcta::beta_qc(vector<string> &snp_kept, eigenVector &set_beta, eigenVector &set_se, MatrixXf &C, vector<string> &set_A1, int &beta_inv_remain) {
+    //BETA FIX - test for correlated/ld linked snps with inverse betas
+    vector<int> rm_ID0, rm_IDi, rm_IDj; //used to print details of removal (ie. A1, beta, R)
+    eigenVector beta = set_beta; //redundant
+    eigenMatrix B = beta * beta.transpose();
+    eigenMatrix VR = C.cast<double>().array() * B.cast<double>().array();
+    int msnps = C.row(0).size();
+    int i;
+
+    double off_m = 0.0;
+    double off_v = 0.0;
+    double off_sd = 0.0;
+    double off_num = 0.5 * msnps * (msnps-1.0);
+    for (i = 1; i < msnps; i++) off_m += VR.row(i).segment(0, i).sum();
+    off_m /= off_num;
+    for (i = 1; i < msnps; i++) off_v += (VR.row(i).segment(0, i) -  eigenVector::Constant(i, off_m).transpose()).squaredNorm();
+    off_v /= (off_num - 1.0);
+    off_sd = sqrt(off_v);
+
+    cout << "off sd , off_m " << off_sd << " " <<  off_m << endl;
+    vector<int> new_C_indx;
+    rm_ld_inv_beta(VR,msnps,off_m,off_sd,rm_ID0,rm_IDi,rm_IDj);
+    recalculate_ndx(msnps, rm_ID0, new_C_indx);
+
+    beta_inv_remain = new_C_indx.size();
+    if (new_C_indx.size() == 0) return;
+
+    //eigenVector snp_beta = set_beta;
+    //eigenVector snp_btse = set_se;
+    vector<string> snp_original = snp_kept;
+
+    rebuild_matrix(set_beta, set_se, snp_kept, new_C_indx, C); 
+    write_beta_summary(rm_IDi, rm_IDj, snp_original, set_A1, set_beta, C);
+
 }
 
 // Rebuild Matrix without correlated snps
