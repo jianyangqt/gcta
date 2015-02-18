@@ -360,6 +360,7 @@ private:
     void rebuild_matrix(eigenVector &snp_beta, eigenVector &snp_btse, vector<string> &snp_keep, vector<int> &new_C_indx, MatrixXf &C); 
     void beta_qc(vector<string> &snp_kept, eigenVector &set_beta, eigenVector &set_se, MatrixXf &C, vector<string> &set_A1, int &beta_inv_remain, string filename);
     void make_cor_matrix(MatrixXf &C, vector<int> &snp_indx);
+    void set_stats(double &off_m, double &off_sd, eigenMatrix &VR);
 
     //////////////////////
     // gene expresion data

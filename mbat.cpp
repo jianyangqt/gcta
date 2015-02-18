@@ -148,8 +148,7 @@ void gcta::sbat_multi_calcu_V(
         /* Build new index, excluding value with highest VIF (or pos -1, none excluded) */
         for (i = 0 ; i < C.col(0).size() ; i++) {
             if (pos != i) new_C_indx.push_back(i);
-        }
-        //todo: speed up by storing relative index and not rebuilding each time
+        } //todo: speed up by storing relative index and not rebuilding each time
         rebuild_matrix(set_beta, set_se, snp_kept, new_C_indx, C); 
         count++;
 
@@ -166,12 +165,11 @@ void gcta::sbat_multi_calcu_V(
     Vchisq = set_beta.transpose() * V * set_beta;
     Vpvalue = StatFunc::pchisq(Vchisq, set_beta.size());
 
-    // ---- Print stats to std out  ---- 
-    cout << "Initial snps " << init_snps << " BetaInv " << beta_inv_remain << " Pairwise " << pairwise_remain << " Collinearity " <<  snp_count;
+    cout << "Initial snps " << init_snps << " BetaInv " << beta_inv_remain;
+    cout << " Pairwise " << pairwise_remain << " Collinearity " <<  snp_count;
     cout << " Chisq " << Vchisq << " Pvalue " << Vpvalue << endl;
 
-    write_snp_summary(snp_kept, set_beta, set_se, set);
-
+    write_snp_summary(snp_kept, set_beta, set_se, ".rsnps");
 }
 
 void gcta::make_cor_matrix(MatrixXf &C, vector<int> &snp_indx)
@@ -219,14 +217,8 @@ void gcta::beta_qc(
     cout << "set output " << filename << endl;
 
     double off_m = 0.0;
-    double off_v = 0.0;
     double off_sd = 0.0;
-    double off_num = 0.5 * msnps * (msnps-1.0);
-    for (i = 1; i < msnps; i++) off_m += VR.row(i).segment(0, i).sum();
-    off_m /= off_num;
-    for (i = 1; i < msnps; i++) off_v += (VR.row(i).segment(0, i) -  eigenVector::Constant(i, off_m).transpose()).squaredNorm();
-    off_v /= (off_num - 1.0);
-    off_sd = sqrt(off_v);
+    set_stats(off_m, off_sd, VR);
 
     cout << "off sd , off_m " << off_sd << " " <<  off_m << endl;
     vector<int> new_C_indx;
@@ -244,6 +236,25 @@ void gcta::beta_qc(
 
     rebuild_matrix(set_beta, set_se, snp_kept, new_C_indx, C); 
 
+}
+
+//Calculate local sd and mean for a set of snps and a snp-snp matrix
+//with some effect between snps (eg. ld, or ld * beta values)
+void gcta::set_stats(double &off_m, double &off_sd, eigenMatrix &VR)
+{
+    int i;
+    int msnps = VR.row(0).size();
+    off_m = 0.0;
+    off_sd = 0.0;
+    double off_v = 0.0;
+    double off_num = 0.5 * msnps * (msnps-1.0);
+    for (i = 1; i < msnps; i++) off_m += VR.row(i).segment(0, i).sum();
+    off_m /= off_num;
+    for (i = 1; i < msnps; i++) {
+        off_v += (VR.row(i).segment(0, i) -  eigenVector::Constant(i, off_m).transpose()).squaredNorm();
+    }
+    off_v /= (off_num - 1.0);
+    off_sd = sqrt(off_v);
 }
 
 // Rebuild Matrix without correlated snps
@@ -303,7 +314,7 @@ void gcta::write_beta_summary(
         string filename) 
 {
     string pgoodsnpfile = filename; //+ ".betasnps";
-    ofstream pogoodsnp(pgoodsnpfile.c_str(),ofstream::app); //append to same file
+    ofstream pogoodsnp(pgoodsnpfile.c_str(),ofstream::app); //append 
     //ofstream pogoodsnp(pgoodsnpfile.c_str());
     pogoodsnp << "> snpi A1i betai snpj A1j betaj Rij"  << endl;
 
@@ -331,6 +342,7 @@ void gcta::write_snp_summary(
 {
     string rgoodsnpfile = _out + postfix;
     ofstream rogoodsnp(rgoodsnpfile.c_str());
+    //ofstream rogoodsnp(rgoodsnpfile.c_str(),ofstream:app); //append
     rogoodsnp << "snp" << endl;
     for (int i = 0; i < snp_keep.size(); i++) rogoodsnp << snp_keep[i] << endl;
     //for (i = 0; i < new_C_indx.size(); i++) rogoodsnp << snp_keep[i] << " "  << snp_beta[i] << " " << snp_btse[i] << endl;
