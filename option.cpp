@@ -117,6 +117,7 @@ void option(int option_num, char* option_str[])
 
     // gene-based association test
     bool sbat_seg_flag = false;
+    bool mbat_seg_qc_flag = false;
     bool sbat_multi_flag = false;
     bool reduce_cor = false; //option to remove overly correlated snps in SBAT test
     string sbat_sAssoc_file = "", sbat_gAnno_file = "", sbat_snpset_file = "";
@@ -815,6 +816,17 @@ void option(int option_num, char* option_str[])
             cout << "--sbat-seg " << sbat_seg_size << endl;
             if (sbat_seg_size < 10 || sbat_seg_size > 10000) throw ("\nError: invalid value for --sbat-seg. Valid range: 10 ~ 10000\n");
             sbat_seg_size *= 1000;
+        } else if (strcmp(argv[i], "--mbat-seg-qc") == 0) {
+            mbat_seg_qc_flag = true;
+            thread_flag = true;
+            i++;
+            if (strcmp(argv[i], "gcta") == 0 || strncmp(argv[i], "--", 2) == 0) {
+                sbat_seg_size = 100;
+                i--;
+            } else sbat_seg_size = atoi(argv[i]);
+            cout << "--mbat-seg-qc " << sbat_seg_size << endl;
+            if (sbat_seg_size < 10 || sbat_seg_size > 10000) throw ("\nError: invalid value for --sbat-seg. Valid range: 10 ~ 10000\n");
+            sbat_seg_size *= 1000;
         }
         else if (strcmp(argv[i], "--efile") == 0) {
             efile = argv[++i];
@@ -1009,6 +1021,7 @@ void option(int option_num, char* option_str[])
             else if (simu_qt_flag || simu_cc) pter_gcta->GWAS_simu(bfile, simu_rep, simu_causal, simu_case_num, simu_control_num, simu_h2, simu_K, simu_seed, simu_output_causal, simu_emb_flag);
             else if (make_bed_flag) pter_gcta->save_plink();
             else if (!subpopu_file.empty()) pter_gcta->Fst(subpopu_file);
+            else if (mbat_seg_qc_flag) pter_gcta->mbat_seg_qc(sbat_sAssoc_file, sbat_seg_size, reduce_cor);
             else if (sbat_multi_flag) {
                 if(!sbat_gAnno_file.empty()) pter_gcta->sbat_multi_gene(sbat_sAssoc_file, sbat_gAnno_file, sbat_wind);
                 else if(sbat_seg_flag) pter_gcta->mbat_seg(sbat_sAssoc_file, sbat_seg_size, reduce_cor);

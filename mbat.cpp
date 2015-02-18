@@ -122,7 +122,8 @@ void gcta::sbat_multi_calcu_V(
 
     // ---- QC 1: Remove snps in high ld with beta mismatch ----
     int beta_inv_remain=0;
-    beta_qc(snp_kept, set_beta, set_se, C, set_A1, beta_inv_remain);
+    string set=_out;
+    beta_qc(snp_kept, set_beta, set_se, C, set_A1, beta_inv_remain, set);
     if (beta_inv_remain < 1) {
         cout << "warning: " << beta_inv_remain << " snps (all) removed from gene due to beta/ld mismatch" << endl;
         Vpvalue = 2;
@@ -169,7 +170,7 @@ void gcta::sbat_multi_calcu_V(
     cout << "Initial snps " << init_snps << " BetaInv " << beta_inv_remain << " Pairwise " << pairwise_remain << " Collinearity " <<  snp_count;
     cout << " Chisq " << Vchisq << " Pvalue " << Vpvalue << endl;
 
-    write_snp_summary(snp_kept, set_beta, set_se, ".rsnps");
+    write_snp_summary(snp_kept, set_beta, set_se, set);
 
 }
 
@@ -203,15 +204,19 @@ void gcta::beta_qc(
         eigenVector &set_se, 
         MatrixXf &C, 
         vector<string> &set_A1, 
-        int &beta_inv_remain) 
+        int &beta_inv_remain,
+        string filename) 
 {
     //BETA FIX - test for correlated/ld linked snps with inverse betas
+    
     vector<int> rm_ID0, rm_IDi, rm_IDj; //used to print details of removal (ie. A1, beta, R)
     eigenVector beta = set_beta; //redundant
     eigenMatrix B = beta * beta.transpose();
     eigenMatrix VR = C.cast<double>().array() * B.cast<double>().array();
     int msnps = C.row(0).size();
     int i;
+
+    cout << "set output " << filename << endl;
 
     double off_m = 0.0;
     double off_v = 0.0;
@@ -225,7 +230,10 @@ void gcta::beta_qc(
 
     cout << "off sd , off_m " << off_sd << " " <<  off_m << endl;
     vector<int> new_C_indx;
+    vector<string> snp_original = snp_kept;
     rm_ld_inv_beta(VR,msnps,off_m,off_sd,rm_ID0,rm_IDi,rm_IDj);
+    write_beta_summary(rm_IDi, rm_IDj, snp_original, set_A1, set_beta, C, filename);
+
     recalculate_ndx(msnps, rm_ID0, new_C_indx);
 
     beta_inv_remain = new_C_indx.size();
@@ -233,10 +241,8 @@ void gcta::beta_qc(
 
     //eigenVector snp_beta = set_beta;
     //eigenVector snp_btse = set_se;
-    vector<string> snp_original = snp_kept;
 
     rebuild_matrix(set_beta, set_se, snp_kept, new_C_indx, C); 
-    write_beta_summary(rm_IDi, rm_IDj, snp_original, set_A1, set_beta, C);
 
 }
 
@@ -293,11 +299,13 @@ void gcta::write_beta_summary(
         vector<string> &snp_kept, 
         vector<string> &set_A1, 
         eigenVector &set_beta, 
-        MatrixXf &C) 
+        MatrixXf &C,
+        string filename) 
 {
-    string pgoodsnpfile = _out + ".betasnps";
-    ofstream pogoodsnp(pgoodsnpfile.c_str());
-    pogoodsnp << "snpi A1i betai snpj A1j betaj Rij"  << endl;
+    string pgoodsnpfile = filename; //+ ".betasnps";
+    ofstream pogoodsnp(pgoodsnpfile.c_str(),ofstream::app); //append to same file
+    //ofstream pogoodsnp(pgoodsnpfile.c_str());
+    pogoodsnp << "> snpi A1i betai snpj A1j betaj Rij"  << endl;
 
     if (rm_IDi.size() > 0) {
         for (int i = 0; i < rm_IDi.size(); i++) 
@@ -986,19 +994,34 @@ void gcta::mbat_seg(string sAssoc_file, int seg_size, bool reduce_cor)
  * Use this to calculate the mean of means across a large number of segments 
  * run before: sbat_multi_calcu_V
  */
-/*
-void gcta::get_seg_stats(vector<string> &snp_name, vector<int> &snp_chr, vector<int> &snp_bp, vector<double> &snp_beta)
+
+void gcta::mbat_seg_qc(string sAssoc_file, int seg_size, bool reduce_cor)
 {
     int i = 0, j = 0, ii = 0;
     int snp_count;
 
-    // read SNP association results
     vector<string> snp_name;
+    vector<string> snp_A1;
+    vector<string> set_A1;
+    vector<int> snp_chr, snp_bp;
+    vector<double> snp_pval;
     vector<double> snp_beta;
+    vector<double> snp_btse;
+    sbat_multi_read_snpAssoc(sAssoc_file, snp_name, snp_chr, snp_bp, snp_pval, snp_beta, snp_btse, snp_A1);
+    vector<double> snp_chisq(snp_pval.size());
+
+    double Vchisq = 0;
+    double Vpvalue = 0;
+
     eigenVector set_beta;
+    eigenVector set_se;
+
+    for (i = 0; i < snp_pval.size(); i++) snp_chisq[i] = StatFunc::qchisq(snp_pval[i], 1);   
 
     // run gene-based test
-    cout << "\nGetting mean of correlation of genomic segments with a length of " << seg_size/1000 << "Kb ..." << endl;
+    if (_mu.empty()) calcu_mu();
+    cout << "\nRunning set-based association test (SBAT)";
+    cout << "at genomic segments with a length of " << seg_size/1000 << "Kb ..." << endl;
     vector< vector<int> > snp_set_indx;
     vector<int> set_chr, set_start_bp, set_end_bp;
     get_sbat_seg_blk(seg_size, snp_set_indx, set_chr, set_start_bp, set_end_bp);
@@ -1006,47 +1029,76 @@ void gcta::get_seg_stats(vector<string> &snp_name, vector<int> &snp_chr, vector<
     vector<double> set_pval(set_num), chisq_o(set_num);
     vector<int> snp_num_in_set(set_num);
     vector<int> num_snp_tested(set_num);
+    vector<int> num_snp_remain(set_num);
+
+    string segdetails = _out + ".seg.qc.betasnps";
+    ofstream seg(segdetails.c_str());
+    seg << "ld / beta score summary"  << endl;
+
     for (i = 0; i < set_num; i++) {
         bool skip = false;
         vector<int> snp_indx = snp_set_indx[i];
         if(snp_indx.size() < 1) skip = true;
         snp_num_in_set[i] = snp_indx.size();
-        if(!skip && snp_num_in_set[i] > 20000) skip = true;
+        if(!skip && snp_num_in_set[i] > 20000){
+            cout << "Warning: Too many SNPs in the set on [chr" << set_chr[i] << ":";
+            cout << set_start_bp[i] << "-" << set_end_bp[i];
+            cout << "]. Maximum limit is 20000. This gene is ignored in the analysis." << endl;
+            skip = true;  
+        } 
         if(skip){
+            set_pval[i] = 2.0;
             snp_num_in_set[i] = 0;
             continue;
         }
-        if(snp_num_in_set[i] == 1) continue;
+        chisq_o[i] = 0;
+        for (j = 0; j < snp_indx.size(); j++) chisq_o[i] += snp_chisq[snp_indx[j]];
+        if(snp_num_in_set[i] == 1) set_pval[i] = StatFunc::pchisq(chisq_o[i], 1.0);
         else {
 
             set_beta.resize(snp_indx.size()); //better index?
+            set_se.resize(snp_indx.size());
+            vector<string> snp_kept(snp_num_in_set[i]);
 
             for (ii = 0; ii < snp_indx.size(); ii++) //was snpset[i].size()
             {   
                 set_beta[ii] = snp_beta[snp_indx[ii]];
                 set_se[ii] = snp_btse[snp_indx[ii]];
                 set_A1.push_back(snp_A1[snp_indx[ii]]);
+                snp_kept[ii] = snp_name[snp_indx[ii]];
             }   
 
             snp_count=0;
-            sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vchisq, Vpvalue, snp_count, snp_name, set_A1);
-            num_snp_tested[i] = snp_count;
-            chisq_o[i] = Vchisq;
-            set_pval[i] = Vpvalue;
+            MatrixXf C;
+            make_cor_matrix(C, snp_indx);
+            int beta_inv_remain=0;
+            /* WRITE TO MULTIPLE FILES 
+            string s;
+            ostringstream sconvert;
+            sconvert << i;
+            s = sconvert.str();
+            cout << "running betaqc " << endl;
+            //beta_qc(snp_kept, set_beta, set_se, C, set_A1, beta_inv_remain, _out+"_set_"+s); 
+            */
+            beta_qc(snp_kept, set_beta, set_se, C, set_A1, beta_inv_remain, segdetails); //write to 1 file
+            num_snp_remain[i] = beta_inv_remain;
         }
 
         if((i + 1) % 100 == 0 || (i + 1) == set_num) cout << i + 1 << " of " << set_num << " sets.\r";
     }
 
-    string filename = _out + ".seg.mbat";
-    cout << "\nSaving the results of the segment-based MBAT analyses to [" + filename + "] ..." << endl;
+    string filename = _out + ".seg.qc";
+    cout << "\nSaving the results of the segment-based BETA-QC analyses to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
     if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
-    ofile << "Chr\tStart\tEnd\tSet.SNPs\tSNPsTested\tChisq(Obs)\tPvalue" << endl;
+    ofile << "Chr\tStart\tEnd\tSet.SNPs\tNo.SNPsPassQC\tSNPsFailQC" << endl;
     for (i = 0; i < set_num; i++) {
         if(set_pval[i]>1.5) continue;
-        ofile << set_chr[i] << "\t" << set_start_bp[i] << "\t"<< set_end_bp[i] << "\t" << snp_num_in_set[i] << "\t" << num_snp_tested[i] << "\t" << chisq_o[i] << "\t" << set_pval[i] << endl;
+        ofile << set_chr[i] << "\t" << set_start_bp[i] << "\t"<< set_end_bp[i];
+        ofile << "\t" << snp_num_in_set[i]; 
+        ofile << "\t" << num_snp_remain[i] << "\t" << snp_num_in_set[i] - num_snp_remain[i] << endl;
     }
     ofile.close();
 }
-*/
+
+
