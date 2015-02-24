@@ -105,6 +105,8 @@ void gcta::sbat_multi_calcu_V(
         double &Vchisq, 
         double &Vpvalue, 
         int &snp_count, 
+        double &off_m,
+        double &off_sd,
         vector<string> &snp_kept, 
         vector<string> &set_A1)
 {
@@ -123,7 +125,7 @@ void gcta::sbat_multi_calcu_V(
     // ---- QC 1: Remove snps in high ld with beta mismatch ----
     int beta_inv_remain=0;
     string set=_out;
-    beta_qc(snp_kept, set_beta, set_se, C, set_A1, beta_inv_remain, set);
+    beta_qc(snp_kept, set_beta, set_se, C, set_A1, beta_inv_remain, off_m, off_sd, set);
     if (beta_inv_remain < 1) {
         cout << "warning: " << beta_inv_remain << " snps (all) removed from gene due to beta/ld mismatch" << endl;
         Vpvalue = 2;
@@ -196,6 +198,7 @@ void gcta::make_cor_matrix(MatrixXf &C, vector<int> &snp_indx)
     }
 }
 
+//optional - parse pre-calc off_sd and off_m
 void gcta::beta_qc(
         vector<string> &snp_kept, 
         eigenVector &set_beta, 
@@ -203,6 +206,8 @@ void gcta::beta_qc(
         MatrixXf &C, 
         vector<string> &set_A1, 
         int &beta_inv_remain,
+        double &off_m,
+        double &off_sd,
         string filename) 
 {
     //BETA FIX - test for correlated/ld linked snps with inverse betas
@@ -214,11 +219,9 @@ void gcta::beta_qc(
     int msnps = C.row(0).size();
     int i;
 
-    cout << "set output " << filename << endl;
-
-    double off_m = 0.0;
-    double off_sd = 0.0;
-    set_stats(off_m, off_sd, VR);
+    //double off_m = 0.0;
+    //double off_sd = 0.0;
+    //set_stats(off_m, off_sd, VR);
 
     cout << "off sd , off_m " << off_sd << " " <<  off_m << endl;
     vector<int> new_C_indx;
@@ -236,6 +239,25 @@ void gcta::beta_qc(
 
     rebuild_matrix(set_beta, set_se, snp_kept, new_C_indx, C); 
 
+}
+
+//Returns off_m and off_sd of correlation * beta matrix for a set single set
+void gcta::get_stats(
+        eigenVector &set_beta, eigenVector &set_se, vector<int> &snp_indx, 
+        double &off_m, double &off_sd) 
+{
+    MatrixXf C;
+    make_cor_matrix(C, snp_indx);
+    eigenMatrix B = set_beta * set_beta.transpose();
+    eigenMatrix VR = C.cast<double>().array() * B.cast<double>().array();
+    set_stats(off_m, off_sd, VR);
+    //debug
+    if (isnan(off_sd)) {
+        cout << "bad nan with " << snp_indx.size() << " snps" << endl;
+        for (int i=0; i < snp_indx.size() ;i++) cout << snp_indx[i] << endl;
+        cout << "end bad nan" << endl;
+    }
+    //end debug
 }
 
 //Calculate local sd and mean for a set of snps and a snp-snp matrix
@@ -369,6 +391,8 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
     vector<string> snp_A1;
     vector<string> set_A1;
     vector<int> snp_chr, snp_bp;
+    double total_m = 0;
+    double total_sd = 0;
     vector<double> snp_pval;
     vector<double> snp_beta; // BETA - can be converted to log (code commented out futher down)
     vector<double> snp_btse; // se
@@ -377,6 +401,14 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
     cout << sAssoc_file << " file" << endl;
     sbat_multi_read_snpAssoc(sAssoc_file, snp_name, snp_chr, snp_bp, snp_pval, snp_beta, snp_btse, snp_A1);
     vector<double> snp_chisq(snp_pval.size());
+
+    /* GET SEG QC */
+    int seg_size = 1e5; //DEFAULT SEG
+    vector<int> set_chr, set_start_bp, set_end_bp;
+    vector< vector<int> > snp_set_indx;
+    get_sbat_seg_blk(seg_size, snp_set_indx, set_chr, set_start_bp, set_end_bp);
+    get_total_stats(snp_set_indx, snp_beta, snp_btse, snp_A1, total_m, total_sd);
+    /* END */
     
     if (_mu.empty()) calcu_mu();
     cout << "\nRunning set-based multivariate association test (SBAT-MULTI)..." << endl;
@@ -387,6 +419,8 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
     vector<int> num_snp_tested(set_num);
     for (i = 0; i < snp_name.size(); i++) snp_name_map.insert(pair<string,int>(snp_name[i], i));
     cout << "snps inserted" << endl;
+
+
     for (i = 0; i < set_num; i++) {
         bool skip = false;
         if(snpset[i].size() < 1) skip = true;
@@ -427,7 +461,7 @@ void gcta::sbat_multi(string sAssoc_file, string snpset_file)
         //for(int i2 = 0 ; i2 < set_beta.size() ; i2++) set_beta[i2] = log(set_beta[i2]);
         snp_count=0;
         cout << "multi_calcu_V" << endl;
-        sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vchisq, Vpvalue, snp_count, snp_name, set_A1);
+        sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vchisq, Vpvalue, snp_count, total_m, total_sd, snp_name, set_A1);
         num_snp_tested[i] = snp_count;
         chisq_o[i] = Vchisq;
         set_pval[i] = Vpvalue;
@@ -607,7 +641,7 @@ void gcta::rm_ld_inv_beta(
         vector<int> &rm_IDi, 
         vector<int> &rm_IDj) 
 {
-    int STN_DEV = 1.96;
+    int STD_DEV = 3.09; //int STD_DEV = 1.96;
     //Return equal length rm_IDi and rm_IDj of pairs of snps to remove. 
     //Using only lower diag... 
     cout << "conservative removal of beta ld qc" << endl;
@@ -618,7 +652,7 @@ void gcta::rm_ld_inv_beta(
     for (i = 0; i < m; i++) {
         for (j = 0; j < i; j++) {
             if (VR(i,j) < 0 ) {
-                if ((VR(i,j) - off_m) < (-STN_DEV * off_sd)){  
+                if ((VR(i,j) - off_m) < (-STD_DEV * off_sd)){  
                     rm_ID0.push_back(i);
                     rm_ID0.push_back(j);
                     rm_IDi.push_back(i);
@@ -761,6 +795,8 @@ void gcta::sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind)
     vector<string> snp_A1;
     vector<string> set_A1;
     vector<int> snp_chr, snp_bp;
+    double total_m = 0;
+    double total_sd = 0;
     vector<double> snp_pval;
     vector<double> snp_beta; // BETA - can be converted to log (code commented out futher down)
     vector<double> snp_btse; 
@@ -768,6 +804,17 @@ void gcta::sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind)
     eigenVector set_se;
     cout << sAssoc_file << " file" << endl;
     sbat_multi_read_snpAssoc(sAssoc_file, snp_name, snp_chr, snp_bp, snp_pval, snp_beta, snp_btse, snp_A1);
+
+    /* Make sure this doesn't mess up the index - eg. don't want set_start_bp to break anything */
+    vector< vector<int> > snp_set_indx;
+    //only need this for snp_set_indx
+    int DEFAULT_QC_SEG_SIZE = 1e5; //DEFAULT SEG
+    vector<int> set_chr, set_start_bp, set_end_bp;
+    get_sbat_seg_blk(DEFAULT_QC_SEG_SIZE, snp_set_indx, set_chr, set_start_bp, set_end_bp); 
+    //only want total_m, total_sd
+    get_total_stats(snp_set_indx, snp_beta, snp_btse, snp_A1, total_m, total_sd);
+    /* This part about getting the off m, etc */
+
     vector<double> snp_chisq(snp_pval.size());
 
     // get start and end of chr
@@ -888,7 +935,7 @@ void gcta::sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind)
         }
         else {
             snp_count=0;
-            sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vchisq, Vpvalue, snp_count, snp_kept, set_A1);
+            sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vchisq, Vpvalue, snp_count, total_m, total_sd, snp_kept, set_A1);
             num_snp_tested[i]=snp_count;
             chisq_o[i] = Vchisq;
             gene_pval[i] = Vpvalue;
@@ -915,6 +962,7 @@ void gcta::sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind)
 
 void gcta::mbat_seg(string sAssoc_file, int seg_size, bool reduce_cor)
 {
+
     int i = 0, j = 0, ii = 0;
     int snp_count;
 
@@ -922,6 +970,8 @@ void gcta::mbat_seg(string sAssoc_file, int seg_size, bool reduce_cor)
     vector<string> snp_A1;
     vector<string> set_A1;
     vector<int> snp_chr, snp_bp;
+    double total_m = 0;
+    double total_sd = 0;
     vector<double> snp_pval;
     vector<double> snp_beta;
     vector<double> snp_btse;
@@ -943,6 +993,7 @@ void gcta::mbat_seg(string sAssoc_file, int seg_size, bool reduce_cor)
     vector< vector<int> > snp_set_indx;
     vector<int> set_chr, set_start_bp, set_end_bp;
     get_sbat_seg_blk(seg_size, snp_set_indx, set_chr, set_start_bp, set_end_bp);
+    get_total_stats(snp_set_indx, snp_beta, snp_btse, snp_A1, total_m, total_sd);
     int set_num = snp_set_indx.size();
     vector<double> set_pval(set_num), chisq_o(set_num);
     vector<int> snp_num_in_set(set_num);
@@ -979,7 +1030,7 @@ void gcta::mbat_seg(string sAssoc_file, int seg_size, bool reduce_cor)
             }   
 
             snp_count=0;
-            sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vchisq, Vpvalue, snp_count, snp_name, set_A1);
+            sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vchisq, Vpvalue, snp_count, total_m, total_sd, snp_name, set_A1);
             num_snp_tested[i] = snp_count;
             chisq_o[i] = Vchisq;
             set_pval[i] = Vpvalue;
@@ -1016,6 +1067,8 @@ void gcta::mbat_seg_qc(string sAssoc_file, int seg_size, bool reduce_cor)
     vector<string> snp_A1;
     vector<string> set_A1;
     vector<int> snp_chr, snp_bp;
+    double total_m = 0;
+    double total_sd = 0;
     vector<double> snp_pval;
     vector<double> snp_beta;
     vector<double> snp_btse;
@@ -1037,6 +1090,7 @@ void gcta::mbat_seg_qc(string sAssoc_file, int seg_size, bool reduce_cor)
     vector< vector<int> > snp_set_indx;
     vector<int> set_chr, set_start_bp, set_end_bp;
     get_sbat_seg_blk(seg_size, snp_set_indx, set_chr, set_start_bp, set_end_bp);
+    get_total_stats(snp_set_indx, snp_beta, snp_btse, snp_A1, total_m, total_sd);
     int set_num = snp_set_indx.size();
     vector<double> set_pval(set_num), chisq_o(set_num);
     vector<int> snp_num_in_set(set_num);
@@ -1092,7 +1146,7 @@ void gcta::mbat_seg_qc(string sAssoc_file, int seg_size, bool reduce_cor)
             cout << "running betaqc " << endl;
             //beta_qc(snp_kept, set_beta, set_se, C, set_A1, beta_inv_remain, _out+"_set_"+s); 
             */
-            beta_qc(snp_kept, set_beta, set_se, C, set_A1, beta_inv_remain, segdetails); //write to 1 file
+            beta_qc(snp_kept, set_beta, set_se, C, set_A1, beta_inv_remain, total_m, total_sd, segdetails); //write to 1 file
             num_snp_remain[i] = beta_inv_remain;
         }
 
@@ -1113,4 +1167,78 @@ void gcta::mbat_seg_qc(string sAssoc_file, int seg_size, bool reduce_cor)
     ofile.close();
 }
 
+/* Return new total_m, total_sd given an index set by 
+ * get_sbat_seg_blk */
+void gcta::get_total_stats(vector< vector<int>> &snp_set_indx, 
+                           vector<double> &snp_beta, vector<double> &snp_btse,
+                           vector<string> &snp_A1, double &total_m, double &total_sd) {
+
+    int set_num = snp_set_indx.size();
+    vector<int> snp_num_in_set(set_num);
+    int i, ii, snp_count;
+    vector<int> skipped;
+    vector<double> snp_off_m(set_num);
+    vector<double> snp_off_sd(set_num);
+    eigenVector set_beta;
+    eigenVector set_se;
+    for (i = 0; i < set_num; i++) {
+        bool skip = false;
+        vector<int> snp_indx = snp_set_indx[i];
+        if(snp_indx.size() < 1) skip = true;
+        snp_num_in_set[i] = snp_indx.size();
+        if(!skip && snp_num_in_set[i] > 20000){
+            skip = true;  
+        } 
+        if (snp_num_in_set[i] < 3) skip = true;
+        if(skip){
+            snp_num_in_set[i] = 0;
+            skipped.push_back(i);
+            continue;
+        }
+        //if(snp_num_in_set[i] != 1) 
+        if(snp_num_in_set[i] > 0) 
+        {
+            set_beta.resize(snp_indx.size()); 
+            set_se.resize(snp_indx.size());
+            vector<string> snp_kept(snp_num_in_set[i]);
+
+            for (ii = 0; ii < snp_indx.size(); ii++) 
+            {   
+                set_beta[ii] = snp_beta[snp_indx[ii]];
+                set_se[ii] = snp_btse[snp_indx[ii]];
+            }   
+
+            snp_count=0;
+            MatrixXf C;
+            make_cor_matrix(C, snp_indx);
+            int beta_inv_remain=0;
+            double off_m = 0; 
+            double off_sd = 0;
+            get_stats(set_beta, set_se, snp_indx, off_m, off_sd);
+            snp_off_m[i] = off_m;
+            snp_off_sd[i] = off_sd;
+            cout << "off m, off sd " << off_m << " " << off_sd << endl;
+        }
+    }
+
+    /* calculate mean of means, sd */
+    double snp_total=0;
+    int alt=0;
+    for (i = 0 ; i < set_num ; i++) {
+        if (skipped.size() > 0) {
+            if (skipped[alt] == i) 
+            {
+                alt++;
+                continue;
+            }
+        } 
+        snp_total+=snp_num_in_set[i];
+        total_m+=snp_off_m[i] * snp_num_in_set[i];
+        total_sd+=snp_off_sd[i] * snp_num_in_set[i];
+        }
+    //count skipped sets...
+    total_m=total_m/snp_total;
+    total_sd=total_sd/snp_total;
+    cout << "total m " << total_m << " total sd " << total_sd << endl;
+}
 
