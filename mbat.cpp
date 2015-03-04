@@ -1032,7 +1032,7 @@ void gcta::mbat_seg(string sAssoc_file, int seg_size, bool reduce_cor)
             }   
 
             snp_count=0;
-            sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vchisq, Vpvalue, snp_count, total_m, total_sd, snp_name, set_A1);
+            sbat_multi_calcu_V(snp_indx, set_beta, set_se, Vchisq, Vpvalue, snp_count, total_m, total_sd, snp_kept, set_A1);
             num_snp_tested[i] = snp_count;
             chisq_o[i] = Vchisq;
             set_pval[i] = Vpvalue;
