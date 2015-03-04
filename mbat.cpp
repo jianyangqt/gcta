@@ -171,7 +171,7 @@ void gcta::sbat_multi_calcu_V(
     cout << " Pairwise " << pairwise_remain << " Collinearity " <<  snp_count;
     cout << " Chisq " << Vchisq << " Pvalue " << Vpvalue << endl;
 
-    write_snp_summary(snp_kept, set_beta, set_se, ".rsnps");
+    //write_snp_summary(snp_kept, set_beta, set_se, ".rsnps");
 }
 
 void gcta::make_cor_matrix(MatrixXf &C, vector<int> &snp_indx)
@@ -641,7 +641,7 @@ void gcta::rm_ld_inv_beta(
         vector<int> &rm_IDi, 
         vector<int> &rm_IDj) 
 {
-    int STD_DEV = 3.09; //int STD_DEV = 1.96;
+    int STD_DEV = 2.32; //int STD_DEV = 1.96; //int STD_DEV = 3.09; 
     //Return equal length rm_IDi and rm_IDj of pairs of snps to remove. 
     //Using only lower diag... 
     cout << "conservative removal of beta ld qc" << endl;
@@ -1021,9 +1021,11 @@ void gcta::mbat_seg(string sAssoc_file, int seg_size, bool reduce_cor)
 
             set_beta.resize(snp_indx.size()); //better index?
             set_se.resize(snp_indx.size());
+            vector<string> snp_kept(snp_num_in_set[i]);
 
             for (ii = 0; ii < snp_indx.size(); ii++) //was snpset[i].size()
             {   
+                snp_kept[ii] = snp_name[snp_indx[ii]];
                 set_beta[ii] = snp_beta[snp_indx[ii]];
                 set_se[ii] = snp_btse[snp_indx[ii]];
                 set_A1.push_back(snp_A1[snp_indx[ii]]);
