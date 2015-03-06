@@ -122,6 +122,8 @@ void option(int option_num, char* option_str[])
     bool reduce_cor = false; //option to remove overly correlated snps in SBAT test
     string sbat_sAssoc_file = "", sbat_gAnno_file = "", sbat_snpset_file = "";
     int sbat_wind = 50000, sbat_seg_size = 1e5;
+    double beta_sdlim = 1.96;
+    double beta_rlim = 0.0;
 
     // gene expression data
     string efile="", eR_file = "", ecojo_ma_file="";
@@ -805,6 +807,14 @@ void option(int option_num, char* option_str[])
             cout << "--sbat-wind " << sbat_wind << endl;
             if (sbat_wind < 0 || sbat_wind > 1000) throw ("\nError: invalid value for --sbat-wind. Valid range: 0 ~ 1000\n");
             sbat_wind *= 1000;
+        } else if (strcmp(argv[i], "--beta-sdlim") == 0) {
+            beta_sdlim = atoi(argv[++i]);
+            cout << "--beta-sdlim " << beta_sdlim << endl;
+            if (beta_sdlim < 0 || beta_sdlim > 50) throw ("\nError: invalid value for --beta-sdlim. Valid range: 0 ~ 50\n");
+         } else if (strcmp(argv[i], "--beta-rlim") == 0) {
+            beta_rlim = atoi(argv[++i]);
+            cout << "--beta-rlim " << beta_rlim << endl;
+            if (beta_rlim < 0 || beta_rlim > 1) throw ("\nError: invalid value for --beta-rlim. Valid range: 0 ~ 1\n");
         } else if (strcmp(argv[i], "--sbat-seg") == 0) {
             sbat_seg_flag = true;
             thread_flag = true;
@@ -1021,11 +1031,11 @@ void option(int option_num, char* option_str[])
             else if (simu_qt_flag || simu_cc) pter_gcta->GWAS_simu(bfile, simu_rep, simu_causal, simu_case_num, simu_control_num, simu_h2, simu_K, simu_seed, simu_output_causal, simu_emb_flag);
             else if (make_bed_flag) pter_gcta->save_plink();
             else if (!subpopu_file.empty()) pter_gcta->Fst(subpopu_file);
-            else if (mbat_seg_qc_flag) pter_gcta->mbat_seg_qc(sbat_sAssoc_file, sbat_seg_size, reduce_cor);
+            else if (mbat_seg_qc_flag) pter_gcta->mbat_seg_qc(sbat_sAssoc_file, sbat_seg_size, reduce_cor, beta_rlim, beta_sdlim);
             else if (sbat_multi_flag) {
-                if(!sbat_gAnno_file.empty()) pter_gcta->sbat_multi_gene(sbat_sAssoc_file, sbat_gAnno_file, sbat_wind);
-                else if(sbat_seg_flag) pter_gcta->mbat_seg(sbat_sAssoc_file, sbat_seg_size, reduce_cor);
-                else pter_gcta->sbat_multi(sbat_sAssoc_file, sbat_snpset_file);
+                if(!sbat_gAnno_file.empty()) pter_gcta->sbat_multi_gene(sbat_sAssoc_file, sbat_gAnno_file, sbat_wind, beta_rlim, beta_sdlim);
+                else if(sbat_seg_flag) pter_gcta->mbat_seg(sbat_sAssoc_file, sbat_seg_size, reduce_cor, beta_rlim, beta_sdlim);
+                else pter_gcta->sbat_multi(sbat_sAssoc_file, sbat_snpset_file, beta_rlim, beta_sdlim);
             }
             else if (!sbat_sAssoc_file.empty()){
                 if(!sbat_gAnno_file.empty()) pter_gcta->sbat_gene(sbat_sAssoc_file, sbat_gAnno_file, sbat_wind, reduce_cor);

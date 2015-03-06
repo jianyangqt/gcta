@@ -144,10 +144,10 @@ public:
     void sbat_gene(string sAssoc_file, string gAnno_file, int wind, bool reduce_cor);
     void sbat(string sAssoc_file, string snpset_file, bool reduce_cor);
     void sbat_seg(string sAssoc_file, int seg_size, bool reduce_cor);
-    void mbat_seg(string sAssoc_file, int seg_size, bool reduce_cor);
-    void mbat_seg_qc(string sAssoc_file, int seg_size, bool reduce_cor);
-    void sbat_multi(string sAssoc_file, string snpset_file);
-    void sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind);
+    void mbat_seg(string sAssoc_file, int seg_size, bool reduce_cor, double beta_rlim, double beta_sdlim);
+    void mbat_seg_qc(string sAssoc_file, int seg_size, bool reduce_cor, double beta_rlim, double beta_sdlim);
+    void sbat_multi(string sAssoc_file, string snpset_file, double beta_rlim, double beta_sdlim);
+    void sbat_multi_gene(string sAssoc_file, string gAnno_file, int wind, double beta_rlim, double beta_sdlim);
 
     /////////////////////////
     // gene expresion data
@@ -349,20 +349,22 @@ private:
     void get_sbat_seg_blk(int seg_size, vector< vector<int> > &snp_set_indx, vector<int> &set_chr, vector<int> &set_start_bp, vector<int> &set_end_bp);
 
     // gene based multivar test
-    void sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigenVector set_se, double &Vscore, double &Vscore_p, int &snp_count, double &off_m, double &off_sd, vector<string> &snp_name, vector<string> &set_A1);
+    void sbat_multi_calcu_V(vector<int> &snp_indx, eigenVector set_beta, eigenVector set_se, double &Vscore, double &Vscore_p, int &snp_count, double &off_m, double &off_sd, double &beta_rlim, double &beta_sdlim, vector<string> &snp_name, vector<string> &set_A1);
     void sbat_multi_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, vector<int> &snp_chr, vector<int> &snp_bp, vector<double> &snp_pval, vector<double> &snp_beta, vector<double> &snp_btse, vector<string>  &snp_A1);
     void rm_cor_sbat(MatrixXf &R, double R_cutoff, int m, vector<int> &rm_ID1);
-    void rm_ld_inv_beta(eigenMatrix &VR, int m, double off_m, double off_sd, vector<int> &rm_ID0, vector<int> &rm_IDi, vector<int> &rm_IDj);
+    void rm_ld_inv_beta(eigenMatrix &VR, MatrixXf &C, int m, double off_m, double off_sd, double &beta_rlim, double &beta_sdlim, vector<int> &rm_ID0, vector<int> &rm_IDi, vector<int> &rm_IDj);
     int sbat_VIF_iter_rm_colin(MatrixXf R);
     void recalculate_ndx(int &msnps, vector<int> &rm_ID1, vector<int> &new_C_indx);
     void write_beta_summary(vector<int> &rm_IDi, vector<int> &rm_IDj, vector<string> &snp_kept, vector<string> &set_A1, eigenVector &set_beta, MatrixXf &C, string filename);
     void write_snp_summary(vector<string> &snp_keep, eigenVector &snp_beta, eigenVector &snp_btse, string postfix);
     void rebuild_matrix(eigenVector &snp_beta, eigenVector &snp_btse, vector<string> &snp_keep, vector<int> &new_C_indx, MatrixXf &C); 
-    void beta_qc(vector<string> &snp_kept, eigenVector &set_beta, eigenVector &set_se, MatrixXf &C, vector<string> &set_A1, int &beta_inv_remain, double &off_m, double &off_sd, string filename);
+    void beta_qc(vector<string> &snp_kept, eigenVector &set_beta, eigenVector &set_se, MatrixXf &C, vector<string> &set_A1, int &beta_inv_remain, double &off_m, double &off_sd, double &beta_rlim, double &beta_sdlim, string filename);
     void make_cor_matrix(MatrixXf &C, vector<int> &snp_indx);
     void set_stats(double &off_m, double &off_sd, eigenMatrix &VR);
     void get_stats(eigenVector &set_beta, eigenVector &set_se, vector<int> &snp_indx, double &off_m, double &off_sd);
     void get_total_stats(vector< vector<int>> &snp_set_indx, vector<double> &snp_beta, vector<double> &snp_btse, vector<string> &snp_A1, double &total_m, double &total_sd);
+    void print_matrix_flat(eigenMatrix &R, string &fname);
+    void print_matrix_flat2(MatrixXf &R, string &fname);
 
     //////////////////////
     // gene expresion data
