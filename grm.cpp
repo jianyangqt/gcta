@@ -34,10 +34,9 @@ void gcta::check_sex() {
     }
 }
 
-void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, bool mlmassoc, int ldwt_mtd, string i_ld_file, double ldwt_wind, double ldwt_seg, double ldwt_rsq_cutoff, bool diag_f3_flag)
+void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, bool mlmassoc, bool diag_f3_flag)
 {
-    bool ldwt_flag = false, have_mis = false;
-    if(ldwt_mtd > -1) ldwt_flag = true;
+    bool have_mis = false;
 
     if (!grm_d_flag && grm_xchr_flag) check_chrX();
     else check_autosome();
@@ -56,7 +55,7 @@ void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool outpu
         else std_XMat(_geno, sd_SNP, grm_xchr_flag, false, false);
     }
 
-    if (!mlmassoc) cout << "\nCalculating the" << ((ldwt_flag) ? " LD-weighted" : "") << ((grm_d_flag) ? " dominance" : "") << " genetic relationship matrix (GRM)" << (grm_xchr_flag ? " for the X chromosome" : "") << (_dosage_flag ? " using imputed dosage data" : "") << " ... (Note: default speed-optimized mode, may use huge RAM)" << endl;
+    if (!mlmassoc) cout << "\nCalculating the" << ((grm_d_flag) ? " dominance" : "") << " genetic relationship matrix (GRM)" << (grm_xchr_flag ? " for the X chromosome" : "") << (_dosage_flag ? " using imputed dosage data" : "") << " ... (Note: default speed-optimized mode, may use huge RAM)" << endl;
     else cout << "\nCalculating the genetic relationship matrix (GRM) ... " << endl;
 
     // count the number of missing genotypes
@@ -79,25 +78,6 @@ void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool outpu
         }
     }
 
-    // Weighting genotypes by LD mean rsq
-    eigenVector wt = eigenVector::Ones(m);
-    VectorXf wt_sqrt;
-    vector<int> neg;
-    if (ldwt_flag) {
-        //cout<<"Weighting the genotype based on LD ..."<<endl;
-        if (ldwt_mtd == 0) calcu_lds(i_ld_file, wt, ldwt_wind, ldwt_seg, ldwt_rsq_cutoff);
-        else if(ldwt_mtd == 1) calcu_ldak(wt, ldwt_seg, ldwt_rsq_cutoff);
-        else if(ldwt_mtd == 2) calcu_ldwt(i_ld_file, wt, ldwt_wind, ldwt_rsq_cutoff);
-        for(j = 0; j < m; j++){
-            if(wt(j)<0.0) neg.push_back(j);
-        }
-        wt_sqrt = wt.cast<float>().array().abs().sqrt();
-    } 
-
-    // debug
-    //cout<<"neg size = "<<neg.size()<<endl;
-    //cout<<"wt.sum = "<<wt.sum()<<endl;
-
     // Calculate A_N matrix
     if(have_mis){
         _grm_N.resize(n, n);
@@ -113,13 +93,6 @@ void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool outpu
     }
     else _grm_N = MatrixXf::Constant(n,n,m);
 
-    // Weighting
-    double denominator = 0.0, diag_m = 0.0, diag_v = 0.0, off_m = 0.0, off_v = 0.0;
-    if (ldwt_flag) {
-        cout << "Weighting the GRM ..." << endl;
-        for (i = 0; i < n; i++) _geno.row(i) = _geno.row(i).array()*wt_sqrt.transpose().array();
-    }
-
     // Calcuate WW'
     #ifdef SINGLE_PRECISION
     _grm = _geno * _geno.transpose();
@@ -127,36 +100,8 @@ void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool outpu
     _grm = (_geno * _geno.transpose()).cast<double>();
     #endif
 
-    // remove negative weights
-    if (ldwt_flag && !neg.empty()) {
-        MatrixXf geno_buf(n, neg.size());
-        #pragma omp parallel for
-        for(j = 0; j < neg.size(); j++) geno_buf.col(j) = _geno.col(neg[j]);
-        eigenMatrix grm_neg;
-
-        #ifdef SINGLE_PRECISION
-        grm_neg = geno_buf * geno_buf.transpose();
-        #else
-        grm_neg = (geno_buf * geno_buf.transpose()).cast<double>();
-        #endif
-
-        _grm = _grm.array() - 2.0 * grm_neg.array();
-        geno_buf.resize(0,0);
-        grm_neg.resize(0,0);
-    }
-
     // Calculate A matrix
-    denominator = 0.0;
-    if (grm_mtd == 0){
-        if (ldwt_flag) denominator = wt.mean();
-        else denominator = 1.0;
-    } 
-    else if (grm_mtd == 1) {
-        if (ldwt_flag) denominator = sd_SNP.dot(wt) / (double)m;
-        else denominator = sd_SNP.mean();
-    }
-    if (denominator < 0.0) throw ("Error: the sum of the weights is negative!");
-    _grm_N = _grm_N.array() * denominator; 
+    if (grm_mtd == 1) _grm_N = _grm_N.array() * sd_SNP.mean();
 
     #pragma omp parallel for private(j)
     for (i = 0; i < n; i++) {
@@ -167,9 +112,11 @@ void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool outpu
         }
     }
 
-    // debug
+    // GRM summary
+    double diag_m = 0.0, diag_v = 0.0, off_m = 0.0, off_v = 0.0;
     calcu_grm_var(diag_m, diag_v, off_m, off_v);
-    cout<<"\nMean of diagonals = "<<diag_m<<endl;
+    cout<<"\nSummary of the GRM:" << endl;
+    cout<<"Mean of diagonals = "<<diag_m<<endl;
     cout<<"Variance of diagonals = "<<diag_v<<endl;
     cout<<"Mean of off-diagonals = " << off_m <<endl;
     cout<<"Variance of off-diagonals = " << off_v <<endl;

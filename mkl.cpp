@@ -166,11 +166,10 @@ void gcta::std_XMat_d_mkl(float *X, vector<double> &sd_SNP, bool miss_with_mu, b
     }
 }
 
-
-/////////////////
-// grm functions
-
-void gcta::make_grm_mkl(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, bool mlmassoc, bool wt_impRsq_flag, bool wt_ld_flag, int ld_wt_mtd, string ld_wt_ld_file, double ld_wt_wind, double ld_wt_rsq_cutoff, int ttl_snp_num, bool diag_f3_flag) {
+////////////
+// GRM
+void gcta::make_grm_mkl(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, bool mlmassoc, bool diag_f3_flag)
+{
     if (!grm_d_flag && grm_xchr_flag) check_chrX();
     else check_autosome();
 
@@ -182,23 +181,13 @@ void gcta::make_grm_mkl(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool o
     if (grm_mtd == 0) {
         if (grm_d_flag) std_XMat_d_mkl(_geno_mkl, sd_SNP, false, true);
         else std_XMat_mkl(_geno_mkl, sd_SNP, grm_xchr_flag, false, true);
-        if (wt_ld_flag) {
-            sd_SNP_buf.resize(m);
-            for (j = 0; j < m; j++) sd_SNP_buf[j] = 1.0;
-        }
-    } else {
+    } 
+    else {
         if (grm_d_flag) std_XMat_d_mkl(_geno_mkl, sd_SNP, false, false);
         else std_XMat_mkl(_geno_mkl, sd_SNP, grm_xchr_flag, false, false);
-        if (wt_ld_flag) {
-            sd_SNP_buf = sd_SNP;
-            for (j = 0; j < m; j++) {
-                if (fabs(sd_SNP_buf[j]) < 1.0e-50) sd_SNP_buf[j] = 0.0;
-                else sd_SNP_buf[j] = sqrt(1.0 / sd_SNP_buf[j]);
-            }
-        }
     }
 
-    if (!mlmassoc) cout << "\nCalculating the" << ((wt_ld_flag) ? " LD-weighted" : "") << ((grm_d_flag) ? " dominance" : "") << " genetic relationship matrix (GRM)" << (grm_xchr_flag ? " for the X chromosome" : "") << (_dosage_flag ? " using imputed dosage data" : "") << " ... (Note: default speed-optimized mode, may use huge RAM)" << endl;
+    if (!mlmassoc) cout << "\nCalculating the" << ((grm_d_flag) ? " dominance" : "") << " genetic relationship matrix (GRM)" << (grm_xchr_flag ? " for the X chromosome" : "") << (_dosage_flag ? " using imputed dosage data" : "") << " ... (Note: default speed-optimized mode, may use huge RAM)" << endl;
     else cout << "\nCalculating the genetic relationship matrix (GRM) ... " << endl;
 
     // count the number of missing genotypes
@@ -216,29 +205,6 @@ void gcta::make_grm_mkl(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool o
         }
     }
 
-    // Weighting genotypes by LD mean rsq
-    eigenVector wt;
-    if (wt_ld_flag) {
-        //cout<<"Weighting the genotype based on LD ..."<<endl;
-        calcu_grm_wt_mkl(ld_wt_ld_file, _geno_mkl, sd_SNP_buf, wt, ld_wt_wind, ld_wt_rsq_cutoff, ld_wt_mtd, ttl_snp_num);
-    } else wt = eigenVector::Ones(m);
-
-    // Weighting genotypes by imputation accuracy
-    if (wt_impRsq_flag) {
-        cout << "\nWeighting SNP genotypes by imputation accuracy ... " << endl;
-#pragma omp parallel for
-        for (j = 0; j < m; j++) wt[j] *= sqrt(_impRsq[_include[j]]);
-    }
-
-    // Weighting
-    if (wt_ld_flag || wt_impRsq_flag) {
-#pragma omp parallel for private(j)
-        for (i = 0; i < n; i++) {
-            for (j = 0; j < m; j++) _geno_mkl[i * m + j] *= wt[j];
-        }
-        cout << "Calculating the GRM ..." << endl;
-    }
-
     // Calculate A_N matrix
     _grm_N.resize(n, n);
     #pragma omp parallel for private(j, k)
@@ -251,32 +217,23 @@ void gcta::make_grm_mkl(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool o
     }
 
     // Calculate sum of LD weights
-    long double sum_wt = 0.0, d_m = (double) m;
-    if (grm_mtd == 0) {
-        if (wt_ld_flag || wt_impRsq_flag) {
-            for (j = 0; j < m; j++) sum_wt += wt[j] * wt[j];
-        } else sum_wt = d_m;
-    } else if (grm_mtd == 1) {
-        if (wt_ld_flag || wt_impRsq_flag) {
-            for (j = 0; j < m; j++) sum_wt += sd_SNP[j] * wt[j] * wt[j];
-        } else {
-            for (j = 0; j < m; j++) sum_wt += sd_SNP[j];
-        }
+    if (grm_mtd == 1) {
+        double denominator = 0.0;
+        for (j = 0; j < m; j++) denominator += sd_SNP[j];
+        denominator = denominator / (double)m; 
+        #pragma omp parallel for private(j, k)
+        for (i = 0; i < n; i++) {
+            for (j = 0; j <= i; j++) _grm_N(i,j) = _grm_N(i,j) * denominator;
+        }    
     }
-    if (CommFunc::FloatEqual(sum_wt, 0.0)) throw ("Error: the sum of the weights is zero!");
-
-#pragma omp parallel for private(j, k)
-    for (i = 0; i < n; i++) {
-        for (j = 0; j <= i; j++) _grm_N(i,j) = _grm_N(i,j) * sum_wt / d_m;
-    }
-
+    
     // Calcuate WW'
     _grm_mkl = new float[n * n]; // alloc memory to A
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans, n, n, m, 1.0, _geno_mkl, m, _geno_mkl, m, 0.0, _grm_mkl, n);
 
     // re-calcuate the diagonals (Fhat3+1)
     if (diag_f3_flag) {
-#pragma omp parallel for private(j,k,l)
+        #pragma omp parallel for private(j,k,l)
         for (i = 0; i < n; i++) {
             l = i * n + i;
             _grm_mkl[l] = 0.0;
@@ -288,7 +245,7 @@ void gcta::make_grm_mkl(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool o
     }
 
     // Calculate A matrix
-#pragma omp parallel for private(j)
+    #pragma omp parallel for private(j)
     for (i = 0; i < n; i++) {
         for (j = 0; j <= i; j++) {
             if (_grm_N(i,j) > 0.0) _grm_mkl[i * n + j] /= _grm_N(i,j);
@@ -297,7 +254,7 @@ void gcta::make_grm_mkl(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool o
     }
 
     if (inbred) {
-#pragma omp parallel for private(j)
+        #pragma omp parallel for private(j)
         for (i = 0; i < n; i++) {
             for (j = 0; j <= i; j++) _grm_mkl[i * n + j] *= 0.5;
         }
@@ -308,7 +265,7 @@ void gcta::make_grm_mkl(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool o
             if (fabs(sd_SNP[j]) < 1.0e-50) sd_SNP[j] = 0.0;
             else sd_SNP[j] = 1.0 / sd_SNP[j];
         }
-#pragma omp parallel for private(j, k)
+        #pragma omp parallel for private(j, k)
         for (i = 0; i < n; i++) {
             for (j = 0; j < m; j++) {
                 k = i * m + j;
@@ -380,7 +337,6 @@ void gcta::output_grm_mkl(float* A, bool output_grm_bin)
     Fam.close();
     cout << "IDs for the GRM file [" + grm_file + "] have been saved in the file [" + famfile + "]." << endl;
 }
-
 
 ///////////
 // reml
@@ -787,188 +743,5 @@ void gcta::calcu_ld_blk_split_mkl(int size, int size_limit, float *X_sub, vector
         }
     }
 }
-
-////////////////////
-// LD weighting approach
-void gcta::calcu_grm_wt_mkl(string i_ld_file, float *X, vector<double> &sd_SNP, eigenVector &wt, int wind_size, double rsq_cutoff, int wt_mtd, int ttl_snp_num)
-{
-    unsigned long i = 0, j = 0, k = 0, l = 0, n = _keep.size(), m = _include.size();
-
-    // create frequency bin
-    vector<float> seq;
-    double x = 0.5;
-    seq.push_back(0.501);
-    for (i = 0; i < 100; i++) {
-        x = exp(log(x) - 0.1);
-        seq.insert(seq.begin(), x);
-    }
-    int seq_size = seq.size();
-
-    // assign SNPs to MAF bins
-    if (_mu.empty()) calcu_mu();
-    vector< vector<int> > maf_bin_pos;
-    vector<float> freq(m);
-    #pragma omp parallel for
-    for (i = 0; i < m; i++) {
-        freq[i] = 0.5 * _mu[_include[i]];
-        if (freq[i] > 0.5) freq[i] = 1.0 - freq[i];
-    }
-    maf_bin_pos.clear();
-    maf_bin_pos.resize(seq_size - 1);
-    for (j = 1; j < seq_size; j++) {
-        for (i = 0; i < m; i++) {
-            if (freq[i] >= seq[j - 1] && freq[i] < seq[j]) maf_bin_pos[j - 1].push_back(i);
-        }
-    }
-
-    vector<double> mrsq_mb;
-    wt = eigenVector::Zero(m);
-    eigenVector snp_num = eigenVector::Zero(m);
-    eigenVector max_rsq = eigenVector::Zero(m);
-    double mrsq_cutoff = 0.0;
-    // Read mean LD from file and calculate the mean LD in each MAF bin
-    if (!i_ld_file.empty()) read_mrsq_mb(i_ld_file, seq, mrsq_mb, wt, snp_num);
-    else {
-        // calcualte LD between SNPs
-        cout << "Calculating mean LD rsq (window size = at least " << wind_size / 1000 << "Kb in either direction; LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
-        calcu_ssx_sqrt_i_mkl(X, sd_SNP);
-        vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
-        get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, wind_size);
-        calcu_ld_blk_mkl(X, sd_SNP, brk_pnt1, brk_pnt3, wt, snp_num, max_rsq, false, rsq_cutoff);
-        if (brk_pnt2.size() > 1) calcu_ld_blk_mkl(X, sd_SNP, brk_pnt2, brk_pnt3, wt, max_rsq, snp_num, true, rsq_cutoff);
-
-        // debug
-        string o_meanld_file = _out + ".meanld";
-        ofstream omeanld(o_meanld_file.data());
-        for (i = 0; i < m; i++) {
-            omeanld << _snp_name[_include[i]] << "\t" << wt[i] << "\t" << snp_num[i] << endl;
-        }
-        omeanld << endl;
-
-        // adjust LD due to chance correlation
-        double n_r = 1.0 / n;
-        wt = wt.array() - n_r;
-        mrsq_cutoff = fabs(wt.minCoeff());
-        #pragma omp parallel for
-        for (i = 0; i < m; i++) {
-            if (snp_num[i] > 0) {
-                wt[i] += (1.0 - n_r) / snp_num[i];
-                snp_num[i]++;
-            }
-            else wt[i] = 0.0;
-        }
-        
-        // debug
-        cout<<"Mean rsq cutoff value: "<<mrsq_cutoff<<endl;
-
-        // MAF bin weighting
-        cout << "Calculating mean LD rsq in MAF bins ... " << endl;
-        mrsq_mb.resize(seq_size - 1);
-        for (i = 0; i < seq_size - 1; i++) {
-            if (maf_bin_pos[i].size() > 0) {
-                long double sum_snp_num = 0.0;
-                for (j = 0; j < maf_bin_pos[i].size(); j++) {
-                    k = maf_bin_pos[i][j];
-                    if (snp_num[k] > 0.0) {
-                        mrsq_mb[i] += wt[k] * snp_num[k];
-                        sum_snp_num += snp_num[k];
-                    }
-                }
-                if (sum_snp_num > 0.0) {
-                    mrsq_mb[i] /= sum_snp_num;
-                    cout << maf_bin_pos[i].size() << " SNPs with " << setprecision(4) << seq[i] << " <= MAF < " << seq[i + 1] << ", mean LD rsq = " << mrsq_mb[i] << endl;
-                }
-            }
-        }
-    }
-
-    int icount1 = 0, icount2 = 0;
-    for (i = 0; i < seq_size - 1; i++) {
-        if (maf_bin_pos[i].size() > 0 && mrsq_mb[i] > 0.0) {
-            #pragma omp parallel for private(k)
-            for (j = 0; j < maf_bin_pos[i].size(); j++) {
-                k = maf_bin_pos[i][j];
-                if (wt_mtd == 1) {
-                    if (wt[k] > mrsq_cutoff) wt[k] = mrsq_mb[i] / wt[k];
-                    else {
-                        wt[k] = 0.0;
-                        icount1++;
-                    }
-                    if (wt[k] > 100) {
-                        wt[k] = 0.0;
-                        icount2++;
-                    }
-                } else if (wt_mtd == 2) {
-                    if (wt[k] > mrsq_cutoff) wt[k] = 1.0 / (wt[k] * snp_num[k]);
-                    else {
-                        wt[k] = 0.0;
-                        icount1++;
-                    }
-                } 
-            }
-        }
-    }
-    if (icount1 > 0) cout << icount1 << " SNPs with mean LD less than expected by chance are excluded." << endl;
-    if (icount2 > 0) cout << icount2 << " SNPs with LD-weighting score > 100 are also excluded." << endl;
-
-    // debug
-    string wt_file = _out + ".wt";
-    ofstream owt(wt_file.data());
-    for (i = 0; i < m; i++) {
-        owt << _snp_name[_include[i]] << "\t" << wt[i] << endl;
-    }
-    owt << endl;
-
-    wt = wt.array().sqrt();
-
-    /*
-    // debug
-    string brk_pnt1_file=_out+".brkpnt1";
-    ofstream obrkpnt1(brkpnt1_file.data());
-    for(i=0; i<brk_pnt1.size() ;i++){
-        j=_include[brk_pnt1[i]];
-        obrkpnt1<<_snp_name[j]<<"\t"<<_chr[j]<<"\t"<<_bp[j]<<"\t"<<j<<endl;
-    }
-    obrkpnt1<<endl;
-    string brkpnt2_file=_out+".brkpnt2";
-    ofstream obrkpnt2(brkpnt2_file.data());
-    for(i=0; i<brk_pnt2.size() ;i++){
-        j=_include[brk_pnt2[i]];
-        obrkpnt2<<_snp_name[j]<<"\t"<<_chr[j]<<"\t"<<_bp[j]<<"\t"<<j<<endl;
-    }
-    obrkpnt2<<endl;
-    string brkpnt3_file=_out+".brkpnt3";
-    ofstream obrkpnt3(brkpnt3_file.data());
-    for(i=0; i<brk_pnt3.size() ;i++){
-        j=_include[brk_pnt3[i]];
-        obrkpnt3<<_snp_name[j]<<"\t"<<_chr[j]<<"\t"<<_bp[j]<<"\t"<<j<<endl;
-    }
-    obrkpnt3<<endl;
-    
-    cout<<"Calculating mean LD rsq (window size = "<<wind_size/1000<<"Kb; ignoring LD rsq < "<<rsq_cutoff<<") ... "<<endl;
-    calcu_ld_blk(X, sd_SNP, brk_pnt1, brk_pnt3, wt, snp_num, false, rsq_cutoff);
-    if(brk_pnt2.size()>1) calcu_ld_blk(X, sd_SNP, brk_pnt2, brk_pnt3, wt, snp_num, true, rsq_cutoff);
-    
-    // debug
-    string o_meanld_file=_out+".meanld";
-    ofstream omeanld(o_meanld_file.data());
-    for(i=0; i<m ;i++){
-        omeanld<<_snp_name[_include[i]]<<"\t"<<wt[i]<<"\t"<<snp_num[i]<<endl;
-    }
-    omeanld<<endl;
-    
-    wt_geno_ld_mb(i_ld_file, wt, snp_num, ttl_snp_num, wt_mtd);
-    //wt=wt.array()/wt.mean();
-    
-    // debug
-    string wt_file=_out+".wt";
-    ofstream owt(wt_file.data());
-    for(i=0; i<m ;i++){
-        owt<<_snp_name[_include[i]]<<"\t"<<wt[i]<<"\t"<<snp_num[i]<<endl;
-    }
-    owt<<endl;
-     */
-}
-
 
 

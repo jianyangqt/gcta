@@ -595,6 +595,54 @@ void gcta::ld_seg(string i_ld_file, int seg_size, int wind_size, double rsq_cuto
     for (i = 0; i < m; i++) o_lds << _snp_name[_include[i]] << " " << _chr[_include[i]] << " " << _bp[_include[i]] << " " << 0.5 * _mu[_include[i]] << " " << mrsq[i] << " " << snp_num[i] << " " << max_rsq[i] << " " << lds[i] << endl;
 }
 
+void gcta::get_lds_brkpnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, int ldwt_seg, int wind_snp_num)
+{
+    unsigned long i = 0, j = 0, k = 0, m = _include.size();
+
+    brk_pnt1.clear();
+    brk_pnt1.push_back(0);
+    bool chr_start = true;
+    int prev_length = 0;
+    for (i = 1, j = 0; i < m; i++) {
+        if (i == (m - 1)){
+            if(!chr_start && prev_length < 0.5 * wind_snp_num) brk_pnt1[j - 1] = brk_pnt1[j] = m - 1;
+            else brk_pnt1.push_back(m - 1);
+        }
+        else if (_chr[_include[i]] != _chr[_include[brk_pnt1[j]]]) {
+            if(!chr_start && prev_length < 0.5 * wind_snp_num){                
+                brk_pnt1[j - 1] = i - 1;
+                brk_pnt1[j] = i;
+            }
+            else{
+                brk_pnt1.push_back(i - 1);
+                j++;
+                brk_pnt1.push_back(i);
+                j++;
+            }
+            chr_start = true;
+        }
+        else if ((_bp[_include[i]] - _bp[_include[brk_pnt1[j]]] > ldwt_seg) && (i - brk_pnt1[j] > wind_snp_num)) {
+            prev_length  = i - brk_pnt1[j];
+            chr_start = false;
+            brk_pnt1.push_back(i - 1);
+            j++;
+            brk_pnt1.push_back(i);
+            j++;
+        }
+    }
+    stable_sort(brk_pnt1.begin(), brk_pnt1.end());
+    brk_pnt1.erase(unique(brk_pnt1.begin(), brk_pnt1.end()), brk_pnt1.end());
+
+    brk_pnt2.clear();
+    for (i = 1; i < brk_pnt1.size() && brk_pnt1.size() > 2; i++) {
+        if ((_chr[_include[brk_pnt1[i - 1]]] == _chr[_include[brk_pnt1[i]]]) && (brk_pnt1[i] - brk_pnt1[i - 1] > 1)) {
+            int i_buf = (brk_pnt1[i - 1] + brk_pnt1[i]) / 2;
+            brk_pnt2.push_back(i_buf);
+            brk_pnt2.push_back(i_buf + 1);
+        }
+    }
+}
+
 // calculate maximum LD rsq between SNPs
 void gcta::calcu_max_ld_rsq(int wind_size, double rsq_cutoff, bool dominance_flag)
 {

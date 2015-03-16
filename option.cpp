@@ -65,10 +65,10 @@ void option(int option_num, char* option_str[])
     double maf = 0.0, max_maf = 0.0, dose_Rsq_cutoff = 0.0;
 
     // GRM
-    bool ibc = false, ibc_all = false, grm_flag = false, grm_bin_flag = true, m_grm_flag = false, m_grm_bin_flag = true, make_grm_flag = false, make_grm_inbred_flag = false, dominance_flag = false, make_grm_xchar_flag = false, grm_out_bin_flag = true, make_grm_ldwt_flag = false, make_grm_wt_impRsq_flag = false, make_grm_f3_flag = false;
-    bool grm_pca_flag = false, pca_flag = false;
-    double grm_adj_fac = -2.0, grm_cutoff = -2.0, rm_high_ld_cutoff = -1.0, ldwt_seg = 2e5;
-    int dosage_compen = -2, out_pc_num = 20, make_grm_mtd = 0, make_grm_ldwt_mtd = -1, ttl_snp_num = -1;
+    bool ibc = false, ibc_all = false, grm_flag = false, grm_bin_flag = true, m_grm_flag = false, m_grm_bin_flag = true, make_grm_flag = false, make_grm_inbred_flag = false, dominance_flag = false, make_grm_xchar_flag = false, grm_out_bin_flag = true, make_grm_f3_flag = false;
+    bool pca_flag = false;
+    double grm_adj_fac = -2.0, grm_cutoff = -2.0, rm_high_ld_cutoff = -1.0;
+    int dosage_compen = -2, out_pc_num = 20, make_grm_mtd = 0;
     string grm_file = "", paa_file = "";
 
     // LD
@@ -340,25 +340,6 @@ void option(int option_num, char* option_str[])
             grm_out_bin_flag = true;
             thread_flag = true;
             cout << "--make-grm-f3" << endl;
-        } else if (strcmp(argv[i], "--make-grm-ld") == 0) {
-            make_grm_flag = true;
-            make_grm_ldwt_flag = true;
-            make_grm_ldwt_mtd = 0;
-            thread_flag = true;
-            i++;
-            if (strcmp(argv[i], "gcta") == 0 || strncmp(argv[i], "--", 2) == 0) {
-                ldwt_seg = 200;
-                i--;
-            } else ldwt_seg = atoi(argv[i]);
-            cout << "--make-grm-ld " << ldwt_seg << endl;
-            if (ldwt_seg < 0 || ldwt_seg > 20000) throw ("\nError: block size for --make-grm-ld should be between 0Kb to 20Mb.\n");
-            ldwt_seg *= 1000;
-        } else if (strcmp(argv[i], "--make-grm-ld-alg") == 0) {
-            make_grm_flag = true;
-            make_grm_ldwt_flag = true;
-            make_grm_ldwt_mtd = atoi(argv[++i]);
-            cout << "--make-grm-ld-alg " << make_grm_ldwt_mtd << endl;
-            if (make_grm_ldwt_mtd < 0 || make_grm_ldwt_mtd > 10) throw ("\nError: --make-grm-ld-alg should be 0 or 10.\n");
         } else if (strcmp(argv[i], "--make-grm-d") == 0 || strcmp(argv[i], "--make-grm-d-bin") == 0) {
             make_grm_flag = true;
             dominance_flag = true;
@@ -385,13 +366,6 @@ void option(int option_num, char* option_str[])
             grm_out_bin_flag = false;
             thread_flag = true;
             cout << "--make-grm-xchr-gz" << endl;
-        } else if (strcmp(argv[i], "--make-grm-wt-imp") == 0) {
-            make_grm_flag = true;
-            make_grm_wt_impRsq_flag = true;
-            update_impRsq_file = argv[++i];
-            thread_flag = true;
-            cout << "--make-grm-wt-imp " << update_impRsq_file << endl;
-            CommFunc::FileExist(update_impRsq_file);
         } else if (strcmp(argv[i], "--make-grm-inbred") == 0 || strcmp(argv[i], "--make-grm-inbred-bin") == 0) {
             make_grm_flag = true;
             make_grm_inbred_flag = true;
@@ -1021,10 +995,7 @@ void option(int option_num, char* option_str[])
             if (out_freq_flag) pter_gcta->save_freq(out_ssq_flag);
             else if (!paa_file.empty()) pter_gcta->paa(paa_file);
             else if (ibc) pter_gcta->ibc(ibc_all);
-            else if (make_grm_flag){
-                if(make_grm_ldwt_mtd == 3) pter_gcta->make_grm_pca(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, LD_wind, false);
-                else pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_ldwt_mtd, LD_file, LD_wind, ldwt_seg, LD_rsq_cutoff, make_grm_f3_flag);
-            }
+            else if (make_grm_flag) pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_f3_flag);
             else if (recode || recode_nomiss) pter_gcta->save_XMat(recode_nomiss);
             else if (LD) pter_gcta->LD_Blocks(LD_step, LD_wind, LD_sig, LD_i, save_ram);
             else if (LD_prune_rsq>-1.0) pter_gcta->LD_pruning_mkl(LD_prune_rsq, LD_wind);
@@ -1067,10 +1038,7 @@ void option(int option_num, char* option_str[])
         if (maf > 0.0) pter_gcta->filter_snp_maf(maf);
         if (max_maf > 0.0) pter_gcta->filter_snp_max_maf(max_maf);
         if (out_freq_flag) pter_gcta->save_freq(out_ssq_flag);
-        else if (make_grm_flag){
-            if(make_grm_ldwt_mtd == 3) pter_gcta->make_grm_pca(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, LD_wind, false);
-            else pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_ldwt_mtd, LD_file, LD_wind, ldwt_seg, LD_rsq_cutoff, make_grm_f3_flag);
-        }
+        else if (make_grm_flag) pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_f3_flag);
         else if (recode || recode_nomiss) pter_gcta->save_XMat(recode_nomiss);
         else if (LD_prune_rsq>-1.0) pter_gcta->LD_pruning_mkl(LD_prune_rsq, LD_wind);
         else if (ld_mean_rsq_flag) pter_gcta->calcu_mean_rsq(LD_wind, LD_rsq_cutoff, dominance_flag);
