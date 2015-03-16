@@ -209,36 +209,16 @@ void gcta::ibc(bool ibc_all)
 
 void gcta::Fst(string filename)
 {
-    cout<<"Reading sub-population information from ["+filename+"]."<<endl;
-    ifstream ifstream_subpopu(filename.c_str());
-	if(!ifstream_subpopu) throw("Error: can not open the file ["+filename+"] to read.");
-    
-    vector<string> ID;
-    vector< vector<string> > subpopu_buf;
-    read_fac(ifstream_subpopu, ID, subpopu_buf);
-    update_id_map_kp(ID, _id_map, _keep);
-    cout<<"Sub-population information for "<<_keep.size()<<" individuals matched to the genotype data."<<endl;
-    
-    int i=0, j=0;
-	map<string, int> uni_id_map;
-    map<string, int>::iterator iter;
-	for(i=0; i<_keep.size(); i++) uni_id_map.insert(pair<string,int>(_fid[_keep[i]]+":"+_pid[_keep[i]], i));
-    vector<string> subpopu(_keep.size());
-    for(i=0; i<ID.size(); i++){
-        iter=uni_id_map.find(ID[i]);
-        if(iter!=uni_id_map.end()) subpopu[iter->second]=subpopu_buf[i][0];
-    }
-    
-    vector<string> subpopu_name(subpopu);
-    stable_sort(subpopu_name.begin(), subpopu_name.end());
-	subpopu_name.erase(unique(subpopu_name.begin(), subpopu_name.end()), subpopu_name.end());
-    
+    vector<string> subpopu, subpopu_name;
+    read_subpopu(filename, subpopu, subpopu_name);
+   
     eigenMatrix S;
     coeff_mat(subpopu, S, "Error: too many subpopulations specified in the file ["+filename+"].", "Error: at least two sub-populations are required.");
     int r=subpopu_name.size();
     eigenVector x(_keep.size()), tmp, ni(r), xt_S, f_sub(r);//Fst(_include.size()),  f_all(_include.size()), chisq(_include.size()), pval=eigenVector::Constant(_include.size(), 1.0);
     if(_mu.empty()) calcu_mu();
     
+    int i = 0, j = 0;
     for(i=0; i<r; i++) ni[i]=S.col(i).sum();
     int n_mean=ni.mean();
     
@@ -272,3 +252,122 @@ void gcta::Fst(string filename)
     }
     ofile.close();
 }
+
+void gcta::read_subpopu(string filename, vector<string> &subpopu, vector<string> &subpopu_name)
+{
+    cout<<"Reading sub-population information from ["+filename+"]."<<endl;
+    ifstream ifstream_subpopu(filename.c_str());
+    if(!ifstream_subpopu) throw("Error: can not open the file ["+filename+"] to read.");
+    
+    vector<string> ID;
+    vector< vector<string> > subpopu_buf;
+    read_fac(ifstream_subpopu, ID, subpopu_buf);
+    update_id_map_kp(ID, _id_map, _keep);
+    cout<<"Sub-population information for "<<_keep.size()<<" individuals matched to the genotype data."<<endl;
+    
+    int i=0, j=0;
+    map<string, int> uni_id_map;
+    map<string, int>::iterator iter;
+    for(i=0; i<_keep.size(); i++) uni_id_map.insert(pair<string,int>(_fid[_keep[i]]+":"+_pid[_keep[i]], i));
+    subpopu.clear();
+    subpopu.resize(_keep.size());
+    for(i=0; i<ID.size(); i++){
+        iter=uni_id_map.find(ID[i]);
+        if(iter!=uni_id_map.end()) subpopu[iter->second]=subpopu_buf[i][0];
+    }
+    
+    subpopu_name.clear();
+    subpopu_name=subpopu;
+    stable_sort(subpopu_name.begin(), subpopu_name.end());
+    subpopu_name.erase(unique(subpopu_name.begin(), subpopu_name.end()), subpopu_name.end());
+ }
+
+ void gcta::std_XMat_subpopu(string subpopu_file, MatrixXf &X, eigenVector &sd_SNP, bool grm_xchr_flag, bool miss_with_mu, bool divid_by_std)
+{
+    vector<string> subpopu, subpopu_name;
+    read_subpopu(subpopu_file, subpopu, subpopu_name);
+   
+    eigenMatrix S;
+    coeff_mat(subpopu, S, "Error: too many subpopulations specified in the file ["+subpopu_file+"].", "Error: at least two sub-populations are required.");
+    int popu_num = subpopu_name.size();
+
+    if (_mu.empty()) calcu_mu();
+
+    unsigned long i = 0, j = 0, n = _keep.size(), m = _include.size();
+    sd_SNP.resize(m);
+    if (_dosage_flag) {
+        for (j = 0; j < m; j++)  sd_SNP[j] = (X.col(j) - VectorXf::Constant(n, _mu[_include[j]])).squaredNorm() / (n - 1.0);
+    } 
+    else {
+        for (j = 0; j < m; j++) sd_SNP[j] = _mu[_include[j]]*(1.0 - 0.5 * _mu[_include[j]]);
+    }
+    if (divid_by_std) {
+        for (j = 0; j < m; j++) {
+            if (fabs(sd_SNP[j]) < 1.0e-50) sd_SNP[j] = 0.0;
+            else sd_SNP[j] = sqrt(1.0 / sd_SNP[j]);
+        }
+    }
+
+    int popu = 0;
+    vector<eigenVector> sd_SNP_sub(popu_num), mu_SNP_sub(popu_num);
+    for(popu  = 0; popu < popu_num; popu++) {
+        (mu_SNP_sub[popu]).resize(m);
+        (sd_SNP_sub[popu]).resize(m);
+        #pragma omp parallel for private(i)
+        for (j = 0; j < m; j++){
+            double m_sub = 0.0;
+            (mu_SNP_sub[popu])(j) = 0.0;
+            for(i = 0; i < n; i++){
+                if(X(i,j) < 1e5 && S(i,popu)>0.0){
+                    m_sub += 1.0;
+                    (mu_SNP_sub[popu])(j) += X(i,j);
+                }
+            }
+            (mu_SNP_sub[popu])(j) /= m_sub;
+            if(divid_by_std){
+                if(_dosage_flag){
+                    (sd_SNP_sub[popu])(j) = 0.0;
+                    for(i = 0; i < n; i++){
+                        if(X(i,j) < 1e5 && S(i,popu)>0.0) (sd_SNP_sub[popu])(j) += (X(i,j) - (mu_SNP_sub[popu])(j)) * (X(i,j) - (mu_SNP_sub[popu])(j));
+                    }
+                    (sd_SNP_sub[popu])(j) /= (m_sub - 1.0);                    
+                }
+                else (sd_SNP_sub[popu])(j) = (mu_SNP_sub[popu])(j)*(1.0 - 0.5 * (mu_SNP_sub[popu])(j));
+                if ((sd_SNP_sub[popu])(j) < 1.0e-50) (sd_SNP_sub[popu])(j) = 0.0;
+                else (sd_SNP_sub[popu])(j) = 1.0 / sqrt((sd_SNP_sub[popu])(j));
+            }
+        }
+    }
+
+    for(popu  = 0; popu < popu_num; popu++) {
+        #pragma omp parallel for private(j)
+        for(i = 0; i < n; i++){
+            if(S(i,popu)>0.0){
+                for (j = 0; j < m; j++){
+                    if(X(i,j) < 1e5){
+                        X(i,j) -=  (mu_SNP_sub[popu])(j);
+                        if(divid_by_std) X(i,j) *= (sd_SNP_sub[popu])(j);
+                    }
+                    else if (miss_with_mu) X(i,j) = 0.0;
+                }
+            }
+        }
+    }
+
+    if (!grm_xchr_flag) return;
+
+    // for the X-chromosome
+    check_sex();
+    double f_buf = sqrt(0.5);
+
+    #pragma omp parallel for private(j)
+    for (i = 0; i < n; i++) {
+        if (_sex[_keep[i]] == 1) {
+            for (j = 0; j < m; j++) {
+                if (X(i,j) < 1e5) X(i,j) *= f_buf;
+                else if (miss_with_mu) X(i,j) = 0.0;
+            }
+        }
+    }
+}
+

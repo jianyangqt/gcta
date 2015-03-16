@@ -112,6 +112,7 @@ void option(int option_num, char* option_str[])
     bool mlma_flag = false, mlma_loco_flag = false, mlma_no_adj_covar = false;
 
     // Fst
+    bool fst_flag = false;
     string subpopu_file = "";
 
     // gene-based association test
@@ -779,8 +780,11 @@ void option(int option_num, char* option_str[])
             mlma_no_adj_covar = true;
             cout << "--mlma-no-adj-covar " << endl;
         } else if (strcmp(argv[i], "--fst") == 0) {
+            fst_flag = true;
+            cout << "--fst " << endl;
+        } else if (strcmp(argv[i], "--sub-popu") == 0) {
             subpopu_file = argv[++i];
-            cout << "--fst " << subpopu_file << endl;
+            cout << "--sub-popu " << subpopu_file << endl;
             CommFunc::FileExist(subpopu_file);
         } else if (strcmp(argv[i], "--sbat") == 0) {
             sbat_sAssoc_file = argv[++i];
@@ -995,7 +999,7 @@ void option(int option_num, char* option_str[])
             if (out_freq_flag) pter_gcta->save_freq(out_ssq_flag);
             else if (!paa_file.empty()) pter_gcta->paa(paa_file);
             else if (ibc) pter_gcta->ibc(ibc_all);
-            else if (make_grm_flag) pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_f3_flag);
+            else if (make_grm_flag) pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_f3_flag, subpopu_file);
             else if (recode || recode_nomiss) pter_gcta->save_XMat(recode_nomiss);
             else if (LD) pter_gcta->LD_Blocks(LD_step, LD_wind, LD_sig, LD_i, save_ram);
             else if (LD_prune_rsq>-1.0) pter_gcta->LD_pruning_mkl(LD_prune_rsq, LD_wind);
@@ -1010,7 +1014,7 @@ void option(int option_num, char* option_str[])
             else if (massoc_sblup_flag) pter_gcta->run_massoc_sblup(massoc_file, massoc_wind, massoc_sblup_fac);
             else if (simu_qt_flag || simu_cc) pter_gcta->GWAS_simu(bfile, simu_rep, simu_causal, simu_case_num, simu_control_num, simu_h2, simu_K, simu_seed, simu_output_causal, simu_emb_flag);
             else if (make_bed_flag) pter_gcta->save_plink();
-            else if (!subpopu_file.empty()) pter_gcta->Fst(subpopu_file);
+            else if (fst_flag) pter_gcta->Fst(subpopu_file);
             else if (!sbat_sAssoc_file.empty()){
                 if(!sbat_gAnno_file.empty()) pter_gcta->sbat_gene(sbat_sAssoc_file, sbat_gAnno_file, sbat_wind);
                 else if(!sbat_snpset_file.empty()) pter_gcta->sbat(sbat_sAssoc_file, sbat_snpset_file);
@@ -1038,7 +1042,7 @@ void option(int option_num, char* option_str[])
         if (maf > 0.0) pter_gcta->filter_snp_maf(maf);
         if (max_maf > 0.0) pter_gcta->filter_snp_max_maf(max_maf);
         if (out_freq_flag) pter_gcta->save_freq(out_ssq_flag);
-        else if (make_grm_flag) pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_f3_flag);
+        else if (make_grm_flag) pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_f3_flag, subpopu_file);
         else if (recode || recode_nomiss) pter_gcta->save_XMat(recode_nomiss);
         else if (LD_prune_rsq>-1.0) pter_gcta->LD_pruning_mkl(LD_prune_rsq, LD_wind);
         else if (ld_mean_rsq_flag) pter_gcta->calcu_mean_rsq(LD_wind, LD_rsq_cutoff, dominance_flag);
@@ -1047,7 +1051,7 @@ void option(int option_num, char* option_str[])
         else if (massoc_sblup_flag) pter_gcta->run_massoc_sblup(massoc_file, massoc_wind, massoc_sblup_fac);
         else if (simu_qt_flag || simu_cc) pter_gcta->GWAS_simu(bfile, simu_rep, simu_causal, simu_case_num, simu_control_num, simu_h2, simu_K, simu_seed, simu_output_causal, simu_emb_flag);
         else if (make_bed_flag) pter_gcta->save_plink();
-        else if (!subpopu_file.empty()) pter_gcta->Fst(subpopu_file);
+        else if (fst_flag) pter_gcta->Fst(subpopu_file);
         else if (mlma_flag) pter_gcta->mlma(grm_file, phen_file, qcovar_file, covar_file, mphen, MaxIter, reml_priors, reml_priors_var, no_constrain, within_family, make_grm_inbred_flag, mlma_no_adj_covar);
         else if (mlma_loco_flag) pter_gcta->mlma_loco(phen_file, qcovar_file, covar_file, mphen, MaxIter, reml_priors, reml_priors_var, no_constrain, make_grm_inbred_flag, mlma_no_adj_covar);
     } else if (HE_reg_flag) pter_gcta->HE_reg(grm_file, phen_file, kp_indi_file, rm_indi_file, mphen);

@@ -34,7 +34,7 @@ void gcta::check_sex() {
     }
 }
 
-void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, bool mlmassoc, bool diag_f3_flag)
+void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, bool mlmassoc, bool diag_f3_flag, string subpopu_file)
 {
     bool have_mis = false;
 
@@ -48,7 +48,10 @@ void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool outpu
     eigenVector sd_SNP;
     if (grm_mtd == 0) {
         if (grm_d_flag) std_XMat_d(_geno, sd_SNP, false, true);
-        else std_XMat(_geno, sd_SNP, grm_xchr_flag, false, true);
+        else{
+            if(subpopu_file.empty()) std_XMat(_geno, sd_SNP, grm_xchr_flag, false, true);
+            else std_XMat_subpopu(subpopu_file, _geno, sd_SNP, grm_xchr_flag, false, true);
+        }
     } 
     else {
         if (grm_d_flag) std_XMat_d(_geno, sd_SNP, false, false);

@@ -1222,7 +1222,7 @@ void gcta::calcu_mu(bool ssq_flag) {
     _mu.clear();
     _mu.resize(_snp_num);
 
-#pragma omp parallel for
+    #pragma omp parallel for
     for (j = 0; j < _include.size(); j++) {
         if (_chr[_include[j]]<(_autosome_num + 1)) mu_func(j, auto_fac);
         else if (_chr[_include[j]] == (_autosome_num + 1)) mu_func(j, xfac);
