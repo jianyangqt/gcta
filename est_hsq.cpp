@@ -176,7 +176,8 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
         read_grm(grm_file, grm_id, true, false, !(adj_grm_fac > -1.0));
         update_id_map_kp(grm_id, _id_map, _keep);
         grm_files.push_back(grm_file);
-    } else if (m_grm_flag) {
+    } 
+    else if (m_grm_flag) {
         read_grm_filenames(grm_file, grm_files, false);
         for (i = 0; i < grm_files.size(); i++) {
             read_grm(grm_files[i], grm_id, false, true, !(adj_grm_fac > -1.0));
@@ -255,14 +256,14 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
         else kp = _keep;
         (_A[0]) = eigenMatrix::Zero(_n, _n);
 
-#pragma omp parallel for private(j)
+        #pragma omp parallel for private(j)
         for (i = 0; i < _n; i++) {
             for (j = 0; j <= i; j++) (_A[0])(j, i) = (_A[0])(i, j) = _grm(kp[i], kp[j]);
         }
         if (_reml_diag_one) {
             double diag_mean = (_A[0]).diagonal().mean();
             cout << "Mean of diagonal elements of the GRM = " << diag_mean << endl;
-#pragma omp parallel for private(j)
+            #pragma omp parallel for private(j)
             for (i = 0; i < _n; i++) {
                 for (j = 0; j <= i; j++) {
                     (_A[0])(i, j) /= (_A[0])(i, i);
@@ -289,7 +290,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
             StrFunc::match(uni_id, grm_id, kp);
             (_A[pos]) = eigenMatrix::Zero(_n, _n);
 
-#pragma omp parallel for private(j)
+            #pragma omp parallel for private(j)
             for (j = 0; j < _n; j++) {
                 for (k = 0; k <= j; k++) {
                     if (kp[j] >= kp[k]) (_A[pos])(k, j) = (_A[pos])(j, k) = _grm(kp[j], kp[k]);
@@ -300,7 +301,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
             if (_reml_diag_one) {
                 double diag_mean = (_A[pos]).diagonal().mean();
                 cout << "Mean of diagonal elements of the GRM = " << diag_mean << endl;
-#pragma omp parallel for private(j)
+                #pragma omp parallel for private(j)
                 for (j = 0; j < _n; j++) {
                     //(_A[pos])(j,j)=diag_mean;
                     for (k = 0; k <= j; k++) {
