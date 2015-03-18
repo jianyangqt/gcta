@@ -32,13 +32,14 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
     vector< vector<string> > phen_buf, qcovar, covar; // save individuals by column
 
     if (grm_flag) {
-        read_grm(grm_file, grm_id);
+        read_grm(grm_file, grm_id, true, false, !(adj_grm_fac > -1.0));
         update_id_map_kp(grm_id, _id_map, _keep);
         grm_files.push_back(grm_file);
-    } else if (m_grm_flag) {
+    }
+    else if (m_grm_flag) {
         read_grm_filenames(grm_file, grm_files, false);
         for (i = 0; i < grm_files.size(); i++) {
-            read_grm(grm_files[i], grm_id, false, true);
+            read_grm(grm_files[i], grm_id, false, true, !(adj_grm_fac > -1.0));
             update_id_map_kp(grm_id, _id_map, _keep);
         }
     }
@@ -172,7 +173,8 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
 
         for (j = 0; j < pos; j++) (_Asp[j]).finalize();
         _grm.resize(0, 0);
-    } else if (m_grm_flag) {
+    } 
+    else if (m_grm_flag) {
         if (!sex_file.empty()) update_sex(sex_file);
         for (i = 0; i < 3 * grm_files.size() + 3 - ignore_Ce; i++) _r_indx.push_back(i);
         _Asp.resize(_r_indx.size());
@@ -184,7 +186,7 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
         vector<int> kp;
         for (k = 0; k < grm_files.size(); k++) {
             cout << "Reading the GRM from the " << k + 1 << "th file ..." << endl;
-            read_grm(grm_files[k], grm_id);
+            read_grm(grm_files[k], grm_id, true, false, !(adj_grm_fac > -1.0));
             if (adj_grm_fac>-1.0) adj_grm(adj_grm_fac);
             if (dosage_compen>-1) dc(dosage_compen);
             StrFunc::match(uni_id, grm_id, kp);
