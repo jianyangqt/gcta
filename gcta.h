@@ -212,7 +212,7 @@ private:
     void rm_cor_indi(double grm_cutoff);
     void adj_grm(double adj_grm_fac);
     void dc(int dosage_compen);
-    void manipulate_grm(string grm_file, string keep_indi_file, string remove_indi_file, string sex_file, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool merge_grm_flag);
+    void manipulate_grm(string grm_file, string keep_indi_file, string remove_indi_file, string sex_file, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool merge_grm_flag, bool dont_read_N = false);
     void output_grm_vec(vector< vector<float> > &A, vector< vector<int> > &A_N, bool output_grm_bin);
     void output_grm(bool output_grm_bin);
 

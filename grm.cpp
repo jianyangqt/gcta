@@ -472,13 +472,13 @@ void gcta::dc(int dosage_compen) {
     }
 }
 
-void gcta::manipulate_grm(string grm_file, string keep_indi_file, string remove_indi_file, string sex_file, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool merge_grm_flag)
+void gcta::manipulate_grm(string grm_file, string keep_indi_file, string remove_indi_file, string sex_file, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool merge_grm_flag, bool dont_read_N)
 {
     int i = 0, j = 0;
 
     vector<string> grm_id;
     if (merge_grm_flag) merge_grm(grm_file);
-    else read_grm(grm_file, grm_id);
+    else read_grm(grm_file, grm_id, true, false, dont_read_N);
 
     if (!keep_indi_file.empty()) keep_indi(keep_indi_file);
     if (!remove_indi_file.empty()) remove_indi(remove_indi_file);
@@ -507,8 +507,9 @@ void gcta::save_grm(string grm_file, string keep_indi_file, string remove_indi_f
     output_grm(output_grm_bin);
 }
 
-void gcta::pca(string grm_file, string keep_indi_file, string remove_indi_file, double grm_cutoff, bool merge_grm_flag, int out_pc_num) {
-    manipulate_grm(grm_file, keep_indi_file, remove_indi_file, "", grm_cutoff, -2.0, -2, merge_grm_flag);
+void gcta::pca(string grm_file, string keep_indi_file, string remove_indi_file, double grm_cutoff, bool merge_grm_flag, int out_pc_num)
+{
+    manipulate_grm(grm_file, keep_indi_file, remove_indi_file, "", grm_cutoff, -2.0, -2, merge_grm_flag, true);
     _grm_N.resize(0, 0);
     int i = 0, j = 0, n = _keep.size();
     cout << "\nPerforming principal component analysis ..." << endl;
