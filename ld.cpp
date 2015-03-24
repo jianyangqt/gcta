@@ -297,7 +297,7 @@ void gcta::calcu_ssx_sqrt_i(eigenVector &ssx_sqrt_i)
     ssx_sqrt_i.resize(m);
     for (i = 0; i < m; i++){
         ssx_sqrt_i[i] = _geno.col(i).squaredNorm();
-        if (ssx_sqrt_i[i] < 1.0e-50) ssx_sqrt_i[i] = 0.0;
+        if (ssx_sqrt_i[i] < 1.0e-30) ssx_sqrt_i[i] = 0.0;
         else ssx_sqrt_i[i] = 1.0 / sqrt(ssx_sqrt_i[i]);
     }
 }
@@ -387,7 +387,7 @@ void gcta::calcu_ld_blk(vector<int> &brk_pnt, vector<int> &brk_pnt3, eigenVector
         eigenVector ssx_sqrt_i_sub(size);
         for (j = 0; j < size; j++){
             ssx_sqrt_i_sub[j] = X_sub.col(j).squaredNorm();
-            if (ssx_sqrt_i_sub[j] < 1.0e-50) ssx_sqrt_i_sub[j] = 0.0;
+            if (ssx_sqrt_i_sub[j] < 1.0e-30) ssx_sqrt_i_sub[j] = 0.0;
             else ssx_sqrt_i_sub[j] = 1.0 / sqrt(ssx_sqrt_i_sub[j]);
         }
 
@@ -729,7 +729,7 @@ void gcta::calcu_max_ld_rsq_blk(eigenVector &multi_rsq, eigenVector &multi_rsq_a
         eigenVector ssx_sqrt_i_sub(size);
         for (j = 0; j < size; j++){
             ssx_sqrt_i_sub[j] = X_sub.col(j).squaredNorm();
-            if (ssx_sqrt_i_sub[j] < 1.0e-50) ssx_sqrt_i_sub[j] = 0.0;
+            if (ssx_sqrt_i_sub[j] < 1.0e-30) ssx_sqrt_i_sub[j] = 0.0;
             else ssx_sqrt_i_sub[j] = 1.0 / sqrt(ssx_sqrt_i_sub[j]);
         }
 

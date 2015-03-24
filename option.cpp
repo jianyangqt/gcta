@@ -453,7 +453,7 @@ void option(int option_num, char* option_str[])
             thread_flag = true;
             i++;
             if (strcmp(argv[i], "gcta") == 0 || strncmp(argv[i], "--", 2) == 0) {
-                LD_seg = 1e5;
+                LD_seg = 200;
                 i--;
             } else LD_seg = atoi(argv[i]);
             cout << "--ld-mean-rsq-region" << endl;

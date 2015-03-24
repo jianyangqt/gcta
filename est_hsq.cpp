@@ -1453,11 +1453,16 @@ void gcta::HE_reg(string grm_file, string phen_file, string keep_indi_file, stri
            }
        }*/
 
+    // normalise phenotype
+    cout << "Standardising the phenotype ..." << endl; 
+    eigenVector y = _y.array() - _y.mean();
+    y = y.array() / sqrt(y.squaredNorm() / (_n - 1.0));
+
     vector<double> y_cp(n), y_sd(n), x(n), rst;
     for (i = 0, k = 0; i < _n; i++) {
         for (j = 0; j < i; j++, k++) {
-            y_sd[k] = (_y[i] - _y[j])*(_y[i] - _y[j]);
-            y_cp[k] = _y[i]*_y[j];
+            y_sd[k] = (y[i] - y[j])*(y[i] - y[j]);
+            y_cp[k] = y[i]*y[j];
             x[k] = _grm(i, j);
         }
     }
@@ -1469,11 +1474,12 @@ void gcta::HE_reg(string grm_file, string phen_file, string keep_indi_file, stri
     ss << "Coefficient\tEstimate\tSE\tP\n";
     ss << "Intercept\t" << reg_sum_sd.row(0) << endl;
     ss << "Slope\t" << reg_sum_sd.row(1) << endl;
-    //ss << "V(G)/Vp\t" << -1 * reg_sum(1, 0) / reg_sum(0.0) << "\t" << reg_sum(1, 1) / fabs(reg_sum(0.0)) << endl;
+    ss << "V(G)/Vp\t" << -1 * reg_sum_sd(1, 0) / reg_sum_sd(0.0) << "\t" << reg_sum_sd(1, 1) / fabs(reg_sum_sd(0.0)) << endl;
     ss << "\nHE-CP" << endl;
     ss << "Coefficient\tEstimate\tSE\tP\n";
     ss << "Intercept\t" << reg_sum_cp.row(0) << endl;
     ss << "Slope\t" << reg_sum_cp.row(1) << endl;
+    ss << "V(G)/Vp\t" << reg_sum_cp(1, 0) << "\t" << reg_sum_cp(1, 1) << endl;
 
     cout << ss.str() << endl;
     string ofile = _out + ".HEreg";
