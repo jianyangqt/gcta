@@ -272,7 +272,7 @@ void gcta::calcu_mean_rsq(int wind_size, double rsq_cutoff, bool dominance_flag)
 
     int i = 0, m = _include.size();
 
-    cout << "Calculating mean LD rsq between SNPs (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between blocks); LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
+    cout << "Calculating LD score between SNPs (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between blocks); LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
     if(dominance_flag) cout<<"(SNP genotypes are coded for dominance effects)"<<endl;
     vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
     get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, wind_size);
@@ -487,6 +487,243 @@ void gcta::calcu_ld_blk_split(int size, int size_limit, MatrixXf &X_sub, eigenVe
     }
 }
 
+void gcta::calcu_mean_rsq_multiSet(string snpset_filenames_file, int wind_size, double rsq_cutoff, bool dominance_flag)
+{
+    check_autosome();
+    int i = 0,  j = 0, m = _include.size();
+
+    ifstream in_snpset_filenames(snpset_filenames_file.c_str());
+    if (!in_snpset_filenames) throw ("Error: can not open the file [" + snpset_filenames_file + "] to read.");
+    string str_buf;
+    vector<string> snpset_filenaems, vs_buf;
+    while (getline(in_snpset_filenames, str_buf)) {
+        if (!str_buf.empty()) {
+            if (StrFunc::split_string(str_buf, vs_buf) == 1) snpset_filenaems.push_back(vs_buf[0]);
+        }
+    }
+    in_snpset_filenames.close();
+
+    int set_num = snpset_filenaems.size();
+    cout << "There are " << set_num << " filenames specified in [" + snpset_filenames_file + "]." << endl;
+    if (set_num < 1) throw ("Error: no filename found in [" + snpset_filenames_file + "].");
+
+    vector< vector<string> > snplist(set_num);
+    for(i = 0; i < set_num; i++) {
+        ifstream i_snplist(snpset_filenaems[i].c_str());
+        if (!i_snplist) throw ("Error: can not open the file [" + snpset_filenaems[i] + "] to read.");
+        cout << "Reading the list of SNPs from [" + snpset_filenaems[i] + "]." << endl;
+        while (i_snplist >> str_buf) {
+            snplist[i].push_back(str_buf);
+            getline(i_snplist, str_buf);
+        }
+        i_snplist.close();
+    }
+    vector< vector<bool> > set_flag(set_num);
+    for(i = 0; i < set_num; i++){
+        set_flag[i].resize(m);
+        for(j = 0; j < m; j++) set_flag[i][j] = false;
+    }
+
+    map<string, int> snp_map;
+    for (i = 0; i < m; i++) snp_map.insert(pair<string, int>(_snp_name[_include[i]], i));
+    map<string, int>::iterator iter, end = snp_map.end();
+    for(i = 0; i < set_num; i++){
+        int snp_count = 0;
+        for(j = 0; j < snplist[i].size(); j++){
+            iter = snp_map.find(snplist[i][j]);
+            if(iter == end) continue;
+            set_flag[i][iter->second] = true;
+            snp_count++;
+        }
+        cout << snp_count << " SNPs included from [" << snpset_filenaems[i] << "]. " <<endl;
+    }
+
+    cout << "Calculating LD score between SNPs (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between blocks); LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
+    if(dominance_flag) cout<<"(SNP genotypes are coded for dominance effects)"<<endl;
+    vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
+    get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, wind_size);
+
+    vector<eigenVector> mean_rsq(set_num), snp_num(set_num), max_rsq(set_num);
+    for(i = 0; i < set_num; i++){
+        mean_rsq[i] = eigenVector::Zero(m);
+        snp_num[i] = eigenVector::Zero(m);
+        max_rsq[i] = eigenVector::Zero(m);
+    }
+    calcu_ld_blk_multiSet(brk_pnt1, brk_pnt3, set_flag, mean_rsq, snp_num, max_rsq, false, rsq_cutoff, dominance_flag);
+    if (brk_pnt2.size() > 1) calcu_ld_blk_multiSet(brk_pnt2, brk_pnt3, set_flag, mean_rsq, snp_num, max_rsq, true, rsq_cutoff, dominance_flag);
+
+    string mrsq_file = "";
+    if(dominance_flag) mrsq_file = _out + ".d.mrsq.set.ld";
+    else mrsq_file = _out + ".mrsq.ld";
+    ofstream o_mrsq(mrsq_file.data());
+    o_mrsq<<"SNP chr bp freq";
+    for(j = 0; j < set_num; j++) o_mrsq << " mean_rsq_" << j+1 << " snp_num_" << j+1 << " max_rsq" << j+1;
+    o_mrsq << endl;
+    for (i = 0; i < m; i++){
+        o_mrsq << _snp_name[_include[i]] << " " << _chr[_include[i]] << " " << _bp[_include[i]] << " " << 0.5 * _mu[_include[i]];
+        for(j = 0; j < set_num; j++) o_mrsq << " " << (mean_rsq[j])[i] << " " << (snp_num[j])[i] << " " << (max_rsq[j])[i];
+        o_mrsq << endl;
+    }
+    o_mrsq << endl;
+    cout << "Mean and maximum LD rsq for " << m << " SNPs have been saved in the file [" + mrsq_file + "]." << endl;
+}
+
+void gcta::calcu_ld_blk_multiSet(vector<int> &brk_pnt, vector<int> &brk_pnt3, vector< vector<bool> > &set_flag, vector<eigenVector> &mean_rsq, vector<eigenVector> &snp_num, vector<eigenVector> &max_rsq, bool second, double rsq_cutoff, bool dominance_flag)
+{
+    int i = 0, j = 0, k = 0, l = 0, s1 = 0, s2 = 0, n = _keep.size(), m = _include.size(), size = 0, size_limit = 10000;
+    int s = 0, set_num = set_flag.size();
+
+    for (i = 0; i < brk_pnt.size() - 1; i++) {
+        if (_chr[_include[brk_pnt[i]]] != _chr[_include[brk_pnt[i + 1]]]) continue;
+        size = brk_pnt[i + 1] - brk_pnt[i] + 1;
+        if (size < 3) continue;
+
+        // debug
+        cout << "size = " << size <<endl;
+
+        if (second) {
+            s1 = brk_pnt3[i] - brk_pnt[i];
+            s2 = s1 + 1;
+        }
+        else {
+            s1 = 0;
+            s2 = size - 1;
+        }
+
+        vector<int> snp_indx(size);
+        for (j = brk_pnt[i], k = 0; j <= brk_pnt[i + 1]; j++, k++) snp_indx[k] = j;
+        MatrixXf X_sub;
+        if(dominance_flag) make_XMat_d_subset(X_sub, snp_indx, true);
+        else make_XMat_subset(X_sub, snp_indx, true);
+        eigenVector ssx_sqrt_i_sub(size);
+        for (j = 0; j < size; j++){
+            ssx_sqrt_i_sub[j] = X_sub.col(j).squaredNorm();
+            if (ssx_sqrt_i_sub[j] < 1.0e-30) ssx_sqrt_i_sub[j] = 0.0;
+            else ssx_sqrt_i_sub[j] = 1.0 / sqrt(ssx_sqrt_i_sub[j]);
+        }
+
+        for(s = 0; s < set_num; s++){
+            vector<int> used_in_this_set;
+            vector<bool> set_flag_sub(size);
+             for (j = 0, k = brk_pnt[i]; j < size; j++, k++){
+                if(set_flag[s][k] == true){
+                    used_in_this_set.push_back(j);
+                    set_flag_sub[j] = true;
+                }
+                else set_flag_sub[j] = false;
+             }
+
+            int size_of_this_set = used_in_this_set.size();
+            if(size_of_this_set < 1) continue;
+
+            MatrixXf X_sub2(n, size_of_this_set);
+            for(j = 0; j < size_of_this_set; j++) X_sub2.col(j) = X_sub.col(used_in_this_set[j]);
+            
+            eigenVector rsq_size = eigenVector::Zero(size);
+            eigenVector mean_rsq_sub = eigenVector::Zero(size);
+            eigenVector max_rsq_sub = eigenVector::Constant(size, -1.0);
+
+            if (size > size_limit) calcu_ld_blk_split_multiSet(size, size_limit, X_sub, X_sub2, used_in_this_set, ssx_sqrt_i_sub, rsq_cutoff, rsq_size, mean_rsq_sub, max_rsq_sub, s1, s2, second);
+            else {
+                MatrixXf rsq_sub = X_sub.transpose() * X_sub2;
+
+                #pragma omp parallel for private(k,l)
+                for (j = 0; j < size; j++) {
+                    rsq_size[j] = 0.0;
+                    mean_rsq_sub[j] = 0.0;
+                    for (k = 0; k < size_of_this_set; k++) {
+                        l = used_in_this_set[k];
+                        if (second) {
+                            if (j <= s1 && l <= s1) continue;
+                            if (j >= s2 && l >= s2) continue;
+                        }
+                        if (l == j) continue;
+                        rsq_sub(j,k) *= (ssx_sqrt_i_sub[j] * ssx_sqrt_i_sub[l]);
+                        rsq_sub(j,k) = rsq_sub(j,k) * rsq_sub(j,k);
+                        if (rsq_sub(j,k) >= rsq_cutoff) {
+                            mean_rsq_sub[j] += rsq_sub(j,k);
+                            rsq_size[j] += 1.0;
+                        }
+                        if (rsq_sub(j,k) > max_rsq_sub[j]) max_rsq_sub[j] = rsq_sub(j,k);
+                    }
+                    if (rsq_size[j] > 0.0) mean_rsq_sub[j] /= rsq_size[j];
+                }
+            }
+            for (j = 0, k = brk_pnt[i]; j < size; j++, k++) {
+                if (second) {
+                    if (rsq_size[j] > 0.0) {
+                        (mean_rsq[s])[k] = ((mean_rsq[s])[k] * (snp_num[s])[k] + mean_rsq_sub[j] * rsq_size[j]) / ((snp_num[s])[k] + rsq_size[j]);
+                        (snp_num[s])[k] = ((snp_num[s])[k] + rsq_size[j]);
+                        if((max_rsq[s])[k] < max_rsq_sub[j]) (max_rsq[s])[k] = max_rsq_sub[j];
+                    }
+                }
+                else {
+                    (mean_rsq[s])[k] = mean_rsq_sub[j];
+                    (snp_num[s])[k] = rsq_size[j];
+                    (max_rsq[s])[k] = max_rsq_sub[j];
+                }
+            }
+        }
+    }
+}
+
+void gcta::calcu_ld_blk_split_multiSet(int size, int size_limit, MatrixXf &X_sub, MatrixXf &X_sub2, vector<int> &used_in_this_set, eigenVector &ssx_sqrt_i_sub, double rsq_cutoff, eigenVector &rsq_size, eigenVector &mean_rsq_sub, eigenVector &max_rsq_sub, int s1, int s2, bool second)
+{
+    int i = 0, j = 0, k = 0, l = 0, m = 0, n = _keep.size();
+    vector<int> brk_pnt_sub;
+    brk_pnt_sub.push_back(0);
+    for (i = size_limit; i < size - size_limit; i += size_limit) {
+        brk_pnt_sub.push_back(i - 1);
+        brk_pnt_sub.push_back(i);
+        j = i;
+    }
+    j = (size - j) / 2 + j;
+    brk_pnt_sub.push_back(j - 1);
+    brk_pnt_sub.push_back(j);
+    brk_pnt_sub.push_back(size - 1);
+
+    for (i = 0; i < brk_pnt_sub.size() - 1; i++) {
+        int size_sub = brk_pnt_sub[i + 1] - brk_pnt_sub[i] + 1;
+        if (size_sub < 3) continue;
+
+        eigenVector ssx_sqrt_i_sub_sub = ssx_sqrt_i_sub.segment(brk_pnt_sub[i], size_sub);
+        MatrixXf rsq_sub_sub = X_sub.block(0,brk_pnt_sub[i],n,size_sub).transpose() * X_sub2;
+        eigenVector rsq_size_sub = eigenVector::Zero(size_sub);
+        eigenVector mean_rsq_sub_sub = eigenVector::Zero(size_sub);
+        eigenVector max_rsq_sub_sub = eigenVector::Constant(size_sub, -1.0);
+
+        #pragma omp parallel for private(k, l)
+        for (j = 0; j < size_sub; j++) {
+            unsigned long s = j + brk_pnt_sub[i];
+            rsq_size_sub[j] = 0.0;
+            mean_rsq_sub_sub[j] = 0.0;
+            for (k = 0; k < used_in_this_set.size(); k++) {
+                l = used_in_this_set[k];
+                if (second) {
+                    if (s <= s1 && l <= s1) continue;
+                    if (s >= s2 && l >= s2) continue;
+                }
+                if (l == s) continue;
+                rsq_sub_sub(j,k) *= (ssx_sqrt_i_sub_sub[j] * ssx_sqrt_i_sub[l]);
+                rsq_sub_sub(j,k) = rsq_sub_sub(j,k) * rsq_sub_sub(j,k);
+                if (rsq_sub_sub(j,k) >= rsq_cutoff) {
+                    mean_rsq_sub_sub[j] += rsq_sub_sub(j,k);
+                    rsq_size_sub[j] += 1.0;
+                }
+                if(rsq_sub_sub(j,k) > max_rsq_sub_sub[j]) max_rsq_sub_sub[j] = rsq_sub_sub(j,k);
+            }
+
+            if (rsq_size_sub[j] > 0.0) mean_rsq_sub_sub[j] /= rsq_size_sub[j];
+        }
+
+        for (j = 0, k = brk_pnt_sub[i]; j < size_sub; j++, k++) {
+            mean_rsq_sub[k] = mean_rsq_sub_sub[j];
+            rsq_size[k] = rsq_size_sub[j];
+            max_rsq_sub[k] = max_rsq_sub_sub[j];
+        }
+    }
+}
+
 void gcta::ld_seg(string i_ld_file, int seg_size, int wind_size, double rsq_cutoff, bool dominance_flag)
 {
     int i = 0, j = 0, k = 0, m = 0;
@@ -538,7 +775,7 @@ void gcta::ld_seg(string i_ld_file, int seg_size, int wind_size, double rsq_cuto
     else {
         m = _include.size();
         check_autosome();
-        cout << "\nCalculating mean LD rsq between SNPs (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size / 2000<<"Kb between blocks); LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
+        cout << "\nCalculating LD score between SNPs (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size / 2000<<"Kb between blocks); LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
         if(dominance_flag) cout<<"(SNP genotypes are coded for dominance effects)"<<endl;
         get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, wind_size);
         eigenVector mrsq_buf = eigenVector::Zero(m), snp_num_buf = eigenVector::Zero(m), max_rsq_buf = eigenVector::Zero(m);

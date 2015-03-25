@@ -129,9 +129,14 @@ void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool outpu
         #pragma omp parallel for private(j)
         for (i = 0; i < n; i++) {
             _grm(i,i) = 0.0;
+            double non_missing = 0.0;
             for (j = 0; j < m; j++) {
-                _grm(i,i) += _geno(i,j)*(_geno(i,j)+(_mu[_include[j]] - 1.0) * sd_SNP[j]);
+                if (_geno(i,j) < 1e5){
+                    _grm(i,i) += _geno(i,j)*(_geno(i,j)+(_mu[_include[j]] - 1.0) * sd_SNP[j]);
+                    non_missing += 1.0;
+                } 
             }
+            _grm(i,i) /= non_missing; 
         }
     }
 

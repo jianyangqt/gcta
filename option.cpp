@@ -19,7 +19,7 @@ int main(int argc, char* argv[])
 {
     cout << "*******************************************************************" << endl;
     cout << "* Genome-wide Complex Trait Analysis (GCTA)" << endl;
-    cout << "* version 1.24.5" << endl;
+    cout << "* version 1.24.6" << endl;
     cout << "* (C) 2010-2013 Jian Yang, Hong Lee, Michael Goddard and Peter Visscher" << endl;
     cout << "* The University of Queensland" << endl;
     cout << "* MIT License" << endl;
@@ -72,8 +72,8 @@ void option(int option_num, char* option_str[])
     string grm_file = "", paa_file = "";
 
     // LD
-    string LD_file = "";
-    bool LD = false, LD_search = false, LD_i = false, ld_mean_rsq_flag = false, ld_max_rsq_flag = false, ld_mean_rsq_seg_flag = false;
+    string LD_file = "", ld_score_multi_file = "";
+    bool LD = false, LD_search = false, LD_i = false, ld_score_flag = false, ld_max_rsq_flag = false, ld_mean_rsq_seg_flag = false;
     int LD_step = 10;
     double LD_wind = 1e7, LD_sig = 0.05, LD_prune_rsq = -1.0, LD_rsq_cutoff = 0.0, LD_seg = 1e5;
 
@@ -337,6 +337,7 @@ void option(int option_num, char* option_str[])
             cout << "--make-grm-alg " << make_grm_mtd << endl;
             if (make_grm_mtd < 0 || make_grm_mtd > 1) throw ("\nError: --make-grm-alg should be 0 or 1.\n");
         } else if (strcmp(argv[i], "--make-grm-f3") == 0) {
+            make_grm_flag = true;
             make_grm_f3_flag = true;
             grm_out_bin_flag = true;
             thread_flag = true;
@@ -432,11 +433,17 @@ void option(int option_num, char* option_str[])
             LD_prune_rsq = atof(argv[++i]);
             cout << "--ld-pruning " << LD_prune_rsq << endl;
             if (LD_prune_rsq < 0.0001 || LD_prune_rsq > 0.9999) throw ("\nError: --ld-pruning should be within the range from 0.0001 to 0.9999.\n");
-        } else if (strcmp(argv[i], "--ld-mean-rsq") == 0) {
-            ld_mean_rsq_flag = true;
+        } else if (strcmp(argv[i], "--ld-score") == 0) {
+            ld_score_flag = true;
             thread_flag = true;
-            cout << "--ld-mean-rsq" << endl;
-        } else if (strcmp(argv[i], "--ld-rsq-cutoff") == 0 || strcmp(argv[i], "--make-grm-wt-rsq-cutoff") == 0) {
+            cout << "--ld-score" << endl;
+        } else if (strcmp(argv[i], "--ld-score-multi") == 0) {
+            ld_score_flag = true;
+            thread_flag = true;
+            ld_score_multi_file = argv[++i];
+            cout << "--ld-score-multi " << ld_score_multi_file << endl;
+            CommFunc::FileExist(ld_score_multi_file);
+        } else if (strcmp(argv[i], "--ld-rsq-cutoff") == 0) {
             LD_rsq_cutoff = atof(argv[++i]);
             cout << "--ld-rsq-cutoff " << LD_rsq_cutoff << endl;
             if (LD_rsq_cutoff < 0.0 || LD_rsq_cutoff > 1.0) {
@@ -448,7 +455,7 @@ void option(int option_num, char* option_str[])
             ld_max_rsq_flag = true;
             thread_flag = true;
             cout << "--ld-max-rsq" << endl;
-        } else if (strcmp(argv[i], "--ld-mean-rsq-region") == 0) {
+        } else if (strcmp(argv[i], "--ld-score-region") == 0) {
             ld_mean_rsq_seg_flag = true;
             thread_flag = true;
             i++;
@@ -456,8 +463,8 @@ void option(int option_num, char* option_str[])
                 LD_seg = 200;
                 i--;
             } else LD_seg = atoi(argv[i]);
-            cout << "--ld-mean-rsq-region" << endl;
-            if (LD_seg < 10) throw ("\nError: input value for --ld-mean-rsq-seg needs to be > 10.\n");
+            cout << "--ld-score-region" << endl;
+            if (LD_seg < 10) throw ("\nError: input value for --ld-score-region needs to be > 10.\n");
             LD_seg *= 1000;
         } else if (strcmp(argv[i], "--ld-file") == 0) {
             LD_file = argv[++i];
@@ -1003,7 +1010,10 @@ void option(int option_num, char* option_str[])
             else if (recode || recode_nomiss) pter_gcta->save_XMat(recode_nomiss);
             else if (LD) pter_gcta->LD_Blocks(LD_step, LD_wind, LD_sig, LD_i, save_ram);
             else if (LD_prune_rsq>-1.0) pter_gcta->LD_pruning_mkl(LD_prune_rsq, LD_wind);
-            else if (ld_mean_rsq_flag) pter_gcta->calcu_mean_rsq(LD_wind, LD_rsq_cutoff, dominance_flag);
+            else if (ld_score_flag){
+                if(ld_score_multi_file.empty()) pter_gcta->calcu_mean_rsq(LD_wind, LD_rsq_cutoff, dominance_flag);
+                else pter_gcta->calcu_mean_rsq_multiSet(ld_score_multi_file, LD_wind, LD_rsq_cutoff, dominance_flag);
+            }
             else if (ld_mean_rsq_seg_flag) pter_gcta->ld_seg(LD_file, LD_seg, LD_wind, LD_rsq_cutoff, dominance_flag);
             else if (ld_max_rsq_flag) pter_gcta ->calcu_max_ld_rsq(LD_wind, LD_rsq_cutoff, dominance_flag);
             else if (blup_snp_flag) pter_gcta->blup_snp_geno();
@@ -1045,7 +1055,10 @@ void option(int option_num, char* option_str[])
         else if (make_grm_flag) pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_f3_flag, subpopu_file);
         else if (recode || recode_nomiss) pter_gcta->save_XMat(recode_nomiss);
         else if (LD_prune_rsq>-1.0) pter_gcta->LD_pruning_mkl(LD_prune_rsq, LD_wind);
-        else if (ld_mean_rsq_flag) pter_gcta->calcu_mean_rsq(LD_wind, LD_rsq_cutoff, dominance_flag);
+        else if (ld_score_flag){
+                if(ld_score_multi_file.empty()) pter_gcta->calcu_mean_rsq(LD_wind, LD_rsq_cutoff, dominance_flag);
+                else pter_gcta->calcu_mean_rsq_multiSet(ld_score_multi_file, LD_wind, LD_rsq_cutoff, dominance_flag);
+        }
         else if (ld_max_rsq_flag) pter_gcta ->calcu_max_ld_rsq(LD_wind, LD_rsq_cutoff, dominance_flag);
         else if (blup_snp_flag) pter_gcta->blup_snp_dosage();
         else if (massoc_sblup_flag) pter_gcta->run_massoc_sblup(massoc_file, massoc_wind, massoc_sblup_fac);
