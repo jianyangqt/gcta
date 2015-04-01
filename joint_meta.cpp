@@ -22,8 +22,8 @@ void gcta::read_metafile(string metafile, bool GC, double GC_val) {
         getline(Meta, str_buf0);
         stringstream iss(str_buf0);
         iss >> snp_buf >> A1_buf >> A2_buf;
-        //StrFunc::to_upper(A1_buf);
-        //StrFunc::to_upper(A2_buf);
+        StrFunc::to_upper(A1_buf);
+        StrFunc::to_upper(A2_buf);
         iss >> str_buf;
         f_buf = atof(str_buf.c_str());
         iss >> str_buf;

@@ -154,10 +154,10 @@ void gcta::read_bimfile(string bimfile) {
         Bim >> ibuf;
         _bp.push_back(ibuf);
         Bim >> cbuf;
-        //StrFunc::to_upper(cbuf);
+        StrFunc::to_upper(cbuf);
         _allele1.push_back(cbuf);
         Bim >> cbuf;
-        //StrFunc::to_upper(cbuf);
+        StrFunc::to_upper(cbuf);
         _allele2.push_back(cbuf);
     }
     Bim.close();
