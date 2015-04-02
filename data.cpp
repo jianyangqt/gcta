@@ -1561,16 +1561,17 @@ void gcta::std_XMat_d(MatrixXf &X, eigenVector &sd_SNP, bool miss_with_mu, bool 
     }
 }
 
-
 void gcta::makex_eigenVector(int j, eigenVector &x, bool resize, bool minus_2p)
 {
     int i = 0;
     if (resize) x.resize(_keep.size());
+    #pragma omp parallel for
     for (i = 0; i < _keep.size(); i++) {
         if (!_snp_1[_include[j]][_keep[i]] || _snp_2[_include[j]][_keep[i]]) {
             if (_allele1[_include[j]] == _ref_A[_include[j]]) x[i] = (_snp_1[_include[j]][_keep[i]] + _snp_2[_include[j]][_keep[i]]);
             else x[i] = 2.0 - (_snp_1[_include[j]][_keep[i]] + _snp_2[_include[j]][_keep[i]]);
-        } else x[i] = _mu[_include[j]];
+        }
+        else x[i] = _mu[_include[j]];
         if (minus_2p) x[i] -= _mu[_include[j]];
     }
 }

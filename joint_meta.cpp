@@ -134,15 +134,13 @@ void gcta::init_massoc(string metafile, bool GC, double GC_val)
     _MSX_B.resize(m);
     _Nd.resize(m);
 
-    make_XMat(_geno);
-    #pragma omp parallel for private(j)
-    for(i=0; i<n; i++){
-        for(j=0; j<m; j++){
-            if(_geno(i,j)<1e5) _geno(i,j)-=_mu[_include[j]];
-            else _geno(i,j)=0.0;
-        }
+    if (_mu.empty()) calcu_mu();
+    #pragma omp parallel for
+    for (i = 0; i < m; i++){
+        eigenVector x;
+        makex_eigenVector(i, x, true, true);
+        _MSX_B[i] = x.squaredNorm() / (double)n;
     }
-    for (i = 0; i < m; i++) _MSX_B[i] = _geno.col(i).dot(_geno.col(i)) / (double)n;
     if (_jma_actual_geno) {
         _MSX = _MSX_B;
         _Nd = _N_o;
@@ -169,7 +167,8 @@ void gcta::read_fixed_snp(string snplistfile, string msg, vector<int> &pgiven, v
     else throw ("Error: none of the given SNPs can be matched to the genotype and summary data.");
 }
 
-void gcta::run_massoc_slct(string metafile, int wind_size, double p_cutoff, double collinear, int top_SNPs, bool joint_only, bool GC, double GC_val, bool actual_geno, int mld_slct_alg) {
+void gcta::run_massoc_slct(string metafile, int wind_size, double p_cutoff, double collinear, int top_SNPs, bool joint_only, bool GC, double GC_val, bool actual_geno, int mld_slct_alg)
+{
     _jma_actual_geno = actual_geno;
     _jma_wind_size = wind_size;
     _jma_p_cutoff = p_cutoff;
@@ -475,6 +474,7 @@ bool gcta::init_B(const vector<int> &indx)
     _B.resize(indx.size(), indx.size());
     _B_N.resize(indx.size(), indx.size());
     _D_N.resize(indx.size());
+    eigenVector x_i(_keep.size()), x_j(_keep.size());
     for (i = 0; i < indx.size(); i++) {
         _D_N[i] = _MSX[indx[i]] * _Nd[indx[i]];
         _B.startVec(i);
@@ -482,10 +482,11 @@ bool gcta::init_B(const vector<int> &indx)
         _B.insertBack(i, i) = _MSX_B[indx[i]];
         _B_N.insertBack(i, i) = _D_N[i];
         diagB[i] = _MSX_B[indx[i]];
+        makex_eigenVector(indx[i], x_i, false, true);
         for (j = i + 1; j < indx.size(); j++) {
             if (_jma_actual_geno || (_chr[_include[indx[i]]] == _chr[_include[indx[j]]] && abs(_bp[_include[indx[i]]] - _bp[_include[indx[j]]]) < _jma_wind_size)) {
-                //d_buf = crossprod(_jma_W[indx[i]], _jma_W[indx[j]]);
-                d_buf = _geno.col(indx[i]).dot(_geno.col(indx[j])) / (double)n;
+                makex_eigenVector(indx[j], x_j, false, true);
+                d_buf = x_i.dot(x_j) / (double)n;
                 _B.insertBack(j, i) = d_buf;
                 _B_N.insertBack(j, i) = d_buf * min(_Nd[indx[i]], _Nd[indx[j]]) * sqrt(_MSX[indx[i]] * _MSX[indx[j]] / (_MSX_B[indx[i]] * _MSX_B[indx[j]]));
             }
@@ -505,18 +506,21 @@ bool gcta::init_B(const vector<int> &indx)
     return true;
 }
 
-void gcta::init_Z(const vector<int> &indx) {
+void gcta::init_Z(const vector<int> &indx)
+{
     int i = 0, j = 0, n = _keep.size();
     double d_buf = 0.0;
     _Z.resize(indx.size(), _include.size());
     _Z_N.resize(indx.size(), _include.size());
+    eigenVector x_i(_keep.size()), x_j(_keep.size());
     for (j = 0; j < _include.size(); j++) {
         _Z.startVec(j);
         _Z_N.startVec(j);
+        makex_eigenVector(j, x_j, false, true);
         for (i = 0; i < indx.size(); i++) {
             if (_jma_actual_geno || (indx[i] != j && _chr[_include[indx[i]]] == _chr[_include[j]] && abs(_bp[_include[indx[i]]] - _bp[_include[j]]) < _jma_wind_size)) {
-                //d_buf = crossprod(_jma_W[j], _jma_W[indx[i]]);
-                d_buf = _geno.col(j).dot(_geno.col(indx[i])) / (double)n;
+                makex_eigenVector(indx[i], x_i, false, true);
+                d_buf = x_j.dot(x_i) / (double)n;
                 _Z.insertBack(i, j) = d_buf;
                 _Z_N.insertBack(i, j) = d_buf * min(_Nd[indx[i]], _Nd[j]) * sqrt(_MSX[indx[i]] * _MSX[j] / (_MSX_B[indx[i]] * _MSX_B[j])); // added by Jian Yang 18/12/2013
             }
@@ -539,6 +543,7 @@ bool gcta::insert_B_and_Z(const vector<int> &indx, int insert_indx)
     bool get_insert_col = false, get_insert_row = false;
     int pos = find(ix.begin(), ix.end(), insert_indx) - ix.begin();
     eigenVector diagB(ix.size());
+    eigenVector x_i(_keep.size()), x_j(_keep.size());
     for (j = 0; j < ix.size(); j++) {
         _B.startVec(j);
         _B_N.startVec(j);
@@ -547,12 +552,13 @@ bool gcta::insert_B_and_Z(const vector<int> &indx, int insert_indx)
         diagB[j] = _MSX_B[ix[j]];
         if (insert_indx == ix[j]) get_insert_col = true;
         get_insert_row = get_insert_col;
+        makex_eigenVector(ix[j], x_j, false, true);
         for (i = j + 1; i < ix.size(); i++) {
             if (insert_indx == ix[i]) get_insert_row = true;
             if (insert_indx == ix[j] || insert_indx == ix[i]) {
                 if (_jma_actual_geno || (_chr[_include[ix[i]]] == _chr[_include[ix[j]]] && abs(_bp[_include[ix[i]]] - _bp[_include[ix[j]]]) < _jma_wind_size)) {
-                    //d_buf = crossprod(_jma_W[ix[i]], _jma_W[ix[j]]);
-                    d_buf = _geno.col(ix[i]).dot(_geno.col(ix[j])) / (double)n;
+                    makex_eigenVector(ix[i], x_i, false, true);
+                    d_buf = x_i.dot(x_j) / (double)n;
                     _B.insertBack(i, j) = d_buf;
                     _B_N.insertBack(i, j) = d_buf * min(_Nd[ix[i]], _Nd[ix[j]]) * sqrt(_MSX[ix[i]] * _MSX[ix[j]] / (_MSX_B[ix[i]] * _MSX_B[ix[j]]));
                 }
@@ -591,11 +597,12 @@ bool gcta::insert_B_and_Z(const vector<int> &indx, int insert_indx)
         _Z.startVec(j);
         _Z_N.startVec(j);
         get_insert_row = false;
+        makex_eigenVector(j, x_j, false, true);
         for (i = 0; i < ix.size(); i++) {
             if (insert_indx == ix[i]) {
                 if (_jma_actual_geno || (ix[i] != j && _chr[_include[ix[i]]] == _chr[_include[j]] && abs(_bp[_include[ix[i]]] - _bp[_include[j]]) < _jma_wind_size)) {
-                    //d_buf = crossprod(_jma_W[j], _jma_W[ix[i]]);
-                    d_buf = _geno.col(j).dot(_geno.col(ix[i])) / (double)n;
+                    makex_eigenVector(ix[i], x_i, false, true);
+                    d_buf = x_j.dot(x_i) / (double)n;
                     _Z.insertBack(i, j) = d_buf;
                     _Z_N.insertBack(i, j) = d_buf * min(_Nd[ix[i]], _Nd[j]) * sqrt(_MSX[ix[i]] * _MSX[j] / (_MSX_B[ix[i]] * _MSX_B[j])); // added by Jian Yang 18/12/2013
                 }
@@ -740,19 +747,18 @@ bool gcta::massoc_sblup(double lambda, eigenVector &bJ)
     }
     B.finalize();
 
+    eigenVector x_i(_keep.size()), x_j(_keep.size());
     for (i = 0; i < _include.size(); i++) {
+        makex_eigenVector(i, x_i, false, true);
         for (j = i + 1; j < _include.size(); j++) {
             if (_chr[_include[i]] == _chr[_include[j]] && abs(_bp[_include[i]] - _bp[_include[j]]) < _jma_wind_size) {
-                prod = _geno.col(i).dot(_geno.col(j)) / (double)n;
+                makex_eigenVector(j, x_j, false, true);
+                prod = x_i.dot(x_j) / (double)n;
                 B.coeffRef(j, i) = prod * min(_Nd[i], _Nd[j]) * sqrt(_MSX[i] * _MSX[j] / (_MSX_B[i] * _MSX_B[j]));
             }
         }
         if((i + 1) % 1000 == 0 || (i + 1) == _include.size()) cout << i + 1 << " of " << _include.size() << " SNPs.\r";
     }
-
-    // release memory
-    _geno.resize(0,0);
-
 
     cout << "Estimating the joint effects of all SNPs ..." << endl;
     eigenVector Xty = D.array() * _beta.array();
