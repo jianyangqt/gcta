@@ -130,7 +130,7 @@ void gcta::init_massoc(string metafile, bool GC, double GC_val)
     read_metafile(metafile, GC, GC_val);
 
     int i = 0, j = 0, n = _keep.size(), m = _include.size();
-    cout << "Recoding genotypes and calculating the variance of SNP genotypes ..." << endl;
+    cout << "Calculating the variance of SNP genotypes ..." << endl;
     _MSX_B.resize(m);
     _Nd.resize(m);
 

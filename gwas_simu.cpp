@@ -82,7 +82,7 @@ void gcta::save_phenfile(vector< vector<double> > &y)
     phen.close();
 }
 
-void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, int control_num, double hsq, double K, int seed, bool output_causal, bool simu_emb_flag)
+void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, int control_num, double hsq, double K, int seed, bool output_causal, bool simu_emb_flag, int eff_mod)
 {
     int i = 0, j = 0;
     bool cc_flag = false;
@@ -137,8 +137,10 @@ void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, 
     // Calculate allele frequency
     MatrixXf X;
     make_XMat(X);
-    eigenVector sd_SNP;
-    std_XMat(X, sd_SNP, false, true, true);
+    if(eff_mod == 0){
+        eigenVector sd_SNP;
+        std_XMat(X, sd_SNP, false, true, true);
+    }
 
     // Calculate Ve and threhold
     double var_g = 0.0, var_e = 1.0;
