@@ -153,7 +153,8 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind)
     // run gene-based test
     if (_mu.empty()) calcu_mu();
     cout << "\nRunning set-based association test (SBAT) for genes ..." << endl;
-    vector<double> gene_pval(gene_num), chisq_o(gene_num);
+    vector<double> gene_pval(gene_num), chisq_o(gene_num), min_snp_pval(gene_num);
+    vector<string> min_snp_name(gene_num);
     vector<int> snp_num_in_gene(gene_num);
     map<string, int>::iterator iter1, iter2;
     map<string, int> snp_name_map;
@@ -174,7 +175,15 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind)
             continue;
         }
         chisq_o[i] = 0;
-        for (j = iter1->second; j <= iter2->second; j++) chisq_o[i] += snp_chisq[j];
+        min_snp_pval[i] = 2;
+        for (j = iter1->second; j <= iter2->second; j++) {
+            if (min_snp_pval[i] > snp_pval[j]) 
+            {
+                min_snp_pval[i] = snp_pval[j];
+                min_snp_name[i] = snp_name[j];
+            }
+            chisq_o[i] += snp_chisq[j];
+        }
         if(snp_num_in_gene[i] == 1) gene_pval[i] = StatFunc::pchisq(chisq_o[i], 1.0);
         else {
             vector<int> snp_indx;
@@ -191,11 +200,12 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind)
     cout << "\nSaving the results of the SBAT analyses to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
     if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
-    ofile << "Gene\tChr\tStart\tEnd\tNo.SNPs\tSNP_start\tSNP_end\tChisq(Obs)\tPvalue" << endl;
+    ofile << "Gene\tChr\tStart\tEnd\tNo.SNPs\tSNP_start\tSNP_end\tChisq(Obs)\tPvalue\tTopSNP_Pvalue\tTopSNP" << endl;
     for (i = 0; i < gene_num; i++) {
         if(gene_pval[i]>1.5) continue;
         ofile << gene_name[i] << "\t" << gene_chr[i] << "\t" << gene_bp1[i] << "\t" << gene_bp2[i] << "\t";
-        ofile << snp_num_in_gene[i] << "\t" << gene2snp_1[i] << "\t" << gene2snp_2[i] << "\t" << chisq_o[i] << "\t" << gene_pval[i] << endl;
+        ofile << snp_num_in_gene[i] << "\t" << gene2snp_1[i] << "\t" << gene2snp_2[i] << "\t" << chisq_o[i];
+        ofile << "\t" << gene_pval[i] << "\t" << min_snp_pval[i] << "\t" << min_snp_name[i] << endl;
         //else ofile << "0\tNA\tNA\tNA\tNA" << endl;
     }
     ofile.close();
@@ -252,7 +262,8 @@ void gcta::sbat(string sAssoc_file, string snpset_file)
     // run gene-based test
     if (_mu.empty()) calcu_mu();
     cout << "\nRunning set-based association test (SBAT)..." << endl;
-    vector<double> set_pval(set_num), chisq_o(set_num);
+    vector<double> set_pval(set_num), chisq_o(set_num), min_snp_pval(set_num);
+    vector<string> min_snp_name(set_num);
     vector<int> snp_num_in_set(set_num);
     map<string, int>::iterator iter;
     map<string, int> snp_name_map;
@@ -276,7 +287,15 @@ void gcta::sbat(string sAssoc_file, string snpset_file)
             continue;
         }
         chisq_o[i] = 0;
-        for (j = 0; j < snp_indx.size(); j++) chisq_o[i] += snp_chisq[snp_indx[j]];
+        min_snp_pval[i] = 2;
+        for (j = 0; j < snp_indx.size(); j++) {
+            if (min_snp_pval[i] > snp_pval[j]) 
+            {
+                min_snp_pval[i] = snp_pval[j];
+                min_snp_name[i] = snp_name[j];
+            }
+            chisq_o[i] += snp_chisq[snp_indx[j]];
+        }
         if(snp_num_in_set[i] == 1) set_pval[i] = StatFunc::pchisq(chisq_o[i], 1.0);
         else {
             VectorXd eigenval;
@@ -291,10 +310,11 @@ void gcta::sbat(string sAssoc_file, string snpset_file)
     cout << "\nSaving the results of the SBAT analyses to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
     if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
-    ofile << "Set\tNo.SNPs\tChisq(Obs)\tPvalue" << endl;
+    ofile << "Set\tNo.SNPs\tChisq(Obs)\tPvalue\tTopSNP_Pvalue\tTopSNP" << endl;
     for (i = 0; i < set_num; i++) {
         if(set_pval[i]>1.5) continue;
-        ofile << set_name[i] << "\t" << snp_num_in_set[i] << "\t" << chisq_o[i] << "\t" << set_pval[i] << endl;
+        ofile << set_name[i] << "\t" << snp_num_in_set[i] << "\t" << chisq_o[i] << "\t";
+        ofile << set_pval[i] << "\t" << min_snp_pval[i] << "\t" << min_snp_name[i] << endl;
     }
     ofile.close();
 }
@@ -318,7 +338,8 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size)
     vector<int> set_chr, set_start_bp, set_end_bp;
     get_sbat_seg_blk(seg_size, snp_set_indx, set_chr, set_start_bp, set_end_bp);
     int set_num = snp_set_indx.size();
-    vector<double> set_pval(set_num), chisq_o(set_num);
+    vector<double> set_pval(set_num), chisq_o(set_num), min_snp_pval(set_num);
+    vector<string> min_snp_name(set_num);
     vector<int> snp_num_in_set(set_num);
     for (i = 0; i < set_num; i++) {
         bool skip = false;
@@ -335,7 +356,15 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size)
             continue;
         }
         chisq_o[i] = 0;
-        for (j = 0; j < snp_indx.size(); j++) chisq_o[i] += snp_chisq[snp_indx[j]];
+        min_snp_pval[i] = 2;
+        for (j = 0; j < snp_indx.size(); j++) {
+            if (min_snp_pval[i] > snp_pval[j]) 
+            {
+                min_snp_pval[i] = snp_pval[j];
+                min_snp_name[i] = snp_name[j];
+            }
+            chisq_o[i] += snp_chisq[snp_indx[j]];
+        }
         if(snp_num_in_set[i] == 1) set_pval[i] = StatFunc::pchisq(chisq_o[i], 1.0);
         else {
             VectorXd eigenval;
@@ -350,10 +379,12 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size)
     cout << "\nSaving the results of the segment-based SBAT analyses to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
     if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
-    ofile << "Chr\tStart\tEnd\tNo.SNPs\tChisq(Obs)\tPvalue" << endl;
+    ofile << "Chr\tStart\tEnd\tNo.SNPs\tChisq(Obs)\tPvalue\tTopSNP_Pvalue,TopSNP" << endl;
     for (i = 0; i < set_num; i++) {
         if(set_pval[i]>1.5) continue;
-        ofile << set_chr[i] << "\t" << set_start_bp[i] << "\t"<< set_end_bp[i] << "\t" << snp_num_in_set[i] << "\t" << chisq_o[i] << "\t" << set_pval[i] << endl;
+        ofile << set_chr[i] << "\t" << set_start_bp[i] << "\t"<< set_end_bp[i] << "\t";
+        ofile << snp_num_in_set[i] << "\t" << chisq_o[i] << "\t" << set_pval[i] << "\t";
+        ofile << min_snp_pval[i] << "\t" << min_snp_name[i] << endl;
     }
     ofile.close();
 }
