@@ -92,7 +92,7 @@ void gcta::mlma(string grm_file, bool m_grm_flag, string phen_file, string qcova
         cout << "There are " << grm_files.size() << " GRM file names specified in the file [" + grm_file + "]." << endl;
         for (i = 0; i < grm_files.size(); i++) {
             cout << "Reading the GRM from the " << i + 1 << "th file ..." << endl;
-            read_grm(grm_files[i], grm_id, true, false, false);
+            read_grm(grm_files[i], grm_id, true, false, true);
             StrFunc::match(uni_id, grm_id, kp);
             (_A[i]).resize(_n, _n);
             #pragma omp parallel for private(j)

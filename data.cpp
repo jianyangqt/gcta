@@ -1576,16 +1576,29 @@ void gcta::makex_eigenVector(int j, eigenVector &x, bool resize, bool minus_2p)
     }
 }
 
-void gcta::save_XMat(bool miss_with_mu) {
-    if (miss_with_mu && _mu.empty()) calcu_mu();
+void gcta::save_XMat(bool miss_with_mu, bool std)
+{
+    if(std && _dosage_flag) throw("Error: the --recode-std is invalid for dosage data.");
+    if ( (miss_with_mu || std) && _mu.empty()) calcu_mu();
+
+    int i = 0, j = 0, m = _include.size();
+    eigenVector sd_SNP;
+    if(std){
+        sd_SNP.resize(m);
+        for (j = 0; j < m; j++) {
+            sd_SNP(j) = _mu[_include[j]]*(1.0 - 0.5 * _mu[_include[j]]);
+            if (fabs(sd_SNP(j)) < 1.0e-50) sd_SNP(j) = 0.0;
+            else sd_SNP(j) = sqrt(1.0 / sd_SNP(j));
+        }
+    }
 
     // Save matrix X
+    double x_buf = 0.0;
     string X_zFile = _out + ".xmat.gz";
     gzofstream zoutf;
     zoutf.open(X_zFile.c_str());
     if (!zoutf.is_open()) throw ("Error: can not open the file [" + X_zFile + "] to write.");
     cout << "Saving the recoded genotype matrix to the file [" + X_zFile + "]." << endl;
-    int i = 0, j = 0;
     zoutf << "FID IID ";
     for (j = 0; j < _include.size(); j++) zoutf << _snp_name[_include[j]] << " ";
     zoutf << endl;
@@ -1597,21 +1610,31 @@ void gcta::save_XMat(bool miss_with_mu) {
         if (_dosage_flag) {
             for (j = 0; j < _include.size(); j++) {
                 if (_geno_dose[_keep[i]][_include[j]] < 1e5) {
-                    if (_allele1[_include[j]] == _ref_A[_include[j]]) zoutf << _geno_dose[_keep[i]][_include[j]] << ' ';
-                    else zoutf << 2.0 - _geno_dose[_keep[i]][_include[j]] << ' ';
+                    if (_allele1[_include[j]] == _ref_A[_include[j]]) x_buf = _geno_dose[_keep[i]][_include[j]];
+                    else x_buf = 2.0 - _geno_dose[_keep[i]][_include[j]];
+                    if(std) x_buf = (x_buf - _mu[_include[j]]) * sd_SNP(j);
+                    zoutf << x_buf << ' ';
                 } else {
-                    if (miss_with_mu) zoutf << _mu[_include[j]] << ' ';
-                    else zoutf << "NA ";
+                    if(std) zoutf << "0 ";
+                    else{
+                        if (miss_with_mu) zoutf << _mu[_include[j]] << ' ';
+                        else zoutf << "NA ";
+                    }
                 }
             }
         } else {
             for (j = 0; j < _include.size(); j++) {
                 if (!_snp_1[_include[j]][_keep[i]] || _snp_2[_include[j]][_keep[i]]) {
-                    if (_allele1[_include[j]] == _ref_A[_include[j]]) zoutf << _snp_1[_include[j]][_keep[i]] + _snp_2[_include[j]][_keep[i]] << ' ';
-                    else zoutf << 2.0 - (_snp_1[_include[j]][_keep[i]] + _snp_2[_include[j]][_keep[i]]) << ' ';
+                    if (_allele1[_include[j]] == _ref_A[_include[j]]) x_buf = _snp_1[_include[j]][_keep[i]] + _snp_2[_include[j]][_keep[i]];
+                    else x_buf = 2.0 - (_snp_1[_include[j]][_keep[i]] + _snp_2[_include[j]][_keep[i]]);
+                    if(std) x_buf = (x_buf - _mu[_include[j]]) * sd_SNP(j);
+                    zoutf << x_buf << ' ';                    
                 } else {
-                    if (miss_with_mu) zoutf << _mu[_include[j]] << ' ';
-                    else zoutf << "NA ";
+                    if(std) zoutf << "0 ";
+                    else {
+                        if (miss_with_mu) zoutf << _mu[_include[j]] << ' ';
+                        else zoutf << "NA ";
+                    }
                 }
             }
         }

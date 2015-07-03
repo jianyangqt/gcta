@@ -19,7 +19,7 @@ int main(int argc, char* argv[])
 {
     cout << "*******************************************************************" << endl;
     cout << "* Genome-wide Complex Trait Analysis (GCTA)" << endl;
-    cout << "* version 1.24.6" << endl;
+    cout << "* version 1.24.8" << endl;
     cout << "* (C) 2010-2013 Jian Yang, Hong Lee, Michael Goddard and Peter Visscher" << endl;
     cout << "* The University of Queensland" << endl;
     cout << "* MIT License" << endl;
@@ -59,17 +59,17 @@ void option(int option_num, char* option_str[])
     // data management
     string bfile = "", bfile2 = "", update_sex_file = "", update_freq_file = "", update_refA_file = "", kp_indi_file = "", rm_indi_file = "", extract_snp_file = "", exclude_snp_file = "", extract_snp_name = "", exclude_snp_name = "", out = "gcta";
     bool SNP_major = false, bfile_flag = false, make_bed_flag = false, dose_mach_flag = false, dose_mach_gz_flag = false, dose_beagle_flag = false, bfile2_flag = false, out_freq_flag = false, out_ssq_flag = false;
-    bool ref_A = false, recode = false, recode_nomiss = false, save_ram = false, autosome_flag = false;
+    bool ref_A = false, recode = false, recode_nomiss = false, recode_std = false, save_ram = false, autosome_flag = false;
     int autosome_num = 22, extract_chr_start = 0, extract_chr_end = 0, extract_region_chr = 0, extract_region_bp = 0, extract_region_wind = 0, exclude_region_chr = 0, exclude_region_bp = 0, exclude_region_wind = 0;
     string dose_file = "", dose_info_file = "", update_impRsq_file = "";
     double maf = 0.0, max_maf = 0.0, dose_Rsq_cutoff = 0.0;
 
     // GRM
     bool ibc = false, ibc_all = false, grm_flag = false, grm_bin_flag = true, m_grm_flag = false, m_grm_bin_flag = true, make_grm_flag = false, make_grm_inbred_flag = false, dominance_flag = false, make_grm_xchar_flag = false, grm_out_bin_flag = true, make_grm_f3_flag = false;
-    bool pca_flag = false;
+    bool pca_flag = false, pcl_flag = false;
     double grm_adj_fac = -2.0, grm_cutoff = -2.0, rm_high_ld_cutoff = -1.0;
-    int dosage_compen = -2, out_pc_num = 20, make_grm_mtd = 0;
-    string grm_file = "", paa_file = "";
+    int dosage_compen = -2, out_pc_num = 20, make_grm_mtd = 0, pcl_grm_N = 0;
+    string grm_file = "", paa_file = "", pc_file = "";
 
     // LD
     string LD_file = "", ld_score_multi_file = "";
@@ -283,6 +283,10 @@ void option(int option_num, char* option_str[])
             recode_nomiss = true;
             thread_flag = true;
             cout << "--recode-nomiss" << endl;
+        } else if (strcmp(argv[i], "--recode-std") == 0) {
+            recode_std = true;
+            thread_flag = true;
+            cout << "--recode-std" << endl;
         } else if (strcmp(argv[i], "--save-ram") == 0) {
             save_ram = true;
             cout << "--save-ram" << endl;
@@ -401,7 +405,15 @@ void option(int option_num, char* option_str[])
             } else out_pc_num = atoi(argv[i]);
             cout << "--pca " << out_pc_num << endl;
             if (out_pc_num < 1) throw ("\nError: the value to be specified after --pca should be positive.\n");
-        }// estimation of LD structure
+        } else if (strcmp(argv[i], "--pc-loading") == 0) {
+            pcl_flag = true;
+            thread_flag = true;
+            pc_file = argv[++i];
+            pcl_grm_N = atoi(argv[++i]);
+            cout << "--pc-loading " << pc_file << " " << pcl_grm_N << endl;
+            if(pcl_grm_N < 1 || pcl_grm_N > 1e20) throw("\nError: invalid number of SNPs used to calculate PCs."); 
+        }
+        // estimation of LD structure
         else if (strcmp(argv[i], "--ld") == 0) {
             LD = true;
             LD_file = argv[++i];
@@ -1011,7 +1023,7 @@ void option(int option_num, char* option_str[])
             else if (!paa_file.empty()) pter_gcta->paa(paa_file);
             else if (ibc) pter_gcta->ibc(ibc_all);
             else if (make_grm_flag) pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_f3_flag, subpopu_file);
-            else if (recode || recode_nomiss) pter_gcta->save_XMat(recode_nomiss);
+            else if (recode || recode_nomiss || recode_std) pter_gcta->save_XMat(recode_nomiss, recode_std);
             else if (LD) pter_gcta->LD_Blocks(LD_step, LD_wind, LD_sig, LD_i, save_ram);
             else if (LD_prune_rsq>-1.0) pter_gcta->LD_pruning_mkl(LD_prune_rsq, LD_wind);
             else if (ld_score_flag){
@@ -1034,6 +1046,7 @@ void option(int option_num, char* option_str[])
                 else if(!sbat_snpset_file.empty()) pter_gcta->sbat(sbat_sAssoc_file, sbat_snpset_file);
                 else if(sbat_seg_flag) pter_gcta->sbat_seg(sbat_sAssoc_file, sbat_seg_size);
             }
+            else if(pcl_flag) pter_gcta->snp_pc_loading(pc_file, pcl_grm_N);
         }
     } else if (dose_beagle_flag || dose_mach_flag || dose_mach_gz_flag) {
         if (massoc_slct_flag | massoc_joint_flag | !massoc_cond_snplist.empty()) throw ("Error: the --dosage option can't be used in combined with the --cojo options.");
@@ -1057,7 +1070,7 @@ void option(int option_num, char* option_str[])
         if (max_maf > 0.0) pter_gcta->filter_snp_max_maf(max_maf);
         if (out_freq_flag) pter_gcta->save_freq(out_ssq_flag);
         else if (make_grm_flag) pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_f3_flag, subpopu_file);
-        else if (recode || recode_nomiss) pter_gcta->save_XMat(recode_nomiss);
+        else if (recode || recode_nomiss || recode_std) pter_gcta->save_XMat(recode_nomiss, recode_std);
         else if (LD_prune_rsq>-1.0) pter_gcta->LD_pruning_mkl(LD_prune_rsq, LD_wind);
         else if (ld_score_flag){
                 if(ld_score_multi_file.empty()) pter_gcta->calcu_mean_rsq(LD_wind, LD_rsq_cutoff, dominance_flag);

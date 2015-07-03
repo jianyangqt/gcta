@@ -143,36 +143,35 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
     _bivar_pos.resize(3);
     if (grm_flag) {
         for (i = 0; i < 3 + 3 - ignore_Ce; i++) _r_indx.push_back(i);
-        _A.resize(_r_indx.size());
+        _Asp.resize(_r_indx.size());
+        for (i = 0; i < _r_indx.size(); i++) (_Asp[i]).resize(_n, _n);
         if (!no_lrt) drop_comp(drop);
         _bivar_pos[0].push_back(pos);
-        (_A[pos]).resize(_n, _n);
-        #pragma omp parallel for private(i)
         for (j = 0; j < n1; j++) {
-            for (i = 0; i < n1; i++) (_A[pos])(i, j) = _grm(_keep[nms1[i]], _keep[nms1[j]]);
+            (_Asp[pos]).startVec(j);
+            for (i = 0; i < n1; i++) (_Asp[pos]).insertBack(i, j) = _grm(_keep[nms1[i]], _keep[nms1[j]]);
         }
         pos++;
 
-        (_A[pos]).resize(_n, _n);
         _bivar_pos[1].push_back(pos);
-        #pragma omp parallel for private(i)
         for (j = 0; j < n2; j++) {
-            for (i = 0; i < n2; i++) (_A[pos])(i + n1, j + n1) = _grm(_keep[nms2[i]], _keep[nms2[j]]);
+            (_Asp[pos]).startVec(j + n1);
+            for (i = 0; i < n2; i++) (_Asp[pos]).insertBack(i + n1, j + n1) = _grm(_keep[nms2[i]], _keep[nms2[j]]);
         }
         pos++;
 
-        (_A[pos]).resize(_n, _n);
         _bivar_pos[2].push_back(pos);
-        #pragma omp parallel for private(i)
         for (j = 0; j < n1; j++) {
-            for (i = 0; i < n2; i++) (_A[pos])(i + n1, j) = _grm(_keep[nms2[i]], _keep[nms1[j]]);
+            (_Asp[pos]).startVec(j);
+            for (i = 0; i < n2; i++) (_Asp[pos]).insertBack(i + n1, j) = _grm(_keep[nms2[i]], _keep[nms1[j]]);
         }
-        #pragma omp parallel for private(i)
         for (j = 0; j < n2; j++) {
-            for (i = 0; i < n1; i++) (_A[pos])(i, j + n1) = _grm(_keep[nms1[i]], _keep[nms2[j]]);
+            (_Asp[pos]).startVec(j + n1);
+            for (i = 0; i < n1; i++) (_Asp[pos]).insertBack(i, j + n1) = _grm(_keep[nms1[i]], _keep[nms2[j]]);
         }
         pos++;
 
+        for (j = 0; j < pos; j++) (_Asp[j]).finalize();
         _grm.resize(0, 0);
     } 
     else if (m_grm_flag) {
@@ -193,34 +192,32 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
             StrFunc::match(uni_id, grm_id, kp);
             int pos0 = pos;
 
-            (_A[pos]).resize(_n, _n);
             _bivar_pos[0].push_back(pos);
-            #pragma omp parallel for private(i)
             for (j = 0; j < n1; j++) {
-                for (i = 0; i < n1; i++) (_A[pos])(i, j) = _grm(kp[nms1[i]], _keep[nms1[j]]);
+                (_Asp[pos]).startVec(j);
+                for (i = 0; i < n1; i++) (_Asp[pos]).insertBack(i, j) = _grm(kp[nms1[i]], _keep[nms1[j]]);
             }
             pos++;
 
-            (_A[pos]).resize(_n, _n);
             _bivar_pos[1].push_back(pos);
-            #pragma omp parallel for private(i)
             for (j = 0; j < n2; j++) {
-                for (i = 0; i < n2; i++) (_A[pos])(i + n1, j + n1) = _grm(kp[nms2[i]], _keep[nms2[j]]);
+                (_Asp[pos]).startVec(j + n1);
+                for (i = 0; i < n2; i++) (_Asp[pos]).insertBack(i + n1, j + n1) = _grm(kp[nms2[i]], _keep[nms2[j]]);
             }
             pos++;
 
-            (_A[pos]).resize(_n, _n);
             _bivar_pos[2].push_back(pos);
-            #pragma omp parallel for private(i)
             for (j = 0; j < n1; j++) {
-                for (i = 0; i < n2; i++) (_A[pos])(i + n1, j) = _grm(kp[nms2[i]], _keep[nms1[j]]);
+                (_Asp[pos]).startVec(j);
+                for (i = 0; i < n2; i++) (_Asp[pos]).insertBack(i + n1, j) = _grm(kp[nms2[i]], _keep[nms1[j]]);
             }
-            #pragma omp parallel for private(i)
             for (j = 0; j < n2; j++) {
-                for (i = 0; i < n1; i++) (_A[pos])(i, j + n1) = _grm(kp[nms1[i]], _keep[nms2[j]]);
+                (_Asp[pos]).startVec(j + n1);
+                for (i = 0; i < n1; i++) (_Asp[pos]).insertBack(i, j + n1) = _grm(kp[nms1[i]], _keep[nms2[j]]);
             }
             pos++;
 
+            for (j = pos0; j < pos; j++) (_Asp[j]).finalize();
             prev_file = grm_files[k];
             prev_grm_id = grm_id;
         }
@@ -229,26 +226,33 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
     }
 
     _bivar_pos[0].push_back(pos);
-    _A[pos] = eigenMatrix::Identity(_n, _n);
-    for (i = n1; i < _n; i++) (_A[pos])(i, i) = 0.0;
+    for (i = 0; i < n1; i++) {
+        (_Asp[pos]).startVec(i);
+        (_Asp[pos]).insertBack(i, i) = 1.0;
+    }
+    (_Asp[pos]).finalize();
     pos++;
 
-    _A[pos] = eigenMatrix::Identity(_n, _n);
     _bivar_pos[1].push_back(pos);
-    for (i = 0; i < n1; i++) (_A[pos])(i, i) = 0.0;
+    for (i = 0; i < n2; i++) {
+        (_Asp[pos]).startVec(i + n1);
+        (_Asp[pos]).insertBack(i + n1, i + n1) = 1.0;
+    }
+    (_Asp[pos]).finalize();
     pos++;
 
     if (!ignore_Ce) {
-        (_A[pos]).resize(_n, _n);
         _bivar_pos[2].push_back(pos);
         for (j = 0; j < n1; j++) {
+            (_Asp[pos]).startVec(j);
             for (i = 0; i < n2; i++) {
-                if (nms2[i] == nms1[j]) (_A[pos])(i + n1, j) = 1.0;
+                if (nms2[i] == nms1[j]) (_Asp[pos]).insertBack(i + n1, j) = 1;
             }
         }
         for (j = 0; j < n2; j++) {
+            (_Asp[pos]).startVec(j + n1);
             for (i = 0; i < n1; i++) {
-                if (nms1[i] == nms2[j]) (_A[pos])(i, j + n1) = 1.0;
+                if (nms1[i] == nms2[j]) (_Asp[pos]).insertBack(i, j + n1) = 1;
             }
         }
         pos++;
@@ -291,7 +295,7 @@ bool gcta::calcu_Vi_bivar(eigenMatrix &Vi, eigenVector &prev_varcmp, double &log
     string errmsg = "\nError: the V (variance-covariance) matrix is not invertible.";
 
     Vi = eigenMatrix::Zero(_n, _n);
-    for (i = 0; i < _r_indx.size(); i++) Vi += (_A[_r_indx[i]]) * prev_varcmp[i];
+    for (i = 0; i < _r_indx.size(); i++) Vi += (_Asp[_r_indx[i]]) * prev_varcmp[i];
 
     if (_V_inv_mtd == 0) {
         if (!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) {
@@ -375,8 +379,7 @@ void gcta::calcu_rg(eigenVector &varcmp, eigenMatrix &Hi, eigenVector &rg, eigen
     }
 }
 
-double gcta::lgL_fix_rg(eigenVector &prev_varcmp, bool no_constrain)
-{
+double gcta::lgL_fix_rg(eigenVector &prev_varcmp, bool no_constrain) {
     int i = 0, j = 0;
     if (_fixed_rg_val.size() > _bivar_pos[0].size() - 1) {
         vector<double> rg_val_buf(_fixed_rg_val);
@@ -384,13 +387,8 @@ double gcta::lgL_fix_rg(eigenVector &prev_varcmp, bool no_constrain)
         for (i = 0; i < _bivar_pos[0].size() - 1; i++) _fixed_rg_val.push_back(rg_val_buf[i]);
     }
 
-    bool non_zero_rg = false;
-    double sum_rg = 0.0;
-    for (i = 0; i < _fixed_rg_val.size(); i++) sum_rg += fabs(_fixed_rg_val[i]);
-    if(sum_rg > 1.0e-30) non_zero_rg = true;
-
     cout << "\nCalculating the logLikelihood for the model with the genetic correlation" << (_fixed_rg_val.size() > 1 ? "s" : "") << " being fixed at ";
-    for (i = 0; i < _fixed_rg_val.size() - 1; i++) cout << _fixed_rg_val[i] << "\t";
+    for (int i = 0; i < _fixed_rg_val.size() - 1; i++) cout << _fixed_rg_val[i] << "\t";
     cout << _fixed_rg_val[_fixed_rg_val.size() - 1] << endl;
 
     vector<int> r_indx_buf(_r_indx);
@@ -403,7 +401,7 @@ double gcta::lgL_fix_rg(eigenVector &prev_varcmp, bool no_constrain)
         _bivar_pos[2].erase(_bivar_pos[2].begin() + i);
     }
 
-    if(non_zero_rg) _A_prev = _A;
+    _Asp_prev = _Asp;
     eigenMatrix Vi_X(_n, _X_c), Xt_Vi_X_i(_X_c, _X_c), Hi(_r_indx.size(), _r_indx.size());
     eigenVector Py(_n);
     eigenVector varcmp(_r_indx.size());
@@ -418,23 +416,16 @@ double gcta::lgL_fix_rg(eigenVector &prev_varcmp, bool no_constrain)
     return lgL;
 }
 
-void gcta::update_A(eigenVector &prev_varcmp)
-{
+void gcta::update_A(eigenVector &prev_varcmp) {
     int i = 0;
-
-    bool non_zero_rg = false;
-    double sum_rg = 0.0;
-    for (i = 0; i < _fixed_rg_val.size(); i++) sum_rg += fabs(_fixed_rg_val[i]);
-    if(sum_rg > 1.0e-30) non_zero_rg = true;
-    if(!non_zero_rg) return;
-
     double g1 = 0.0, g2 = 0.0;
     for (i = 0; i < _fixed_rg_val.size(); i++) {
         g1 = prev_varcmp[_bivar_pos[0][i]];
         g2 = prev_varcmp[_bivar_pos[1][i]];
-        _A[_bivar_pos_prev[0][i]] = _A_prev[_bivar_pos_prev[0][i]] + _A_prev[_bivar_pos_prev[2][i]]*(0.5 * _fixed_rg_val[i] * sqrt(g2 / g1));
-        _A[_bivar_pos_prev[1][i]] = _A_prev[_bivar_pos_prev[1][i]] + _A_prev[_bivar_pos_prev[2][i]]*(0.5 * _fixed_rg_val[i] * sqrt(g1 / g2));
+        _Asp[_bivar_pos_prev[0][i]] = _Asp_prev[_bivar_pos_prev[0][i]] + _Asp_prev[_bivar_pos_prev[2][i]]*(0.5 * _fixed_rg_val[i] * sqrt(g2 / g1));
+        _Asp[_bivar_pos_prev[1][i]] = _Asp_prev[_bivar_pos_prev[1][i]] + _Asp_prev[_bivar_pos_prev[2][i]]*(0.5 * _fixed_rg_val[i] * sqrt(g1 / g2));
     }
+
 }
 
 /*
@@ -457,6 +448,7 @@ void gcta::init_rg(eigenVector &varcmp)
         else throw("Error: unable to calcuate the genetic correlation because one of the genetic variance components is negative.");
     }
 }
+
 void gcta::fix_rg(eigenVector &varcmp, int pos)
 {
     int i=0;

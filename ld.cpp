@@ -282,13 +282,18 @@ void gcta::calcu_mean_rsq(int wind_size, double rsq_cutoff, bool dominance_flag)
     if (brk_pnt2.size() > 1) calcu_ld_blk(brk_pnt2, brk_pnt3, mean_rsq, snp_num, max_rsq, true, rsq_cutoff, dominance_flag);
 
     string mrsq_file = "";
-    if(dominance_flag) mrsq_file = _out + ".d.mrsq.ld";
-    else mrsq_file = _out + ".mrsq.ld";
+    if(dominance_flag) mrsq_file = _out + ".d.score.ld";
+    else mrsq_file = _out + ".score.ld";
     ofstream o_mrsq(mrsq_file.data());
-    o_mrsq<<"SNP chr bp freq mean_rsq snp_num max_rsq"<<endl;
-    for (i = 0; i < m; i++) o_mrsq << _snp_name[_include[i]] << " " << _chr[_include[i]] << " " << _bp[_include[i]] << " " << 0.5 * _mu[_include[i]] << " " << mean_rsq[i] << " " << snp_num[i] << " " << max_rsq[i] << endl;
+    o_mrsq<<"SNP chr bp freq mean_rsq snp_num max_rsq ldscore"<<endl;
+    double ldscore = 0.0;
+    for (i = 0; i < m; i++){
+        o_mrsq << _snp_name[_include[i]] << " " << _chr[_include[i]] << " " << _bp[_include[i]] << " " << 0.5 * _mu[_include[i]] << " ";
+        ldscore = 1.0 + mean_rsq[i] * snp_num[i];
+        o_mrsq << mean_rsq[i] << " " << snp_num[i] << " " << max_rsq[i] << " " << ldscore << "\n";
+    }
     o_mrsq << endl;
-    cout << "Mean and maximum LD rsq for " << m << " SNPs have been saved in the file [" + mrsq_file + "]." << endl;
+    cout << "LD score for " << m << " SNPs have been saved in the file [" + mrsq_file + "]." << endl;
 }
 
 void gcta::calcu_ssx_sqrt_i(eigenVector &ssx_sqrt_i)
@@ -363,10 +368,6 @@ void gcta::calcu_ld_blk(vector<int> &brk_pnt, vector<int> &brk_pnt3, eigenVector
         if (_chr[_include[brk_pnt[i]]] != _chr[_include[brk_pnt[i + 1]]]) continue;
         size = brk_pnt[i + 1] - brk_pnt[i] + 1;
         if (size < 3) continue;
-
-        // debug
-        cout << "size = " << size <<endl;
-
         if (second) {
             s1 = brk_pnt3[i] - brk_pnt[i];
             s2 = s1 + 1;
@@ -565,7 +566,7 @@ void gcta::calcu_mean_rsq_multiSet(string snpset_filenames_file, int wind_size, 
         o_mrsq << endl;
     }
     o_mrsq << endl;
-    cout << "Mean and maximum LD rsq for " << m << " SNPs have been saved in the file [" + mrsq_file + "]." << endl;
+    cout << "LD score for " << m << " SNPs have been saved in the file [" + mrsq_file + "]." << endl;
 }
 
 void gcta::calcu_ld_blk_multiSet(vector<int> &brk_pnt, vector<int> &brk_pnt3, vector< vector<bool> > &set_flag, vector<eigenVector> &mean_rsq, vector<eigenVector> &snp_num, vector<eigenVector> &max_rsq, bool second, double rsq_cutoff, bool dominance_flag)
@@ -577,10 +578,6 @@ void gcta::calcu_ld_blk_multiSet(vector<int> &brk_pnt, vector<int> &brk_pnt3, ve
         if (_chr[_include[brk_pnt[i]]] != _chr[_include[brk_pnt[i + 1]]]) continue;
         size = brk_pnt[i + 1] - brk_pnt[i] + 1;
         if (size < 3) continue;
-
-        // debug
-        cout << "size = " << size <<endl;
-
         if (second) {
             s1 = brk_pnt3[i] - brk_pnt[i];
             s2 = s1 + 1;
@@ -727,7 +724,7 @@ void gcta::calcu_ld_blk_split_multiSet(int size, int size_limit, MatrixXf &X_sub
 void gcta::ld_seg(string i_ld_file, int seg_size, int wind_size, double rsq_cutoff, bool dominance_flag)
 {
     int i = 0, j = 0, k = 0, m = 0;
-    vector<float> mrsq, snp_num, max_rsq;
+    vector<float> mrsq, snp_num, max_rsq, ldscore;
     vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
 
     if(!i_ld_file.empty()){
@@ -735,7 +732,7 @@ void gcta::ld_seg(string i_ld_file, int seg_size, int wind_size, double rsq_cuto
         if (!ild) throw ("Error: can not open the file [" + i_ld_file + "] to read.");
 
         string str_buf;
-        cout << "Reading LD mean rsq for SNPs from [" + i_ld_file + "] ..." << endl;
+        cout << "Reading per-SNP LD score from [" + i_ld_file + "] ..." << endl;
         getline(ild, str_buf); // get the header
         while(getline(ild, str_buf)){
             if(str_buf.size() > 0) m++;
@@ -750,6 +747,7 @@ void gcta::ld_seg(string i_ld_file, int seg_size, int wind_size, double rsq_cuto
         mrsq.resize(m);
         snp_num.resize(m);
         max_rsq.resize(m);
+        ldscore.resize(m);
         i = 0;
         getline(ild, str_buf); // get the header
         while (ild) {
@@ -763,11 +761,12 @@ void gcta::ld_seg(string i_ld_file, int seg_size, int wind_size, double rsq_cuto
             if(!(ild >> mrsq[i])) throw("Error: in the file [" + i_ld_file + "].");
             if(!(ild >> snp_num[i])) throw("Error: in the file [" + i_ld_file + "].");
             if(!(ild >> max_rsq[i])) throw("Error: in the file [" + i_ld_file + "].");
+            if(!(ild >> ldscore[i])) throw("Error: in the file [" + i_ld_file + "].");
             getline(ild, str_buf);
             i++;
         }
         ild.close();
-        cout << "LD mean rsq for " << m << " SNPs read from [" + i_ld_file + "]." << endl;
+        cout << "Per-SNP LD score for " << m << " SNPs read from [" + i_ld_file + "]." << endl;
 
         _include.resize(m);
         for(i = 0; i < m; i++) _include[i] = i;
@@ -784,10 +783,12 @@ void gcta::ld_seg(string i_ld_file, int seg_size, int wind_size, double rsq_cuto
         mrsq.resize(m);
         snp_num.resize(m);
         max_rsq.resize(m);
+        ldscore.resize(m);
         for(i = 0; i < m; i++){
             mrsq[i] = mrsq_buf(i);
             snp_num[i] = snp_num_buf(i);
             max_rsq[i] = max_rsq_buf(i);
+            ldscore[i] = 1.0 + mrsq_buf(i) * snp_num_buf(i);
         }
     }
 
@@ -810,7 +811,7 @@ void gcta::ld_seg(string i_ld_file, int seg_size, int wind_size, double rsq_cuto
         size = brk_pnt1[i + 1] - brk_pnt1[i] + 1;
         if(size < 3) continue;
         double ld_score = 0.0;
-        for(j = brk_pnt1[i]; j <= brk_pnt1[i + 1]; j++) ld_score += mrsq[j] * snp_num[j] + 1.0; 
+        for(j = brk_pnt1[i]; j <= brk_pnt1[i + 1]; j++) ld_score += ldscore[j]; //mrsq[j] * snp_num[j] + 1.0; 
         ld_score /= (double)size;
         for(j = brk_pnt1[i]; j <= brk_pnt1[i + 1]; j++) lds[j] = ld_score; 
     }
@@ -818,18 +819,21 @@ void gcta::ld_seg(string i_ld_file, int seg_size, int wind_size, double rsq_cuto
         size = brk_pnt2[i + 1] - brk_pnt2[i] + 1;
         if(size < 3) continue;
         double ld_score = 0.0;
-        for(j = brk_pnt2[i]; j <= brk_pnt2[i + 1]; j++) ld_score += mrsq[j] * snp_num[j] + 1.0; 
+        for(j = brk_pnt2[i]; j <= brk_pnt2[i + 1]; j++) ld_score += ldscore[j]; // mrsq[j] * snp_num[j] + 1.0; 
         ld_score /= (double)size;
         for(j = brk_pnt2[i]; j <= brk_pnt2[i + 1]; j++) lds[j] = 0.5*(ld_score + lds[j]); 
     }
 
     string lds_file;
-    if(dominance_flag) lds_file = _out + ".d.mrsq.ld";
-    else lds_file = _out + ".mrsq.ld";
+    if(dominance_flag) lds_file = _out + ".d.score.ld";
+    else lds_file = _out + ".score.ld";
     cout << "Writing the regional LD score to file ["+ lds_file +"] ..." << endl;
     ofstream o_lds(lds_file.data());
-    o_lds << "SNP chr bp freq mean_rsq snp_num max_rsq mean_lds"<<endl;
-    for (i = 0; i < m; i++) o_lds << _snp_name[_include[i]] << " " << _chr[_include[i]] << " " << _bp[_include[i]] << " " << 0.5 * _mu[_include[i]] << " " << mrsq[i] << " " << snp_num[i] << " " << max_rsq[i] << " " << lds[i] << endl;
+    o_lds << "SNP chr bp freq mean_rsq snp_num max_rsq ldscore_SNP ldscore_region"<<endl;
+    for (i = 0; i < m; i++){
+        o_lds << _snp_name[_include[i]] << " " << _chr[_include[i]] << " " << _bp[_include[i]] << " " << 0.5 * _mu[_include[i]] ;
+        o_lds << " " << mrsq[i] << " " << snp_num[i] << " " << max_rsq[i] << " " << ldscore[i] << " " << lds[i] << "\n";
+    }
 }
 
 void gcta::get_lds_brkpnt(vector<int> &brk_pnt1, vector<int> &brk_pnt2, int ldwt_seg, int wind_snp_num)

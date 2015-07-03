@@ -512,36 +512,6 @@ void gcta::save_grm(string grm_file, string keep_indi_file, string remove_indi_f
     output_grm(output_grm_bin);
 }
 
-void gcta::pca(string grm_file, string keep_indi_file, string remove_indi_file, double grm_cutoff, bool merge_grm_flag, int out_pc_num)
-{
-    manipulate_grm(grm_file, keep_indi_file, remove_indi_file, "", grm_cutoff, -2.0, -2, merge_grm_flag, true);
-    _grm_N.resize(0, 0);
-    int i = 0, j = 0, n = _keep.size();
-    cout << "\nPerforming principal component analysis ..." << endl;
-
-    SelfAdjointEigenSolver<MatrixXd> eigensolver(_grm.cast<double>());
-    MatrixXd evec = (eigensolver.eigenvectors());
-    VectorXd eval = eigensolver.eigenvalues();
-
-    string eval_file = _out + ".eigenval";
-    ofstream o_eval(eval_file.c_str());
-    if (!o_eval) throw ("Error: can not open the file [" + eval_file + "] to read.");
-    for (i = n - 1; i >= 0; i--) o_eval << eval(i) << endl;
-    o_eval.close();
-    cout << "Eigenvalues of " << n << " individuals have been saved in [" + eval_file + "]." << endl;
-    string evec_file = _out + ".eigenvec";
-    ofstream o_evec(evec_file.c_str());
-    if (!o_evec) throw ("Error: can not open the file [" + evec_file + "] to read.");
-    if (out_pc_num > n) out_pc_num = n;
-    for (i = 0; i < n; i++) {
-        o_evec << _fid[_keep[i]] << " " << _pid[_keep[i]];
-        for (j = n - 1; j >= (n - out_pc_num); j--) o_evec << " " << evec(i, j);
-        o_evec << endl;
-    }
-    o_evec.close();
-    cout << "The first " << out_pc_num << " eigenvectors of " << n << " individuals have been saved in [" + evec_file + "]." << endl;
-}
-
 void gcta::merge_grm(string merge_grm_file) {
     vector<string> grm_files, grm_id;
     read_grm_filenames(merge_grm_file, grm_files);
@@ -603,3 +573,116 @@ void gcta::read_grm_filenames(string merge_grm_file, vector<string> &grm_files, 
     if (grm_files.size() > 1000) throw ("Error: too many GRM file names specified in [" + merge_grm_file + "]. Maximum is 1000.");
     if (grm_files.size() < 1) throw ("Error: no GRM file name is found in [" + merge_grm_file + "].");
 }
+
+
+void gcta::pca(string grm_file, string keep_indi_file, string remove_indi_file, double grm_cutoff, bool merge_grm_flag, int out_pc_num)
+{
+    manipulate_grm(grm_file, keep_indi_file, remove_indi_file, "", grm_cutoff, -2.0, -2, merge_grm_flag, true);
+    _grm_N.resize(0, 0);
+    int i = 0, j = 0, n = _keep.size();
+    cout << "\nPerforming principal component analysis ..." << endl;
+
+    SelfAdjointEigenSolver<MatrixXd> eigensolver(_grm.cast<double>());
+    MatrixXd evec = (eigensolver.eigenvectors());
+    VectorXd eval = eigensolver.eigenvalues();
+
+    string eval_file = _out + ".eigenval";
+    ofstream o_eval(eval_file.c_str());
+    if (!o_eval) throw ("Error: can not open the file [" + eval_file + "] to read.");
+    for (i = n - 1; i >= 0; i--) o_eval << eval(i) << endl;
+    o_eval.close();
+    cout << "Eigenvalues of " << n << " individuals have been saved in [" + eval_file + "]." << endl;
+    string evec_file = _out + ".eigenvec";
+    ofstream o_evec(evec_file.c_str());
+    if (!o_evec) throw ("Error: can not open the file [" + evec_file + "] to read.");
+    if (out_pc_num > n) out_pc_num = n;
+    for (i = 0; i < n; i++) {
+        o_evec << _fid[_keep[i]] << " " << _pid[_keep[i]];
+        for (j = n - 1; j >= (n - out_pc_num); j--) o_evec << " " << evec(i, j);
+        o_evec << endl;
+    }
+    o_evec.close();
+    cout << "The first " << out_pc_num << " eigenvectors of " << n << " individuals have been saved in [" + evec_file + "]." << endl;
+}
+
+void gcta::snp_pc_loading(string pc_file, int grm_N)
+{
+    // read eigenvectors and eigenvalues
+    string eigenval_file = pc_file + ".eigenval";
+    ifstream in_eigenval(eigenval_file.c_str());
+    if (!in_eigenval) throw ("Error: can not open the file [" + eigenval_file + "] to read.");
+    string eigenvec_file = pc_file + ".eigenvec";
+    ifstream in_eigenvec(eigenvec_file.c_str());
+    if (!in_eigenvec) throw ("Error: can not open the file [" + eigenvec_file + "] to read.");
+  
+    cout << "Reading eigenvectors from [" + eigenvec_file + "]." << endl;
+    vector<string> eigenvec_ID;
+    vector< vector<string> > eigenvec_str;
+    int eigenvec_num = read_fac(in_eigenvec, eigenvec_ID, eigenvec_str);
+    cout << eigenvec_num << " eigenvectors of " << eigenvec_ID.size() << " individuals are included from [" + eigenvec_file + "]." << endl;
+    update_id_map_kp(eigenvec_ID, _id_map, _keep);
+
+    cout << "\nReading eigenvalues from [" + eigenval_file + "]." << endl;
+    vector<double> eigenval_buf;
+    double d_buf = 0.0;
+    int eigenval_num = 0;
+    while(in_eigenval && eigenval_num < eigenvec_num){
+        in_eigenval >> d_buf;
+        if(d_buf > 1e10 || d_buf < 1e-10) throw("Error: invalid eigenvalue in the file [" + eigenval_file + "].");
+        eigenval_buf.push_back(d_buf);
+        eigenval_num++;
+    }
+    if(eigenvec_num != eigenval_num) throw("Error: inconsistent numbers of eigenvalues and eigenvectors in the files [" + eigenval_file + "] and [" + eigenvec_file + "]");
+    cout << eigenval_num << " eigenvalues read from [" + eigenval_file + "]" << endl;  
+
+    int i = 0, j = 0;
+    vector<string> uni_id;
+    map<string, int> uni_id_map;
+    map<string, int>::iterator iter;
+    for(i=0; i<_keep.size(); i++){
+        uni_id.push_back(_fid[_keep[i]]+":"+_pid[_keep[i]]);
+        uni_id_map.insert(pair<string,int>(_fid[_keep[i]]+":"+_pid[_keep[i]], i));
+    }
+    _n=_keep.size();
+    if(_n < 1) throw("Error: no individual is in common between the input files.");
+    cout << _n << " individuals in common between the input files are included in the analysis."<<endl;
+    
+    eigenMatrix eigenvec(eigenvec_num, _n);
+    for(i = 0; i < eigenvec_ID.size(); i++){
+        iter = uni_id_map.find(eigenvec_ID[i]);
+        if(iter == uni_id_map.end()) continue;
+        for(j = 0; j < eigenvec_num; j++) eigenvec(j, iter->second) = atof(eigenvec_str[i][j].c_str());
+    }
+
+    eigenVector inv_eigenval(eigenval_num);
+    for(i = 0; i < eigenval_num; i++)  inv_eigenval(i) = 1.0 / (eigenval_buf[i] * grm_N);
+
+    // calculating SNP loading
+    if (_mu.empty()) calcu_mu();
+    cout << "\nCalculating SNP loading ..." << endl;
+    int m = _include.size();
+    eigenMatrix snp_loading(m, eigenvec_num);
+    eigenVector x(_n);
+    for(j = 0; j < m ; j++) {
+        makex_eigenVector(j, x, false, true);
+        x = x.array() / sqrt(_mu[_include[j]]*(1.0 - 0.5*_mu[_include[j]]));
+        snp_loading.row(j) = (eigenvec * x).array() * inv_eigenval.array();
+    }
+
+    string filename = _out + ".pcl";
+    cout << "\nSaving the PC loading of " << m << " SNPs to [" + filename + "] ..." << endl;
+    ofstream ofile(filename.c_str());
+    if(!ofile) throw("Can not open the file [" + filename + "] to write.");
+    ofile << "SNP\trefA";
+    for(i = 0; i < eigenval_num; i++) ofile << "\tpc" << i+1 << "_loading";
+    ofile << endl;
+    for(i = 0; i < m; i++){
+        ofile << _snp_name[_include[i]] << "\t" << _ref_A[_include[i]];
+        for(j = 0; j < eigenvec_num; j++) ofile << "\t" << snp_loading(i, j);
+        ofile << "\n";
+    }
+    ofile.close();
+}
+
+
+
