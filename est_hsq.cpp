@@ -317,6 +317,10 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
         _grm_N.resize(0, 0);
         _grm.resize(0, 0);
     }
+    else {
+        _r_indx.push_back(0);
+        _A.resize(_r_indx.size());
+    }
     _A[_r_indx.size() - 1] = eigenMatrix::Identity(_n, _n);
 
     // GE interaction
