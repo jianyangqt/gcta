@@ -159,7 +159,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, bool reduc
     vector<int> snp_num_in_gene(gene_num);
     map<string, int>::iterator iter1, iter2;
     map<string, int> snp_name_map;
-    string rgoodsnpfile = _out + ".snpset";
+    string rgoodsnpfile = _out + ".gene.snpset";
     ofstream rogoodsnp;
     if (write_snpset) rogoodsnp.open(rgoodsnpfile.c_str());
     for (i = 0; i < snp_name.size(); i++) snp_name_map.insert(pair<string,int>(snp_name[i], i));
@@ -194,19 +194,19 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, bool reduc
             for (j = iter1->second; j <= iter2->second; j++) snp_indx.push_back(j);            
             snp_count=snp_num_in_gene[i];
             VectorXd eigenval;
-            vector<int> new_C_indx;
-            sbat_calcu_lambda(snp_indx, eigenval, snp_count, reduce_cor, new_C_indx);
+            vector<int> sub_indx;
+            sbat_calcu_lambda(snp_indx, eigenval, snp_count, reduce_cor, sub_indx);
             //recalculate chisq value from low correlation snp subset
             if (reduce_cor) {
                 chisq_o[i] = 0;
-                for (j = 0; j < new_C_indx.size(); j++) chisq_o[i] += snp_chisq[(iter1->second)+new_C_indx[j]];
-            }
+                for (j = 0; j < sub_indx.size(); j++) chisq_o[i] += snp_chisq[snp_indx[sub_indx[j]]];
+            } 
             gene_pval[i] = StatFunc::pchisqsum(chisq_o[i], eigenval);
             snp_num_in_gene[i] = snp_count;
 
             if (write_snpset) {
                 rogoodsnp << gene_name[i] << endl;
-                for (int k = 0; k < new_C_indx.size(); k++) rogoodsnp << snp_name[new_C_indx[k]] << endl;
+                for (int k = 0; k < sub_indx.size(); k++) rogoodsnp << snp_name[(iter1->second)+sub_indx[k]] << endl;
                 rogoodsnp << "END" << endl << endl;
             }
 
@@ -228,7 +228,10 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, bool reduc
         //else ofile << "0\tNA\tNA\tNA\tNA" << endl;
     }
     ofile.close();
-    if (write_snpset) rogoodsnp.close();
+    if (write_snpset) {
+        cout << "Writing snpset ..." << endl;
+        rogoodsnp.close();
+    }
 }
 
 void gcta::sbat_read_snpset(string snpset_file, vector<string> &set_name, vector< vector<string> > &snpset)
@@ -344,7 +347,7 @@ void gcta::gene_snpset(string gAnno_file, int wind)
     vector<int> snp_num_in_gene(gene_num);
     map<string, int>::iterator iter1, iter2;
     map<string, int> snp_name_map;
-    string rgoodsnpfile = _out + ".snpset";
+    string rgoodsnpfile = _out + ".gene.snpset";
     ofstream rogoodsnp;
     rogoodsnp.open(rgoodsnpfile.c_str());
     cout << "Writing genes to snp sets ..." << endl;
@@ -444,20 +447,20 @@ void gcta::sbat(string sAssoc_file, string snpset_file, bool reduce_cor, bool wr
         else {
             snp_count=snp_num_in_set[i];
             VectorXd eigenval;
-            vector<int> new_C_indx;
-            sbat_calcu_lambda(snp_indx, eigenval, snp_count, reduce_cor, new_C_indx);
+            vector<int> sub_indx;
+            sbat_calcu_lambda(snp_indx, eigenval, snp_count, reduce_cor, sub_indx);
 
             //recalculate chisq value from low correlation snp subset
             if (reduce_cor) {
                 chisq_o[i] = 0;
-                for (j = 0; j < new_C_indx.size(); j++) chisq_o[i] += snp_chisq[snp_indx[new_C_indx[j]]];
+                for (j = 0; j < sub_indx.size(); j++) chisq_o[i] += snp_chisq[snp_indx[sub_indx[j]]];
             }
             set_pval[i] = StatFunc::pchisqsum(chisq_o[i], eigenval);
             snp_num_in_set[i]=snp_count;
 
             if (write_snpset) {
                 rogoodsnp << set_name[i] << endl;
-                for (int k = 0; k < new_C_indx.size(); k++) rogoodsnp << snp_name[new_C_indx[k]] << endl;
+                for (int k = 0; k < sub_indx.size(); k++) rogoodsnp << snp_name[snp_indx[sub_indx[k]]] << endl;
                 rogoodsnp << "END" << endl << endl;
             }
 
@@ -477,7 +480,10 @@ void gcta::sbat(string sAssoc_file, string snpset_file, bool reduce_cor, bool wr
         ofile << set_pval[i] << "\t" << min_snp_pval[i] << "\t" << min_snp_name[i] << endl;
     }
     ofile.close();
-    if (write_snpset) rogoodsnp.close();
+    if (write_snpset) {
+        cout << "Writing snpset ..." << endl;
+        rogoodsnp.close();
+    }
 }
 
 void gcta::sbat_seg(string sAssoc_file, int seg_size, bool reduce_cor, bool write_snpset)
@@ -504,7 +510,7 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, bool reduce_cor, bool writ
     vector<string> min_snp_name(set_num);
     vector<int> snp_num_in_set(set_num);
 
-    string rgoodsnpfile = _out + ".snpset";
+    string rgoodsnpfile = _out + ".seg.snpset";
     ofstream rogoodsnp;
     if (write_snpset) rogoodsnp.open(rgoodsnpfile.c_str());
  
@@ -536,19 +542,19 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, bool reduce_cor, bool writ
         else {
             snp_count=snp_num_in_set[i];
             VectorXd eigenval;
-            vector<int> new_C_indx;
-            sbat_calcu_lambda(snp_indx, eigenval, snp_count, reduce_cor, new_C_indx);
+            vector<int> sub_indx;
+            sbat_calcu_lambda(snp_indx, eigenval, snp_count, reduce_cor, sub_indx);
             //recalculate chisq value from low correlation snp subset
             if (reduce_cor) {
                 chisq_o[i] = 0;
-                for (j = 0; j < new_C_indx.size(); j++) chisq_o[i] += snp_chisq[snp_indx[new_C_indx[j]]]; 
+                for (j = 0; j < sub_indx.size(); j++) chisq_o[i] += snp_chisq[snp_indx[sub_indx[j]]]; 
             }
             set_pval[i] = StatFunc::pchisqsum(chisq_o[i], eigenval);
             snp_num_in_set[i] = snp_count;
 
            if (write_snpset) {
-                rogoodsnp << set_start_bp[i] << "-" << set_end_bp[i] << endl;
-                for (int k = 0; k < new_C_indx.size(); k++) rogoodsnp << snp_name[new_C_indx[k]] << endl;
+                rogoodsnp << "SEG" << i << ":" << set_start_bp[i] << "-" << set_end_bp[i] << endl;
+                for (int k = 0; k < sub_indx.size(); k++) rogoodsnp << snp_name[snp_indx[sub_indx[k]]] << endl;
                 rogoodsnp << "END" << endl << endl;
             }
 
@@ -561,7 +567,7 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, bool reduce_cor, bool writ
     cout << "\nSaving the results of the segment-based SBAT analyses to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
     if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
-    ofile << "Chr\tStart\tEnd\tNo.SNPs\tChisq(Obs)\tPvalue" << endl;
+    ofile << "Chr\tStart\tEnd\tNo.SNPs\tChisq(Obs)\tPvalue\tTopSNP_Pvalue\tTopSNP" << endl;
     for (i = 0; i < set_num; i++) {
         if(set_pval[i]>1.5) continue;
         ofile << set_chr[i] << "\t" << set_start_bp[i] << "\t"<< set_end_bp[i] << "\t";
@@ -570,7 +576,10 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, bool reduce_cor, bool writ
  
     }
     ofile.close();
-    if (write_snpset) rogoodsnp.close();
+    if (write_snpset) {
+        cout << "Writing snpset ..." << endl;
+        rogoodsnp.close();
+    }
 }
 
 void gcta::get_sbat_seg_blk(int seg_size, vector< vector<int> > &snp_set_indx, vector<int> &set_chr, vector<int> &set_start_bp, vector<int> &set_end_bp)
@@ -613,7 +622,7 @@ void gcta::get_sbat_seg_blk(int seg_size, vector< vector<int> > &snp_set_indx, v
     }
 }
 
-void gcta::sbat_calcu_lambda(vector<int> &snp_indx, VectorXd &eigenval, int &snp_count, bool reduce_cor, vector<int> &new_C_indx)
+void gcta::sbat_calcu_lambda(vector<int> &snp_indx, VectorXd &eigenval, int &snp_count, bool reduce_cor, vector<int> &sub_indx)
 {
     int i = 0, j = 0, k = 0, n = _keep.size(), m = snp_indx.size();
 
@@ -621,7 +630,7 @@ void gcta::sbat_calcu_lambda(vector<int> &snp_indx, VectorXd &eigenval, int &snp
     make_XMat_subset(X, snp_indx, false);
     vector<int> rm_ID1;
     double R_cutoff = 0.9486833; //sqrt(0.9) 
-    int ii = 0; //alternate index
+    int qi = 0; //alternate index
 
     VectorXd sumsq_x(m);
     for (j = 0; j < m; j++) sumsq_x[j] = X.col(j).dot(X.col(j));
@@ -637,27 +646,26 @@ void gcta::sbat_calcu_lambda(vector<int> &snp_indx, VectorXd &eigenval, int &snp
         }
     }
 
-    if (reduce_cor) {
-        rm_cor_sbat(C, R_cutoff, m, rm_ID1);
+    if (reduce_cor) rm_cor_sbat(C, R_cutoff, m, rm_ID1);
         //Create new index
         for (int i=0 ; i<m ; i++) {
-            if (rm_ID1.size() == 0) new_C_indx.push_back(i);
+            if (rm_ID1.size() == 0) sub_indx.push_back(i);
             else {
-                if (rm_ID1[ii] == i) ii++;
-                else new_C_indx.push_back(i);
+                if (rm_ID1[qi] == i) qi++; //Skip removed snp
+                else sub_indx.push_back(i);
             }
         }
-        snp_count = new_C_indx.size();
-        if (new_C_indx.size() < C.size()) { //Build new matrix
-            MatrixXf D(new_C_indx.size(),new_C_indx.size());
-            for (i = 0 ; i < new_C_indx.size() ; i++) {
-               for (j = 0 ; j < new_C_indx.size() ; j++) {
-                   D(i,j) = C(new_C_indx[i],new_C_indx[j]);
+        snp_count = sub_indx.size();
+        if (sub_indx.size() < C.size()) { //Build new matrix
+            MatrixXf D(sub_indx.size(),sub_indx.size());
+            for (i = 0 ; i < sub_indx.size() ; i++) {
+               for (j = 0 ; j < sub_indx.size() ; j++) {
+                   D(i,j) = C(sub_indx[i],sub_indx[j]);
                }
             }
             C = D; 
         }
-    }
+    
     SelfAdjointEigenSolver<MatrixXf> saes(C);
     eigenval = saes.eigenvalues().cast<double>();
 }

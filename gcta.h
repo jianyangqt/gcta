@@ -346,7 +346,7 @@ private:
     void sbat_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, vector<int> &snp_chr, vector<int> &snp_bp, vector<double> &snp_pval);
     void sbat_read_geneAnno(string gAnno_file, vector<string> &gene_name, vector<int> &gene_chr, vector<int> &gene_bp1, vector<int> &gene_bp2);
     void sbat_read_snpset(string snpset_file, vector<string> &set_name, vector< vector<string> > &snpset);
-    void sbat_calcu_lambda(vector<int> &snp_indx, VectorXd &eigenval, int &snp_count, bool reduce_cor, vector<int> &new_C_indx);
+    void sbat_calcu_lambda(vector<int> &snp_indx, VectorXd &eigenval, int &snp_count, bool reduce_cor, vector<int> &sub_indx);
     void get_sbat_seg_blk(int seg_size, vector< vector<int> > &snp_set_indx, vector<int> &set_chr, vector<int> &set_start_bp, vector<int> &set_end_bp);
 
     // gene based multivar test
@@ -355,10 +355,10 @@ private:
     void rm_cor_sbat(MatrixXf &R, double R_cutoff, int m, vector<int> &rm_ID1);
     void rm_ld_inv_beta(eigenMatrix &VR, MatrixXf &C, int m, double off_m, double off_sd, double &beta_rlim, double &beta_sdlim, vector<int> &rm_ID0, vector<int> &rm_IDi, vector<int> &rm_IDj);
     int sbat_VIF_iter_rm_colin(MatrixXf R);
-    void recalculate_ndx(int &msnps, vector<int> &rm_ID1, vector<int> &new_C_indx);
+    void recalculate_ndx(int &msnps, vector<int> &rm_ID1, vector<int> &sub_indx);
     void write_beta_summary(vector<int> &rm_IDi, vector<int> &rm_IDj, vector<string> &snp_kept, vector<string> &set_A1, eigenVector &set_beta, MatrixXf &C, string filename);
     void write_snp_summary(vector<string> &snp_keep, eigenVector &snp_beta, eigenVector &snp_btse, string postfix);
-    void rebuild_matrix(eigenVector &snp_beta, eigenVector &snp_btse, vector<string> &snp_keep, vector<int> &new_C_indx, MatrixXf &C); 
+    void rebuild_matrix(eigenVector &snp_beta, eigenVector &snp_btse, vector<string> &snp_keep, vector<int> &sub_indx, MatrixXf &C); 
     void beta_qc(vector<string> &snp_kept, eigenVector &set_beta, eigenVector &set_se, MatrixXf &C, vector<string> &set_A1, int &beta_inv_remain, double &off_m, double &off_sd, double &beta_rlim, double &beta_sdlim, string filename);
     void make_cor_matrix(MatrixXf &C, vector<int> &snp_indx);
     void set_stats(double &off_m, double &off_sd, eigenMatrix &VR);
