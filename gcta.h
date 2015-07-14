@@ -148,9 +148,10 @@ public:
     void mlma_loco(string phen_file, string qcovar_file, string covar_file, int mphen, int MaxIter, vector<double> reml_priors, vector<double> reml_priors_var, bool no_constrain, bool inbred, bool no_adj_covar);
 
     // gene based association test
-    void sbat_gene(string sAssoc_file, string gAnno_file, int wind);
-    void sbat(string sAssoc_file, string snpset_file);
-    void sbat_seg(string sAssoc_file, int seg_size);
+    void sbat_gene(string sAssoc_file, string gAnno_file, int wind, bool reduce_cor, bool write_snpset);
+    void sbat(string sAssoc_file, string snpset_file, bool reduce_cor, bool write_snpset);
+    void sbat_seg(string sAssoc_file, int seg_size, bool reduce_cor, bool write_snpset);
+
 
     /////////////////////////
     // gene expresion data
