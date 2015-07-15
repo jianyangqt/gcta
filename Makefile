@@ -12,7 +12,8 @@ export TMPDIR=/state/partition1/tmp
 
 # Set this variable to either UNIX, MAC or WIN
 SYS = UNIX
-OUTPUT = ~/scratch/bin/gcta64_test
+OUTPUT = ~/scratch/bin/gcta64_test_new
+#OUTPUT = ./release/gcta64_test
 
 MKLROOT = /opt/intel/mkl
 
@@ -62,7 +63,6 @@ HDR += CommFunc.h \
 	   eigen_func.h \
            gcta.h \
 	   ipmpar.h \
-           SimplexSolver.h \
            StatFunc.h \
            StrFunc.h \
            zfstream.h
@@ -75,7 +75,6 @@ SRC = bivar_reml.cpp \
            ejma.cpp \
            est_hsq.cpp \
            grm.cpp \
-           grm_wt.cpp \
            gwas_simu.cpp \
            ld.cpp \
            joint_meta.cpp \
@@ -85,7 +84,6 @@ SRC = bivar_reml.cpp \
            popu_genet.cpp \
            raw_geno.cpp \
            sbat.cpp \
-           SimplexSolver.cpp \
            StatFunc.cpp \
            StrFunc.cpp \
            reml_within_family.cpp \
