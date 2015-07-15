@@ -76,7 +76,7 @@ void gcta::sbat_read_geneAnno(string gAnno_file, vector<string> &gene_name, vect
     cout << "Physical positions of " << gene_name.size() << " genes have been include." << endl;
 }
 
-void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, bool reduce_cor, bool write_snpset)
+void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sbat_ld_cutoff, bool write_snpset)
 {
     int i = 0, j = 0;
     int snp_count;
@@ -154,6 +154,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, bool reduc
     // run gene-based test
     if (_mu.empty()) calcu_mu();
     cout << "\nRunning set-based association test (SBAT) for genes ..." << endl;
+    cout << "Pruning snps with maximum ld cutoff " << sbat_ld_cutoff  << endl;
     vector<double> gene_pval(gene_num), chisq_o(gene_num), min_snp_pval(gene_num);
     vector<string> min_snp_name(gene_num);
     vector<int> snp_num_in_gene(gene_num);
@@ -195,9 +196,9 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, bool reduc
             snp_count=snp_num_in_gene[i];
             VectorXd eigenval;
             vector<int> sub_indx;
-            sbat_calcu_lambda(snp_indx, eigenval, snp_count, reduce_cor, sub_indx);
+            sbat_calcu_lambda(snp_indx, eigenval, snp_count, sbat_ld_cutoff, sub_indx);
             //recalculate chisq value from low correlation snp subset
-            if (reduce_cor) {
+            if (sbat_ld_cutoff < 1) {
                 chisq_o[i] = 0;
                 for (j = 0; j < sub_indx.size(); j++) chisq_o[i] += snp_chisq[snp_indx[sub_indx[j]]];
             } 
@@ -264,7 +265,7 @@ void gcta::sbat_read_snpset(string snpset_file, vector<string> &set_name, vector
     cout << snp_name.size() << " SNPs in " << snpset.size() << " sets have been included." << endl;
 }
 
-void gcta::sbat(string sAssoc_file, string snpset_file, bool reduce_cor, bool write_snpset)
+void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, bool write_snpset)
 {
     int i = 0, j = 0;
     int snp_count;
@@ -286,6 +287,7 @@ void gcta::sbat(string sAssoc_file, string snpset_file, bool reduce_cor, bool wr
     // run gene-based test
     if (_mu.empty()) calcu_mu();
     cout << "\nRunning set-based association test (SBAT)..." << endl;
+    cout << "Pruning snps with maximum ld cutoff " << sbat_ld_cutoff  << endl;
     vector<double> set_pval(set_num), chisq_o(set_num), min_snp_pval(set_num);
     vector<string> min_snp_name(set_num);
     vector<int> snp_num_in_set(set_num);
@@ -330,10 +332,10 @@ void gcta::sbat(string sAssoc_file, string snpset_file, bool reduce_cor, bool wr
             snp_count=snp_num_in_set[i];
             VectorXd eigenval;
             vector<int> sub_indx;
-            sbat_calcu_lambda(snp_indx, eigenval, snp_count, reduce_cor, sub_indx);
+            sbat_calcu_lambda(snp_indx, eigenval, snp_count, sbat_ld_cutoff, sub_indx);
 
             //recalculate chisq value from low correlation snp subset
-            if (reduce_cor) {
+            if (sbat_ld_cutoff < 1) {
                 chisq_o[i] = 0;
                 for (j = 0; j < sub_indx.size(); j++) chisq_o[i] += snp_chisq[snp_indx[sub_indx[j]]];
             }
@@ -368,7 +370,7 @@ void gcta::sbat(string sAssoc_file, string snpset_file, bool reduce_cor, bool wr
     }
 }
 
-void gcta::sbat_seg(string sAssoc_file, int seg_size, bool reduce_cor, bool write_snpset)
+void gcta::sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, bool write_snpset)
 {
     int i = 0, j = 0;
     int snp_count;
@@ -384,6 +386,7 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, bool reduce_cor, bool writ
     // run gene-based test
     if (_mu.empty()) calcu_mu();
     cout << "\nRunning set-based association test (SBAT) at genomic segments with a length of " << seg_size/1000 << "Kb ..." << endl;
+    cout << "Pruning snps with maximum ld cutoff " << sbat_ld_cutoff  << endl;
     vector< vector<int> > snp_set_indx;
     vector<int> set_chr, set_start_bp, set_end_bp;
     get_sbat_seg_blk(seg_size, snp_set_indx, set_chr, set_start_bp, set_end_bp);
@@ -425,9 +428,9 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, bool reduce_cor, bool writ
             snp_count=snp_num_in_set[i];
             VectorXd eigenval;
             vector<int> sub_indx;
-            sbat_calcu_lambda(snp_indx, eigenval, snp_count, reduce_cor, sub_indx);
+            sbat_calcu_lambda(snp_indx, eigenval, snp_count, sbat_ld_cutoff, sub_indx);
             //recalculate chisq value from low correlation snp subset
-            if (reduce_cor) {
+            if (sbat_ld_cutoff < 1) {
                 chisq_o[i] = 0;
                 for (j = 0; j < sub_indx.size(); j++) chisq_o[i] += snp_chisq[snp_indx[sub_indx[j]]]; 
             }
@@ -504,14 +507,14 @@ void gcta::get_sbat_seg_blk(int seg_size, vector< vector<int> > &snp_set_indx, v
     }
 }
 
-void gcta::sbat_calcu_lambda(vector<int> &snp_indx, VectorXd &eigenval, int &snp_count, bool reduce_cor, vector<int> &sub_indx)
+void gcta::sbat_calcu_lambda(vector<int> &snp_indx, VectorXd &eigenval, int &snp_count, double sbat_ld_cutoff, vector<int> &sub_indx)
 {
     int i = 0, j = 0, k = 0, n = _keep.size(), m = snp_indx.size();
 
     MatrixXf X;
     make_XMat_subset(X, snp_indx, false);
     vector<int> rm_ID1;
-    double R_cutoff = 0.9486833; //sqrt(0.9) 
+    double R_cutoff = sbat_ld_cutoff;
     int qi = 0; //alternate index
 
     VectorXd sumsq_x(m);
@@ -528,7 +531,7 @@ void gcta::sbat_calcu_lambda(vector<int> &snp_indx, VectorXd &eigenval, int &snp
         }
     }
 
-    if (reduce_cor) rm_cor_sbat(C, R_cutoff, m, rm_ID1);
+    if (sbat_ld_cutoff < 1) rm_cor_sbat(C, R_cutoff, m, rm_ID1);
         //Create new index
         for (int i=0 ; i<m ; i++) {
             if (rm_ID1.size() == 0) sub_indx.push_back(i);
@@ -561,8 +564,6 @@ void gcta::rm_cor_sbat(MatrixXf &R, double R_cutoff, int m, vector<int> &rm_ID1)
     //float tmpr = 0;
     for (i = 0; i < m; i++) {
         for (j = 0; j < i; j++) {
-            //tmpr = R(i,j);
-            //if (fabs(tmpr) > R_cutoff ) { 
             if (fabs(R(i,j)) > R_cutoff ) { 
                 rm_ID1.push_back(i);
                 rm_ID2.push_back(j);
