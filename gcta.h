@@ -358,8 +358,9 @@ private:
     void sbat_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, vector<int> &snp_chr, vector<int> &snp_bp, vector<double> &snp_pval);
     void sbat_read_geneAnno(string gAnno_file, vector<string> &gene_name, vector<int> &gene_chr, vector<int> &gene_bp1, vector<int> &gene_bp2);
     void sbat_read_snpset(string snpset_file, vector<string> &set_name, vector< vector<string> > &snpset);
-    void sbat_calcu_lambda(vector<int> &snp_indx, VectorXd &eigenval);
+    void sbat_calcu_lambda(vector<int> &snp_indx, VectorXd &eigenval, int &snp_count, bool reduce_cor, vector<int> &sub_indx);
     void get_sbat_seg_blk(int seg_size, vector< vector<int> > &snp_set_indx, vector<int> &set_chr, vector<int> &set_start_bp, vector<int> &set_end_bp);
+    void rm_cor_sbat(MatrixXf &R, double R_cutoff, int m, vector<int> &rm_ID1);
 
 
     //////////////////////
