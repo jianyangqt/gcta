@@ -76,7 +76,7 @@ void gcta::sbat_read_geneAnno(string gAnno_file, vector<string> &gene_name, vect
     cout << "Physical positions of " << gene_name.size() << " genes have been include." << endl;
 }
 
-void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sbat_ld_cutoff, bool write_snpset)
+void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sbat_ld_cutoff, bool sbat_write_snpset)
 {
     int i = 0, j = 0;
     int snp_count;
@@ -154,7 +154,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
     // run gene-based test
     if (_mu.empty()) calcu_mu();
     cout << "\nRunning set-based association test (SBAT) for genes ..." << endl;
-    cout << "Pruning snps with maximum ld cutoff " << sbat_ld_cutoff  << endl;
+    if (sbat_ld_cutoff < 1) cout << "Pruning snps with maximum ld cutoff " << sbat_ld_cutoff  << endl;
     vector<double> gene_pval(gene_num), chisq_o(gene_num), min_snp_pval(gene_num);
     vector<string> min_snp_name(gene_num);
     vector<int> snp_num_in_gene(gene_num);
@@ -162,7 +162,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
     map<string, int> snp_name_map;
     string rgoodsnpfile = _out + ".gene.snpset";
     ofstream rogoodsnp;
-    if (write_snpset) rogoodsnp.open(rgoodsnpfile.c_str());
+    if (sbat_write_snpset) rogoodsnp.open(rgoodsnpfile.c_str());
     for (i = 0; i < snp_name.size(); i++) snp_name_map.insert(pair<string,int>(snp_name[i], i));
     for (i = 0; i < gene_num; i++) {
         iter1 = snp_name_map.find(gene2snp_1[i]);
@@ -205,7 +205,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
             gene_pval[i] = StatFunc::pchisqsum(chisq_o[i], eigenval);
             snp_num_in_gene[i] = snp_count;
 
-            if (write_snpset) {
+            if (sbat_write_snpset) {
                 rogoodsnp << gene_name[i] << endl;
                 for (int k = 0; k < sub_indx.size(); k++) rogoodsnp << snp_name[(iter1->second)+sub_indx[k]] << endl;
                 rogoodsnp << "END" << endl << endl;
@@ -229,7 +229,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
         //else ofile << "0\tNA\tNA\tNA\tNA" << endl;
     }
     ofile.close();
-    if (write_snpset) {
+    if (sbat_write_snpset) {
         cout << "Writing snpset ..." << endl;
         rogoodsnp.close();
     }
@@ -265,7 +265,7 @@ void gcta::sbat_read_snpset(string snpset_file, vector<string> &set_name, vector
     cout << snp_name.size() << " SNPs in " << snpset.size() << " sets have been included." << endl;
 }
 
-void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, bool write_snpset)
+void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, bool sbat_write_snpset)
 {
     int i = 0, j = 0;
     int snp_count;
@@ -287,7 +287,7 @@ void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, b
     // run gene-based test
     if (_mu.empty()) calcu_mu();
     cout << "\nRunning set-based association test (SBAT)..." << endl;
-    cout << "Pruning snps with maximum ld cutoff " << sbat_ld_cutoff  << endl;
+    if (sbat_ld_cutoff < 1) cout << "Pruning snps with maximum ld cutoff " << sbat_ld_cutoff  << endl;
     vector<double> set_pval(set_num), chisq_o(set_num), min_snp_pval(set_num);
     vector<string> min_snp_name(set_num);
     vector<int> snp_num_in_set(set_num);
@@ -296,7 +296,7 @@ void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, b
 
     string rgoodsnpfile = _out + ".snpset";
     ofstream rogoodsnp;
-    if (write_snpset) rogoodsnp.open(rgoodsnpfile.c_str());
+    if (sbat_write_snpset) rogoodsnp.open(rgoodsnpfile.c_str());
  
     for (i = 0; i < snp_name.size(); i++) snp_name_map.insert(pair<string,int>(snp_name[i], i));
     for (i = 0; i < set_num; i++) {
@@ -342,7 +342,7 @@ void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, b
             set_pval[i] = StatFunc::pchisqsum(chisq_o[i], eigenval);
             snp_num_in_set[i]=snp_count;
 
-            if (write_snpset) {
+            if (sbat_write_snpset) {
                 rogoodsnp << set_name[i] << endl;
                 for (int k = 0; k < sub_indx.size(); k++) rogoodsnp << snp_name[snp_indx[sub_indx[k]]] << endl;
                 rogoodsnp << "END" << endl << endl;
@@ -364,13 +364,13 @@ void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, b
         ofile << set_pval[i] << "\t" << min_snp_pval[i] << "\t" << min_snp_name[i] << endl;
     }
     ofile.close();
-    if (write_snpset) {
+    if (sbat_write_snpset) {
         cout << "Writing snpset ..." << endl;
         rogoodsnp.close();
     }
 }
 
-void gcta::sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, bool write_snpset)
+void gcta::sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, bool sbat_write_snpset)
 {
     int i = 0, j = 0;
     int snp_count;
@@ -386,7 +386,7 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, boo
     // run gene-based test
     if (_mu.empty()) calcu_mu();
     cout << "\nRunning set-based association test (SBAT) at genomic segments with a length of " << seg_size/1000 << "Kb ..." << endl;
-    cout << "Pruning snps with maximum ld cutoff " << sbat_ld_cutoff  << endl;
+    if (sbat_ld_cutoff < 1) cout << "Pruning snps with maximum ld cutoff " << sbat_ld_cutoff  << endl;
     vector< vector<int> > snp_set_indx;
     vector<int> set_chr, set_start_bp, set_end_bp;
     get_sbat_seg_blk(seg_size, snp_set_indx, set_chr, set_start_bp, set_end_bp);
@@ -397,7 +397,7 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, boo
 
     string rgoodsnpfile = _out + ".seg.snpset";
     ofstream rogoodsnp;
-    if (write_snpset) rogoodsnp.open(rgoodsnpfile.c_str());
+    if (sbat_write_snpset) rogoodsnp.open(rgoodsnpfile.c_str());
  
     for (i = 0; i < set_num; i++) {
         bool skip = false;
@@ -437,7 +437,7 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, boo
             set_pval[i] = StatFunc::pchisqsum(chisq_o[i], eigenval);
             snp_num_in_set[i] = snp_count;
 
-           if (write_snpset) {
+           if (sbat_write_snpset) {
                 rogoodsnp << "SEG" << i << ":" << set_start_bp[i] << "-" << set_end_bp[i] << endl;
                 for (int k = 0; k < sub_indx.size(); k++) rogoodsnp << snp_name[snp_indx[sub_indx[k]]] << endl;
                 rogoodsnp << "END" << endl << endl;
@@ -461,7 +461,7 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, boo
  
     }
     ofile.close();
-    if (write_snpset) {
+    if (sbat_write_snpset) {
         cout << "Writing snpset ..." << endl;
         rogoodsnp.close();
     }

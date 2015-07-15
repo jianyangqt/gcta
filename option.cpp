@@ -118,7 +118,7 @@ void option(int option_num, char* option_str[])
     // gene-based association test
     bool sbat_seg_flag = false;
     double sbat_ld_cutoff = sqrt(0.9); //option to remove overly correlated snps in SBAT test
-    bool write_snpset = false; //write snplist - used in conjunction with sbat_ld_cutoff
+    bool sbat_write_snpset = false; //write snplist - used in conjunction with sbat_ld_cutoff
     string sbat_sAssoc_file = "", sbat_gAnno_file = "", sbat_snpset_file = "";
     int sbat_wind = 50000, sbat_seg_size = 1e5;
 
@@ -812,11 +812,12 @@ void option(int option_num, char* option_str[])
             cout << "--sub-popu " << subpopu_file << endl;
             CommFunc::FileExist(subpopu_file);
         } else if (strcmp(argv[i], "--sbat-ld-cutoff") == 0) {
-            sbat_ld_cutoff = true;
-            cout << "--sbat-ld-cutoff" << endl;
-        } else if (strcmp(argv[i], "--write-snpset") == 0) {
-            write_snpset = true;
-            cout << "--write-snpset" << endl;
+            sbat_ld_cutoff = sqrt(atof(argv[++i]));
+            cout << "--sbat-ld-cutoff " << sbat_ld_cutoff << endl;
+            if (sbat_ld_cutoff <= 0.1) throw ("\nError: --sbat_ld_cutoff should be > 0.1\n");
+        } else if (strcmp(argv[i], "--sbat-write-snpset") == 0) {
+            sbat_write_snpset = true;
+            cout << "--sbat-write-snpset" << endl;
         } else if (strcmp(argv[i], "--sbat") == 0) {
             sbat_sAssoc_file = argv[++i];
             cout << "--sbat " << sbat_sAssoc_file << endl;
@@ -1050,9 +1051,9 @@ void option(int option_num, char* option_str[])
             else if (make_bed_flag) pter_gcta->save_plink();
             else if (fst_flag) pter_gcta->Fst(subpopu_file);
             else if (!sbat_sAssoc_file.empty()){
-                if(!sbat_gAnno_file.empty()) pter_gcta->sbat_gene(sbat_sAssoc_file, sbat_gAnno_file, sbat_wind, sbat_ld_cutoff, write_snpset);
-                else if(!sbat_snpset_file.empty()) pter_gcta->sbat(sbat_sAssoc_file, sbat_snpset_file, sbat_ld_cutoff, write_snpset);
-                else if(sbat_seg_flag) pter_gcta->sbat_seg(sbat_sAssoc_file, sbat_seg_size, sbat_ld_cutoff, write_snpset);
+                if(!sbat_gAnno_file.empty()) pter_gcta->sbat_gene(sbat_sAssoc_file, sbat_gAnno_file, sbat_wind, sbat_ld_cutoff, sbat_write_snpset);
+                else if(!sbat_snpset_file.empty()) pter_gcta->sbat(sbat_sAssoc_file, sbat_snpset_file, sbat_ld_cutoff, sbat_write_snpset);
+                else if(sbat_seg_flag) pter_gcta->sbat_seg(sbat_sAssoc_file, sbat_seg_size, sbat_ld_cutoff, sbat_write_snpset);
             }
             else if(pcl_flag) pter_gcta->snp_pc_loading(pc_file, pcl_grm_N);
         }
