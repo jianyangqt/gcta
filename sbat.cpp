@@ -185,7 +185,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
         for (j = iter1->second; j <= iter2->second; j++) {
             if (min_snp_pval[i] > snp_pval[j]) { 
                 min_snp_pval[i] = snp_pval[j];
-                min_snp_name[i] = snp_name[j];
+                min_snp_name[i] = snp_name[j]; //keep minimum value - regardless of whether SNP removed by LD pruning
             }
             chisq_o[i] += snp_chisq[j];
         }
@@ -202,8 +202,9 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
                 chisq_o[i] = 0;
                 for (j = 0; j < sub_indx.size(); j++) chisq_o[i] += snp_chisq[snp_indx[sub_indx[j]]];
             } 
-            gene_pval[i] = StatFunc::pchisqsum(chisq_o[i], eigenval);
             snp_num_in_gene[i] = snp_count;
+            if (snp_count==1 && chisq_o[i] ==0) gene_pval[i] = 1;
+            else gene_pval[i] = StatFunc::pchisqsum(chisq_o[i], eigenval);
 
             if (sbat_write_snpset) {
                 rogoodsnp << gene_name[i] << endl;
@@ -220,7 +221,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
     cout << "\nSaving the results of the SBAT analyses to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
     if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
-    ofile << "Gene\tChr\tStart\tEnd\tNo.SNPs\tSNP_start\tSNP_end\tChisq(Obs)\tPvalue\tTopSNP_Pvalue\tTopSNP" << endl;
+    ofile << "Gene\tChr\tStart\tEnd\tNo.SNPs\tSNP_start\tSNP_end\tChisq(Obs)\tPvalue\tTopSNP.Pvalue\tTopSNP" << endl;
     for (i = 0; i < gene_num; i++) {
         if(gene_pval[i]>1.5) continue;
         ofile << gene_name[i] << "\t" << gene_chr[i] << "\t" << gene_bp1[i] << "\t" << gene_bp2[i] << "\t";
@@ -339,8 +340,9 @@ void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, b
                 chisq_o[i] = 0;
                 for (j = 0; j < sub_indx.size(); j++) chisq_o[i] += snp_chisq[snp_indx[sub_indx[j]]];
             }
-            set_pval[i] = StatFunc::pchisqsum(chisq_o[i], eigenval);
-            snp_num_in_set[i]=snp_count;
+            snp_num_in_set[i] = snp_count;
+            if (snp_count==1 && chisq_o[i] ==0) set_pval[i] = 1;
+            else set_pval[i] = StatFunc::pchisqsum(chisq_o[i], eigenval);
 
             if (sbat_write_snpset) {
                 rogoodsnp << set_name[i] << endl;
@@ -357,7 +359,7 @@ void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, b
     cout << "\nSaving the results of the SBAT analyses to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
     if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
-    ofile << "Set\tNo.SNPs\tChisq(Obs)\tPvalue\tTopSNP_Pvalue\tTopSNP" << endl;
+    ofile << "Set\tNo.SNPs\tChisq(Obs)\tPvalue\tTopSNP.Pvalue\tTopSNP" << endl;
     for (i = 0; i < set_num; i++) {
         if(set_pval[i]>1.5) continue;
         ofile << set_name[i] << "\t" << snp_num_in_set[i] << "\t" << chisq_o[i] << "\t";
@@ -434,8 +436,9 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, boo
                 chisq_o[i] = 0;
                 for (j = 0; j < sub_indx.size(); j++) chisq_o[i] += snp_chisq[snp_indx[sub_indx[j]]]; 
             }
-            set_pval[i] = StatFunc::pchisqsum(chisq_o[i], eigenval);
             snp_num_in_set[i] = snp_count;
+            if (snp_count==1 && chisq_o[i] ==0) set_pval[i] = 1;
+            else set_pval[i] = StatFunc::pchisqsum(chisq_o[i], eigenval);
 
            if (sbat_write_snpset) {
                 rogoodsnp << "SEG" << i << ":" << set_start_bp[i] << "-" << set_end_bp[i] << endl;
@@ -452,7 +455,7 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, boo
     cout << "\nSaving the results of the segment-based SBAT analyses to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
     if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
-    ofile << "Chr\tStart\tEnd\tNo.SNPs\tChisq(Obs)\tPvalue\tTopSNP_Pvalue\tTopSNP" << endl;
+    ofile << "Chr\tStart\tEnd\tNo.SNPs\tChisq(Obs)\tPvalue\tTopSNP.Pvalue\tTopSNP" << endl;
     for (i = 0; i < set_num; i++) {
         if(set_pval[i]>1.5) continue;
         ofile << set_chr[i] << "\t" << set_start_bp[i] << "\t"<< set_end_bp[i] << "\t";
