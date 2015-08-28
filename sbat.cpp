@@ -20,12 +20,17 @@ void gcta::sbat_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, ve
     string str_buf;
     vector<string> vs_buf;
     map<string, int>::iterator iter;
+    map<string, int> assoc_snp_map;
+    int line = 0;
     while (getline(in_snpAssoc, str_buf)) {
         if (StrFunc::split_string(str_buf, vs_buf) != 2) throw ("Error: in line \"" + str_buf + "\".");
         iter = _snp_name_map.find(vs_buf[0]);
         if (iter == _snp_name_map.end()) continue;
+        if(assoc_snp_map.find(vs_buf[0]) != assoc_snp_map.end()) continue;
+        else assoc_snp_map.insert(pair<string, int>(vs_buf[0], line));
         snp_name.push_back(vs_buf[0]);
         snp_pval.push_back(atof(vs_buf[1].c_str()));
+        line++;
     }
     in_snpAssoc.close();
     snp_name.erase(unique(snp_name.begin(), snp_name.end()), snp_name.end());
