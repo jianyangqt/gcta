@@ -43,6 +43,8 @@ gcta::gcta(int autosome_num, double rm_ld_cutoff, string out)
     _reml_force_inv = false;
     _reml_AI_not_invertible = false;
     _reml_force_converge = false;
+    _reml_no_converge = false;
+    _ldscore_adj = false;
 }
 
 gcta::gcta() {
@@ -72,6 +74,8 @@ gcta::gcta() {
     _reml_force_inv = false;
     _reml_AI_not_invertible = false;
     _reml_force_converge = false;
+    _reml_no_converge = false;
+    _ldscore_adj = false;
 }
 
 gcta::~gcta() {
@@ -178,9 +182,14 @@ void gcta::init_include()
     int i = 0, size = 0;
     for (i = 0; i < _snp_num; i++) {
         _include[i] = i;
+        if(_snp_name_map.find(_snp_name[i]) != _snp_name_map.end()){
+            cout << "Warning: Duplicated SNP ID \"" + _snp_name[i] + "\" ";
+            stringstream ss;
+            ss << _snp_name[i] << "_" << i + 1;
+            _snp_name[i] = ss.str();
+            cout<<"has been changed to \"" + _snp_name[i] + "\"\n.";
+        }
         _snp_name_map.insert(pair<string, int>(_snp_name[i], i));
-        if (size == _snp_name_map.size()) throw ("Error: Duplicated SNP IDs found: \"" + _snp_name[i] + "\".");
-        size = _snp_name_map.size();
     }
 }
 

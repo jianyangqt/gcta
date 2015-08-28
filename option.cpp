@@ -73,7 +73,7 @@ void option(int option_num, char* option_str[])
 
     // LD
     string LD_file = "", ld_score_multi_file = "";
-    bool LD = false, LD_search = false, LD_i = false, ld_score_flag = false, ld_max_rsq_flag = false, ld_mean_rsq_seg_flag = false;
+    bool LD = false, LD_search = false, LD_i = false, ld_score_flag = false, ld_max_rsq_flag = false, ld_mean_rsq_seg_flag = false, ldscore_adj_flag = false;
     int LD_step = 10;
     double LD_wind = 1e7, LD_sig = 0.05, LD_prune_rsq = -1.0, LD_rsq_cutoff = 0.0, LD_seg = 1e5;
 
@@ -93,7 +93,7 @@ void option(int option_num, char* option_str[])
     string hapmap_genet_dst_file = "";
 
     // REML analysis
-    bool prevalence_flag = false, reml_force_inv_fac_flag = false, reml_force_converge_flag = false;
+    bool prevalence_flag = false, reml_force_inv_fac_flag = false, reml_force_converge_flag = false, reml_no_converge_flag = false;
     int mphen = 1, mphen2 = 2, reml_mtd = 0, MaxIter = 100;
     double prevalence = -2.0, prevalence2 = -2.0;
     bool reml_flag = false, pred_rand_eff = false, est_fix_eff = false, blup_snp_flag = false, no_constrain = false, reml_lrt_flag = false, no_lrt = false, bivar_reml_flag = false, ignore_Ce = false, within_family = false, reml_bending = false, HE_reg_flag = false, reml_diag_one = false, bivar_no_constrain = false;
@@ -451,6 +451,9 @@ void option(int option_num, char* option_str[])
             ld_score_flag = true;
             thread_flag = true;
             cout << "--ld-score" << endl;
+        } else if (strcmp(argv[i], "--ld-score-adj") == 0) {
+            ldscore_adj_flag = true;
+            cout << "--ld-score-adj" << endl;
         } else if (strcmp(argv[i], "--ld-score-multi") == 0) {
             ld_score_flag = true;
             thread_flag = true;
@@ -620,6 +623,9 @@ void option(int option_num, char* option_str[])
         } else if (strcmp(argv[i], "--reml-force-converge") == 0) {
             reml_force_converge_flag = true;
             cout << "--reml-force-converge " << endl;
+        } else if (strcmp(argv[i], "--reml-allow-no-converge") == 0) {
+            reml_no_converge_flag = true;
+            cout << "--reml-allow-no-converge " << endl;
         } else if (strcmp(argv[i], "--reml-bending") == 0) {
             reml_bending = true;
             cout << "--reml-bending " << endl;
@@ -976,8 +982,10 @@ void option(int option_num, char* option_str[])
     // Implement
     cout << endl;
     gcta *pter_gcta = new gcta(autosome_num, rm_high_ld_cutoff, out); //, *pter_gcta2=new gcta(autosome_num, rm_high_ld_cutoff, out);
+    if(ldscore_adj_flag) pter_gcta->set_ldscore_adj_flag(ldscore_adj_flag);
     if(reml_force_inv_fac_flag) pter_gcta->set_reml_force_inv();
     if(reml_force_converge_flag) pter_gcta->set_reml_force_converge();
+    if(reml_no_converge_flag) pter_gcta->set_reml_no_converge();
     if (grm_bin_flag || m_grm_bin_flag) pter_gcta->enable_grm_bin_flag();
     //if(simu_unlinked_flag) pter_gcta->simu_geno_unlinked(simu_unlinked_n, simu_unlinked_m, simu_unlinked_maf);
     if (!RG_fname_file.empty()) {

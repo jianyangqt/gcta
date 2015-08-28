@@ -106,6 +106,7 @@ public:
     void blup_snp_dosage();
     void set_reml_force_inv();
     void set_reml_force_converge();
+    void set_reml_no_converge();
 
     // bivariate REML analysis
     void fit_bivar_reml(string grm_file, string phen_file, string qcovar_file, string covar_file, string keep_indi_file, string remove_indi_file, string sex_file, int mphen, int mphen2, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool m_grm_flag, bool pred_rand_eff, bool est_fix_eff, int reml_mtd, int MaxIter, vector<double> reml_priors, vector<double> reml_priors_var, vector<int> drop, bool no_lrt, double prevalence, double prevalence2, bool no_constrain, bool ignore_Ce, vector<double> &fixed_rg_val, bool bivar_no_constrain);
@@ -117,6 +118,7 @@ public:
     void calcu_mean_rsq_multiSet(string snpset_filenames_file, int wind_size, double rsq_cutoff, bool dominance_flag);
     void calcu_max_ld_rsq(int wind_size, double rsq_cutoff, bool dominance_flag);
     void ld_seg(string i_ld_file, int seg_size, int wind_size, double rsq_cutoff, bool dominance_flag);
+    void set_ldscore_adj_flag(bool ldscore_adj);
 
     void genet_dst(string bfile, string hapmap_genet_map);
 
@@ -478,6 +480,7 @@ private:
     bool _reml_force_inv;
     bool _reml_AI_not_invertible;
     bool _reml_force_converge;
+    bool _reml_no_converge;
 
     // within-family reml analysis
     bool _within_family;
@@ -502,6 +505,7 @@ private:
 
     // LD
     vector<string> _ld_target_snp;
+    bool _ldscore_adj;
 
     // joint analysis of META
     bool _jma_actual_geno;

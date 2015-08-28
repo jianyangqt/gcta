@@ -22,6 +22,11 @@ void gcta::set_reml_force_converge()
     _reml_force_converge = true;
 }
 
+void gcta::set_reml_no_converge()
+{
+    _reml_no_converge = true;
+}
+
 void gcta::read_phen(string phen_file, vector<string> &phen_ID, vector< vector<string> > &phen_buf, int mphen, int mphen2) {
     // Read phenotype data
     ifstream in_phen(phen_file.c_str());
@@ -874,7 +879,7 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
     char *mtd_str[3] = {"AI-REML algorithm", "REML equation ...", "EM-REML algorithm ..."};
     int i = 0, constrain_num = 0, iter = 0, reml_mtd_tmp = _reml_mtd;
     double logdet = 0.0, logdet_Xt_Vi_X = 0.0, prev_lgL = -1e20, lgL = -1e20, dlogL = 1000.0;
-    eigenVector prev_varcmp(varcmp), varcomp_init(varcmp);
+    eigenVector prev_prev_varcmp(varcmp), prev_varcmp(varcmp), varcomp_init(varcmp);
     bool converged_flag = false;
     for (iter = 0; iter < _reml_max_iter; iter++) {
         if (reml_bivar_fix_rg) update_A(prev_varcmp);
@@ -895,7 +900,14 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         if (_bivar_reml) calcu_Vi_bivar(_Vi, prev_varcmp, logdet, iter); // Calculate Vi, bivariate analysis
         else if (_within_family) calcu_Vi_within_family(_Vi, prev_varcmp, logdet, iter); // within-family REML
         else {
-            if (!calcu_Vi(_Vi, prev_varcmp, logdet, iter)) continue; // Calculate Vi
+            if (!calcu_Vi(_Vi, prev_varcmp, logdet, iter)){ // Calculate Vi
+                cout<<"Warning: V matrix is not positive-definite.\n";
+                varcmp = prev_prev_varcmp;
+                if(!calcu_Vi(_Vi, varcmp, logdet, iter)) throw("Error: V matrix is not positive-definite.");
+                calcu_Hi(_P, Hi);
+                Hi = 2 * Hi;
+                break;
+            }
         }
         logdet_Xt_Vi_X = calcu_P(_Vi, Vi_X, Xt_Vi_X_i, _P); // Calculate P
         if (_reml_mtd == 0) ai_reml(_P, Hi, Py, prev_varcmp, varcmp, dlogL);
@@ -935,7 +947,7 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         // added by Jian Yang on 22 Oct 2014
         //if (constrain_num == _r_indx.size()) throw ("Error: analysis stopped because all variance components are constrained. You may have a try of adding the option --reml-no-constrain.");
 
-        if(_reml_force_converge && prev_lgL > lgL){
+        if((_reml_force_converge || _reml_no_converge) && prev_lgL > lgL){
             varcmp = prev_varcmp;
             calcu_Hi(_P, Hi);
             Hi = 2 * Hi;
@@ -952,13 +964,14 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
             } // for calculation of SE
             break;
         }
+        prev_prev_varcmp = prev_varcmp;
         prev_varcmp = varcmp;
         prev_lgL = lgL;
     }
     
     if(converged_flag) cout << "Log-likelihood ratio converged." << endl;
     else {
-        if(_reml_force_converge) cout << "Warning: Log-likelihood not converged. Results are not reliable." <<endl;
+        if(_reml_force_converge || _reml_no_converge) cout << "Warning: Log-likelihood not converged. Results are not reliable." <<endl;
         else if(iter == _reml_max_iter){
             stringstream errmsg;
             errmsg << "Error: Log-likelihood not converged (stop after " << _reml_max_iter << " iteractions). \nYou can specify the option --reml-maxit to allow for more iterations." << endl;
@@ -1057,13 +1070,29 @@ bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, i
                     cout<<"Warning: the variance-covaraince matrix V is non-positive definite." << endl;
                     _V_inv_mtd = 1;
                 }
-                else throw("Error: the variance-covaraince matrix V is not positive definite.");
+                else {
+                    if(_reml_no_converge){
+                        cout<<"Warning: the variance-covaraince matrix is invertible. A small positive value is added to the diagonals. The results might not be reliable!"<<endl;
+                        double d_buf = Vi.diagonal().mean() * 0.01;
+                        for(j = 0; j < _n ; j++) Vi(j,j) += d_buf;
+                        if(!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) return false;  
+                    } 
+                    else throw("Error: the variance-covaraince matrix V is not positive definite.");
+                }
             }
         }
         if (_V_inv_mtd == 1) {
             if(!_reml_force_converge){
                 cout << "Switching from Cholesky to LU decomposition approach. The results might not be reliable!" << endl;
-                if (!comput_inverse_logdet_LU_mkl(Vi, logdet)) throw ("Error: the variance-covaraince matrix V is still not invertible using LU decomposition.");
+                if (!comput_inverse_logdet_LU_mkl(Vi, logdet)){
+                    if(_reml_no_converge){
+                        cout<<"Warning: the variance-covaraince matrix is invertible. A small positive value is added to the diagonals. The results might not be reliable!"<<endl;
+                        double d_buf = Vi.diagonal().mean() * 0.01;
+                        for(j = 0; j < _n ; j++) Vi(j,j) += d_buf;
+                        if(!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) return false;  
+                    } 
+                    else throw ("Error: the variance-covaraince matrix V is still not invertible using LU decomposition.");
+                }
             }
             else{
                 cout<<"Warning: the variance-covaraince matrix is invertible. A small positive value is added to the diagonals. The results might not be reliable!"<<endl;
