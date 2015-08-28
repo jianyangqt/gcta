@@ -12,6 +12,10 @@
 
 #include "gcta.h"
 
+void gcta::set_ldscore_adj_flag(bool ldscore_adj){
+    _ldscore_adj = ldscore_adj;
+}
+
 void gcta::read_LD_target_SNPs(string snplistfile)
 {
     // Read snplist file
@@ -274,6 +278,7 @@ void gcta::calcu_mean_rsq(int wind_size, double rsq_cutoff, bool dominance_flag)
 
     cout << "Calculating LD score between SNPs (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between blocks); LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
     if(dominance_flag) cout<<"(SNP genotypes are coded for dominance effects)"<<endl;
+    if(_ldscore_adj) cout << "LD rsq will be adjusted for chance correlation, i.e. rsq_adj = rsq - (1 - rsq) / (n -2)." << endl;
     vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
     get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, wind_size);
 
@@ -285,12 +290,14 @@ void gcta::calcu_mean_rsq(int wind_size, double rsq_cutoff, bool dominance_flag)
     if(dominance_flag) mrsq_file = _out + ".d.score.ld";
     else mrsq_file = _out + ".score.ld";
     ofstream o_mrsq(mrsq_file.data());
-    o_mrsq<<"SNP chr bp freq mean_rsq snp_num max_rsq ldscore"<<endl;
+    o_mrsq<<"SNP chr bp MAF mean_rsq snp_num max_rsq ldscore"<<endl;
     double ldscore = 0.0;
     for (i = 0; i < m; i++){
-        o_mrsq << _snp_name[_include[i]] << " " << _chr[_include[i]] << " " << _bp[_include[i]] << " " << 0.5 * _mu[_include[i]] << " ";
+        o_mrsq << _snp_name[_include[i]] << " " << _chr[_include[i]] << " " << _bp[_include[i]] << " ";
+        double MAF = 0.5 * _mu[_include[i]];
+        if(MAF > 0.5) MAF = 1.0 - MAF;
         ldscore = 1.0 + mean_rsq[i] * snp_num[i];
-        o_mrsq << mean_rsq[i] << " " << snp_num[i] << " " << max_rsq[i] << " " << ldscore << "\n";
+        o_mrsq << MAF << " " << mean_rsq[i] << " " << snp_num[i] << " " << max_rsq[i] << " " << ldscore << "\n";
     }
     o_mrsq << endl;
     cout << "LD score for " << m << " SNPs have been saved in the file [" + mrsq_file + "]." << endl;
@@ -408,7 +415,8 @@ void gcta::calcu_ld_blk(vector<int> &brk_pnt, vector<int> &brk_pnt3, eigenVector
                     rsq_sub(j,k) *= (ssx_sqrt_i_sub[j] * ssx_sqrt_i_sub[k]);
                     rsq_sub(j,k) = rsq_sub(j,k) * rsq_sub(j,k);
                     if (rsq_sub(j,k) >= rsq_cutoff) {
-                        mean_rsq_sub[j] += rsq_sub(j,k);
+                        if(_ldscore_adj) mean_rsq_sub[j] += rsq_sub(j,k) - (1.0 - rsq_sub(j,k)) / (n - 2.0);
+                        else mean_rsq_sub[j] += rsq_sub(j,k);
                         rsq_size[j] += 1.0;
                     }
                     if (rsq_sub(j,k) > max_rsq_sub[j]) max_rsq_sub[j] = rsq_sub(j,k);
@@ -469,9 +477,10 @@ void gcta::calcu_ld_blk_split(int size, int size_limit, MatrixXf &X_sub, eigenVe
                 }
                 if (k == s) continue;
                 rsq_sub_sub(j,k) *= (ssx_sqrt_i_sub_sub[j] * ssx_sqrt_i_sub[k]);
-                rsq_sub_sub(j,k) = rsq_sub_sub(j,k) * rsq_sub_sub(j,k);
+                rsq_sub_sub(j,k) = rsq_sub_sub(j,k) * rsq_sub_sub(j,k); 
                 if (rsq_sub_sub(j,k) >= rsq_cutoff) {
-                    mean_rsq_sub_sub[j] += rsq_sub_sub(j,k);
+                    if(_ldscore_adj) mean_rsq_sub_sub[j] += rsq_sub_sub(j,k) - (1.0 - rsq_sub_sub(j,k)) / (n - 2.0);
+                    else mean_rsq_sub_sub[j] += rsq_sub_sub(j,k);
                     rsq_size_sub[j] += 1.0;
                 }
                 if(rsq_sub_sub(j,k) > max_rsq_sub_sub[j]) max_rsq_sub_sub[j] = rsq_sub_sub(j,k);
@@ -541,6 +550,7 @@ void gcta::calcu_mean_rsq_multiSet(string snpset_filenames_file, int wind_size, 
 
     cout << "Calculating LD score between SNPs (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between blocks); LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
     if(dominance_flag) cout<<"(SNP genotypes are coded for dominance effects)"<<endl;
+    if(_ldscore_adj) cout << "LD rsq will be adjusted for chance correlation, i.e. rsq_adj = rsq - (1 - rsq) / (n -2)." << endl;
     vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
     get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, wind_size);
 
@@ -557,11 +567,14 @@ void gcta::calcu_mean_rsq_multiSet(string snpset_filenames_file, int wind_size, 
     if(dominance_flag) mrsq_file = _out + ".d.mrsq.set.ld";
     else mrsq_file = _out + ".mrsq.ld";
     ofstream o_mrsq(mrsq_file.data());
-    o_mrsq<<"SNP chr bp freq";
+    o_mrsq<<"SNP chr bp MAF";
     for(j = 0; j < set_num; j++) o_mrsq << " mean_rsq_" << j+1 << " snp_num_" << j+1 << " max_rsq" << j+1;
     o_mrsq << endl;
     for (i = 0; i < m; i++){
-        o_mrsq << _snp_name[_include[i]] << " " << _chr[_include[i]] << " " << _bp[_include[i]] << " " << 0.5 * _mu[_include[i]];
+        o_mrsq << _snp_name[_include[i]] << " " << _chr[_include[i]] << " " << _bp[_include[i]] << " ";
+        double MAF = 0.5 * _mu[_include[i]];
+        if(MAF > 0.5) MAF = 1.0 - MAF;
+        o_mrsq << MAF;
         for(j = 0; j < set_num; j++) o_mrsq << " " << (mean_rsq[j])[i] << " " << (snp_num[j])[i] << " " << (max_rsq[j])[i];
         o_mrsq << endl;
     }
@@ -638,7 +651,8 @@ void gcta::calcu_ld_blk_multiSet(vector<int> &brk_pnt, vector<int> &brk_pnt3, ve
                         rsq_sub(j,k) *= (ssx_sqrt_i_sub[j] * ssx_sqrt_i_sub[l]);
                         rsq_sub(j,k) = rsq_sub(j,k) * rsq_sub(j,k);
                         if (rsq_sub(j,k) >= rsq_cutoff) {
-                            mean_rsq_sub[j] += rsq_sub(j,k);
+                            if(_ldscore_adj) mean_rsq_sub[j] += rsq_sub(j,k) - (1.0 - rsq_sub(j,k)) / (n - 2.0);
+                            else mean_rsq_sub[j] += rsq_sub(j,k);
                             rsq_size[j] += 1.0;
                         }
                         if (rsq_sub(j,k) > max_rsq_sub[j]) max_rsq_sub[j] = rsq_sub(j,k);
@@ -704,7 +718,8 @@ void gcta::calcu_ld_blk_split_multiSet(int size, int size_limit, MatrixXf &X_sub
                 rsq_sub_sub(j,k) *= (ssx_sqrt_i_sub_sub[j] * ssx_sqrt_i_sub[l]);
                 rsq_sub_sub(j,k) = rsq_sub_sub(j,k) * rsq_sub_sub(j,k);
                 if (rsq_sub_sub(j,k) >= rsq_cutoff) {
-                    mean_rsq_sub_sub[j] += rsq_sub_sub(j,k);
+                    if(_ldscore_adj) mean_rsq_sub_sub[j] += rsq_sub_sub(j,k) - (1.0 - rsq_sub_sub(j,k)) / (n - 2.0);
+                    else mean_rsq_sub_sub[j] += rsq_sub_sub(j,k);
                     rsq_size_sub[j] += 1.0;
                 }
                 if(rsq_sub_sub(j,k) > max_rsq_sub_sub[j]) max_rsq_sub_sub[j] = rsq_sub_sub(j,k);
