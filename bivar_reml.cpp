@@ -336,7 +336,7 @@ void gcta::constrain_rg(eigenVector &varcmp) {
         eigenVector eval = eigensolver.eigenvalues();
         if (eval.minCoeff() <= 0.0) {
             if (count == 0) {
-                cout << "Note: to constrain the correlation being from -1 to 1, a genetic (or residual) variance-covariance matrix is bended to be positive definite. In this case, the SE is not reliable." << endl;
+                cout << "Note: to constrain the correlation being from -1 to 1, a genetic (or residual) variance-covariance matrix is bended to be positive definite. In this case, the SE is unreliable." << endl;
                 count++;
             }
             bending_eigenval(eval);
