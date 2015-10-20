@@ -19,7 +19,7 @@ int main(int argc, char* argv[])
 {
     cout << "*******************************************************************" << endl;
     cout << "* Genome-wide Complex Trait Analysis (GCTA)" << endl;
-    cout << "* version 1.24.9" << endl;
+    cout << "* version 1.25.0" << endl;
     cout << "* (C) 2010-2013 Jian Yang, Hong Lee, Michael Goddard and Peter Visscher" << endl;
     cout << "* The University of Queensland" << endl;
     cout << "* MIT License" << endl;
@@ -67,7 +67,7 @@ void option(int option_num, char* option_str[])
     // GRM
     bool ibc = false, ibc_all = false, grm_flag = false, grm_bin_flag = true, m_grm_flag = false, m_grm_bin_flag = true, make_grm_flag = false, make_grm_inbred_flag = false, dominance_flag = false, make_grm_xchar_flag = false, grm_out_bin_flag = true, make_grm_f3_flag = false;
     bool pca_flag = false, pcl_flag = false;
-    double grm_adj_fac = -2.0, grm_cutoff = -2.0, rm_high_ld_cutoff = -1.0;
+    double grm_adj_fac = -2.0, grm_cutoff = -2.0, rm_high_ld_cutoff = -1.0, bK_threshold = -10.0;
     int dosage_compen = -2, out_pc_num = 20, make_grm_mtd = 0, pcl_grm_N = 0;
     string grm_file = "", paa_file = "", pc_file = "";
 
@@ -397,6 +397,10 @@ void option(int option_num, char* option_str[])
             grm_cutoff = atof(argv[++i]);
             if (grm_cutoff >= -1 && grm_cutoff <= 2) cout << "--grm-cutoff " << grm_cutoff << endl;
             else grm_cutoff = -2;
+        } else if (strcmp(argv[i], "--make-bK") == 0) {
+            bK_threshold = atof(argv[++i]);
+            if (bK_threshold < 0 || bK_threshold > 1) throw ("\nError: --make-bK threshold should be range from 0 to 1.\n");
+            else cout << "--make-bK " << bK_threshold << endl;
         } else if (strcmp(argv[i], "--pca") == 0) {
             pca_flag = true;
             thread_flag = true;
@@ -1110,6 +1114,7 @@ void option(int option_num, char* option_str[])
     } else if (grm_flag || m_grm_flag) {
         if (pca_flag) pter_gcta->pca(grm_file, kp_indi_file, rm_indi_file, grm_cutoff, m_grm_flag, out_pc_num);
         else if (make_grm_flag) pter_gcta->save_grm(grm_file, kp_indi_file, rm_indi_file, update_sex_file, grm_cutoff, grm_adj_fac, dosage_compen, m_grm_flag, grm_out_bin_flag);
+        else if (bK_threshold > -1) pter_gcta->grm_bK(grm_file, kp_indi_file, rm_indi_file, bK_threshold, grm_out_bin_flag);
     }
     else if (ld_mean_rsq_seg_flag) pter_gcta->ld_seg(LD_file, LD_seg, LD_wind, LD_rsq_cutoff, dominance_flag);
     else throw ("Error: no analysis has been launched by the option(s).\n");

@@ -574,6 +574,36 @@ void gcta::read_grm_filenames(string merge_grm_file, vector<string> &grm_files, 
     if (grm_files.size() < 1) throw ("Error: no GRM file name is found in [" + merge_grm_file + "].");
 }
 
+void gcta::grm_bK(string grm_file, string keep_indi_file, string remove_indi_file, double threshold, bool grm_out_bin_flag)
+{
+    int i = 0, j = 0;
+    vector<string> grm_id;
+    read_grm(grm_file, grm_id);
+    if (!keep_indi_file.empty()) keep_indi(keep_indi_file);
+    if (!remove_indi_file.empty()) remove_indi(remove_indi_file);
+    if (!keep_indi_file.empty() || !remove_indi_file.empty()) {
+        eigenMatrix grm_buf(_grm);
+        _grm.resize(_keep.size(), _keep.size());
+        for (i = 0; i < _keep.size(); i++) {
+            for (j = 0; j <= i; j++) _grm(i, j) = grm_buf(_keep[i], _keep[j]);
+        }
+        grm_buf.resize(0,0);
+        MatrixXf grm_N_buf = _grm_N;
+        _grm_N.resize(_keep.size(), _keep.size());
+        for (i = 0; i < _keep.size(); i++) {
+            for (j = 0; j <= i; j++) _grm_N(i, j) = grm_N_buf(_keep[i], _keep[j]);
+        }
+    }
+
+    cout << "\nThe off-diagonals that are < " << threshold << " are set to zero.\n" << endl;
+    for (i = 0; i < _keep.size(); i++) {
+        for (j = 0; j < i; j++){
+            if(_grm(i, j) < threshold) _grm(i, j) = 0.0;
+        }
+    }
+
+    output_grm(grm_out_bin_flag);
+}
 
 void gcta::pca(string grm_file, string keep_indi_file, string remove_indi_file, double grm_cutoff, bool merge_grm_flag, int out_pc_num)
 {
