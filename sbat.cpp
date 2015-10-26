@@ -159,7 +159,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
     // run gene-based test
     if (_mu.empty()) calcu_mu();
     cout << "\nRunning set-based association test (SBAT) for genes ..." << endl;
-    if (sbat_ld_cutoff < 1) cout << "Pruning snps with maximum ld cutoff " << sbat_ld_cutoff  << endl;
+    if (sbat_ld_cutoff < 1) cout << "Pruning SNPs with LD rsq cutoff = " << sbat_ld_cutoff*sbat_ld_cutoff  << endl;
     vector<double> gene_pval(gene_num), chisq_o(gene_num), min_snp_pval(gene_num);
     vector<string> min_snp_name(gene_num);
     vector<int> snp_num_in_gene(gene_num);
