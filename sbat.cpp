@@ -23,7 +23,7 @@ void gcta::sbat_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, ve
     map<string, int> assoc_snp_map;
     int line = 0;
     while (getline(in_snpAssoc, str_buf)) {
-        if (StrFunc::split_string(str_buf, vs_buf) != 2) throw ("Error: in line \"" + str_buf + "\".");
+        if (StrFunc::split_string(str_buf, vs_buf, " /t") != 2) throw ("Error: in line \"" + str_buf + "\".");
         iter = _snp_name_map.find(vs_buf[0]);
         if (iter == _snp_name_map.end()) continue;
         if(assoc_snp_map.find(vs_buf[0]) != assoc_snp_map.end()) continue;
