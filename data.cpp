@@ -388,7 +388,7 @@ void gcta::read_imp_info_mach_gz(string zinfofile)
         _allele1.push_back(c_buf);
         if (!(ss >> c_buf)) throw (nerr);
         _allele2.push_back(c_buf);
-        for (i = 0; i < 3; i++) if (!(ss >> f_buf)) throw (nerr);
+        for (i = 0; i < 4; i++) if (!(ss >> f_buf)) throw (nerr);
         _impRsq.push_back(f_buf);
         if (zinf.fail() || !zinf.good()) break;
     }
@@ -1055,7 +1055,7 @@ void gcta::filter_snp_maf(double maf)
 {
     if (_mu.empty()) calcu_mu();
 
-    cout << "Pruning SNPs with MAF > " << maf << " ..." << endl;
+    cout << "Filtering SNPs with MAF > " << maf << " ..." << endl;
     map<string, int> id_map_buf(_snp_name_map);
     map<string, int>::iterator iter, end = id_map_buf.end();
     int prev_size = _include.size();
@@ -1071,7 +1071,7 @@ void gcta::filter_snp_maf(double maf)
     if (_include.size() == 0) throw ("Error: No SNP is retained for analysis.");
     else {
         stable_sort(_include.begin(), _include.end());
-        cout << "After pruning SNPs with MAF > " << maf << ", there are " << _include.size() << " SNPs (" << prev_size - _include.size() << " SNPs with MAF < " << maf << ")." << endl;
+        cout << "After filtering SNPs with MAF > " << maf << ", there are " << _include.size() << " SNPs (" << prev_size - _include.size() << " SNPs with MAF < " << maf << ")." << endl;
     }
 }
 
@@ -1079,7 +1079,7 @@ void gcta::filter_snp_max_maf(double max_maf)
 {
     if (_mu.empty()) calcu_mu();
 
-    cout << "Pruning SNPs with MAF < " << max_maf << " ..." << endl;
+    cout << "Filtering SNPs with MAF < " << max_maf << " ..." << endl;
     map<string, int> id_map_buf(_snp_name_map);
     map<string, int>::iterator iter, end = id_map_buf.end();
     int prev_size = _include.size();
@@ -1095,14 +1095,14 @@ void gcta::filter_snp_max_maf(double max_maf)
     if (_include.size() == 0) throw ("Error: No SNP is retained for analysis.");
     else {
         stable_sort(_include.begin(), _include.end());
-        cout << "After pruning SNPs with MAF < " << max_maf << ", there are " << _include.size() << " SNPs (" << prev_size - _include.size() << " SNPs with MAF > " << max_maf << ")." << endl;
+        cout << "After filtering SNPs with MAF < " << max_maf << ", there are " << _include.size() << " SNPs (" << prev_size - _include.size() << " SNPs with MAF > " << max_maf << ")." << endl;
     }
 }
 
 void gcta::filter_impRsq(double rsq_cutoff)
 {
     if (_impRsq.empty()) cout << "Warning: the option --imput-rsq is inactive because GCTA can't find the imputation quality scores for the SNPs. Use the option --update-imput-rsq to input the imputation quality scores." << endl;
-    cout << "Pruning SNPs with imputation Rsq > " << rsq_cutoff << " ..." << endl;
+    cout << "Filtering SNPs with imputation Rsq > " << rsq_cutoff << " ..." << endl;
     map<string, int> id_map_buf(_snp_name_map);
     map<string, int>::iterator iter, end = id_map_buf.end();
     int prev_size = _include.size();
@@ -1116,7 +1116,7 @@ void gcta::filter_impRsq(double rsq_cutoff)
     if (_include.size() == 0) throw ("Error: No SNP is retained for analysis.");
     else {
         stable_sort(_include.begin(), _include.end());
-        cout << "After pruning for imputation Rsq > " << rsq_cutoff << ", there are " << _include.size() << " SNPs (" << prev_size - _include.size() << " SNPs with imputation Rsq < " << rsq_cutoff << ")." << endl;
+        cout << "After filtering for imputation Rsq > " << rsq_cutoff << ", there are " << _include.size() << " SNPs (" << prev_size - _include.size() << " SNPs with imputation Rsq < " << rsq_cutoff << ")." << endl;
     }
 }
 
