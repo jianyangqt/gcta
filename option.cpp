@@ -668,7 +668,7 @@ void option(int option_num, char* option_str[])
         } else if (strcmp(argv[i], "--reml-wfam") == 0) {
             reml_flag = true;
             within_family = true;
-            cout << "--reml-within-family " << endl;
+            cout << "--reml-wfam " << endl;
         } else if (strcmp(argv[i], "--reml-bivar") == 0) {
             bivar_reml_flag = true;
             thread_flag = true;

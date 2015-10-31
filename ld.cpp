@@ -276,7 +276,7 @@ void gcta::calcu_mean_rsq(int wind_size, double rsq_cutoff, bool dominance_flag)
 
     int i = 0, m = _include.size();
 
-    cout << "Calculating LD score between SNPs (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between blocks); LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
+    cout << "\nCalculating LD score for SNPs (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between blocks); LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
     if(dominance_flag) cout<<"(SNP genotypes are coded for dominance effects)"<<endl;
     if(_ldscore_adj) cout << "LD rsq will be adjusted for chance correlation, i.e. rsq_adj = rsq - (1 - rsq) / (n -2)." << endl;
     vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
@@ -548,7 +548,7 @@ void gcta::calcu_mean_rsq_multiSet(string snpset_filenames_file, int wind_size, 
         cout << snp_count << " SNPs included from [" << snpset_filenaems[i] << "]. " <<endl;
     }
 
-    cout << "Calculating LD score between SNPs (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between blocks); LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
+    cout << "\nCalculating multi-component LD score for SNPs (block size of " << wind_size / 1000 << "Kb with an overlap of "<<wind_size/2000<<"Kb between blocks); LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
     if(dominance_flag) cout<<"(SNP genotypes are coded for dominance effects)"<<endl;
     if(_ldscore_adj) cout << "LD rsq will be adjusted for chance correlation, i.e. rsq_adj = rsq - (1 - rsq) / (n -2)." << endl;
     vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
@@ -564,18 +564,22 @@ void gcta::calcu_mean_rsq_multiSet(string snpset_filenames_file, int wind_size, 
     if (brk_pnt2.size() > 1) calcu_ld_blk_multiSet(brk_pnt2, brk_pnt3, set_flag, mean_rsq, snp_num, max_rsq, true, rsq_cutoff, dominance_flag);
 
     string mrsq_file = "";
-    if(dominance_flag) mrsq_file = _out + ".d.mrsq.set.ld";
-    else mrsq_file = _out + ".mrsq.ld";
+    double ldscore = 0.0;
+    if(dominance_flag) mrsq_file = _out + ".d.multi_score.ld";
+    else mrsq_file = _out + ".multi_score.ld";
     ofstream o_mrsq(mrsq_file.data());
     o_mrsq<<"SNP chr bp MAF";
-    for(j = 0; j < set_num; j++) o_mrsq << " mean_rsq_" << j+1 << " snp_num_" << j+1 << " max_rsq" << j+1;
+    for(j = 0; j < set_num; j++) o_mrsq << " mean_rsq_" << j+1 << " snp_num_" << j+1 << " max_rsq" << j+1 << " ldscore" << j+1;
     o_mrsq << endl;
     for (i = 0; i < m; i++){
         o_mrsq << _snp_name[_include[i]] << " " << _chr[_include[i]] << " " << _bp[_include[i]] << " ";
         double MAF = 0.5 * _mu[_include[i]];
         if(MAF > 0.5) MAF = 1.0 - MAF;
         o_mrsq << MAF;
-        for(j = 0; j < set_num; j++) o_mrsq << " " << (mean_rsq[j])[i] << " " << (snp_num[j])[i] << " " << (max_rsq[j])[i];
+        for(j = 0; j < set_num; j++){
+            ldscore = 1.0 + (mean_rsq[j])[i] * (snp_num[j])[i];
+            o_mrsq << " " << (mean_rsq[j])[i] << " " << (snp_num[j])[i] << " " << (max_rsq[j])[i];
+        }
         o_mrsq << endl;
     }
     o_mrsq << endl;
