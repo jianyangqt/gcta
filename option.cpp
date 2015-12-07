@@ -821,31 +821,31 @@ void option(int option_num, char* option_str[])
             subpopu_file = argv[++i];
             cout << "--sub-popu " << subpopu_file << endl;
             CommFunc::FileExist(subpopu_file);
-        } else if (strcmp(argv[i], "--sbat-ld-cutoff") == 0) {
+        } else if (strcmp(argv[i], "--fastBAT-ld-cutoff") == 0) {
             sbat_ld_cutoff = sqrt(atof(argv[++i]));
-            cout << "--sbat-ld-cutoff " << sbat_ld_cutoff << endl;
-            if (sbat_ld_cutoff <= 0.1) throw ("\nError: --sbat_ld_cutoff should be > 0.1\n");
-        } else if (strcmp(argv[i], "--sbat-write-snpset") == 0) {
+            cout << "--fastBAT-ld-cutoff " << sbat_ld_cutoff << endl;
+            if (sbat_ld_cutoff <= 0.1) throw ("\nError: --fastBAT_ld_cutoff should be > 0.1\n");
+        } else if (strcmp(argv[i], "--fastBAT-write-snpset") == 0) {
             sbat_write_snpset = true;
-            cout << "--sbat-write-snpset" << endl;
-        } else if (strcmp(argv[i], "--sbat") == 0) {
+            cout << "--fastBAT-write-snpset" << endl;
+        } else if (strcmp(argv[i], "--fastBAT") == 0) {
             sbat_sAssoc_file = argv[++i];
-            cout << "--sbat " << sbat_sAssoc_file << endl;
+            cout << "--fastBAT " << sbat_sAssoc_file << endl;
             CommFunc::FileExist(sbat_sAssoc_file);
-        } else if (strcmp(argv[i], "--sbat-gene-list") == 0) {
+        } else if (strcmp(argv[i], "--fastBAT-gene-list") == 0) {
             sbat_gAnno_file = argv[++i];
-            cout << "--sbat-gene-list " << sbat_gAnno_file << endl;
+            cout << "--fastBAT-gene-list " << sbat_gAnno_file << endl;
             CommFunc::FileExist(sbat_gAnno_file);
-        } else if (strcmp(argv[i], "--sbat-set-list") == 0) {
+        } else if (strcmp(argv[i], "--fastBAT-set-list") == 0) {
             sbat_snpset_file = argv[++i];
-            cout << "--sbat-set-list " << sbat_snpset_file << endl;
+            cout << "--fastBAT-set-list " << sbat_snpset_file << endl;
             CommFunc::FileExist(sbat_snpset_file);
-        } else if (strcmp(argv[i], "--sbat-wind") == 0) {
+        } else if (strcmp(argv[i], "--fastBAT-wind") == 0) {
             sbat_wind = atoi(argv[++i]);
-            cout << "--sbat-wind " << sbat_wind << endl;
-            if (sbat_wind < 0 || sbat_wind > 1000) throw ("\nError: invalid value for --sbat-wind. Valid range: 0 ~ 1000\n");
+            cout << "--fastBAT-wind " << sbat_wind << endl;
+            if (sbat_wind < 0 || sbat_wind > 1000) throw ("\nError: invalid value for --fastBAT-wind. Valid range: 0 ~ 1000\n");
             sbat_wind *= 1000;
-        } else if (strcmp(argv[i], "--sbat-seg") == 0) {
+        } else if (strcmp(argv[i], "--fastBAT-seg") == 0) {
             sbat_seg_flag = true;
             thread_flag = true;
             i++;
@@ -853,8 +853,8 @@ void option(int option_num, char* option_str[])
                 sbat_seg_size = 100;
                 i--;
             } else sbat_seg_size = atoi(argv[i]);
-            cout << "--sbat-seg " << sbat_seg_size << endl;
-            if (sbat_seg_size < 10 || sbat_seg_size > 10000) throw ("\nError: invalid value for --sbat-seg. Valid range: 10 ~ 10000\n");
+            cout << "--fastBAT-seg " << sbat_seg_size << endl;
+            if (sbat_seg_size < 10 || sbat_seg_size > 10000) throw ("\nError: invalid value for --fastBAT-seg. Valid range: 10 ~ 10000\n");
             sbat_seg_size *= 1000;
         }
         else if (strcmp(argv[i], "--efile") == 0) {

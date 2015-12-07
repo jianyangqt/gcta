@@ -158,7 +158,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
 
     // run gene-based test
     if (_mu.empty()) calcu_mu();
-    cout << "\nRunning set-based association test (SBAT) for genes ..." << endl;
+    cout << "\nRunning fastBAT analysis for genes ..." << endl;
     if (sbat_ld_cutoff < 1) cout << "Pruning SNPs with LD rsq cutoff = " << sbat_ld_cutoff*sbat_ld_cutoff  << endl;
     vector<double> gene_pval(gene_num), chisq_o(gene_num), min_snp_pval(gene_num);
     vector<string> min_snp_name(gene_num);
@@ -222,8 +222,8 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
         if((i + 1) % 100 == 0 || (i + 1) == gene_num) cout << i + 1 << " of " << gene_num << " genes.\r";
     }
 
-    string filename = _out + ".gene.sbat";
-    cout << "\nSaving the results of the SBAT analyses to [" + filename + "] ..." << endl;
+    string filename = _out + ".gene.fastbat";
+    cout << "\nSaving the results of the fastBAT analysis to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
     if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
     ofile << "Gene\tChr\tStart\tEnd\tNo.SNPs\tSNP_start\tSNP_end\tChisq(Obs)\tPvalue\tTopSNP.Pvalue\tTopSNP" << endl;
@@ -236,7 +236,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
     }
     ofile.close();
     if (sbat_write_snpset) {
-        cout << "Writing snpset ..." << endl;
+        cout << "The SNP sets have been save in file [" << rgoodsnpfile << "]." << endl;
         rogoodsnp.close();
     }
 }
@@ -245,7 +245,7 @@ void gcta::sbat_read_snpset(string snpset_file, vector<string> &set_name, vector
 {
     ifstream in_snpset(snpset_file.c_str());
     if (!in_snpset) throw ("Error: can not open the file [" + snpset_file + "] to read.");
-    cout << "\nReading SNP set from [" + snpset_file + "]." << endl;
+    cout << "\nReading SNP sets from [" + snpset_file + "]." << endl;
     string str_buf;
     vector<string> vs_buf, snpset_buf, snp_name;
     int i = 0;
@@ -292,7 +292,7 @@ void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, b
 
     // run gene-based test
     if (_mu.empty()) calcu_mu();
-    cout << "\nRunning set-based association test (SBAT)..." << endl;
+    cout << "\nRunning fastBAT analysis ..." << endl;
     if (sbat_ld_cutoff < 1) cout << "Pruning snps with maximum ld cutoff " << sbat_ld_cutoff  << endl;
     vector<double> set_pval(set_num), chisq_o(set_num), min_snp_pval(set_num);
     vector<string> min_snp_name(set_num);
@@ -360,8 +360,8 @@ void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, b
         if((i + 1) % 100 == 0 || (i + 1) == set_num) cout << i + 1 << " of " << set_num << " sets.\r";
     }
 
-    string filename = _out + ".sbat";
-    cout << "\nSaving the results of the SBAT analyses to [" + filename + "] ..." << endl;
+    string filename = _out + ".fastbat";
+    cout << "\nSaving the results of the fastBAT analysis to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
     if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
     ofile << "Set\tNo.SNPs\tChisq(Obs)\tPvalue\tTopSNP.Pvalue\tTopSNP" << endl;
@@ -372,7 +372,7 @@ void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, b
     }
     ofile.close();
     if (sbat_write_snpset) {
-        cout << "Writing snpset ..." << endl;
+        cout << "The SNP sets have been save in file [" << rgoodsnpfile << "]." << endl;
         rogoodsnp.close();
     }
 }
@@ -392,7 +392,7 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, boo
 
     // run gene-based test
     if (_mu.empty()) calcu_mu();
-    cout << "\nRunning set-based association test (SBAT) at genomic segments with a length of " << seg_size/1000 << "Kb ..." << endl;
+    cout << "\nRunning fastBAT analysis at genomic segments with a length of " << seg_size/1000 << "Kb ..." << endl;
     if (sbat_ld_cutoff < 1) cout << "Pruning snps with maximum ld cutoff " << sbat_ld_cutoff  << endl;
     vector< vector<int> > snp_set_indx;
     vector<int> set_chr, set_start_bp, set_end_bp;
@@ -456,8 +456,8 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, boo
         if((i + 1) % 100 == 0 || (i + 1) == set_num) cout << i + 1 << " of " << set_num << " sets.\r";
     }
 
-    string filename = _out + ".seg.sbat";
-    cout << "\nSaving the results of the segment-based SBAT analyses to [" + filename + "] ..." << endl;
+    string filename = _out + ".seg.fastbat";
+    cout << "\nSaving the results of the segment-based fastBAT analysis to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
     if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
     ofile << "Chr\tStart\tEnd\tNo.SNPs\tChisq(Obs)\tPvalue\tTopSNP.Pvalue\tTopSNP" << endl;
@@ -470,7 +470,7 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, boo
     }
     ofile.close();
     if (sbat_write_snpset) {
-        cout << "Writing snpset ..." << endl;
+        cout << "The SNP sets have been save in file [" << rgoodsnpfile << "]." << endl;
         rogoodsnp.close();
     }
 }
