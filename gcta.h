@@ -241,6 +241,7 @@ private:
     bool calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, int &iter);
     bool inverse_H(eigenMatrix &H);
     bool comput_inverse_logdet_LDLT(eigenMatrix &Vi, double &logdet);
+    void bend_V(eigenMatrix &Vi);
     void bend_A();
     bool bending_eigenval(eigenVector &eval);
     bool comput_inverse_logdet_PLU(eigenMatrix &Vi, double &logdet);

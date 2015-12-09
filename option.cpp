@@ -19,7 +19,7 @@ int main(int argc, char* argv[])
 {
     cout << "*******************************************************************" << endl;
     cout << "* Genome-wide Complex Trait Analysis (GCTA)" << endl;
-    cout << "* version 1.25.0" << endl;
+    cout << "* version 1.25.1" << endl;
     cout << "* (C) 2010-2013 Jian Yang, Hong Lee, Michael Goddard and Peter Visscher" << endl;
     cout << "* The University of Queensland" << endl;
     cout << "* MIT License" << endl;
@@ -621,9 +621,9 @@ void option(int option_num, char* option_str[])
             MaxIter = atoi(argv[++i]);
             cout << "--reml-maxit " << MaxIter << endl;
             if (MaxIter < 1 || MaxIter > 10000) throw ("\nError: --reml-maxit should be within the range from 1 to 10000.\n");
-        } else if (strcmp(argv[i], "--reml-force-inv") == 0) {
+        } else if (strcmp(argv[i], "--reml-bendV") == 0) {
             reml_force_inv_fac_flag = true;
-            cout << "--reml-force-inv " << endl;
+            cout << "--reml-bendV " << endl;
         } else if (strcmp(argv[i], "--reml-force-converge") == 0) {
             reml_force_converge_flag = true;
             cout << "--reml-force-converge " << endl;
