@@ -44,6 +44,7 @@ gcta::gcta(int autosome_num, double rm_ld_cutoff, string out)
     _reml_AI_not_invertible = false;
     _reml_force_converge = false;
     _reml_no_converge = false;
+    _reml_fixed_var = false;
     _ldscore_adj = false;
 }
 
@@ -75,6 +76,7 @@ gcta::gcta() {
     _reml_AI_not_invertible = false;
     _reml_force_converge = false;
     _reml_no_converge = false;
+    _reml_fixed_var = false;
     _ldscore_adj = false;
 }
 

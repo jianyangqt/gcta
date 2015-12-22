@@ -19,7 +19,7 @@ int main(int argc, char* argv[])
 {
     cout << "*******************************************************************" << endl;
     cout << "* Genome-wide Complex Trait Analysis (GCTA)" << endl;
-    cout << "* version 1.25.1" << endl;
+    cout << "* version 1.25.2" << endl;
     cout << "* (C) 2010-2013 Jian Yang, Hong Lee, Michael Goddard and Peter Visscher" << endl;
     cout << "* The University of Queensland" << endl;
     cout << "* MIT License" << endl;
@@ -93,7 +93,7 @@ void option(int option_num, char* option_str[])
     string hapmap_genet_dst_file = "";
 
     // REML analysis
-    bool prevalence_flag = false, reml_force_inv_fac_flag = false, reml_force_converge_flag = false, reml_no_converge_flag = false;
+    bool prevalence_flag = false, reml_force_inv_fac_flag = false, reml_force_converge_flag = false, reml_no_converge_flag = false, reml_fixed_var_flag = false;
     int mphen = 1, mphen2 = 2, reml_mtd = 0, MaxIter = 100;
     double prevalence = -2.0, prevalence2 = -2.0;
     bool reml_flag = false, pred_rand_eff = false, est_fix_eff = false, blup_snp_flag = false, no_constrain = false, reml_lrt_flag = false, no_lrt = false, bivar_reml_flag = false, ignore_Ce = false, within_family = false, reml_bending = false, HE_reg_flag = false, reml_diag_one = false, bivar_no_constrain = false;
@@ -110,6 +110,7 @@ void option(int option_num, char* option_str[])
 
     // mixed linear model association 
     bool mlma_flag = false, mlma_loco_flag = false, mlma_no_adj_covar = false;
+    string subtract_grm_file = "";
 
     // Fst
     bool fst_flag = false;
@@ -566,21 +567,23 @@ void option(int option_num, char* option_str[])
             reml_flag = true;
             no_constrain = true;
             cout << "--reml-no-constrain" << endl;
-        } else if (strcmp(argv[i], "--reml-priors") == 0) {
+        } else if (strcmp(argv[i], "--reml-priors") == 0 || strcmp(argv[i], "--reml-fixed-var") == 0) {
+            string s_buf = argv[i];
+            if(s_buf == "--reml-fixed-var") reml_fixed_var_flag = true;
             while (1) {
                 i++;
                 if (strcmp(argv[i], "gcta") == 0 || strncmp(argv[i], "--", 2) == 0) break;
                 reml_priors.push_back(atof(argv[i]));
             }
             i--;
-            cout << "--reml-priors ";
+            cout << s_buf << " ";
             bool err_flag = false;
             for (j = 0; j < reml_priors.size(); j++) {
                 cout << reml_priors[j] << " ";
                 if (reml_priors[j] > 1.0 || reml_priors[j] < -10.0) err_flag = true;
             }
             cout << endl;
-            if (err_flag || reml_priors.empty()) throw ("\nError: --reml-priors. Prior values should be within the range from 0 to 1.\n");
+            if (err_flag || reml_priors.empty()) throw ("\nError: " + s_buf + ". Variance components should be between 0 and 1.\n");
         } else if (strcmp(argv[i], "--reml-priors-var") == 0) {
             while (1) {
                 i++;
@@ -806,6 +809,9 @@ void option(int option_num, char* option_str[])
             mlma_flag = true;
             thread_flag = true;
             cout << "--mlma " << endl;
+        } else if (strcmp(argv[i], "--mlma-subtract-grm") == 0) {
+            subtract_grm_file = argv[++i];
+            cout << "--mlma-subtract-grm " << subtract_grm_file << endl;
         } else if (strcmp(argv[i], "--mlma-loco") == 0) {
             reml_flag = false;
             mlma_loco_flag = true;
@@ -990,6 +996,7 @@ void option(int option_num, char* option_str[])
     if(reml_force_inv_fac_flag) pter_gcta->set_reml_force_inv();
     if(reml_force_converge_flag) pter_gcta->set_reml_force_converge();
     if(reml_no_converge_flag) pter_gcta->set_reml_no_converge();
+    if(reml_fixed_var_flag) pter_gcta->set_reml_fixed_var();
     if (grm_bin_flag || m_grm_bin_flag) pter_gcta->enable_grm_bin_flag();
     //if(simu_unlinked_flag) pter_gcta->simu_geno_unlinked(simu_unlinked_n, simu_unlinked_m, simu_unlinked_maf);
     if (!RG_fname_file.empty()) {
@@ -1054,7 +1061,7 @@ void option(int option_num, char* option_str[])
             else if (ld_mean_rsq_seg_flag) pter_gcta->ld_seg(LD_file, LD_seg, LD_wind, LD_rsq_cutoff, dominance_flag);
             else if (ld_max_rsq_flag) pter_gcta ->calcu_max_ld_rsq(LD_wind, LD_rsq_cutoff, dominance_flag);
             else if (blup_snp_flag) pter_gcta->blup_snp_geno();
-            else if (mlma_flag) pter_gcta->mlma(grm_file, m_grm_flag, phen_file, qcovar_file, covar_file, mphen, MaxIter, reml_priors, reml_priors_var, no_constrain, within_family, make_grm_inbred_flag, mlma_no_adj_covar);
+            else if (mlma_flag) pter_gcta->mlma(grm_file, m_grm_flag, subtract_grm_file, phen_file, qcovar_file, covar_file, mphen, MaxIter, reml_priors, reml_priors_var, no_constrain, within_family, make_grm_inbred_flag, mlma_no_adj_covar);
             else if (mlma_loco_flag) pter_gcta->mlma_loco(phen_file, qcovar_file, covar_file, mphen, MaxIter, reml_priors, reml_priors_var, no_constrain, make_grm_inbred_flag, mlma_no_adj_covar);
             else if (massoc_slct_flag | massoc_joint_flag) pter_gcta->run_massoc_slct(massoc_file, massoc_wind, massoc_p, massoc_collinear, massoc_top_SNPs, massoc_joint_flag, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag, massoc_mld_slct_alg);
             else if (!massoc_cond_snplist.empty()) pter_gcta->run_massoc_cond(massoc_file, massoc_cond_snplist, massoc_wind, massoc_collinear, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag);
@@ -1103,7 +1110,7 @@ void option(int option_num, char* option_str[])
         else if (simu_qt_flag || simu_cc) pter_gcta->GWAS_simu(bfile, simu_rep, simu_causal, simu_case_num, simu_control_num, simu_h2, simu_K, simu_seed, simu_output_causal, simu_emb_flag, simu_eff_mod);
         else if (make_bed_flag) pter_gcta->save_plink();
         else if (fst_flag) pter_gcta->Fst(subpopu_file);
-        else if (mlma_flag) pter_gcta->mlma(grm_file, m_grm_flag, phen_file, qcovar_file, covar_file, mphen, MaxIter, reml_priors, reml_priors_var, no_constrain, within_family, make_grm_inbred_flag, mlma_no_adj_covar);
+        else if (mlma_flag) pter_gcta->mlma(grm_file, m_grm_flag, subtract_grm_file, phen_file, qcovar_file, covar_file, mphen, MaxIter, reml_priors, reml_priors_var, no_constrain, within_family, make_grm_inbred_flag, mlma_no_adj_covar);
         else if (mlma_loco_flag) pter_gcta->mlma_loco(phen_file, qcovar_file, covar_file, mphen, MaxIter, reml_priors, reml_priors_var, no_constrain, make_grm_inbred_flag, mlma_no_adj_covar);
     } else if (HE_reg_flag) pter_gcta->HE_reg(grm_file, phen_file, kp_indi_file, rm_indi_file, mphen);
     else if ((reml_flag || bivar_reml_flag) && phen_file.empty()) throw ("\nError: phenotype file is required for reml analysis.\n");

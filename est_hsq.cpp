@@ -27,6 +27,11 @@ void gcta::set_reml_no_converge()
     _reml_no_converge = true;
 }
 
+void gcta::set_reml_fixed_var()
+{
+    _reml_fixed_var = true;
+}
+
 void gcta::read_phen(string phen_file, vector<string> &phen_ID, vector< vector<string> > &phen_buf, int mphen, int mphen2) {
     // Read phenotype data
     ifstream in_phen(phen_file.c_str());
@@ -885,7 +890,10 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         if (reml_bivar_fix_rg) update_A(prev_varcmp);
         if (iter == 0) {
             prev_varcmp = varcomp_init;
-            if (prior_var_flag) cout << "Prior values of variance components: " << varcmp.transpose() << endl;
+            if (prior_var_flag){
+                if(_reml_fixed_var) cout << "Variance components are fixed at: " << varcmp.transpose() << endl;
+                else cout << "Prior values of variance components: " << varcmp.transpose() << endl;
+            }
             else {
                 _reml_mtd = 2;
                 cout << "Calculating prior values of variance components by EM-REML ..." << endl;
@@ -943,6 +951,10 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
             cout << "logL: " << lgL << endl;
             //if(_reml_max_iter==1) cout<<"logL: "<<lgL<<endl;
         }
+        if(_reml_fixed_var){
+            varcmp = prev_varcmp; 
+            break;
+        }
         if (constrain_num * 2 > _r_indx.size()) throw ("Error: analysis stopped because more than half of the variance components are constrained. The result would be unreliable.\n Please have a try to add the option --reml-no-constrain.");
         // added by Jian Yang on 22 Oct 2014
         //if (constrain_num == _r_indx.size()) throw ("Error: analysis stopped because all variance components are constrained. You may have a try of adding the option --reml-no-constrain.");
@@ -969,13 +981,16 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         prev_lgL = lgL;
     }
     
-    if(converged_flag) cout << "Log-likelihood ratio converged." << endl;
+    if(_reml_fixed_var) cout << "Warning: the model is evaluated at fixed variance components. The likelihood might not be maximised." <<endl;
     else {
-        if(_reml_force_converge || _reml_no_converge) cout << "Warning: Log-likelihood not converged. Results are not reliable." <<endl;
-        else if(iter == _reml_max_iter){
-            stringstream errmsg;
-            errmsg << "Error: Log-likelihood not converged (stop after " << _reml_max_iter << " iteractions). \nYou can specify the option --reml-maxit to allow for more iterations." << endl;
-            if (_reml_max_iter > 1) throw (errmsg.str());
+        if(converged_flag) cout << "Log-likelihood ratio converged." << endl;
+        else {
+            if(_reml_force_converge || _reml_no_converge) cout << "Warning: Log-likelihood not converged. Results are not reliable." <<endl;
+            else if(iter == _reml_max_iter){
+                stringstream errmsg;
+                errmsg << "Error: Log-likelihood not converged (stop after " << _reml_max_iter << " iteractions). \nYou can specify the option --reml-maxit to allow for more iterations." << endl;
+                if (_reml_max_iter > 1) throw (errmsg.str());
+            }
         }
     }
     return lgL;

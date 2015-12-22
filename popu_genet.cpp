@@ -215,40 +215,49 @@ void gcta::Fst(string filename)
     eigenMatrix S;
     coeff_mat(subpopu, S, "Error: too many subpopulations specified in the file ["+filename+"].", "Error: at least two sub-populations are required.");
     int r=subpopu_name.size();
-    eigenVector x(_keep.size()), tmp, ni(r), xt_S, f_sub(r);//Fst(_include.size()),  f_all(_include.size()), chisq(_include.size()), pval=eigenVector::Constant(_include.size(), 1.0);
+    eigenVector x(_keep.size()), tmp, n_sub(r), xt_S, p_sub(r), h_sub(r);//Fst(_include.size()),  f_all(_include.size()), chisq(_include.size()), pval=eigenVector::Constant(_include.size(), 1.0);
     if(_mu.empty()) calcu_mu();
     
     int i = 0, j = 0;
-    for(i=0; i<r; i++) ni[i]=S.col(i).sum();
-    int n_mean=ni.mean();
+    for(i=0; i<r; i++) n_sub[i]=S.col(i).sum();
+    double n_bar = n_sub.mean();
+    double n_bar_r = n_bar * r;
+    double n_c = (n_bar_r - n_sub.squaredNorm() / n_bar_r) / (r - 1.0);
     
     string outfile=_out+".fst";
     cout<<"\nSaving the Fst test results"<<_include.size()<<" SNPs to ["+outfile+"] ..."<<endl;
     ofstream ofile(outfile.c_str());
     if(!ofile) throw("Can not open the file ["+outfile+"] to write.");
-    ofile<<"Chr\tSNP\tbp\trefA\tfreq(all)\t";
-    for(i=0; i<r; i++) ofile<<"freq_"<<subpopu_name[i]<<"(n="<<ni[i]<<")\t";
-    ofile<<"Fst\tchisq\tp"<<endl;
-    double f_all=0.0, Fst=0.0, chisq=0.0, pval=1;
+    ofile<<"Chr\tSNP\tbp\trefA\t";
+    for(i=0; i<r; i++) ofile<<"freq_"<<subpopu_name[i]<<"(n="<<n_sub[i]<<")\t";
+    ofile<<"Fst"<<endl;
+    double p_bar=0.0, s_sq=0.0, h_bar=0.0, a=0.0, b=0.0, c=0.0, Fst=0.0, d_buf=0.0;
     for(i=0; i<_include.size(); i++){
-        f_all=0.5*_mu[_include[i]];
-        ofile<<_chr[_include[i]]<<"\t"<<_snp_name[_include[i]]<<"\t"<<_bp[_include[i]]<<"\t"<<_ref_A[_include[i]]<<"\t"<<f_all<<"\t";
-        if(f_all<1.0e-30){
-            for(j=0; j<r; j++) ofile<<"NA\t";
-            ofile<<"NA\tNA\tNA"<<endl;
-            continue;
-        }
+        ofile<<_chr[_include[i]]<<"\t"<<_snp_name[_include[i]]<<"\t"<<_bp[_include[i]]<<"\t"<<_ref_A[_include[i]]<<"\t";
         makex_eigenVector(i, x, false, false);
         for(j=0; j<r; j++){
-            f_sub[j]=x.dot(S.col(j))*0.5/ni[j];
-            ofile<<f_sub[j]<<"\t";
+            p_sub[j]=x.dot(S.col(j))*0.5/n_sub[j];
+            ofile<<p_sub[j]<<"\t";
         }
-        tmp=f_sub.array()-f_all;
-        Fst=(tmp.array()*tmp.array()*ni.array()).sum();
-        chisq=Fst/(f_all*(1.0-f_all));
-        Fst=chisq/((r-1.0)*n_mean);
-        pval=StatFunc::chi_prob(r-1, chisq);
-        ofile<<Fst<<"\t"<<chisq<<"\t"<<pval<<endl;
+        p_bar = p_sub.dot(n_sub) / n_bar_r;
+        tmp = p_sub.array() - p_bar;
+        s_sq = (tmp.array() * tmp.array() * n_sub.array()).sum() / ((r - 1.0) * n_bar);
+        h_sub = 2 * p_sub.array() * (1.0 - p_sub.array());
+        h_bar = h_sub.dot(n_sub) / n_bar_r;
+        d_buf = p_bar * (1.0 - p_bar) - (r - 1.0) * s_sq / r;
+        a = (n_bar / n_c) * (s_sq - (1.0 / (n_bar - 1.0)) * (d_buf - 0.25 * h_bar));
+        b = (n_bar / (n_bar - 1.0)) * (d_buf - (2 * n_bar - 1.0) * h_bar / (4 * n_bar));
+        c = 0.5 * h_bar;
+
+        Fst= a / (a + b + c);
+
+        /*double p_mean = p_sub.mean();
+        tmp = p_sub.array() - p_mean;
+        double Fst_fixed = (tmp.array() * tmp.array() * n_sub.array()).sum();
+        Fst_fixed = Fst_fixed / (p_mean * (1.0 - p_mean));
+        Fst_fixed = Fst_fixed / ((r - 1.0) * n_bar);*/
+
+        ofile<<Fst<<endl;
     }
     ofile.close();
 }
