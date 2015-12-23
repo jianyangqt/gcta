@@ -552,7 +552,7 @@ void option(int option_num, char* option_str[])
             prevalence_flag = true;
             prevalence = atof(argv[++i]);
             cout << "--prevalence " << prevalence << endl;
-            if (prevalence <= 0 || prevalence >= 1) throw ("\nError: --prevalence should be within the range from 0 to 1.\n");
+            if (prevalence <= 0 || prevalence >= 1) throw ("\nError: --prevalence should be between 0 to 1.\n");
         } else if (strcmp(argv[i], "--reml-pred-rand") == 0) {
             pred_rand_eff = true;
             cout << "--reml-pred-rand" << endl;
@@ -567,38 +567,38 @@ void option(int option_num, char* option_str[])
             reml_flag = true;
             no_constrain = true;
             cout << "--reml-no-constrain" << endl;
-        } else if (strcmp(argv[i], "--reml-priors") == 0 || strcmp(argv[i], "--reml-fixed-var") == 0) {
-            string s_buf = argv[i];
-            if(s_buf == "--reml-fixed-var") reml_fixed_var_flag = true;
+        } else if (strcmp(argv[i], "--reml-priors") == 0) {
             while (1) {
                 i++;
                 if (strcmp(argv[i], "gcta") == 0 || strncmp(argv[i], "--", 2) == 0) break;
                 reml_priors.push_back(atof(argv[i]));
             }
             i--;
-            cout << s_buf << " ";
+            cout << "--reml-priors ";
             bool err_flag = false;
             for (j = 0; j < reml_priors.size(); j++) {
                 cout << reml_priors[j] << " ";
                 if (reml_priors[j] > 1.0 || reml_priors[j] < -10.0) err_flag = true;
             }
             cout << endl;
-            if (err_flag || reml_priors.empty()) throw ("\nError: " + s_buf + ". Variance components should be between 0 and 1.\n");
-        } else if (strcmp(argv[i], "--reml-priors-var") == 0) {
+            if (err_flag || reml_priors.empty()) throw ("\nError: --reml-priors. Prior values of variance explained should be between 0 and 1.\n");
+        } else if (strcmp(argv[i], "--reml-priors-var") == 0  || strcmp(argv[i], "--reml-fixed-var") == 0) {
+            string s_buf = argv[i];
+            if(s_buf == "--reml-fixed-var") reml_fixed_var_flag = true;
             while (1) {
                 i++;
                 if (strcmp(argv[i], "gcta") == 0 || strncmp(argv[i], "--", 2) == 0) break;
                 reml_priors_var.push_back(atof(argv[i]));
             }
             i--;
-            cout << "--reml-priors-var ";
+            cout << s_buf << " ";
             bool err_flag = false;
             for (j = 0; j < reml_priors_var.size(); j++) {
                 cout << reml_priors_var[j] << " ";
                 if (reml_priors_var[j] < 0.0) err_flag = true;
             }
             cout << endl;
-            if (err_flag || reml_priors_var.empty()) throw ("\nError: --reml-priors-var. Prior values should be positive.\n");
+            if (reml_priors_var.empty()) throw ("\nError: " + s_buf + ". Prior values of variance components are required.\n");
         } else if (strcmp(argv[i], "--reml-no-lrt") == 0) {
             no_lrt = true;
             cout << "--reml-no-lrt" << endl;
@@ -967,8 +967,7 @@ void option(int option_num, char* option_str[])
         if (dosage_compen>-1.0) cout << "Warning: the option --dc option is disabled in this analysis." << endl;
         if (est_fix_eff) cout << "Warning: the option --reml-est-fix option is disabled in this analysis." << endl;
         if (pred_rand_eff) cout << "Warning: the option --reml-pred-rand option is disabled in this analysis." << endl;
-        if (reml_mtd != 0) cout << "Warning: the option --reml-alg option is disabled in this analysis. The default algorithm AI-REML is used." << endl;
-        if (reml_lrt_flag) cout << "Warning: the option --reml-lrt option is disabled in this analysis." << endl;
+        if (reml_lrt_flag) cout << "Warning: the option --reml-lrt option is disabled in this analysis." << endl; 
     }
     if(bivar_reml_flag && prevalence_flag) throw("Error: --prevalence option is not compatible with --reml-bivar option. Please check the --reml-bivar-prevalence option!");
 
@@ -997,6 +996,7 @@ void option(int option_num, char* option_str[])
     if(reml_force_converge_flag) pter_gcta->set_reml_force_converge();
     if(reml_no_converge_flag) pter_gcta->set_reml_no_converge();
     if(reml_fixed_var_flag) pter_gcta->set_reml_fixed_var();
+    if(reml_mtd != 0) pter_gcta->set_reml_mtd(reml_mtd);
     if (grm_bin_flag || m_grm_bin_flag) pter_gcta->enable_grm_bin_flag();
     //if(simu_unlinked_flag) pter_gcta->simu_geno_unlinked(simu_unlinked_n, simu_unlinked_m, simu_unlinked_maf);
     if (!RG_fname_file.empty()) {

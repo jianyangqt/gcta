@@ -32,6 +32,11 @@ void gcta::set_reml_fixed_var()
     _reml_fixed_var = true;
 }
 
+void gcta::set_reml_mtd(int reml_mtd)
+{
+    _reml_mtd = reml_mtd;
+}
+
 void gcta::read_phen(string phen_file, vector<string> &phen_ID, vector< vector<string> > &phen_buf, int mphen, int mphen2) {
     // Read phenotype data
     ifstream in_phen(phen_file.c_str());
@@ -59,7 +64,7 @@ void gcta::read_phen(string phen_file, vector<string> &phen_ID, vector< vector<s
     }
     if (_bivar_reml) cout << "Traits " << mphen << " and " << mphen2 << " are included in the bivariate analysis." << endl;
     else {
-        if (phen_num > 1) cout << "The " << mphen << "th trait is included for analysis." << endl;
+        if (phen_num > 1) cout << "Trait #" << mphen << " is included for analysis." << endl;
     }
     in_phen.seekg(ios::beg);
     mphen--;
@@ -533,7 +538,7 @@ bool gcta::check_case_control(double &ncase, eigenVector &y) {
     if (value.size() == 2) {
         if (CommFunc::FloatEqual(value[0], 0.0) && CommFunc::FloatEqual(value[1], 1.0)) case_num = y.sum();
         else if (CommFunc::FloatEqual(value[0], 1.0) && CommFunc::FloatEqual(value[1], 2.0)) case_num = (y.sum() - n);
-        if (!_bivar_reml) cout << "Assuming a disease phenotype for a case-control study:";
+        if (!_bivar_reml) cout << "Assuming a disease phenotype for a case-control study: ";
         cout << (int) case_num << " cases and " << (int) (n - case_num) << " controls ";
         ncase = case_num / (double) n;
         return true;
@@ -613,7 +618,7 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
     int i = 0, j = 0, k = 0;
 
     // Initialize variance component
-    // 0: AI; 1: REML equation; 2: EM
+    // 0: AI; 1: Fisher-scoring; 2: EM
     stringstream errmsg;
     double d_buf = 0.0;
     eigenVector y_tmp = _y.array() - _y.mean();
@@ -813,7 +818,8 @@ void gcta::init_varcomp(vector<double> &reml_priors_var, vector<double> &reml_pr
     if (_bivar_reml) {
         if (!reml_priors_var.empty()) {
             for (i = 0; i < _r_indx.size(); i++) varcmp[i] = reml_priors_var[i];
-        } else if (!reml_priors.empty()) {
+        } 
+        else if (!reml_priors.empty()) {
             for (i = 0, d_buf = 0; i < _bivar_pos[0].size() - 1; i++) {
                 pos = _bivar_pos[0][i];
                 varcmp[pos] = reml_priors[pos] * _y_Ssq;
@@ -829,7 +835,8 @@ void gcta::init_varcomp(vector<double> &reml_priors_var, vector<double> &reml_pr
             if (d_buf > 1.0) throw ("\nError: --reml-priors. The sum of all prior values for trait 2 should not exceed 1.0.");
             varcmp[_bivar_pos[1][_bivar_pos[1].size() - 1]] = (1.0 - d_buf) * _y2_Ssq;
             for (i = 0; i < _bivar_pos[2].size(); i++) varcmp[_bivar_pos[2][i]] = reml_priors[_bivar_pos[2][i]] * sqrt(_y_Ssq * _y2_Ssq);
-        } else {
+        }
+        else {
             for (i = 0; i < _bivar_pos[0].size(); i++) varcmp[_bivar_pos[0][i]] = _y_Ssq / _bivar_pos[0].size();
             for (i = 0; i < _bivar_pos[1].size(); i++) varcmp[_bivar_pos[1][i]] = _y2_Ssq / _bivar_pos[1].size();
             for (i = 0; i < _bivar_pos[2].size(); i++) varcmp[_bivar_pos[2][i]] = 0.5 * sqrt(varcmp[_bivar_pos[0][i]] * varcmp[_bivar_pos[1][i]]);
@@ -842,14 +849,16 @@ void gcta::init_varcomp(vector<double> &reml_priors_var, vector<double> &reml_pr
         for (i = 0; i < _r_indx.size() - 1; i++) varcmp[i] = reml_priors_var[i];
         if (reml_priors_var.size() < _r_indx.size()) varcmp[_r_indx.size() - 1] = _y_Ssq - varcmp.sum();
         else varcmp[_r_indx.size() - 1] = reml_priors_var[_r_indx.size() - 1];
-    } else if (!reml_priors.empty()) {
+    }
+    else if (!reml_priors.empty()) {
         for (i = 0, d_buf = 0; i < _r_indx.size() - 1; i++) {
             varcmp[i] = reml_priors[i] * _y_Ssq;
             d_buf += reml_priors[i];
         }
         if (d_buf > 1.0) throw ("\nError: --reml-priors. The sum of all prior values should not exceed 1.0.");
         varcmp[_r_indx.size() - 1] = (1.0 - d_buf) * _y_Ssq;
-    } else varcmp.setConstant(_y_Ssq / (_r_indx.size()));
+    }
+    else varcmp.setConstant(_y_Ssq / (_r_indx.size()));
 }
 
 double gcta::lgL_reduce_mdl(bool no_constrain) {
@@ -881,7 +890,7 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         }
     }*/
 
-    char *mtd_str[3] = {"AI-REML algorithm", "REML equation ...", "EM-REML algorithm ..."};
+    char *mtd_str[3] = {"AI-REML algorithm", "Fisher-scoring ...", "EM-REML algorithm ..."};
     int i = 0, constrain_num = 0, iter = 0, reml_mtd_tmp = _reml_mtd;
     double logdet = 0.0, logdet_Xt_Vi_X = 0.0, prev_lgL = -1e20, lgL = -1e20, dlogL = 1000.0;
     eigenVector prev_prev_varcmp(varcmp), prev_varcmp(varcmp), varcomp_init(varcmp);
@@ -926,14 +935,14 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         if(_reml_force_converge && _reml_AI_not_invertible) break;
             /*{
             if(_reml_mtd != 1){
-                cout<<"Warning: the information matrix is not invertible. Trying to fix the problem using the REML equation approach."<<endl;
+                cout<<"Warning: the information matrix is not invertible. Trying to fix the problem using the Fisher-scoring approach."<<endl;
                 _reml_mtd = 1;
                 _reml_AI_not_invertible = false;
                 iter--;
                 continue;
             }
             else {
-                cout<<"Warning: the information matrix is not invertible using the REML equation approach."<<endl;
+                cout<<"Warning: the information matrix is not invertible using the Fisher-scoring approach."<<endl;
                 break;
             }
         }*/
@@ -1277,7 +1286,7 @@ void gcta::calcu_Hi(eigenMatrix &P, eigenMatrix &Hi)
     }
 }
 
-// use REML equation to estimate variance component
+// use Fisher-scoring to estimate variance component
 // input P, calculate PA, H, R and varcmp
 
 void gcta::reml_equation(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector &varcmp)
@@ -1299,7 +1308,7 @@ void gcta::reml_equation(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigen
     Hi = 2 * Hi; // for calculation of SE
 }
 
-// use REML equation to estimate variance component
+// use Fisher-scoring to estimate variance component
 // input P, calculate PA, H, R and varcmp
 
 void gcta::ai_reml(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector &prev_varcmp, eigenVector &varcmp, double dlogL)

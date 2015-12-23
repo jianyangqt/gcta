@@ -330,7 +330,7 @@ void gcta::read_grm_gz(string grm_file, vector<string> &grm_id, bool out_id_log,
         throw(errmsg_tmp.str());
         //throw ("Error: incorrect number of lines in the grm file. *.grm.gz file and *.grm.id file are mismatched?");
     }
-    cout << "Pairwise genetic relationships between " << n << " individuals are included from [" + grm_gzfile + "]." << endl;
+    cout << "GRM for " << n << " individuals are included from [" + grm_gzfile + "]." << endl;
 }
 
 void gcta::read_grm_bin(string grm_file, vector<string> &grm_id, bool out_id_log, bool read_id_only, bool dont_read_N)
@@ -371,7 +371,7 @@ void gcta::read_grm_bin(string grm_file, vector<string> &grm_id, bool out_id_log
         N_bin.close();
     }
 
-    cout << "Pairwise genetic relationships between " << n << " individuals are included from [" + grm_binfile + "]." << endl;
+    cout << "GRM for " << n << " individuals are included from [" + grm_binfile + "]." << endl;
 }
 
 void gcta::rm_cor_indi(double grm_cutoff) {
