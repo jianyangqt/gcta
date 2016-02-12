@@ -82,7 +82,7 @@ void gcta::save_phenfile(vector< vector<double> > &y)
     phen.close();
 }
 
-void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, int control_num, double hsq, double K, int seed, bool output_causal, bool simu_emb_flag, int eff_mod)
+void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, int control_num, double hsq, double K, int seed, bool output_causal, bool simu_emb_flag, int eff_mod, double simu_eff_scl)
 {
     int i = 0, j = 0;
     bool cc_flag = false;
@@ -137,9 +137,9 @@ void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, 
     // Calculate allele frequency
     MatrixXf X;
     make_XMat(X);
-    if(eff_mod == 0){
+    if(eff_mod == 0){ // suggest to replace option eff_mod by option simu_eff_scl, as they may be in conflict
         eigenVector sd_SNP;
-        std_XMat(X, sd_SNP, false, true, true);
+        std_XMat(X, sd_SNP, false, true, true, simu_eff_scl);
     }
 
     // Calculate Ve and threhold
@@ -155,6 +155,9 @@ void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, 
     double sd_e = sqrt(var_e);
 
     // Output par file
+    if (eff_mod == 0) { // output unscaled QTL effects
+        for (j = 0; j < qtl_num; j++) qtl_eff[j] /= sd_SNP[j];
+    }
     output_simu_par(qtl_name, qtl_pos, qtl_eff, var_e + var_g);
 
     // Output phenotype file

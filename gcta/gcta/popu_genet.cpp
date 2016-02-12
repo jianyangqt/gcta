@@ -314,7 +314,7 @@ void gcta::read_subpopu(string filename, vector<string> &subpopu, vector<string>
         for (j = 0; j < m; j++) sd_SNP[j] = 1;
     }
     else {
-        for (j = 0; j < m; j++) sd_SNP[j] = fpow(sd_SNP[j], grm_scl_exp);
+        for (j = 0; j < m; j++) sd_SNP[j] = powf(sd_SNP[j], grm_scl_exp);
     }
     if (divid_by_std) {
         for (j = 0; j < m; j++) {
@@ -352,7 +352,7 @@ void gcta::read_subpopu(string filename, vector<string> &subpopu, vector<string>
                     for (j = 0; j < m; j++) sd_SNP[j] = 1;
                 }
                 else {
-                    for (j = 0; j < m; j++) sd_SNP[j] = fpow(sd_SNP[j], grm_scl_exp);
+                    for (j = 0; j < m; j++) sd_SNP[j] = powf(sd_SNP[j], grm_scl_exp);
                 }
                 if ((sd_SNP_sub[popu])(j) < 1.0e-50) (sd_SNP_sub[popu])(j) = 0.0;
                 else (sd_SNP_sub[popu])(j) = 1.0 / sqrt((sd_SNP_sub[popu])(j));

@@ -1498,7 +1498,7 @@ void gcta::std_XMat(MatrixXf &X, eigenVector &sd_SNP, bool grm_xchr_flag, bool m
         for (j = 0; j < m; j++) sd_SNP[j] = 1;
     }
     else {
-        for (j = 0; j < m; j++) sd_SNP[j] = fpow(sd_SNP[j], grm_scl_exp);
+        for (j = 0; j < m; j++) sd_SNP[j] = powf(sd_SNP[j], grm_scl_exp);
     }
     if (divid_by_std) {
         for (j = 0; j < m; j++) {
@@ -1558,7 +1558,7 @@ void gcta::std_XMat_d(MatrixXf &X, eigenVector &sd_SNP, bool miss_with_mu, bool 
         for (j = 0; j < m; j++) sd_SNP[j] = 1;
     }
     else {
-        for (j = 0; j < m; j++) sd_SNP[j] = fpow(sd_SNP[j], grm_scl_exp);
+        for (j = 0; j < m; j++) sd_SNP[j] = powf(sd_SNP[j], grm_scl_exp);
     }
     if (divid_by_std) {
         for (j = 0; j < m; j++) {
