@@ -34,7 +34,7 @@ void gcta::check_sex() {
     }
 }
 
-void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, double grm_scl_exp, bool mlmassoc, bool diag_f3_flag, string subpopu_file)
+void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, double make_grm_scl, bool mlmassoc, bool diag_f3_flag, string subpopu_file)
 {
     bool have_mis = false;
 
@@ -46,16 +46,10 @@ void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool outpu
     else  have_mis = make_XMat(_geno);
 
     eigenVector sd_SNP;
-    if (grm_mtd == 0) {
-        if (grm_d_flag) std_XMat_d(_geno, sd_SNP, false, true, grm_scl_exp);
-        else{
-            if(subpopu_file.empty()) std_XMat(_geno, sd_SNP, grm_xchr_flag, false, true, grm_scl_exp);
-            else std_XMat_subpopu(subpopu_file, _geno, sd_SNP, grm_xchr_flag, false, true, grm_scl_exp);
-        }
-    } 
-    else {
-        if (grm_d_flag) std_XMat_d(_geno, sd_SNP, false, false, grm_scl_exp);
-        else std_XMat(_geno, sd_SNP, grm_xchr_flag, false, false, grm_scl_exp);
+    if (grm_d_flag) std_XMat_d(_geno, sd_SNP, false, make_grm_scl);
+    else{
+        if(subpopu_file.empty()) std_XMat(_geno, sd_SNP, grm_xchr_flag, false, make_grm_scl);
+        else std_XMat_subpopu(subpopu_file, _geno, sd_SNP, grm_xchr_flag, false, make_grm_scl);
     }
 
     if (!mlmassoc) cout << "\nCalculating the" << ((grm_d_flag) ? " dominance" : "") << " genetic relationship matrix (GRM)" << (grm_xchr_flag ? " for the X chromosome" : "") << (_dosage_flag ? " using imputed dosage data" : "") << " ... (Note: default speed-optimized mode, may use huge RAM)" << endl;
@@ -104,8 +98,11 @@ void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool outpu
     #endif
 
     // Calculate A matrix
-    if (grm_mtd == 1) _grm_N = _grm_N.array() * sd_SNP.mean();
-
+    for (j = 0; j < m; j++) {
+        sd_SNP[j] = powf(sd_SNP[j]*sd_SNP[j], make_grm_scl-1.0);
+    }
+    _grm_N = _grm_N.array() * sd_SNP.mean();
+    
     #pragma omp parallel for private(j)
     for (i = 0; i < n; i++) {
         for (j = 0; j <= i; j++) {

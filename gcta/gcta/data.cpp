@@ -1482,7 +1482,7 @@ bool gcta::make_XMat_d(MatrixXf &X)
     return have_mis;
 }
 
-void gcta::std_XMat(MatrixXf &X, eigenVector &sd_SNP, bool grm_xchr_flag, bool miss_with_mu, bool divid_by_std, double grm_scl_exp)
+void gcta::std_XMat(MatrixXf &X, eigenVector &sd_SNP, bool grm_xchr_flag, bool miss_with_mu, double make_grm_scl)
 {
     if (_mu.empty()) calcu_mu();
 
@@ -1494,13 +1494,7 @@ void gcta::std_XMat(MatrixXf &X, eigenVector &sd_SNP, bool grm_xchr_flag, bool m
     else {
         for (j = 0; j < m; j++) sd_SNP[j] = _mu[_include[j]]*(1.0 - 0.5 * _mu[_include[j]]);
     }
-    if (grm_scl_exp == 0) {
-        for (j = 0; j < m; j++) sd_SNP[j] = 1;
-    }
-    else {
-        for (j = 0; j < m; j++) sd_SNP[j] = powf(sd_SNP[j], grm_scl_exp);
-    }
-    if (divid_by_std) {
+    if (make_grm_scl) {
         for (j = 0; j < m; j++) {
             if (fabs(sd_SNP[j]) < 1.0e-50) sd_SNP[j] = 0.0;
             else sd_SNP[j] = sqrt(1.0 / sd_SNP[j]);
@@ -1512,7 +1506,7 @@ void gcta::std_XMat(MatrixXf &X, eigenVector &sd_SNP, bool grm_xchr_flag, bool m
         for (j = 0; j < m; j++) {
             if (X(i,j) < 1e5) {
                 X(i,j) -= _mu[_include[j]];
-                if (divid_by_std) X(i,j) *= sd_SNP[j];
+                if (make_grm_scl) X(i,j) *= powf(sd_SNP[j], make_grm_scl);
             } 
             else if (miss_with_mu) X(i,j) = 0.0;
         }
@@ -1535,7 +1529,7 @@ void gcta::std_XMat(MatrixXf &X, eigenVector &sd_SNP, bool grm_xchr_flag, bool m
     }
 }
 
-void gcta::std_XMat_d(MatrixXf &X, eigenVector &sd_SNP, bool miss_with_mu, bool divid_by_std, double grm_scl_exp)
+void gcta::std_XMat_d(MatrixXf &X, eigenVector &sd_SNP, bool miss_with_mu, double make_grm_scl)
 {
     if (_mu.empty()) calcu_mu();
 
@@ -1554,13 +1548,7 @@ void gcta::std_XMat_d(MatrixXf &X, eigenVector &sd_SNP, bool miss_with_mu, bool 
     else {
         for (j = 0; j < m; j++) sd_SNP[j] = _mu[_include[j]]*(1.0 - 0.5 * _mu[_include[j]]);
     }
-    if (grm_scl_exp == 0) {
-        for (j = 0; j < m; j++) sd_SNP[j] = 1;
-    }
-    else {
-        for (j = 0; j < m; j++) sd_SNP[j] = powf(sd_SNP[j], grm_scl_exp);
-    }
-    if (divid_by_std) {
+    if (make_grm_scl) {
         for (j = 0; j < m; j++) {
             if (fabs(sd_SNP[j]) < 1.0e-50) sd_SNP[j] = 0.0;
             else sd_SNP[j] = 1.0 / sd_SNP[j];
@@ -1577,7 +1565,7 @@ void gcta::std_XMat_d(MatrixXf &X, eigenVector &sd_SNP, bool miss_with_mu, bool 
         for (j = 0; j < m; j++) {
             if (X(i,j) < 1e5) {
                 X(i,j) -= psq[j];
-                if (divid_by_std) X(i,j) *= sd_SNP[j];
+                if (make_grm_scl) X(i,j) *= powf(sd_SNP[j], make_grm_scl);
             } 
             else if (miss_with_mu) X(i,j) = 0.0;
         }

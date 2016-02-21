@@ -56,14 +56,14 @@ int gcta::read_QTL_file(string qtl_file, vector<string> &qtl_name, vector<int> &
     return (qtl_pos.size());
 }
 
-void gcta::output_simu_par(vector<string> &qtl_name, vector<int> &qtl_pos, vector<double> &qtl_eff, double Vp)
+void gcta::output_simu_par(vector<string> &qtl_name, vector<int> &qtl_pos, vector<double> &qtl_eff, vector<double> &qtl_eff_unscaled, double Vp)
 {
     int i = 0;
     string out_parfile = _out + ".par";
     ofstream out_par(out_parfile.c_str());
     if (!out_par) throw ("Error: can not open par file [" + out_parfile + "] to write!");
-    out_par << "QTL\tRefAllele\tFrequency\tEffect" << endl;
-    for (i = 0; i < qtl_eff.size(); i++) out_par << qtl_name[i] << "\t" << _ref_A[qtl_pos[i]] << "\t" << 0.5 * _mu[qtl_pos[i]] << "\t" << qtl_eff[i] << endl;
+    out_par << "QTL\tRefAllele\tFrequency\tEffect\tEffect_unscaled" << endl;
+    for (i = 0; i < qtl_eff.size(); i++) out_par << qtl_name[i] << "\t" << _ref_A[qtl_pos[i]] << "\t" << 0.5 * _mu[qtl_pos[i]] << "\t" << qtl_eff[i] << "\t" << qtl_eff_unscaled[i] << endl;
     out_par.close();
     cout << "Simulated QTL effect(s) have been saved in [" + out_parfile + "]." << endl;
 }
@@ -101,7 +101,7 @@ void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, 
     // Read QTL file
     vector<string> qtl_name;
     vector<int> qtl_pos, have_eff;
-    vector<double> qtl_eff;
+    vector<double> qtl_eff, qtl_eff_unscaled;
     int qtl_num = read_QTL_file(qtl_file, qtl_name, qtl_pos, qtl_eff, have_eff);
     update_id_map_kp(qtl_name, _snp_name_map, _include);
     
@@ -111,7 +111,7 @@ void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, 
         int num_gener_qtl_eff = 0;
         for (i = 0; i < qtl_num; i++) {
             if (have_eff[i] == 0) {
-                qtl_eff[i] = StatFunc::gasdev(Seed);
+                qtl_eff[i] = StatFunc::gasdev(seed); // the given seed is used here, or use 'Seed' for a random seed
                 num_gener_qtl_eff++;
             }
         }
@@ -133,14 +133,18 @@ void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, 
         qtl_eff.clear();
         qtl_eff.resize(qtl_num, 0.0);
     }
+    qtl_eff_unscaled = qtl_eff;
 
     // Calculate allele frequency
     MatrixXf X;
     make_XMat(X);
-    if(eff_mod == 0){ // suggest to replace option eff_mod by option simu_eff_scl, as they may be in conflict
+//    if(eff_mod == 0){ // suggest to replace option eff_mod by option simu_eff_scl, as they may be in conflict
         eigenVector sd_SNP;
-        std_XMat(X, sd_SNP, false, true, true, simu_eff_scl);
+        std_XMat(X, sd_SNP, false, true, simu_eff_scl);
+    if (simu_eff_scl) {
+        for (j = 0; j < qtl_num; j++) qtl_eff_unscaled[j] = qtl_eff[j] * sd_SNP[j];
     }
+//    }
 
     // Calculate Ve and threhold
     double var_g = 0.0, var_e = 1.0;
@@ -155,10 +159,7 @@ void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, 
     double sd_e = sqrt(var_e);
 
     // Output par file
-    if (eff_mod == 0) { // output unscaled QTL effects
-        for (j = 0; j < qtl_num; j++) qtl_eff[j] /= sd_SNP[j];
-    }
-    output_simu_par(qtl_name, qtl_pos, qtl_eff, var_e + var_g);
+    output_simu_par(qtl_name, qtl_pos, qtl_eff, qtl_eff_unscaled, var_e + var_g);
 
     // Output phenotype file
     cout << "Simulating GWAS based on the real genotyped data with " << simu_num << " replicate(s) ..." << endl;
@@ -216,6 +217,13 @@ void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, 
         out_emBayesB.close();
         cout << "Simulated data (" << _keep.size() << " individuals and " << _include.size() << " SNPs) has been saved in [" + out_rstfile + "]." << endl;
     }
+    
+    // Output total genotypic variance
+    string vargfile = _out + ".varg";
+    ofstream varg(vargfile.c_str());
+    varg << var_g << endl;
+    varg.close();
+    cout << "Simulated genotypic variance have been saved in [" + vargfile + "]." << endl;
 }
 
 /////////////////////////////////////////

@@ -291,7 +291,7 @@ void gcta::read_subpopu(string filename, vector<string> &subpopu, vector<string>
     subpopu_name.erase(unique(subpopu_name.begin(), subpopu_name.end()), subpopu_name.end());
  }
 
- void gcta::std_XMat_subpopu(string subpopu_file, MatrixXf &X, eigenVector &sd_SNP, bool grm_xchr_flag, bool miss_with_mu, bool divid_by_std, double grm_scl_exp)
+ void gcta::std_XMat_subpopu(string subpopu_file, MatrixXf &X, eigenVector &sd_SNP, bool grm_xchr_flag, bool miss_with_mu, double make_grm_scl)
 {
     vector<string> subpopu, subpopu_name;
     read_subpopu(subpopu_file, subpopu, subpopu_name);
@@ -310,13 +310,7 @@ void gcta::read_subpopu(string filename, vector<string> &subpopu, vector<string>
     else {
         for (j = 0; j < m; j++) sd_SNP[j] = _mu[_include[j]]*(1.0 - 0.5 * _mu[_include[j]]);
     }
-    if (grm_scl_exp == 0) {
-        for (j = 0; j < m; j++) sd_SNP[j] = 1;
-    }
-    else {
-        for (j = 0; j < m; j++) sd_SNP[j] = powf(sd_SNP[j], grm_scl_exp);
-    }
-    if (divid_by_std) {
+    if (make_grm_scl) {
         for (j = 0; j < m; j++) {
             if (fabs(sd_SNP[j]) < 1.0e-50) sd_SNP[j] = 0.0;
             else sd_SNP[j] = sqrt(1.0 / sd_SNP[j]);
@@ -339,7 +333,7 @@ void gcta::read_subpopu(string filename, vector<string> &subpopu, vector<string>
                 }
             }
             (mu_SNP_sub[popu])(j) /= m_sub;
-            if(divid_by_std){
+            if(make_grm_scl){
                 if(_dosage_flag){
                     (sd_SNP_sub[popu])(j) = 0.0;
                     for(i = 0; i < n; i++){
@@ -348,12 +342,6 @@ void gcta::read_subpopu(string filename, vector<string> &subpopu, vector<string>
                     (sd_SNP_sub[popu])(j) /= (m_sub - 1.0);                    
                 }
                 else (sd_SNP_sub[popu])(j) = (mu_SNP_sub[popu])(j)*(1.0 - 0.5 * (mu_SNP_sub[popu])(j));
-                if (grm_scl_exp == 0) {
-                    for (j = 0; j < m; j++) sd_SNP[j] = 1;
-                }
-                else {
-                    for (j = 0; j < m; j++) sd_SNP[j] = powf(sd_SNP[j], grm_scl_exp);
-                }
                 if ((sd_SNP_sub[popu])(j) < 1.0e-50) (sd_SNP_sub[popu])(j) = 0.0;
                 else (sd_SNP_sub[popu])(j) = 1.0 / sqrt((sd_SNP_sub[popu])(j));
             }
@@ -367,7 +355,7 @@ void gcta::read_subpopu(string filename, vector<string> &subpopu, vector<string>
                 for (j = 0; j < m; j++){
                     if(X(i,j) < 1e5){
                         X(i,j) -=  (mu_SNP_sub[popu])(j);
-                        if(divid_by_std) X(i,j) *= (sd_SNP_sub[popu])(j);
+                        if(make_grm_scl) X(i,j) *= powf((sd_SNP_sub[popu])(j), make_grm_scl);
                     }
                     else if (miss_with_mu) X(i,j) = 0.0;
                 }
