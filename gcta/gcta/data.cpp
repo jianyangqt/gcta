@@ -1655,6 +1655,73 @@ void gcta::save_XMat(bool miss_with_mu, bool std)
     cout << "The recoded genotype matrix has been saved in the file [" + X_zFile + "] (in compressed text format)." << endl;
 }
 
+void gcta::save_XMat_gensel_bin()
+{
+    if (_mu.empty()) calcu_mu();
+    
+    unsigned i = 0, j = 0, m = _include.size();
+    
+    // Save matrix X
+    double x_buf = 0.0;
+    string X_gsFile = _out + ".xmat.gensel.newbin";
+    ofstream outf;
+    outf.open(X_gsFile.c_str(), ios::binary);
+    if (!outf.is_open()) throw ("Error: can not open the file [" + X_gsFile + "] to write.");
+    cout << "Saving the recoded genotype matrix to the file [" + X_gsFile + "]." << endl;
+    
+    string header = "ID";
+    for (j = 0; j < m; j++) header += " " + _snp_name[_include[j]];
+    
+    char *data = (char*) &m;
+    outf.write(data, sizeof(unsigned));
+    
+    unsigned hdrlength = (unsigned) header.length();
+    data = (char*) &hdrlength;
+    outf.write(data, sizeof(unsigned));
+    
+    data = (char*) header.c_str();
+    outf.write(data, hdrlength);
+    
+    short int introwi[m];
+    unsigned markerLength = (unsigned) m*sizeof(introwi[0]);
+
+    for (i = 0; i < _keep.size(); i++) {
+        string ind = _pid[_keep[i]];
+        unsigned IDlength = (unsigned) ind.length();
+        data = (char*) &IDlength;
+        outf.write(data, sizeof(unsigned));
+        data = (char*) ind.c_str();
+        outf.write(data, IDlength);
+        
+        if (_dosage_flag) {
+            for (j = 0; j < _include.size(); j++) {
+                if (_geno_dose[_keep[i]][_include[j]] < 1e5) {
+                    if (_allele1[_include[j]] == _ref_A[_include[j]]) x_buf = _geno_dose[_keep[i]][_include[j]];
+                    else x_buf = 2.0 - _geno_dose[_keep[i]][_include[j]];
+                } else {
+                    x_buf = _mu[_include[j]];
+                }
+                introwi[j] = x_buf*10 - 10;
+            }
+        } else {
+            for (j = 0; j < _include.size(); j++) {
+                if (!_snp_1[_include[j]][_keep[i]] || _snp_2[_include[j]][_keep[i]]) {
+                    if (_allele1[_include[j]] == _ref_A[_include[j]]) x_buf = _snp_1[_include[j]][_keep[i]] + _snp_2[_include[j]][_keep[i]];
+                    else x_buf = 2.0 - (_snp_1[_include[j]][_keep[i]] + _snp_2[_include[j]][_keep[i]]);
+                } else {
+                    x_buf = _mu[_include[j]];
+                }
+                introwi[j] = x_buf*10 - 10;
+            }
+        }
+        
+        data = (char*) introwi;
+        outf.write(data, markerLength);
+    }
+    outf.close();
+    cout << "The recoded genotype matrix has been saved in the file [" + X_gsFile + "] (in gensel newbin format)." << endl;
+}
+
 bool gcta::make_XMat_subset(MatrixXf &X, vector<int> &snp_indx, bool divid_by_std)
 {
     if(snp_indx.empty()) return false;

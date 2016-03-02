@@ -92,6 +92,7 @@ public:
     void update_sex(string sex_file);
     void read_indi_blup(string blup_indi_file);
     void save_XMat(bool miss_with_mu, bool std);
+    void save_XMat_gensel_bin(void);
 
     void make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, double make_grm_scl, bool mlmassoc, bool diag_f3_flag = false, string subpopu_file = "");
     //void make_grm_pca(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, double wind_size, bool mlmassoc);

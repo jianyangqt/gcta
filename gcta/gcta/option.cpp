@@ -59,7 +59,7 @@ void option(int option_num, char* option_str[])
     // data management
     string bfile = "", bfile2 = "", update_sex_file = "", update_freq_file = "", update_refA_file = "", kp_indi_file = "", rm_indi_file = "", extract_snp_file = "", exclude_snp_file = "", extract_snp_name = "", exclude_snp_name = "", out = "gcta";
     bool SNP_major = false, bfile_flag = false, make_bed_flag = false, dose_mach_flag = false, dose_mach_gz_flag = false, dose_beagle_flag = false, bfile2_flag = false, out_freq_flag = false, out_ssq_flag = false;
-    bool ref_A = false, recode = false, recode_nomiss = false, recode_std = false, save_ram = false, autosome_flag = false;
+    bool ref_A = false, recode = false, recode_nomiss = false, recode_std = false, recode_gensel = false, save_ram = false, autosome_flag = false;
     int autosome_num = 22, extract_chr_start = 0, extract_chr_end = 0, extract_region_chr = 0, extract_region_bp = 0, extract_region_wind = 0, exclude_region_chr = 0, exclude_region_bp = 0, exclude_region_wind = 0;
     string dose_file = "", dose_info_file = "", update_impRsq_file = "";
     double maf = 0.0, max_maf = 0.0, dose_Rsq_cutoff = 0.0;
@@ -289,6 +289,10 @@ void option(int option_num, char* option_str[])
             cout << "--recode-nomiss" << endl;
         } else if (strcmp(argv[i], "--recode-std") == 0) {
             recode_std = true;
+            thread_flag = true;
+            cout << "--recode-std" << endl;
+        } else if (strcmp(argv[i], "--recode-gensel") == 0) {
+            recode_gensel = true;
             thread_flag = true;
             cout << "--recode-std" << endl;
         } else if (strcmp(argv[i], "--save-ram") == 0) {
@@ -1062,6 +1066,7 @@ void option(int option_num, char* option_str[])
             else if (ibc) pter_gcta->ibc(ibc_all);
             else if (make_grm_flag) pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, make_grm_scl, false, make_grm_f3_flag, subpopu_file);
             else if (recode || recode_nomiss || recode_std) pter_gcta->save_XMat(recode_nomiss, recode_std);
+            else if (recode_gensel) pter_gcta->save_XMat_gensel_bin();
             else if (LD) pter_gcta->LD_Blocks(LD_step, LD_wind, LD_sig, LD_i, save_ram);
             else if (LD_prune_rsq>-1.0) pter_gcta->LD_pruning_mkl(LD_prune_rsq, LD_wind);
             else if (ld_score_flag){
