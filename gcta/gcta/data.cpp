@@ -1494,13 +1494,11 @@ void gcta::std_XMat(MatrixXf &X, eigenVector &sd_SNP, bool grm_xchr_flag, bool m
     else {
         for (j = 0; j < m; j++) sd_SNP[j] = _mu[_include[j]]*(1.0 - 0.5 * _mu[_include[j]]);
     }
-    if (make_grm_scl) {
-        for (j = 0; j < m; j++) {
-            if (fabs(sd_SNP[j]) < 1.0e-50) sd_SNP[j] = 0.0;
-            else sd_SNP[j] = sqrt(1.0 / sd_SNP[j]);
-        }
+    for (j = 0; j < m; j++) {
+        if (fabs(sd_SNP[j]) < 1.0e-50) sd_SNP[j] = 0.0;
+        else sd_SNP[j] = sqrt(1.0 / sd_SNP[j]);
     }
-
+    
     #pragma omp parallel for private(j)
     for (i = 0; i < n; i++) {
         for (j = 0; j < m; j++) {
@@ -1548,15 +1546,15 @@ void gcta::std_XMat_d(MatrixXf &X, eigenVector &sd_SNP, bool miss_with_mu, doubl
     else {
         for (j = 0; j < m; j++) sd_SNP[j] = _mu[_include[j]]*(1.0 - 0.5 * _mu[_include[j]]);
     }
-    if (make_grm_scl) {
+//    if (make_grm_scl) {
         for (j = 0; j < m; j++) {
             if (fabs(sd_SNP[j]) < 1.0e-50) sd_SNP[j] = 0.0;
             else sd_SNP[j] = 1.0 / sd_SNP[j];
         }
-    } 
-    else {
-        for (j = 0; j < m; j++) sd_SNP[j] = sd_SNP[j] * sd_SNP[j];
-    }
+//    } 
+//    else {
+//        for (j = 0; j < m; j++) sd_SNP[j] = sd_SNP[j] * sd_SNP[j];  // may need to keep this line
+//    }
     vector<double> psq(m);
     for (j = 0; j < m; j++) psq[j] = 0.5 * _mu[_include[j]] * _mu[_include[j]];
 
