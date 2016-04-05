@@ -890,7 +890,7 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         }
     }*/
 
-    char *mtd_str[3] = {"AI-REML algorithm", "Fisher-scoring ...", "EM-REML algorithm ..."};
+    char *mtd_str[3] = {"AI-REML", "Fisher-scoring REML", "EM-REML"};
     int i = 0, constrain_num = 0, iter = 0, reml_mtd_tmp = _reml_mtd;
     double logdet = 0.0, logdet_Xt_Vi_X = 0.0, prev_lgL = -1e20, lgL = -1e20, dlogL = 1000.0;
     eigenVector prev_prev_varcmp(varcmp), prev_varcmp(varcmp), varcomp_init(varcmp);
@@ -910,7 +910,7 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         }
         if (iter == 1) {
             _reml_mtd = reml_mtd_tmp;
-            cout << "Running " << mtd_str[_reml_mtd] << " ..." << "\nIter.\tlogL\t";
+            cout << "Running " << mtd_str[_reml_mtd] << " algorithm ..." << "\nIter.\tlogL\t";
             for (i = 0; i < _r_indx.size(); i++) cout << _var_name[_r_indx[i]] << "\t";
             cout << endl;
         }
