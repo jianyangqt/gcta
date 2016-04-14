@@ -502,8 +502,10 @@ private:
     double _ncase2;
     vector< vector<int> > _bivar_pos;
     vector< vector<int> > _bivar_pos_prev;
-    vector< eigenSparseMat > _Asp;
-    vector< eigenSparseMat > _Asp_prev;
+//    vector< eigenSparseMat > _Asp;
+//    vector< eigenSparseMat > _Asp_prev;
+    vector< eigenMatrix > _Adn;
+    vector< eigenMatrix > _Adn_prev;
     vector<eigenMatrix> _A_prev;
     vector<double> _fixed_rg_val;
 

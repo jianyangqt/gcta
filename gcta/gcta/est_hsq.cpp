@@ -647,7 +647,7 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
     if (pred_rand_eff) {
         u.resize(_n, _r_indx.size());
         for (i = 0; i < _r_indx.size(); i++) {
-            if (_bivar_reml || _within_family)(u.col(i)) = (((_Asp[_r_indx[i]]) * Py) * varcmp[i]);
+            if (_bivar_reml || _within_family)(u.col(i)) = (((_Adn[_r_indx[i]]) * Py) * varcmp[i]);
             else (u.col(i)) = (((_A[_r_indx[i]]) * Py) * varcmp[i]);
         }
     }
@@ -1262,7 +1262,7 @@ void gcta::calcu_Hi(eigenMatrix &P, eigenMatrix &Hi)
     vector<eigenMatrix> PA(_r_indx.size());
     for (i = 0; i < _r_indx.size(); i++) {
         (PA[i]).resize(_n, _n);
-        if (_bivar_reml || _within_family) (PA[i]) = P * (_Asp[_r_indx[i]]);
+        if (_bivar_reml || _within_family) (PA[i]) = P * (_Adn[_r_indx[i]]);
         else (PA[i]) = P * (_A[_r_indx[i]]);
     }
 
@@ -1299,7 +1299,7 @@ void gcta::reml_equation(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigen
     Py = P*_y;
     eigenVector R(_r_indx.size());
     for (int i = 0; i < _r_indx.size(); i++) {
-        if (_bivar_reml || _within_family) R(i) = (Py.transpose()*(_Asp[_r_indx[i]]) * Py)(0, 0);
+        if (_bivar_reml || _within_family) R(i) = (Py.transpose()*(_Adn[_r_indx[i]]) * Py)(0, 0);
         else R(i) = (Py.transpose()*(_A[_r_indx[i]]) * Py)(0, 0);
     }
 
@@ -1319,7 +1319,7 @@ void gcta::ai_reml(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector
     eigenVector cvec(_n);
     eigenMatrix APy(_n, _r_indx.size());
     for (i = 0; i < _r_indx.size(); i++) {
-        if (_bivar_reml || _within_family) (APy.col(i)) = (_Asp[_r_indx[i]]) * Py;
+        if (_bivar_reml || _within_family) (APy.col(i)) = (_Adn[_r_indx[i]]) * Py;
         else (APy.col(i)) = (_A[_r_indx[i]]) * Py;
     }
 
@@ -1368,7 +1368,7 @@ void gcta::em_reml(eigenMatrix &P, eigenVector &Py, eigenVector &prev_varcmp, ei
     Py = P*_y;
     eigenVector R(_r_indx.size());
     for (i = 0; i < _r_indx.size(); i++) {
-        if (_bivar_reml || _within_family) R(i) = (Py.transpose()*(_Asp[_r_indx[i]]) * Py)(0, 0);
+        if (_bivar_reml || _within_family) R(i) = (Py.transpose()*(_Adn[_r_indx[i]]) * Py)(0, 0);
         else R(i) = (Py.transpose()*(_A[_r_indx[i]]) * Py)(0, 0);
     }
 
@@ -1387,7 +1387,7 @@ void gcta::calcu_tr_PA(eigenMatrix &P, eigenVector &tr_PA) {
     // Calculate trace(PA)
     tr_PA.resize(_r_indx.size());
     for (i = 0; i < _r_indx.size(); i++) {
-        if (_bivar_reml || _within_family) tr_PA(i) = (P * (_Asp[_r_indx[i]])).diagonal().sum();
+        if (_bivar_reml || _within_family) tr_PA(i) = (P * (_Adn[_r_indx[i]])).diagonal().sum();
         else {
             d_buf = 0.0;
             for (k = 0; k < _n; k++) {
