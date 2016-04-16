@@ -29,6 +29,7 @@
 #include <iomanip>
 #include <bitset>
 #include <map>
+#include <unordered_set>
 //#include <random>
 #include "zfstream.h"
 #include <Eigen/Dense>
@@ -106,6 +107,7 @@ public:
     void enable_grm_bin_flag();
     void fit_reml(string grm_file, string phen_file, string qcovar_file, string covar_file, string qGE_file, string GE_file, string keep_indi_file, string remove_indi_file, string sex_file, int mphen, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool m_grm_flag, bool pred_rand_eff, bool est_fix_eff, int reml_mtd, int MaxIter, vector<double> reml_priors, vector<double> reml_priors_var, vector<int> drop, bool no_lrt, double prevalence, bool no_constrain, bool mlmassoc = false, bool within_family = false, bool reml_bending = false, bool reml_diag_one = false);
     void HE_reg(string grm_file, string phen_file, string keep_indi_file, string remove_indi_file, int mphen);
+    void HE_reg(string grm_file, bool m_grm_flag, string phen_file, string keep_indi_file, string remove_indi_file, int mphen); // allow multiple regression
     void blup_snp_geno();
     void blup_snp_dosage();
     void set_reml_force_inv();
