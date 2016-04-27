@@ -63,6 +63,7 @@ void gcta::mlma(string grm_file, bool m_grm_flag, string subtract_grm_file, stri
             }
         }
         else{
+            grm_files.push_back("NA");
             make_grm_mkl(false, false, inbred, true, 0, true);
             for(i=0; i<_keep.size(); i++) grm_id.push_back(_fid[_keep[i]]+":"+_pid[_keep[i]]);
         }
@@ -156,6 +157,8 @@ void gcta::mlma(string grm_file, bool m_grm_flag, string subtract_grm_file, stri
             }
         }
         else{
+            StrFunc::match(uni_id, grm_id, kp);
+            (_A[0]).resize(_n, _n);
             #pragma omp parallel for private(j)
             for(i=0; i<_n; i++){
                 for(j=0; j<=i; j++) (_A[0])(j,i)=(_A[0])(i,j)=_grm_mkl[kp[i]*_n+kp[j]];
