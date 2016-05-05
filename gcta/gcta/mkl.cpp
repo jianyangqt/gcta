@@ -400,12 +400,12 @@ bool gcta::comput_inverse_logdet_LU_mkl(eigenMatrix &Vi, double &logdet)
         }
     }
 
-    int N = n;
+    int N = (int) n;
     int *IPIV = new int[n + 1];
     int LWORK = N*N;
     double *WORK = new double[n * n];
     int INFO;
-    dgetrf_64(&N, &N, Vi_mkl, &N, IPIV, &INFO);
+    dgetrf(&N, &N, Vi_mkl, &N, IPIV, &INFO);
     if (INFO < 0) throw ("Error: LU decomposition failed. Invalid values found in the matrix.\n");
     else if (INFO > 0) {
         delete[] Vi_mkl;
@@ -418,7 +418,7 @@ bool gcta::comput_inverse_logdet_LU_mkl(eigenMatrix &Vi, double &logdet)
         }
 
         // Calcualte V inverse
-        dgetri_64(&N, Vi_mkl, &N, IPIV, WORK, &LWORK, &INFO);
+        dgetri(&N, Vi_mkl, &N, IPIV, WORK, &LWORK, &INFO);
         if (INFO < 0) throw ("Error: invalid values found in the varaince-covaraince (V) matrix.\n");
         else if (INFO > 0) return false;
         else {

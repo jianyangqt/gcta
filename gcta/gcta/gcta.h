@@ -228,6 +228,7 @@ private:
     void manipulate_grm(string grm_file, string keep_indi_file, string remove_indi_file, string sex_file, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool merge_grm_flag, bool dont_read_N = false);
     void output_grm_vec(vector< vector<float> > &A, vector< vector<int> > &A_N, bool output_grm_bin);
     void output_grm(bool output_grm_bin);
+    void eigen_decom_grm(void);
 
     // reml
     void read_phen(string phen_file, vector<string> &phen_ID, vector< vector<string> > &phen_buf, int mphen, int mphen2 = 0);

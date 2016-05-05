@@ -711,5 +711,24 @@ void gcta::snp_pc_loading(string pc_file, int grm_N)
     ofile.close();
 }
 
+void gcta::eigen_decom_grm(){
+    cout << "Eigen decomposition of GRM ..." << endl;
+    clock_t startTime, endTime;
+    startTime = time(0);
+    SelfAdjointEigenSolver<eigenMatrix> eigensolver(_grm);
+    eigenVector eigenval = eigensolver.eigenvalues();
+    unsigned rank = 0;
+    for (unsigned i=0; i<eigenval.size(); ++i) {
+        if(eigenval[i]!=0) ++rank;
+    }
+    endTime = time(0);
+    cout << "The rank of GRM is:\n" << rank << "  time: " << endTime - startTime << " seconds" << endl;
+    ofstream o_eval(string(_out+"eigenvalues").c_str());
+    o_eval << eigenval << endl;
+    o_eval.close();
+    ofstream o_evec(string(_out+"eigenvectors").c_str());
+    o_evec << eigensolver.eigenvectors() << endl;
+    o_evec.close();
+}
 
 
