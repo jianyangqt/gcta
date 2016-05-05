@@ -1192,8 +1192,38 @@ bool gcta::comput_inverse_logdet_LDLT(eigenMatrix &Vi, double &logdet) {
         for (i = 0; i < n; i++) logdet += log(d[i]);
         Vi.setIdentity();
         ldlt.solveInPlace(Vi);
+        //ldlt.setZero();
+        //inverse_by_partition(Vi);
     }
     return true;
+}
+
+void gcta::inverse_by_partition(eigenMatrix &V){
+    unsigned n = (unsigned) V.cols();
+    unsigned p = n/2;
+    unsigned q = n-p;
+    if (n<1000) {
+        LDLT<eigenMatrix> ldlt(V);
+        V.setIdentity();
+        ldlt.solveInPlace(V);
+        return;
+    }
+    eigenMatrix V11 = V.topLeftCorner(p,p);
+    eigenMatrix V12 = V.topRightCorner(p,q);
+    eigenMatrix V22 = V.bottomRightCorner(q,q);
+    eigenMatrix V11inv = V11;
+    inverse_by_partition(V11inv);
+    eigenMatrix V22inv = V22;
+    inverse_by_partition(V22inv);
+    eigenMatrix Vi11 = V11 - V12*V22inv*V12.transpose();
+    inverse_by_partition(Vi11);
+    eigenMatrix Vi22 = V22 - V12.transpose()*V11inv*V12;
+    inverse_by_partition(Vi22);
+    eigenMatrix Vi12 = -Vi11*V12*V22inv;
+    V.topLeftCorner(p,p) = Vi11;
+    V.topRightCorner(p,q) = Vi12;
+    V.bottomLeftCorner(q,p) = Vi12.transpose();
+    V.bottomRightCorner(q,q) = Vi22;
 }
 
 bool gcta::comput_inverse_logdet_PLU(eigenMatrix &Vi, double &logdet)
@@ -1555,11 +1585,13 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
     for (i=0; i<_n; ++i) kp.insert(grm_kp[i]);
     unordered_set<int>::iterator iti, itj, end = kp.end();
 
-    long int n_obs = 2*_n*(_n-1);
+    long int n_obs = 0.5*_n*(_n-1);
+    double z = 0.0, totalSS = 0.0;
     Lhs(0,0) = n_obs; // X'X for intercept
     for (i = 0; i < _n; i++) {
         for (j = 0; j < i; j++) {
-            Rhs[0] += _y[i]*_y[j];
+            Rhs[0]  += z = _y[i]*_y[j];
+            totalSS += z * z;
         }
     }
     
@@ -1602,63 +1634,21 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
         }
     }
 
-//cout << "Lhs " << Lhs << endl;
-//cout << "Rhs " << Rhs << endl;   
- 
     for (k = 0; k < n_grm; k++) {
-        (*A_bin[k]).clear();
-        (*A_bin[k]).seekg(0, ios::beg);
+        (*A_bin[k]).close();
     }
 
     eigenMatrix invLhs = Lhs.inverse();
     eigenVector beta = invLhs * Rhs;
     
-    // Read GRM(s) again to calculate sse
-    cout << "Calculating SSE ..." << endl;
-    float sse = 0.0;
-    float resid = 0.0;
-    eigenVector X(n_term);
-    X[0] = 1;
-    for (i = 0, ii = 0; i < size_grm; i++) {
-        if (kp.find(i) == end) {
-            for (j = 0; j <= i; j++) {
-                for (k = 0; k < n_grm; k++) {
-                    (*A_bin[k]).read((char*) &f_buf, size);
-                }
-            }
-        }
-        else {
-            for (j = 0, jj = 0; j <= i; j++) {
-                if (kp.find(j) == end || j==i) {
-                    for (k = 0; k < n_grm; k++) {
-                        (*A_bin[k]).read((char*) &f_buf, size);
-                    }
-                }
-                else {
-                    for (k = 0; k < n_grm; k++) {
-                        (*A_bin[k]).read((char*) &f_buf, size);
-                        X[k+1] = f_buf;
-                    }
-                    resid = _y[ii] * _y[jj] - beta.dot(X);
-                    sse += resid * resid;
-                    ++jj;
-                }
-            }
-            ++ii;
-        }
-    }
-
-    for (k = 0; k < n_grm; k++) {
-        (*A_bin[k]).close();
-    }
-    
+    double sse  = totalSS - 2*beta.dot(Rhs) + beta.transpose()*Lhs*beta;
     long int df = n_obs - n_term;
-//    cout << "vary " << _y.squaredNorm() / (_n - 1.0) << endl;
-//    cout << "sse " << sse << endl;
-//    cout << "df " << df << endl;
-//    cout << "vare " << sse/df << endl;
-//    cout << "invLhs " << invLhs.diagonal() << endl;
-    float vare = sse/df;
+    double vare = sse/df;
+    
+    cout << "Lhs\n" << Lhs  << endl;
+    cout << "Rhs\n" << Rhs  << endl;
+    cout << "vare " << vare << endl << endl;
+
     eigenVector se = invLhs.diagonal() * vare;
     se = se.array().sqrt();
     eigenVector pval(n_term);
@@ -1670,10 +1660,10 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
 
     stringstream ss;
     ss << "HE-CP" << endl;
-    ss << "Coefficient\tEstimate\tSE\tP\n";
-    ss << "Intercept\t" << beta[0] << "\t" << se[0] << "\t" << pval[0] << endl;
+    ss << "Coefficient \tEstimate \tSE \tP\n";
+    ss << "Intercept \t" << beta[0] << " \t" << se[0] << " \t" << pval[0] << endl;
     for (i = 1; i < n_term; ++i) {
-        ss << "Slope" << i << "   \t" << beta[i]  << "\t" << se[i] << "\t" << pval[i] << endl;
+        ss << "Slope" << i << "     \t" << beta[i]  << " \t" << se[i] << " \t" << pval[i] << endl;
     }
     cout << ss.str() << endl;
     string ofile = _out + ".HEreg";
