@@ -259,7 +259,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
             cout << "Note: you can specify the prevalences of the two diseases by the option --reml-bivar-prevalence so that GCTA can transform the estimates of variance explained to the underlying liability scale." << endl;
         }
     }
-
+    
     int pos = 0;
     _r_indx.clear();
     vector<int> kp;
@@ -1526,10 +1526,12 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
     unsigned n_grm = grm_files.size();
     unsigned n_term = n_grm + 1; // plus intercept
     
-    eigenMatrix Lhs; // X'X
-    eigenVector Rhs; // X'y
+    eigenMatrix Lhs;    // X'X
+    eigenVector Rhs_cp; // X'(yi*yj)
+    eigenVector Rhs_sd; // X'(yi-yj)^2
     Lhs.setZero(n_term, n_term);
-    Rhs.setZero(n_term);
+    Rhs_cp.setZero(n_term);
+    Rhs_sd.setZero(n_term);
     
     // Find common individuals in GRM and phenotype files
     vector<ifstream*> A_bin;
@@ -1586,12 +1588,14 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
     unordered_set<int>::iterator iti, itj, end = kp.end();
 
     long int n_obs = 0.5*_n*(_n-1);
-    double z = 0.0, totalSS = 0.0;
+    double z_cp=0, z_sd=0, totalSS_cp=0, totalSS_sd=0;
     Lhs(0,0) = n_obs; // X'X for intercept
     for (i = 0; i < _n; i++) {
         for (j = 0; j < i; j++) {
-            Rhs[0]  += z = _y[i]*_y[j];
-            totalSS += z * z;
+            Rhs_cp[0]  += z_cp = _y[i]*_y[j];
+            Rhs_sd[0]  += z_sd = (_y[i] - _y[j])*(_y[i] - _y[j]);
+            totalSS_cp += z_cp * z_cp;
+            totalSS_sd += z_sd * z_sd;
         }
     }
     
@@ -1625,7 +1629,8 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
                             c = l + 1;
                             Lhs(c,r) = Lhs(r,c) += aij[k] * aij[l];
                         }
-                        Rhs[r] += aij[k] * _y[ii] * _y[jj];
+                        Rhs_cp[r] += aij[k] * _y[ii] * _y[jj];
+                        Rhs_sd[r] += aij[k] *(_y[ii] - _y[jj])*(_y[ii] - _y[jj]);
                     }
                     ++jj;
                 }
@@ -1639,31 +1644,58 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
     }
 
     eigenMatrix invLhs = Lhs.inverse();
-    eigenVector beta = invLhs * Rhs;
+    eigenVector beta_cp = invLhs * Rhs_cp;
+    eigenVector beta_sd = invLhs * Rhs_sd;
     
-    double sse  = totalSS - 2*beta.dot(Rhs) + beta.transpose()*Lhs*beta;
+    double sse_cp  = totalSS_cp - 2*beta_cp.dot(Rhs_cp) + beta_cp.transpose()*Lhs*beta_cp;
+    double sse_sd  = totalSS_sd - 2*beta_sd.dot(Rhs_sd) + beta_sd.transpose()*Lhs*beta_sd;
     long int df = n_obs - n_term;
-    double vare = sse/df;
+    double vare_cp = sse_cp/df;
+    double vare_sd = sse_sd/df;
     
-    cout << "Lhs\n" << Lhs  << endl;
-    cout << "Rhs\n" << Rhs  << endl;
-    cout << "vare " << vare << endl << endl;
-
-    eigenVector se = invLhs.diagonal() * vare;
-    se = se.array().sqrt();
-    eigenVector pval(n_term);
+    cout << "Lhs\n" << Lhs  << endl << endl;
+    cout << "vare_cp " << vare_cp << endl;
+    cout << "vare_sd " << vare_sd << endl << endl;
+    
+    eigenVector se_cp = (invLhs.diagonal() * vare_cp).array().sqrt();
+    eigenVector se_sd = (invLhs.diagonal() * vare_sd).array().sqrt();
+    eigenVector pval_cp(n_term);
+    eigenVector pval_sd(n_term);
     for (i = 0; i < n_term; ++i) {
-        float t = 0.0;
-        if (se[i] > 0.0) t = fabs(beta[i] / se[i]);
-        pval[i] = StatFunc::t_prob(df, t, true);
+        float t_cp=0, t_sd=0;
+        if (se_cp[i] > 0.0) t_cp = fabs(beta_cp[i] / se_cp[i]);
+        if (se_sd[i] > 0.0) t_sd = fabs(beta_sd[i] / se_sd[i]);
+        pval_cp[i] = StatFunc::t_prob(df, t_cp, true);
+        pval_sd[i] = StatFunc::t_prob(df, t_sd, true);
     }
 
     stringstream ss;
     ss << "HE-CP" << endl;
     ss << "Coefficient \tEstimate \tSE \tP\n";
-    ss << "Intercept \t" << beta[0] << " \t" << se[0] << " \t" << pval[0] << endl;
+    ss << "Intercept \t" << beta_cp[0] << " \t" << se_cp[0] << " \t" << pval_cp[0] << endl;
     for (i = 1; i < n_term; ++i) {
-        ss << "Slope" << i << "     \t" << beta[i]  << " \t" << se[i] << " \t" << pval[i] << endl;
+        if (n_grm==1) ss << "Slope";
+        else ss << "Slope" << i;
+        ss << "     \t" << beta_cp[i]  << " \t" << se_cp[i] << " \t" << pval_cp[i] << endl;
+    }
+    for (i = 1; i < n_term; ++i) {
+        if (n_grm==1) ss << "V(G)/Vp \t";
+        else ss << "V(G" << i << ")/Vp \t";
+        ss << beta_cp[i]  << " \t" << se_cp[i] << " \t" << pval_cp[i] << endl;
+    }
+    ss << endl;
+    ss << "HE-SD" << endl;
+    ss << "Coefficient \tEstimate \tSE \tP\n";
+    ss << "Intercept \t" << beta_sd[0] << " \t" << se_sd[0] << " \t" << pval_sd[0] << endl;
+    for (i = 1; i < n_term; ++i) {
+        if (n_grm==1) ss << "Slope";
+        else ss << "Slope" << i;
+        ss << "     \t" << beta_sd[i]  << " \t" << se_sd[i] << " \t" << pval_sd[i] << endl;
+    }
+    for (i = 1; i < n_term; ++i) {
+        if (n_grm==1) ss << "V(G)/Vp \t";
+        else ss << "V(G" << i << ")/Vp \t";
+        ss << -0.5f*beta_sd[i]  << " \t" << 0.5*se_sd[i] << " \t" << pval_sd[i] << endl;
     }
     cout << ss.str() << endl;
     string ofile = _out + ".HEreg";
