@@ -168,7 +168,7 @@ void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, 
     for (i = 0; i < simu_num; i++) {
         y[i].resize(_keep.size());
         for (j = 0; j < _keep.size(); j++) {
-            if (hsq < 1.0) y[i][j] = g[j] + sd_e * StatFunc::gasdev(Seed);
+            if (hsq < 1.0) y[i][j] = g[j] + sd_e * StatFunc::gasdev(seed); // the given seed is used here, or use 'Seed' for a random seed
             else y[i][j] = g[j];
         }
         if (cc_flag) {
