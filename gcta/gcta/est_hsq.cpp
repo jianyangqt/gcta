@@ -1565,6 +1565,7 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
     }
     _n = _keep.size();
     if (_n < 1) throw ("Error: no individual is in common in the input files.");
+    cout << _n << " individuals are in common in these files." << endl;
     
     _y.setZero(_n);
     for (i = 0; i < phen_ID.size(); i++) {
@@ -1647,8 +1648,8 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
     eigenVector beta_cp = invLhs * Rhs_cp;
     eigenVector beta_sd = invLhs * Rhs_sd;
     
-    double sse_cp  = totalSS_cp - 2*beta_cp.dot(Rhs_cp) + beta_cp.transpose()*Lhs*beta_cp;
-    double sse_sd  = totalSS_sd - 2*beta_sd.dot(Rhs_sd) + beta_sd.transpose()*Lhs*beta_sd;
+    double sse_cp  = totalSS_cp - beta_cp.dot(Rhs_cp);
+    double sse_sd  = totalSS_sd - beta_sd.dot(Rhs_sd);
     long int df = n_obs - n_term;
     double vare_cp = sse_cp/df;
     double vare_sd = sse_sd/df;
@@ -1668,7 +1669,17 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
         pval_cp[i] = StatFunc::t_prob(df, t_cp, true);
         pval_sd[i] = StatFunc::t_prob(df, t_sd, true);
     }
-
+    
+    eigenVector kvec;
+    kvec.setOnes(n_term);
+    kvec[0] = 0;
+    double beta_sum_cp = kvec.dot(beta_cp);
+    double beta_sum_sd = kvec.dot(beta_sd);
+    double se_sum_cp = sqrt((kvec.transpose()*invLhs*kvec * vare_cp)(0,0));
+    double se_sum_sd = sqrt((kvec.transpose()*invLhs*kvec * vare_sd)(0,0));
+    double pval_sum_cp = StatFunc::t_prob(df, abs(beta_sum_cp/se_sum_cp), true);
+    double pval_sum_sd = StatFunc::t_prob(df, abs(beta_sum_sd/se_sum_sd), true);
+    
     stringstream ss;
     ss << "HE-CP" << endl;
     ss << "Coefficient \tEstimate \tSE \tP\n";
@@ -1683,6 +1694,7 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
         else ss << "V(G" << i << ")/Vp \t";
         ss << beta_cp[i]  << " \t" << se_cp[i] << " \t" << pval_cp[i] << endl;
     }
+    ss << "Sum of V(G)/Vp \t" << beta_sum_cp << " \t" << se_sum_cp << " \t" << pval_sum_cp << endl;
     ss << endl;
     ss << "HE-SD" << endl;
     ss << "Coefficient \tEstimate \tSE \tP\n";
@@ -1695,8 +1707,9 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
     for (i = 1; i < n_term; ++i) {
         if (n_grm==1) ss << "V(G)/Vp \t";
         else ss << "V(G" << i << ")/Vp \t";
-        ss << -0.5f*beta_sd[i]  << " \t" << 0.5*se_sd[i] << " \t" << pval_sd[i] << endl;
+        ss << -0.5f*beta_sd[i]  << " \t" << 0.5f*se_sd[i] << " \t" << pval_sd[i] << endl;
     }
+    ss << "Sum of V(G)/Vp \t" << -0.5f*beta_sum_sd << " \t" << 0.5f*se_sum_sd << " \t" << pval_sum_sd << endl;
     cout << ss.str() << endl;
     string ofile = _out + ".HEreg";
     ofstream os(ofile.c_str());
