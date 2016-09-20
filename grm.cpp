@@ -34,7 +34,7 @@ void gcta::check_sex() {
     }
 }
 
-void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, bool mlmassoc, bool diag_f3_flag, string subpopu_file)
+void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, double make_grm_scl, bool mlmassoc, bool diag_f3_flag, string subpopu_file)
 {
     bool have_mis = false;
 
@@ -44,19 +44,19 @@ void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool outpu
     unsigned long i = 0, j = 0, k = 0, n = _keep.size(), m = _include.size();
     if(grm_d_flag) have_mis = make_XMat_d(_geno);
     else  have_mis = make_XMat(_geno);
+    
+    cout << "geno matrix" << endl;
+    cout << _geno << endl;
 
     eigenVector sd_SNP;
-    if (grm_mtd == 0) {
-        if (grm_d_flag) std_XMat_d(_geno, sd_SNP, false, true);
-        else{
-            if(subpopu_file.empty()) std_XMat(_geno, sd_SNP, grm_xchr_flag, false, true);
-            else std_XMat_subpopu(subpopu_file, _geno, sd_SNP, grm_xchr_flag, false, true);
-        }
-    } 
-    else {
-        if (grm_d_flag) std_XMat_d(_geno, sd_SNP, false, false);
-        else std_XMat(_geno, sd_SNP, grm_xchr_flag, false, false);
+    if (grm_d_flag) std_XMat_d(_geno, sd_SNP, false, make_grm_scl);
+    else{
+        if(subpopu_file.empty()) std_XMat(_geno, sd_SNP, grm_xchr_flag, false, make_grm_scl);
+        else std_XMat_subpopu(subpopu_file, _geno, sd_SNP, grm_xchr_flag, false, make_grm_scl);
     }
+    
+    cout << "\nafter std" << endl;
+    cout << _geno << endl;
 
     if (!mlmassoc) cout << "\nCalculating the" << ((grm_d_flag) ? " dominance" : "") << " genetic relationship matrix (GRM)" << (grm_xchr_flag ? " for the X chromosome" : "") << (_dosage_flag ? " using imputed dosage data" : "") << " ... (Note: default speed-optimized mode, may use huge RAM)" << endl;
     else cout << "\nCalculating the genetic relationship matrix (GRM) ... " << endl;
@@ -104,8 +104,11 @@ void gcta::make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool outpu
     #endif
 
     // Calculate A matrix
-    if (grm_mtd == 1) _grm_N = _grm_N.array() * sd_SNP.mean();
-
+    for (j = 0; j < m; j++) {
+        sd_SNP[j] = powf(sd_SNP[j]*sd_SNP[j], make_grm_scl-1.0);
+    }
+    _grm_N = _grm_N.array() * sd_SNP.mean();
+    
     #pragma omp parallel for private(j)
     for (i = 0; i < n; i++) {
         for (j = 0; j <= i; j++) {
@@ -558,6 +561,63 @@ void gcta::merge_grm(string merge_grm_file) {
     cout << "\n" << grm_files.size() << " GRMs have been merged together." << endl;
 }
 
+void gcta::align_grm(string m_grm_file) {
+    vector<string> grm_files, grm_id;
+    read_grm_filenames(m_grm_file, grm_files);
+    
+    int f = 0, i = 0, j = 0;
+    for (f = 0; f < grm_files.size(); f++) {
+        read_grm(grm_files[f], grm_id, false, true);
+        update_id_map_kp(grm_id, _id_map, _keep);
+    }
+    vector<string> uni_id;
+    for (i = 0; i < _keep.size(); i++) uni_id.push_back(_fid[_keep[i]] + ":" + _pid[_keep[i]]);
+    _n = uni_id.size();
+    if (_n == 0) throw ("Error: no individual is in common in the GRM files.");
+    else cout << _n << " individuals in common in the GRM files." << endl;
+    
+    string _out_save = _out;
+    
+    vector<int> kp;
+    eigenMatrix grm = eigenMatrix::Zero(_n, _n);
+    eigenMatrix grm_N = eigenMatrix::Zero(_n, _n);
+    for (f = 0; f < grm_files.size(); f++) {
+        cout << "Reading the GRM from the " << f + 1 << "th file ..." << endl;
+        grm.setZero(_n, _n);
+        grm_N.setZero(_n, _n);
+        read_grm(grm_files[f], grm_id);
+        StrFunc::match(uni_id, grm_id, kp);
+        for (i = 0; i < _n; i++) {
+            for (j = 0; j <= i; j++) {
+                if (kp[i] >= kp[j]) {
+                    grm(i, j) = _grm(kp[i], kp[j]) * _grm_N(kp[i], kp[j]);
+                    grm_N(i, j) = _grm_N(kp[i], kp[j]);
+                } else {
+                    grm(i, j) = _grm(kp[j], kp[i]) * _grm_N(kp[j], kp[i]);
+                    grm_N(i, j) = _grm_N(kp[j], kp[i]);
+                }
+            }
+        }
+        for (i = 0; i < _n; i++) {
+            for (j = 0; j <= i; j++) {
+                if (grm_N(i, j) == 0) _grm(i, j) = 0;
+                else _grm(i, j) = grm(i, j) / grm_N(i, j);
+                _grm_N(i, j) = grm_N(i, j);
+            }
+        }
+        
+        _out = grm_files[f] + ".aligned";
+        output_grm(true);
+    }
+    
+    _out = _out_save;
+    
+    grm.resize(0, 0);
+    grm_N.resize(0, 0);
+    cout << "\n" << grm_files.size() << " GRMs have been aligned." << endl;
+}
+
+
 void gcta::read_grm_filenames(string merge_grm_file, vector<string> &grm_files, bool out_log) {
     ifstream merge_grm(merge_grm_file.c_str());
     if (!merge_grm) throw ("Error: can not open the file [" + merge_grm_file + "] to read.");
@@ -714,5 +774,24 @@ void gcta::snp_pc_loading(string pc_file, int grm_N)
     ofile.close();
 }
 
+void gcta::eigen_decom_grm(){
+    cout << "Eigen decomposition of GRM ..." << endl;
+    clock_t startTime, endTime;
+    startTime = time(0);
+    SelfAdjointEigenSolver<eigenMatrix> eigensolver(_grm);
+    eigenVector eigenval = eigensolver.eigenvalues();
+    unsigned rank = 0;
+    for (unsigned i=0; i<eigenval.size(); ++i) {
+        if(eigenval[i]!=0) ++rank;
+    }
+    endTime = time(0);
+    cout << "The rank of GRM is:\n" << rank << "  time: " << endTime - startTime << " seconds" << endl;
+    ofstream o_eval(string(_out+"eigenvalues").c_str());
+    o_eval << eigenval << endl;
+    o_eval.close();
+    ofstream o_evec(string(_out+"eigenvectors").c_str());
+    o_evec << eigensolver.eigenvectors() << endl;
+    o_evec.close();
+}
 
 

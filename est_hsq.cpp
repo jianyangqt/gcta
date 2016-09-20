@@ -259,7 +259,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
             cout << "Note: you can specify the prevalences of the two diseases by the option --reml-bivar-prevalence so that GCTA can transform the estimates of variance explained to the underlying liability scale." << endl;
         }
     }
-
+    
     int pos = 0;
     _r_indx.clear();
     vector<int> kp;
@@ -647,7 +647,7 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
     if (pred_rand_eff) {
         u.resize(_n, _r_indx.size());
         for (i = 0; i < _r_indx.size(); i++) {
-            if (_bivar_reml || _within_family)(u.col(i)) = (((_Asp[_r_indx[i]]) * Py) * varcmp[i]);
+            if (_bivar_reml || _within_family)(u.col(i)) = (((_Adn[_r_indx[i]]) * Py) * varcmp[i]);
             else (u.col(i)) = (((_A[_r_indx[i]]) * Py) * varcmp[i]);
         }
     }
@@ -1192,8 +1192,38 @@ bool gcta::comput_inverse_logdet_LDLT(eigenMatrix &Vi, double &logdet) {
         for (i = 0; i < n; i++) logdet += log(d[i]);
         Vi.setIdentity();
         ldlt.solveInPlace(Vi);
+        //ldlt.setZero();
+        //inverse_by_partition(Vi);
     }
     return true;
+}
+
+void gcta::inverse_by_partition(eigenMatrix &V){
+    unsigned n = (unsigned) V.cols();
+    unsigned p = n/2;
+    unsigned q = n-p;
+    if (n<1000) {
+        LDLT<eigenMatrix> ldlt(V);
+        V.setIdentity();
+        ldlt.solveInPlace(V);
+        return;
+    }
+    eigenMatrix V11 = V.topLeftCorner(p,p);
+    eigenMatrix V12 = V.topRightCorner(p,q);
+    eigenMatrix V22 = V.bottomRightCorner(q,q);
+    eigenMatrix V11inv = V11;
+    inverse_by_partition(V11inv);
+    eigenMatrix V22inv = V22;
+    inverse_by_partition(V22inv);
+    eigenMatrix Vi11 = V11 - V12*V22inv*V12.transpose();
+    inverse_by_partition(Vi11);
+    eigenMatrix Vi22 = V22 - V12.transpose()*V11inv*V12;
+    inverse_by_partition(Vi22);
+    eigenMatrix Vi12 = -Vi11*V12*V22inv;
+    V.topLeftCorner(p,p) = Vi11;
+    V.topRightCorner(p,q) = Vi12;
+    V.bottomLeftCorner(q,p) = Vi12.transpose();
+    V.bottomRightCorner(q,q) = Vi22;
 }
 
 bool gcta::comput_inverse_logdet_PLU(eigenMatrix &Vi, double &logdet)
@@ -1262,7 +1292,7 @@ void gcta::calcu_Hi(eigenMatrix &P, eigenMatrix &Hi)
     vector<eigenMatrix> PA(_r_indx.size());
     for (i = 0; i < _r_indx.size(); i++) {
         (PA[i]).resize(_n, _n);
-        if (_bivar_reml || _within_family) (PA[i]) = P * (_Asp[_r_indx[i]]);
+        if (_bivar_reml || _within_family) (PA[i]) = P * (_Adn[_r_indx[i]]);
         else (PA[i]) = P * (_A[_r_indx[i]]);
     }
 
@@ -1299,7 +1329,7 @@ void gcta::reml_equation(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigen
     Py = P*_y;
     eigenVector R(_r_indx.size());
     for (int i = 0; i < _r_indx.size(); i++) {
-        if (_bivar_reml || _within_family) R(i) = (Py.transpose()*(_Asp[_r_indx[i]]) * Py)(0, 0);
+        if (_bivar_reml || _within_family) R(i) = (Py.transpose()*(_Adn[_r_indx[i]]) * Py)(0, 0);
         else R(i) = (Py.transpose()*(_A[_r_indx[i]]) * Py)(0, 0);
     }
 
@@ -1319,7 +1349,7 @@ void gcta::ai_reml(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector
     eigenVector cvec(_n);
     eigenMatrix APy(_n, _r_indx.size());
     for (i = 0; i < _r_indx.size(); i++) {
-        if (_bivar_reml || _within_family) (APy.col(i)) = (_Asp[_r_indx[i]]) * Py;
+        if (_bivar_reml || _within_family) (APy.col(i)) = (_Adn[_r_indx[i]]) * Py;
         else (APy.col(i)) = (_A[_r_indx[i]]) * Py;
     }
 
@@ -1368,7 +1398,7 @@ void gcta::em_reml(eigenMatrix &P, eigenVector &Py, eigenVector &prev_varcmp, ei
     Py = P*_y;
     eigenVector R(_r_indx.size());
     for (i = 0; i < _r_indx.size(); i++) {
-        if (_bivar_reml || _within_family) R(i) = (Py.transpose()*(_Asp[_r_indx[i]]) * Py)(0, 0);
+        if (_bivar_reml || _within_family) R(i) = (Py.transpose()*(_Adn[_r_indx[i]]) * Py)(0, 0);
         else R(i) = (Py.transpose()*(_A[_r_indx[i]]) * Py)(0, 0);
     }
 
@@ -1387,7 +1417,7 @@ void gcta::calcu_tr_PA(eigenMatrix &P, eigenVector &tr_PA) {
     // Calculate trace(PA)
     tr_PA.resize(_r_indx.size());
     for (i = 0; i < _r_indx.size(); i++) {
-        if (_bivar_reml || _within_family) tr_PA(i) = (P * (_Asp[_r_indx[i]])).diagonal().sum();
+        if (_bivar_reml || _within_family) tr_PA(i) = (P * (_Adn[_r_indx[i]])).diagonal().sum();
         else {
             d_buf = 0.0;
             for (k = 0; k < _n; k++) {
@@ -1480,6 +1510,488 @@ void gcta::output_blup_snp(eigenMatrix &b_SNP) {
     cout << "BLUP solutions of SNP effects for " << _include.size() << " SNPs have been saved in the file [" + o_b_snp_file + "]." << endl;
 }
 
+void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string keep_indi_file, string remove_indi_file, int mphen) {
+    // a memory-efficient HE regression that can fit multiple GRMs
+    
+    int i=0, j=0, k=0, l=0, r=0, c=0, ii=0, jj=0;
+    stringstream errmsg;
+    vector<string> phen_ID, grm_id, grm_files;
+    vector< vector<string> > phen_buf; // save individuals by column
+    _id_map.clear();
+    
+    // find out how many GRM components
+    if (m_grm_flag) {
+        read_grm_filenames(grm_file, grm_files, false);
+    } else {
+        grm_files.push_back(grm_file);
+    }
+    
+    // number of model terms
+    unsigned n_grm = grm_files.size();
+    unsigned n_term = n_grm + 1; // plus intercept
+    
+    eigenMatrix Lhs;    // X'X
+    eigenVector Rhs_cp; // X'(yi*yj)
+    eigenVector Rhs_sd; // X'(yi-yj)^2
+    Lhs.setZero(n_term, n_term);
+    Rhs_cp.setZero(n_term);
+    Rhs_sd.setZero(n_term);
+    
+    // Find common individuals in GRM and phenotype files
+    // first read in grm.id, which determins the order of model equations
+    vector<ifstream*> A_bin;
+    A_bin.resize(n_grm);
+    int size_grm = 0;
+    for (i = 0; i < n_grm; i++) {
+        if (i==0) {
+            size_grm = read_grm_id(grm_files[i], grm_id, true, true);
+        } else {
+            int n = read_grm_id(grm_files[i], grm_id, true, true);
+            if (n != size_grm) {
+                throw ("Error: file [" + grm_files[i] + "] contains a different number of ind than other GRM file.");
+            }
+        }
+        string grm_binfile = grm_files[i] + ".grm.bin";
+        A_bin[i] = new ifstream(grm_binfile.c_str(), ios::in | ios::binary);
+        if ((*A_bin[i]).bad()) throw ("Error: can not open the file [" + grm_binfile + "] to read.");
+    }
+    update_id_map_kp(grm_id, _id_map, _keep);
+
+    // read phenotypes
+    read_phen(phen_file, phen_ID, phen_buf, mphen);  // ignore individuals with missing phenotypes
+
+    update_id_map_kp(phen_ID, _id_map, _keep);
+    if (!keep_indi_file.empty()) keep_indi(keep_indi_file);
+    if (!remove_indi_file.empty()) remove_indi(remove_indi_file);
+    
+    // find out matched unique ID
+    // model equations (yij and Aij) will be build based on the order of this unique ID vector uni_id, which is in the same order of grm_id
+    vector<string> uni_id;
+    map<string, int> uni_id_map;
+    map<string, int>::iterator iter;
+    for (i = 0; i < _keep.size(); i++) {
+        uni_id.push_back(_fid[_keep[i]] + ":" + _pid[_keep[i]]);    // in order of grm_id
+        uni_id_map.insert(pair<string, int>(_fid[_keep[i]] + ":" + _pid[_keep[i]], i));
+    }
+    _n = _keep.size();
+    if (_n < 1) throw ("Error: no individual is in common in the input files.");
+    cout << _n << " individuals are in common in these files." << endl;
+    
+    // fill phenotypes to _y vector based on the order of uni_id
+    _y.setZero(_n);
+    for (i = 0; i < phen_ID.size(); i++) {
+        iter = uni_id_map.find(phen_ID[i]);
+        if (iter == uni_id_map.end()) continue;
+        _y[iter->second] = atof(phen_buf[i][mphen - 1].c_str());
+    }
+    
+    cout << "\nPerforming Haseman-Elston regression ...\n" << endl;
+
+    // normalise phenotype
+    cout << "Standardising the phenotype ..." << endl;
+    _y.array() -= _y.mean();
+    _y.array() /= sqrt(_y.squaredNorm() / (_n - 1.0));
+    
+    // grm_kp contains the rows to keep in order of uni_id, which is a subset of and in the same order of grm_id
+    vector<int> grm_kp;
+    StrFunc::match(uni_id, grm_id, grm_kp);
+ 
+    //for(i=0;i<grm_kp.size();++i) cout << uni_id[i] << " " << grm_kp[i] << " " << grm_id[grm_kp[i]] << endl;
+
+//    unordered_set<int> kp;
+//    for (i=0; i<_n; ++i) kp.insert(grm_kp[i]);
+//    unordered_set<int>::iterator iti, itj, end = kp.end();
+
+    
+    // initialize LS normal equations
+    long int n_obs = 0.5*long(_n)*(long(_n)-1);
+    double z_cp=0, z_sd=0, totalSS_cp=0, totalSS_sd=0;
+    Lhs(0,0) = n_obs; // X'X for intercept
+    for (i = 0; i < _n; i++) {
+        for (j = 0; j < i; j++) {
+            Rhs_cp[0]  += z_cp = _y[i]*_y[j];
+            Rhs_sd[0]  += z_sd = (_y[i] - _y[j])*(_y[i] - _y[j]);
+            totalSS_cp += z_cp * z_cp;
+            totalSS_sd += z_sd * z_sd;
+        }
+    }
+    
+    // Fill GRMij into the normal equations without reading the whole GRM(s) into memory
+    cout << "Constructing normal equations ..." << endl;
+    eigenVector aij(n_grm);
+    int size = sizeof (float);
+    float f_buf = 0.0;
+    for (i = 0, ii = 0; i < size_grm; i++) {
+        //if (kp.find(i) == end) {
+        if (i != grm_kp[ii]) {
+            for (j = 0; j <= i; j++) {
+                for (k = 0; k < n_grm; k++) {
+                    (*A_bin[k]).read((char*) &f_buf, size);
+                }
+            }
+        }
+        else {
+            for (j = 0, jj = 0; j <= i; j++) {
+                //if (kp.find(j) == end || j==i) {
+                if (j != grm_kp[jj] || j==i) {
+                    for (k = 0; k < n_grm; k++) {
+                        (*A_bin[k]).read((char*) &f_buf, size);
+                    }
+                }
+                else {
+                    for (k = 0; k < n_grm; k++) {
+                        (*A_bin[k]).read((char*) &f_buf, size);
+                        aij[k] = f_buf;
+                        r = k + 1;
+                        Lhs(0,r) = Lhs(r,0) += aij[k];
+                        for (l = 0; l <= k; l++) {
+                            c = l + 1;
+                            Lhs(c,r) = Lhs(r,c) += aij[k] * aij[l];
+                        }
+                        Rhs_cp[r] += aij[k] * _y[ii] * _y[jj];
+                        Rhs_sd[r] += aij[k] *(_y[ii] - _y[jj])*(_y[ii] - _y[jj]);
+                    }
+                    ++jj;
+                }
+            }
+            ++ii;
+        }
+    }
+
+    for (k = 0; k < n_grm; k++) {
+        (*A_bin[k]).close();
+    }
+
+    eigenMatrix invLhs = Lhs.inverse();
+    eigenVector beta_cp = invLhs * Rhs_cp;
+    eigenVector beta_sd = invLhs * Rhs_sd;
+    
+    double sse_cp  = totalSS_cp - beta_cp.dot(Rhs_cp);
+    double sse_sd  = totalSS_sd - beta_sd.dot(Rhs_sd);
+    long int df = n_obs - n_term;
+    double vare_cp = sse_cp/df;
+    double vare_sd = sse_sd/df;
+    
+    cout << "Lhs\n" << Lhs  << endl << endl;
+    cout << "vare_cp " << vare_cp << endl;
+    cout << "vare_sd " << vare_sd << endl << endl;
+    
+    eigenVector se_cp = (invLhs.diagonal() * vare_cp).array().sqrt();
+    eigenVector se_sd = (invLhs.diagonal() * vare_sd).array().sqrt();
+    eigenVector pval_cp(n_term);
+    eigenVector pval_sd(n_term);
+    for (i = 0; i < n_term; ++i) {
+        float t_cp=0, t_sd=0;
+        if (se_cp[i] > 0.0) t_cp = fabs(beta_cp[i] / se_cp[i]);
+        if (se_sd[i] > 0.0) t_sd = fabs(beta_sd[i] / se_sd[i]);
+        pval_cp[i] = StatFunc::t_prob(df, t_cp, true);
+        pval_sd[i] = StatFunc::t_prob(df, t_sd, true);
+    }
+    
+    eigenVector kvec;
+    kvec.setOnes(n_term);
+    kvec[0] = 0;
+    double beta_sum_cp = kvec.dot(beta_cp);
+    double beta_sum_sd = kvec.dot(beta_sd);
+    double se_sum_cp = sqrt((kvec.transpose()*invLhs*kvec * vare_cp)(0,0));
+    double se_sum_sd = sqrt((kvec.transpose()*invLhs*kvec * vare_sd)(0,0));
+    double pval_sum_cp = StatFunc::t_prob(df, abs(beta_sum_cp/se_sum_cp), true);
+    double pval_sum_sd = StatFunc::t_prob(df, abs(beta_sum_sd/se_sum_sd), true);
+    
+    stringstream ss;
+    ss << "HE-CP" << endl;
+    ss << "Coefficient \tEstimate \tSE \tP\n";
+    ss << "Intercept \t" << beta_cp[0] << " \t" << se_cp[0] << " \t" << pval_cp[0] << endl;
+    for (i = 1; i < n_term; ++i) {
+        if (n_grm==1) ss << "Slope";
+        else ss << "Slope" << i;
+        ss << "     \t" << beta_cp[i]  << " \t" << se_cp[i] << " \t" << pval_cp[i] << endl;
+    }
+    for (i = 1; i < n_term; ++i) {
+        if (n_grm==1) ss << "V(G)/Vp \t";
+        else ss << "V(G" << i << ")/Vp \t";
+        ss << beta_cp[i]  << " \t" << se_cp[i] << " \t" << pval_cp[i] << endl;
+    }
+    if (n_grm>1) ss << "Sum of V(G)/Vp \t" << beta_sum_cp << " \t" << se_sum_cp << " \t" << pval_sum_cp << endl;
+    ss << endl;
+    ss << "HE-SD" << endl;
+    ss << "Coefficient \tEstimate \tSE \tP\n";
+    ss << "Intercept \t" << beta_sd[0] << " \t" << se_sd[0] << " \t" << pval_sd[0] << endl;
+    for (i = 1; i < n_term; ++i) {
+        if (n_grm==1) ss << "Slope";
+        else ss << "Slope" << i;
+        ss << "     \t" << beta_sd[i]  << " \t" << se_sd[i] << " \t" << pval_sd[i] << endl;
+    }
+    for (i = 1; i < n_term; ++i) {
+        if (n_grm==1) ss << "V(G)/Vp \t";
+        else ss << "V(G" << i << ")/Vp \t";
+        ss << -0.5f*beta_sd[i]  << " \t" << 0.5f*se_sd[i] << " \t" << pval_sd[i] << endl;
+    }
+    if (n_grm>1) ss << "Sum of V(G)/Vp \t" << -0.5f*beta_sum_sd << " \t" << 0.5f*se_sum_sd << " \t" << pval_sum_sd << endl;
+    cout << ss.str() << endl;
+    string ofile = _out + ".HEreg";
+    ofstream os(ofile.c_str());
+    if (!os) throw ("Error: can not open the file [" + ofile + "] to write.");
+    os << ss.str() << endl;
+    cout << "Results from Haseman-Elston regression have been saved in [" + ofile + "]." << endl;
+}
+
+void gcta::HE_reg_cov(string grm_file, bool m_grm_flag, string phen_file, string keep_indi_file, string remove_indi_file, int mphen, int mphen2) {
+    // a memory-efficient HE regression that estimates genetic covariance between two traits
+    
+    int i=0, j=0, k=0, l=0, r=0, c=0, ii=0, jj=0;
+    stringstream errmsg;
+    vector<string> phen_ID, grm_id, grm_files;
+    vector< vector<string> > phen_buf; // save individuals by column
+    _id_map.clear();
+    
+    // find out how many GRM components
+    if (m_grm_flag) {
+        read_grm_filenames(grm_file, grm_files, false);
+    } else {
+        grm_files.push_back(grm_file);
+    }
+    
+    // number of model terms
+    unsigned n_grm = grm_files.size();
+    unsigned n_term = n_grm + 1; // plus intercept
+    
+    eigenMatrix Lhs;    // X'X
+    eigenVector Rhs_cp; // X'(yi*yj)
+    eigenVector Rhs_sd; // X'(yi-yj)^2
+    Lhs.setZero(n_term, n_term);
+    Rhs_cp.setZero(n_term);
+    Rhs_sd.setZero(n_term);
+    
+    // Find common individuals in GRM and phenotype files
+    // first read in grm.id, which determins the order of model equations
+    vector<ifstream*> A_bin;
+    A_bin.resize(n_grm);
+    int size_grm = 0;
+    for (i = 0; i < n_grm; i++) {
+        if (i==0) {
+            size_grm = read_grm_id(grm_files[i], grm_id, true, true);
+        } else {
+            int n = read_grm_id(grm_files[i], grm_id, true, true);
+            if (n != size_grm) {
+                throw ("Error: file [" + grm_files[i] + "] contains a different number of ind than other GRM file.");
+            }
+        }
+        string grm_binfile = grm_files[i] + ".grm.bin";
+        A_bin[i] = new ifstream(grm_binfile.c_str(), ios::in | ios::binary);
+        if ((*A_bin[i]).bad()) throw ("Error: can not open the file [" + grm_binfile + "] to read.");
+    }
+    update_id_map_kp(grm_id, _id_map, _keep);
+    
+    // read phenotypes
+    _bivar_reml = true;  // need this to read in phenotype of both traits using the function below
+    read_phen(phen_file, phen_ID, phen_buf, mphen, mphen2);  // ignore individuals with missing phenotypes on both traits
+    _bivar_reml = false;
+    
+    update_id_map_kp(phen_ID, _id_map, _keep);
+    if (!keep_indi_file.empty()) keep_indi(keep_indi_file);
+    if (!remove_indi_file.empty()) remove_indi(remove_indi_file);
+    
+    // find out the matched unique ID for either trait
+    // model equations (yij and Aij) will be build based on the order of the unique ID vector, which is in the same order of grm_id
+    vector<string> uni_id;
+    map<string, int> uni_id_map;
+    map<string, int>::iterator iter;
+    string combinedID;
+    for (i = 0; i < _keep.size(); i++) {
+        combinedID = _fid[_keep[i]] + ":" + _pid[_keep[i]];  // in order of grm_id
+        uni_id.push_back(combinedID);
+        uni_id_map.insert(pair<string, int>(combinedID, i));
+    }
+    _n = _keep.size();
+    if (_n < 1) throw ("Error: no individual is in common in the input files.");
+    cout << _n << " individuals are in common in these files." << endl;
+    
+    
+    // find out matched unique ID for each trait
+    // ans store phenotypes separately for each trait based on their own unique id order
+    long int n1 = 0, n2 = 0;
+    eigenVector y1 = eigenVector::Zero(_n);
+    eigenVector y2 = eigenVector::Zero(_n);
+    
+    vector<string> uni_id_tr1;
+    vector<string> uni_id_tr2;
+    
+    vector<int> phen_kp;  // index of phenotyped individuals
+    
+    mphen--;
+    mphen2--;
+
+    StrFunc::match(uni_id, phen_ID, phen_kp);
+    for (i=0; i < phen_kp.size(); i++) {
+        int idx = phen_kp[i];
+        if (phen_buf[idx][mphen] != "NA" && phen_buf[idx][mphen] != "-9") {
+            uni_id_tr1.push_back(uni_id[i]);
+            y1[n1++] = atof(phen_buf[idx][mphen].c_str());
+            //cout << i << " " << idx << " " << phen_buf[idx][mphen] << " " << atof(phen_buf[idx][mphen].c_str()) << endl;
+        }
+        if (phen_buf[idx][mphen2] != "NA" && phen_buf[idx][mphen2] != "-9") {
+            uni_id_tr2.push_back(uni_id[i]);
+            y2[n2++] = atof(phen_buf[idx][mphen2].c_str());
+        }
+        ++ii;
+    }
+    y1.conservativeResize(n1);
+    y2.conservativeResize(n2);
+    
+    cout << y1.size() << " non-missing phenotypes for trait #1 and " << y2.size() << " for trait #2" << endl;
+    if (y1.size()==0) throw("Error: no non-missing phenotypes for trait 1.");
+    if (y2.size()==0) throw("Error: no non-missing phenotypes for trait 2.");
+
+    // grm_kp contains the rows of grm_id to keep in order of uni_id, which is a subset of and in the same order of grm_id
+    vector<int> grm_kp_tr1;
+    vector<int> grm_kp_tr2;
+    
+    StrFunc::match(uni_id_tr1, grm_id, grm_kp_tr1);
+    StrFunc::match(uni_id_tr2, grm_id, grm_kp_tr2);
+    
+    
+    cout << "\nPerforming Haseman-Elston regression ...\n" << endl;
+    
+    // normalise phenotype
+    cout << "Standardising the phenotype ..." << endl;
+    y1.array() -= y1.mean();
+    y2.array() -= y2.mean();
+    y1.array() /= sqrt(y1.squaredNorm() / (n1 - 1.0));
+    y2.array() /= sqrt(y2.squaredNorm() / (n2 - 1.0));
+    
+
+    long int n_obs = n1*n2;
+    double z_cp=0, z_sd=0, totalSS_cp=0, totalSS_sd=0;
+    Lhs(0,0) = n_obs; // X'X for intercept
+    for (i = 0; i < n1; i++) {
+        for (j = 0; j < n2; j++) {
+            Rhs_cp[0]  += z_cp = y1[i]*y2[j];
+            Rhs_sd[0]  += z_sd = (y1[i] - y2[j])*(y1[i] - y2[j]);
+            totalSS_cp += z_cp * z_cp;
+            totalSS_sd += z_sd * z_sd;
+        }
+    }
+    
+    // Fill GRMij into the normal equations without reading the whole GRM(s) into memory
+    cout << "Constructing normal equations ..." << endl;
+    eigenVector aij(n_grm);
+    int size = sizeof (float);
+    float f_buf = 0.0;
+    for (i = 0, ii = 0; i < size_grm; i++) {
+        if (i != grm_kp_tr1[ii]) {  // skip unkept individual
+            for (j = 0; j <= i; j++) {
+                for (k = 0; k < n_grm; k++) {
+                    (*A_bin[k]).read((char*) &f_buf, size);
+                }
+            }
+        }
+        else {
+            for (j = 0, jj = 0; j <= i; j++) {
+                if (j != grm_kp_tr2[jj] || j==i) {  // skip unkept individual and diagonals
+                    for (k = 0; k < n_grm; k++) {
+                        (*A_bin[k]).read((char*) &f_buf, size);
+                    }
+                }
+                else {
+                    for (k = 0; k < n_grm; k++) {
+                        (*A_bin[k]).read((char*) &f_buf, size);
+                        aij[k] = f_buf;
+                        r = k + 1;   // first one is intercept
+                        Lhs(0,r) = Lhs(r,0) += aij[k];   // symetric
+                        for (l = 0; l <= k; l++) {
+                            c = l + 1;
+                            Lhs(c,r) = Lhs(r,c) += aij[k] * aij[l];
+                        }
+                        Rhs_cp[r] += aij[k] * y1[ii] * y2[jj];
+                        Rhs_sd[r] += aij[k] *(y1[ii] - y2[jj])*(y1[ii] - y2[jj]);
+                    }
+                    ++jj;
+                }
+            }
+            ++ii;
+        }
+    }
+    
+    for (k = 0; k < n_grm; k++) {
+        (*A_bin[k]).close();
+    }
+    
+    eigenMatrix invLhs = Lhs.inverse();
+    eigenVector beta_cp = invLhs * Rhs_cp;
+    eigenVector beta_sd = invLhs * Rhs_sd;
+    
+    double sse_cp  = totalSS_cp - beta_cp.dot(Rhs_cp);
+    double sse_sd  = totalSS_sd - beta_sd.dot(Rhs_sd);
+    long int df = n_obs - n_term;
+    double vare_cp = sse_cp/df;
+    double vare_sd = sse_sd/df;
+    
+    cout << "Lhs\n" << Lhs  << endl << endl;
+    cout << "vare_cp " << vare_cp << endl;
+    cout << "vare_sd " << vare_sd << endl << endl;
+    
+    eigenVector se_cp = (invLhs.diagonal() * vare_cp).array().sqrt();
+    eigenVector se_sd = (invLhs.diagonal() * vare_sd).array().sqrt();
+    eigenVector pval_cp(n_term);
+    eigenVector pval_sd(n_term);
+    for (i = 0; i < n_term; ++i) {
+        float t_cp=0, t_sd=0;
+        if (se_cp[i] > 0.0) t_cp = fabs(beta_cp[i] / se_cp[i]);
+        if (se_sd[i] > 0.0) t_sd = fabs(beta_sd[i] / se_sd[i]);
+        pval_cp[i] = StatFunc::t_prob(df, t_cp, true);
+        pval_sd[i] = StatFunc::t_prob(df, t_sd, true);
+    }
+    
+    eigenVector kvec;
+    kvec.setOnes(n_term);
+    kvec[0] = 0;
+    double beta_sum_cp = kvec.dot(beta_cp);
+    double beta_sum_sd = kvec.dot(beta_sd);
+    double se_sum_cp = sqrt((kvec.transpose()*invLhs*kvec * vare_cp)(0,0));
+    double se_sum_sd = sqrt((kvec.transpose()*invLhs*kvec * vare_sd)(0,0));
+    double pval_sum_cp = StatFunc::t_prob(df, abs(beta_sum_cp/se_sum_cp), true);
+    double pval_sum_sd = StatFunc::t_prob(df, abs(beta_sum_sd/se_sum_sd), true);
+    
+    stringstream ss;
+    ss << "HE-CP" << endl;
+    ss << "Coefficient \tEstimate \tSE \tP\n";
+    ss << "Intercept \t" << beta_cp[0] << " \t" << se_cp[0] << " \t" << pval_cp[0] << endl;
+    for (i = 1; i < n_term; ++i) {
+        if (n_grm==1) ss << "Slope";
+        else ss << "Slope" << i;
+        ss << "     \t" << beta_cp[i]  << " \t" << se_cp[i] << " \t" << pval_cp[i] << endl;
+    }
+    for (i = 1; i < n_term; ++i) {
+        if (n_grm==1) ss << "C(G) \t";
+        else ss << "C(G" << i << ") \t";
+        ss << beta_cp[i]  << " \t" << se_cp[i] << " \t" << pval_cp[i] << endl;
+    }
+    if (n_grm>1) ss << "Sum of C(G) \t" << beta_sum_cp << " \t" << se_sum_cp << " \t" << pval_sum_cp << endl;
+    ss << endl;
+    ss << "HE-SD" << endl;
+    ss << "Coefficient \tEstimate \tSE \tP\n";
+    ss << "Intercept \t" << beta_sd[0] << " \t" << se_sd[0] << " \t" << pval_sd[0] << endl;
+    for (i = 1; i < n_term; ++i) {
+        if (n_grm==1) ss << "Slope";
+        else ss << "Slope" << i;
+        ss << "     \t" << beta_sd[i]  << " \t" << se_sd[i] << " \t" << pval_sd[i] << endl;
+    }
+    for (i = 1; i < n_term; ++i) {
+        if (n_grm==1) ss << "C(G) \t";
+        else ss << "C(G" << i << ") \t";
+        ss << -0.5f*beta_sd[i]  << " \t" << 0.5f*se_sd[i] << " \t" << pval_sd[i] << endl;
+    }
+    if (n_grm>1) ss << "Sum of C(G) \t" << -0.5f*beta_sum_sd << " \t" << 0.5f*se_sum_sd << " \t" << pval_sum_sd << endl;
+    cout << ss.str() << endl;
+    string ofile = _out + ".HEreg";
+    ofstream os(ofile.c_str());
+    if (!os) throw ("Error: can not open the file [" + ofile + "] to write.");
+    os << ss.str() << endl;
+    cout << "Results from Haseman-Elston regression have been saved in [" + ofile + "]." << endl;
+}
+
+
 void gcta::HE_reg(string grm_file, string phen_file, string keep_indi_file, string remove_indi_file, int mphen) {
     int i = 0, j = 0, k = 0, l = 0;
     stringstream errmsg;
@@ -1533,7 +2045,7 @@ void gcta::HE_reg(string grm_file, string phen_file, string keep_indi_file, stri
         for (j = 0; j < i; j++, k++) {
             y_sd[k] = (y[i] - y[j])*(y[i] - y[j]);
             y_cp[k] = y[i]*y[j];
-            x[k] = _grm(i, j);
+            x[k] = _grm(i, j);   // Is this a bug? should i,j refer to ind in the keep list??
         }
     }
     eigenMatrix reg_sum_sd = reg(y_sd, x, rst, true);

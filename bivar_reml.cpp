@@ -143,42 +143,41 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
     _bivar_pos.resize(3);
     if (grm_flag) {
         for (i = 0; i < 3 + 3 - ignore_Ce; i++) _r_indx.push_back(i);
-        _Asp.resize(_r_indx.size());
-        for (i = 0; i < _r_indx.size(); i++) (_Asp[i]).resize(_n, _n);
+        _Adn.resize(_r_indx.size());
+        for (i = 0; i < _r_indx.size(); i++) (_Adn[i]).setZero(_n, _n);
         if (!no_lrt) drop_comp(drop);
         _bivar_pos[0].push_back(pos);
+#pragma omp parallel for private(j)
         for (j = 0; j < n1; j++) {
-            (_Asp[pos]).startVec(j);
-            for (i = 0; i < n1; i++) (_Asp[pos]).insertBack(i, j) = _grm(_keep[nms1[i]], _keep[nms1[j]]);
+            for (i = 0; i < n1; i++) _Adn[pos](i, j) = _grm(_keep[nms1[i]], _keep[nms1[j]]);
         }
         pos++;
 
         _bivar_pos[1].push_back(pos);
+#pragma omp parallel for private(j)
         for (j = 0; j < n2; j++) {
-            (_Asp[pos]).startVec(j + n1);
-            for (i = 0; i < n2; i++) (_Asp[pos]).insertBack(i + n1, j + n1) = _grm(_keep[nms2[i]], _keep[nms2[j]]);
+            for (i = 0; i < n2; i++) _Adn[pos](i + n1, j + n1) = _grm(_keep[nms2[i]], _keep[nms2[j]]);
         }
         pos++;
 
         _bivar_pos[2].push_back(pos);
+#pragma omp parallel for private(j)
         for (j = 0; j < n1; j++) {
-            (_Asp[pos]).startVec(j);
-            for (i = 0; i < n2; i++) (_Asp[pos]).insertBack(i + n1, j) = _grm(_keep[nms2[i]], _keep[nms1[j]]);
+            for (i = 0; i < n2; i++) _Adn[pos](i + n1, j) = _grm(_keep[nms2[i]], _keep[nms1[j]]);
         }
+#pragma omp parallel for private(j)
         for (j = 0; j < n2; j++) {
-            (_Asp[pos]).startVec(j + n1);
-            for (i = 0; i < n1; i++) (_Asp[pos]).insertBack(i, j + n1) = _grm(_keep[nms1[i]], _keep[nms2[j]]);
+            for (i = 0; i < n1; i++) _Adn[pos](i, j + n1) = _grm(_keep[nms1[i]], _keep[nms2[j]]);
         }
         pos++;
 
-        for (j = 0; j < pos; j++) (_Asp[j]).finalize();
         _grm.resize(0, 0);
     } 
     else if (m_grm_flag) {
         if (!sex_file.empty()) update_sex(sex_file);
         for (i = 0; i < 3 * grm_files.size() + 3 - ignore_Ce; i++) _r_indx.push_back(i);
-        _Asp.resize(_r_indx.size());
-        for (i = 0; i < _r_indx.size(); i++) (_Asp[i]).resize(_n, _n);
+        _Adn.resize(_r_indx.size());
+        for (i = 0; i < _r_indx.size(); i++) (_Adn[i]).setZero(_n, _n);
         if (!no_lrt) drop_comp(drop);
         string prev_file = grm_files[0];
         vector<string> prev_grm_id(grm_id);
@@ -193,31 +192,30 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
             int pos0 = pos;
 
             _bivar_pos[0].push_back(pos);
+#pragma omp parallel for private(j)
             for (j = 0; j < n1; j++) {
-                (_Asp[pos]).startVec(j);
-                for (i = 0; i < n1; i++) (_Asp[pos]).insertBack(i, j) = _grm(kp[nms1[i]], _keep[nms1[j]]);
+                for (i = 0; i < n1; i++) _Adn[pos](i, j) = _grm(kp[nms1[i]], _keep[nms1[j]]);
             }
             pos++;
 
             _bivar_pos[1].push_back(pos);
+#pragma omp parallel for private(j)
             for (j = 0; j < n2; j++) {
-                (_Asp[pos]).startVec(j + n1);
-                for (i = 0; i < n2; i++) (_Asp[pos]).insertBack(i + n1, j + n1) = _grm(kp[nms2[i]], _keep[nms2[j]]);
+                for (i = 0; i < n2; i++) _Adn[pos](i + n1, j + n1) = _grm(kp[nms2[i]], _keep[nms2[j]]);
             }
             pos++;
 
             _bivar_pos[2].push_back(pos);
+#pragma omp parallel for private(j)
             for (j = 0; j < n1; j++) {
-                (_Asp[pos]).startVec(j);
-                for (i = 0; i < n2; i++) (_Asp[pos]).insertBack(i + n1, j) = _grm(kp[nms2[i]], _keep[nms1[j]]);
+                for (i = 0; i < n2; i++) _Adn[pos](i + n1, j) = _grm(kp[nms2[i]], _keep[nms1[j]]);
             }
+#pragma omp parallel for private(j)
             for (j = 0; j < n2; j++) {
-                (_Asp[pos]).startVec(j + n1);
-                for (i = 0; i < n1; i++) (_Asp[pos]).insertBack(i, j + n1) = _grm(kp[nms1[i]], _keep[nms2[j]]);
+                for (i = 0; i < n1; i++) _Adn[pos](i, j + n1) = _grm(kp[nms1[i]], _keep[nms2[j]]);
             }
             pos++;
 
-            for (j = pos0; j < pos; j++) (_Asp[j]).finalize();
             prev_file = grm_files[k];
             prev_grm_id = grm_id;
         }
@@ -227,32 +225,28 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
 
     _bivar_pos[0].push_back(pos);
     for (i = 0; i < n1; i++) {
-        (_Asp[pos]).startVec(i);
-        (_Asp[pos]).insertBack(i, i) = 1.0;
+        _Adn[pos](i, i) = 1.0;
     }
-    (_Asp[pos]).finalize();
     pos++;
 
     _bivar_pos[1].push_back(pos);
     for (i = 0; i < n2; i++) {
-        (_Asp[pos]).startVec(i + n1);
-        (_Asp[pos]).insertBack(i + n1, i + n1) = 1.0;
+        _Adn[pos](i + n1, i + n1) = 1.0;
     }
-    (_Asp[pos]).finalize();
     pos++;
 
     if (!ignore_Ce) {
         _bivar_pos[2].push_back(pos);
+#pragma omp parallel for private(j)
         for (j = 0; j < n1; j++) {
-            (_Asp[pos]).startVec(j);
             for (i = 0; i < n2; i++) {
-                if (nms2[i] == nms1[j]) (_Asp[pos]).insertBack(i + n1, j) = 1;
+                if (nms2[i] == nms1[j]) _Adn[pos](i + n1, j) = 1;
             }
         }
+#pragma omp parallel for private(j)
         for (j = 0; j < n2; j++) {
-            (_Asp[pos]).startVec(j + n1);
             for (i = 0; i < n1; i++) {
-                if (nms1[i] == nms2[j]) (_Asp[pos]).insertBack(i, j + n1) = 1;
+                if (nms1[i] == nms2[j]) _Adn[pos](i, j + n1) = 1;
             }
         }
         pos++;
@@ -294,16 +288,24 @@ bool gcta::calcu_Vi_bivar(eigenMatrix &Vi, eigenVector &prev_varcmp, double &log
     logdet = 0.0;
     string errmsg = "\nError: the V (variance-covariance) matrix is not invertible.";
 
+    cout << "\nCalc Vi bivar ..." << endl;
+
     Vi = eigenMatrix::Zero(_n, _n);
-    for (i = 0; i < _r_indx.size(); i++) Vi += (_Asp[_r_indx[i]]) * prev_varcmp[i];
+    for (i = 0; i < _r_indx.size(); i++) Vi += _Adn[_r_indx[i]] * prev_varcmp[i];
 
     if (_V_inv_mtd == 0) {
+        
+        cout << "using LDLT MKL..." << endl;
+
         if (!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) {
-            //cout<<"Note: the variance-covaraince matrix V is non-positive definite. Switching to Cholesky to LU decomposition approach."<<endl;
+            cout<<"Note: the variance-covaraince matrix V is non-positive definite. Switching to Cholesky to LU decomposition approach."<<endl;
             _V_inv_mtd = 1;
         }
     }
     if (_V_inv_mtd == 1) {
+        
+        cout << "using LU MKL..." << endl;
+
         if (!comput_inverse_logdet_LU_mkl(Vi, logdet)) throw ("Error: the variance-covaraince matrix V is not invertible.");
     }
 
@@ -317,6 +319,8 @@ bool gcta::calcu_Vi_bivar(eigenMatrix &Vi, eigenVector &prev_varcmp, double &log
             return false;
         }
      */
+
+    cout << "Vi completed." << endl;
 
 }
 
@@ -401,7 +405,7 @@ double gcta::lgL_fix_rg(eigenVector &prev_varcmp, bool no_constrain) {
         _bivar_pos[2].erase(_bivar_pos[2].begin() + i);
     }
 
-    _Asp_prev = _Asp;
+    _Adn_prev = _Adn;
     eigenMatrix Vi_X(_n, _X_c), Xt_Vi_X_i(_X_c, _X_c), Hi(_r_indx.size(), _r_indx.size());
     eigenVector Py(_n);
     eigenVector varcmp(_r_indx.size());
@@ -422,8 +426,8 @@ void gcta::update_A(eigenVector &prev_varcmp) {
     for (i = 0; i < _fixed_rg_val.size(); i++) {
         g1 = prev_varcmp[_bivar_pos[0][i]];
         g2 = prev_varcmp[_bivar_pos[1][i]];
-        _Asp[_bivar_pos_prev[0][i]] = _Asp_prev[_bivar_pos_prev[0][i]] + _Asp_prev[_bivar_pos_prev[2][i]]*(0.5 * _fixed_rg_val[i] * sqrt(g2 / g1));
-        _Asp[_bivar_pos_prev[1][i]] = _Asp_prev[_bivar_pos_prev[1][i]] + _Asp_prev[_bivar_pos_prev[2][i]]*(0.5 * _fixed_rg_val[i] * sqrt(g1 / g2));
+        _Adn[_bivar_pos_prev[0][i]] = _Adn_prev[_bivar_pos_prev[0][i]] + _Adn_prev[_bivar_pos_prev[2][i]]*(0.5 * _fixed_rg_val[i] * sqrt(g2 / g1));
+        _Adn[_bivar_pos_prev[1][i]] = _Adn_prev[_bivar_pos_prev[1][i]] + _Adn_prev[_bivar_pos_prev[2][i]]*(0.5 * _fixed_rg_val[i] * sqrt(g1 / g2));
     }
 
 }

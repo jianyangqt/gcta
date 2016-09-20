@@ -1482,7 +1482,7 @@ bool gcta::make_XMat_d(MatrixXf &X)
     return have_mis;
 }
 
-void gcta::std_XMat(MatrixXf &X, eigenVector &sd_SNP, bool grm_xchr_flag, bool miss_with_mu, bool divid_by_std)
+void gcta::std_XMat(MatrixXf &X, eigenVector &sd_SNP, bool grm_xchr_flag, bool miss_with_mu, double make_grm_scl)
 {
     if (_mu.empty()) calcu_mu();
 
@@ -1494,19 +1494,17 @@ void gcta::std_XMat(MatrixXf &X, eigenVector &sd_SNP, bool grm_xchr_flag, bool m
     else {
         for (j = 0; j < m; j++) sd_SNP[j] = _mu[_include[j]]*(1.0 - 0.5 * _mu[_include[j]]);
     }
-    if (divid_by_std) {
-        for (j = 0; j < m; j++) {
-            if (fabs(sd_SNP[j]) < 1.0e-50) sd_SNP[j] = 0.0;
-            else sd_SNP[j] = sqrt(1.0 / sd_SNP[j]);
-        }
+    for (j = 0; j < m; j++) {
+        if (fabs(sd_SNP[j]) < 1.0e-50) sd_SNP[j] = 0.0;
+        else sd_SNP[j] = sqrt(1.0 / sd_SNP[j]);
     }
-
+    
     #pragma omp parallel for private(j)
     for (i = 0; i < n; i++) {
         for (j = 0; j < m; j++) {
             if (X(i,j) < 1e5) {
                 X(i,j) -= _mu[_include[j]];
-                if (divid_by_std) X(i,j) *= sd_SNP[j];
+                if (make_grm_scl) X(i,j) *= powf(sd_SNP[j], make_grm_scl);
             } 
             else if (miss_with_mu) X(i,j) = 0.0;
         }
@@ -1529,7 +1527,7 @@ void gcta::std_XMat(MatrixXf &X, eigenVector &sd_SNP, bool grm_xchr_flag, bool m
     }
 }
 
-void gcta::std_XMat_d(MatrixXf &X, eigenVector &sd_SNP, bool miss_with_mu, bool divid_by_std)
+void gcta::std_XMat_d(MatrixXf &X, eigenVector &sd_SNP, bool miss_with_mu, double make_grm_scl)
 {
     if (_mu.empty()) calcu_mu();
 
@@ -1548,15 +1546,15 @@ void gcta::std_XMat_d(MatrixXf &X, eigenVector &sd_SNP, bool miss_with_mu, bool 
     else {
         for (j = 0; j < m; j++) sd_SNP[j] = _mu[_include[j]]*(1.0 - 0.5 * _mu[_include[j]]);
     }
-    if (divid_by_std) {
+//    if (make_grm_scl) {
         for (j = 0; j < m; j++) {
             if (fabs(sd_SNP[j]) < 1.0e-50) sd_SNP[j] = 0.0;
             else sd_SNP[j] = 1.0 / sd_SNP[j];
         }
-    } 
-    else {
-        for (j = 0; j < m; j++) sd_SNP[j] = sd_SNP[j] * sd_SNP[j];
-    }
+//    } 
+//    else {
+//        for (j = 0; j < m; j++) sd_SNP[j] = sd_SNP[j] * sd_SNP[j];  // may need to keep this line
+//    }
     vector<double> psq(m);
     for (j = 0; j < m; j++) psq[j] = 0.5 * _mu[_include[j]] * _mu[_include[j]];
 
@@ -1565,7 +1563,7 @@ void gcta::std_XMat_d(MatrixXf &X, eigenVector &sd_SNP, bool miss_with_mu, bool 
         for (j = 0; j < m; j++) {
             if (X(i,j) < 1e5) {
                 X(i,j) -= psq[j];
-                if (divid_by_std) X(i,j) *= sd_SNP[j];
+                if (make_grm_scl) X(i,j) *= powf(sd_SNP[j], make_grm_scl);
             } 
             else if (miss_with_mu) X(i,j) = 0.0;
         }
@@ -1653,6 +1651,73 @@ void gcta::save_XMat(bool miss_with_mu, bool std)
     }
     zoutf.close();
     cout << "The recoded genotype matrix has been saved in the file [" + X_zFile + "] (in compressed text format)." << endl;
+}
+
+void gcta::save_XMat_gensel_bin()
+{
+    if (_mu.empty()) calcu_mu();
+    
+    unsigned i = 0, j = 0, m = _include.size();
+    
+    // Save matrix X
+    double x_buf = 0.0;
+    string X_gsFile = _out + ".xmat.gensel.newbin";
+    ofstream outf;
+    outf.open(X_gsFile.c_str(), ios::binary);
+    if (!outf.is_open()) throw ("Error: can not open the file [" + X_gsFile + "] to write.");
+    cout << "Saving the recoded genotype matrix to the file [" + X_gsFile + "]." << endl;
+    
+    string header = "ID";
+    for (j = 0; j < m; j++) header += " " + _snp_name[_include[j]];
+    
+    char *data = (char*) &m;
+    outf.write(data, sizeof(unsigned));
+    
+    unsigned hdrlength = (unsigned) header.length();
+    data = (char*) &hdrlength;
+    outf.write(data, sizeof(unsigned));
+    
+    data = (char*) header.c_str();
+    outf.write(data, hdrlength);
+    
+    short int introwi[m];
+    unsigned markerLength = (unsigned) m*sizeof(introwi[0]);
+
+    for (i = 0; i < _keep.size(); i++) {
+        string ind = _pid[_keep[i]];
+        unsigned IDlength = (unsigned) ind.length();
+        data = (char*) &IDlength;
+        outf.write(data, sizeof(unsigned));
+        data = (char*) ind.c_str();
+        outf.write(data, IDlength);
+        
+        if (_dosage_flag) {
+            for (j = 0; j < _include.size(); j++) {
+                if (_geno_dose[_keep[i]][_include[j]] < 1e5) {
+                    if (_allele1[_include[j]] == _ref_A[_include[j]]) x_buf = _geno_dose[_keep[i]][_include[j]];
+                    else x_buf = 2.0 - _geno_dose[_keep[i]][_include[j]];
+                } else {
+                    x_buf = _mu[_include[j]];
+                }
+                introwi[j] = x_buf*10 - 10;
+            }
+        } else {
+            for (j = 0; j < _include.size(); j++) {
+                if (!_snp_1[_include[j]][_keep[i]] || _snp_2[_include[j]][_keep[i]]) {
+                    if (_allele1[_include[j]] == _ref_A[_include[j]]) x_buf = _snp_1[_include[j]][_keep[i]] + _snp_2[_include[j]][_keep[i]];
+                    else x_buf = 2.0 - (_snp_1[_include[j]][_keep[i]] + _snp_2[_include[j]][_keep[i]]);
+                } else {
+                    x_buf = _mu[_include[j]];
+                }
+                introwi[j] = x_buf*10 - 10;
+            }
+        }
+        
+        data = (char*) introwi;
+        outf.write(data, markerLength);
+    }
+    outf.close();
+    cout << "The recoded genotype matrix has been saved in the file [" + X_gsFile + "] (in gensel newbin format)." << endl;
 }
 
 bool gcta::make_XMat_subset(MatrixXf &X, vector<int> &snp_indx, bool divid_by_std)
