@@ -3,7 +3,7 @@
  *
  * GCTA options
  *
- * 2010 by Jian Yang <jian.yang@qimr.edu.au>
+ * 2010-2016 by Jian Yang <jian.yang@uq.edu.au> and others
  *
  * This file is distributed under the GNU General Public
  * License, Version 2.  Please see the file COPYING for more
@@ -19,10 +19,10 @@ int main(int argc, char* argv[])
 {
     cout << "*******************************************************************" << endl;
     cout << "* Genome-wide Complex Trait Analysis (GCTA)" << endl;
-    cout << "* version 1.25.2" << endl;
-    cout << "* (C) 2010-2013 Jian Yang, Hong Lee, Michael Goddard and Peter Visscher" << endl;
-    cout << "* The University of Queensland" << endl;
+    cout << "* version 1.26.0" << endl;
+    cout << "* (C) 2010-2016, The University of Queensland" << endl;
     cout << "* MIT License" << endl;
+    cout << "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>" << endl;
     cout << "*******************************************************************" << endl;
 
     long int time_used = 0, start = time(NULL);
@@ -59,16 +59,16 @@ void option(int option_num, char* option_str[])
     // data management
     string bfile = "", bfile2 = "", update_sex_file = "", update_freq_file = "", update_refA_file = "", kp_indi_file = "", rm_indi_file = "", extract_snp_file = "", exclude_snp_file = "", extract_snp_name = "", exclude_snp_name = "", out = "gcta";
     bool SNP_major = false, bfile_flag = false, make_bed_flag = false, dose_mach_flag = false, dose_mach_gz_flag = false, dose_beagle_flag = false, bfile2_flag = false, out_freq_flag = false, out_ssq_flag = false;
-    bool ref_A = false, recode = false, recode_nomiss = false, recode_std = false, recode_gensel = false, save_ram = false, autosome_flag = false;
+    bool ref_A = false, recode = false, recode_nomiss = false, recode_std = false, save_ram = false, autosome_flag = false;
     int autosome_num = 22, extract_chr_start = 0, extract_chr_end = 0, extract_region_chr = 0, extract_region_bp = 0, extract_region_wind = 0, exclude_region_chr = 0, exclude_region_bp = 0, exclude_region_wind = 0;
     string dose_file = "", dose_info_file = "", update_impRsq_file = "";
     double maf = 0.0, max_maf = 0.0, dose_Rsq_cutoff = 0.0;
 
     // GRM
-    bool ibc = false, ibc_all = false, grm_flag = false, grm_bin_flag = true, m_grm_flag = false, m_grm_bin_flag = true, make_grm_flag = false, make_grm_inbred_flag = false, dominance_flag = false, make_grm_xchar_flag = false, grm_out_bin_flag = true, make_grm_f3_flag = false, align_grm_flag = false;
+    bool ibc = false, ibc_all = false, grm_flag = false, grm_bin_flag = true, m_grm_flag = false, m_grm_bin_flag = true, make_grm_flag = false, make_grm_inbred_flag = false, dominance_flag = false, make_grm_xchar_flag = false, grm_out_bin_flag = true, make_grm_f3_flag = false;
+    bool align_grm_flag = false;
     bool pca_flag = false, pcl_flag = false;
     double grm_adj_fac = -2.0, grm_cutoff = -2.0, rm_high_ld_cutoff = -1.0, bK_threshold = -10.0;
-    double make_grm_scl = 1.0; // G = sum_j {W_j W'_j / (2 p_j q_j)^s} / N where s is the scale exponent
     int dosage_compen = -2, out_pc_num = 20, make_grm_mtd = 0, pcl_grm_N = 0;
     string grm_file = "", paa_file = "", pc_file = "";
 
@@ -81,7 +81,7 @@ void option(int option_num, char* option_str[])
     // initialize paramters for simulation based on real genotype data
     bool simu_qt_flag = false, simu_cc = false, simu_emb_flag = false, simu_output_causal = false;
     int simu_rep = 1, simu_case_num = 0, simu_control_num = 0, simu_eff_mod = 0;
-    double simu_h2 = 0.1, simu_K = 0.1, simu_gener = 100, simu_seed = -CommFunc::rand_seed(), simu_eff_scl = 1;
+    double simu_h2 = 0.1, simu_K = 0.1, simu_gener = 100, simu_seed = -CommFunc::rand_seed();
     string simu_causal = "";
 
     // simulate unlinked SNPs
@@ -97,7 +97,8 @@ void option(int option_num, char* option_str[])
     bool prevalence_flag = false, reml_force_inv_fac_flag = false, reml_force_converge_flag = false, reml_no_converge_flag = false, reml_fixed_var_flag = false;
     int mphen = 1, mphen2 = 2, reml_mtd = 0, MaxIter = 100;
     double prevalence = -2.0, prevalence2 = -2.0;
-    bool reml_flag = false, pred_rand_eff = false, est_fix_eff = false, blup_snp_flag = false, no_constrain = false, reml_lrt_flag = false, no_lrt = false, bivar_reml_flag = false, ignore_Ce = false, within_family = false, reml_bending = false, HE_reg_flag = false, HE_reg_cov_flag = false, reml_diag_one = false, bivar_no_constrain = false;
+    bool reml_flag = false, pred_rand_eff = false, est_fix_eff = false, blup_snp_flag = false, no_constrain = false, reml_lrt_flag = false, no_lrt = false, bivar_reml_flag = false, ignore_Ce = false, within_family = false, reml_bending = false, HE_reg_flag = false, reml_diag_one = false, bivar_no_constrain = false;
+    bool HE_reg_cov_flag = false;
     string phen_file = "", qcovar_file = "", covar_file = "", qgxe_file = "", gxe_file = "", blup_indi_file = "";
     vector<double> reml_priors, reml_priors_var, fixed_rg_val;
     vector<int> reml_drop;
@@ -291,10 +292,6 @@ void option(int option_num, char* option_str[])
             recode_std = true;
             thread_flag = true;
             cout << "--recode-std" << endl;
-        } else if (strcmp(argv[i], "--recode-gensel") == 0) {
-            recode_gensel = true;
-            thread_flag = true;
-            cout << "--recode-std" << endl;
         } else if (strcmp(argv[i], "--save-ram") == 0) {
             save_ram = true;
             cout << "--save-ram" << endl;
@@ -348,11 +345,6 @@ void option(int option_num, char* option_str[])
             thread_flag = true;
             cout << "--make-grm-alg " << make_grm_mtd << endl;
             if (make_grm_mtd < 0 || make_grm_mtd > 1) throw ("\nError: --make-grm-alg should be 0 or 1.\n");
-        } else if (strcmp(argv[i], "--make-grm-scale") == 0) {
-            make_grm_flag = true;
-            make_grm_scl = atof(argv[++i]);
-            cout << "--make-grm-scale " << make_grm_scl << endl;
-            //if (make_grm_scl < 0 || make_grm_scl > 1) throw ("\nError: the value to be specified after --make-grm-scale should be within the range from 0 to 1.\n");
         } else if (strcmp(argv[i], "--make-grm-f3") == 0) {
             make_grm_flag = true;
             make_grm_f3_flag = true;
@@ -546,10 +538,6 @@ void option(int option_num, char* option_str[])
             simu_eff_mod = atoi(argv[++i]);
             cout << "--simu-eff-mod " << simu_eff_mod << endl;
             if (simu_eff_mod != 0 && simu_eff_mod !=1) throw ("Error: --simu-eff-mod should be 0 or 1.");
-        } else if (strcmp(argv[i], "--simu-eff-scale") == 0) {
-            simu_eff_scl = atof(argv[++i]);
-            cout << "--simu-eff-scale " << simu_eff_scl << endl;
-            //if (simu_eff_scl < 0 || simu_eff_scl > 1) throw ("Error: --simu-eff-scl should be between 0 to 1.\n");
         }
         else if (strcmp(argv[i], "--hapmap-genet-dst") == 0) { // calculate genetic dst based on HapMap data
             hapmap_genet_dst = true;
@@ -1087,9 +1075,8 @@ void option(int option_num, char* option_str[])
             if (out_freq_flag) pter_gcta->save_freq(out_ssq_flag);
             else if (!paa_file.empty()) pter_gcta->paa(paa_file);
             else if (ibc) pter_gcta->ibc(ibc_all);
-            else if (make_grm_flag) pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, make_grm_scl, false, make_grm_f3_flag, subpopu_file);
+            else if (make_grm_flag) pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_f3_flag, subpopu_file);
             else if (recode || recode_nomiss || recode_std) pter_gcta->save_XMat(recode_nomiss, recode_std);
-            else if (recode_gensel) pter_gcta->save_XMat_gensel_bin();
             else if (LD) pter_gcta->LD_Blocks(LD_step, LD_wind, LD_sig, LD_i, save_ram);
             else if (LD_prune_rsq>-1.0) pter_gcta->LD_pruning_mkl(LD_prune_rsq, LD_wind);
             else if (ld_score_flag){
@@ -1104,7 +1091,7 @@ void option(int option_num, char* option_str[])
             else if (massoc_slct_flag | massoc_joint_flag) pter_gcta->run_massoc_slct(massoc_file, massoc_wind, massoc_p, massoc_collinear, massoc_top_SNPs, massoc_joint_flag, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag, massoc_mld_slct_alg);
             else if (!massoc_cond_snplist.empty()) pter_gcta->run_massoc_cond(massoc_file, massoc_cond_snplist, massoc_wind, massoc_collinear, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag);
             else if (massoc_sblup_flag) pter_gcta->run_massoc_sblup(massoc_file, massoc_wind, massoc_sblup_fac);
-            else if (simu_qt_flag || simu_cc) pter_gcta->GWAS_simu(bfile, simu_rep, simu_causal, simu_case_num, simu_control_num, simu_h2, simu_K, simu_seed, simu_output_causal, simu_emb_flag, simu_eff_mod, simu_eff_scl);
+            else if (simu_qt_flag || simu_cc) pter_gcta->GWAS_simu(bfile, simu_rep, simu_causal, simu_case_num, simu_control_num, simu_h2, simu_K, simu_seed, simu_output_causal, simu_emb_flag, simu_eff_mod);
             else if (make_bed_flag) pter_gcta->save_plink();
             else if (fst_flag) pter_gcta->Fst(subpopu_file);
             else if (!sbat_sAssoc_file.empty()){
@@ -1135,7 +1122,7 @@ void option(int option_num, char* option_str[])
         if (maf > 0.0) pter_gcta->filter_snp_maf(maf);
         if (max_maf > 0.0) pter_gcta->filter_snp_max_maf(max_maf);
         if (out_freq_flag) pter_gcta->save_freq(out_ssq_flag);
-        else if (make_grm_flag) pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, make_grm_scl, false, make_grm_f3_flag, subpopu_file);
+        else if (make_grm_flag) pter_gcta->make_grm(dominance_flag, make_grm_xchar_flag, make_grm_inbred_flag, grm_out_bin_flag, make_grm_mtd, false, make_grm_f3_flag, subpopu_file);
         else if (recode || recode_nomiss || recode_std) pter_gcta->save_XMat(recode_nomiss, recode_std);
         else if (LD_prune_rsq>-1.0) pter_gcta->LD_pruning_mkl(LD_prune_rsq, LD_wind);
         else if (ld_score_flag){
@@ -1145,7 +1132,7 @@ void option(int option_num, char* option_str[])
         else if (ld_max_rsq_flag) pter_gcta ->calcu_max_ld_rsq(LD_wind, LD_rsq_cutoff, dominance_flag);
         else if (blup_snp_flag) pter_gcta->blup_snp_dosage();
         else if (massoc_sblup_flag) pter_gcta->run_massoc_sblup(massoc_file, massoc_wind, massoc_sblup_fac);
-        else if (simu_qt_flag || simu_cc) pter_gcta->GWAS_simu(bfile, simu_rep, simu_causal, simu_case_num, simu_control_num, simu_h2, simu_K, simu_seed, simu_output_causal, simu_emb_flag, simu_eff_mod, simu_eff_scl);
+        else if (simu_qt_flag || simu_cc) pter_gcta->GWAS_simu(bfile, simu_rep, simu_causal, simu_case_num, simu_control_num, simu_h2, simu_K, simu_seed, simu_output_causal, simu_emb_flag, simu_eff_mod);
         else if (make_bed_flag) pter_gcta->save_plink();
         else if (fst_flag) pter_gcta->Fst(subpopu_file);
         else if (mlma_flag) pter_gcta->mlma(grm_file, m_grm_flag, subtract_grm_file, phen_file, qcovar_file, covar_file, mphen, MaxIter, reml_priors, reml_priors_var, no_constrain, within_family, make_grm_inbred_flag, mlma_no_adj_covar);

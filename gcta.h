@@ -29,7 +29,6 @@
 #include <iomanip>
 #include <bitset>
 #include <map>
-#include <unordered_set>
 //#include <random>
 #include "zfstream.h"
 #include <Eigen/Dense>
@@ -93,9 +92,8 @@ public:
     void update_sex(string sex_file);
     void read_indi_blup(string blup_indi_file);
     void save_XMat(bool miss_with_mu, bool std);
-    void save_XMat_gensel_bin(void);
 
-    void make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, double make_grm_scl, bool mlmassoc, bool diag_f3_flag = false, string subpopu_file = "");
+    void make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, bool mlmassoc, bool diag_f3_flag = false, string subpopu_file = "");
     //void make_grm_pca(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, double wind_size, bool mlmassoc);
     void save_grm(string grm_file, string keep_indi_file, string remove_indi_file, string sex_file, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool merge_grm_flag, bool output_grm_bin);
     void align_grm(string m_grm_file);
@@ -107,7 +105,7 @@ public:
 
     void enable_grm_bin_flag();
     void fit_reml(string grm_file, string phen_file, string qcovar_file, string covar_file, string qGE_file, string GE_file, string keep_indi_file, string remove_indi_file, string sex_file, int mphen, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool m_grm_flag, bool pred_rand_eff, bool est_fix_eff, int reml_mtd, int MaxIter, vector<double> reml_priors, vector<double> reml_priors_var, vector<int> drop, bool no_lrt, double prevalence, bool no_constrain, bool mlmassoc = false, bool within_family = false, bool reml_bending = false, bool reml_diag_one = false);
-    void HE_reg(string grm_file, string phen_file, string keep_indi_file, string remove_indi_file, int mphen);
+    //void HE_reg(string grm_file, string phen_file, string keep_indi_file, string remove_indi_file, int mphen); // old HE regression method
     void HE_reg(string grm_file, bool m_grm_flag, string phen_file, string keep_indi_file, string remove_indi_file, int mphen); // allow multiple regression
     void HE_reg_cov(string grm_file, bool m_grm_flag, string phen_file, string keep_indi_file, string remove_indi_file, int mphen, int mphen2); // estimate genetic covariance between two traits
     void blup_snp_geno();
@@ -132,7 +130,7 @@ public:
 
     void genet_dst(string bfile, string hapmap_genet_map);
 
-    void GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, int control_num, double hsq, double K, int seed, bool output_causal, bool simu_emb_flag, int eff_mod=0, double simu_eff_scl=1);
+    void GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, int control_num, double hsq, double K, int seed, bool output_causal, bool simu_emb_flag, int eff_mod=0);
     //void simu_geno_unlinked(int N, int M, double maf);
 
     void run_massoc_slct(string metafile, int wind_size, double p_cutoff, double collinear, int top_SNPs, bool joint_only, bool GC, double GC_val, bool actual_geno, int mld_slct_alg);
@@ -199,9 +197,9 @@ private:
     bool make_XMat(MatrixXf &X);
     bool make_XMat_d(MatrixXf &X);
     //void make_XMat_SNPs(vector< vector<float> > &X, bool miss_with_mu);
-    void std_XMat(MatrixXf &X, eigenVector &sd_SNP, bool grm_xchr_flag, bool miss_with_mu, double make_grm_scl);
-    void std_XMat_subpopu(string subpopu_file, MatrixXf &X, eigenVector &sd_SNP, bool grm_xchr_flag, bool miss_with_mu, double make_grm_scl);
-    void std_XMat_d(MatrixXf &X, eigenVector &sd_SNP, bool miss_with_mu, double make_grm_scl);
+    void std_XMat(MatrixXf &X, eigenVector &sd_SNP, bool grm_xchr_flag, bool miss_with_mu, bool divid_by_std);
+    void std_XMat_subpopu(string subpopu_file, MatrixXf &X, eigenVector &sd_SNP, bool grm_xchr_flag, bool miss_with_mu, bool divid_by_std);
+    void std_XMat_d(MatrixXf &X, eigenVector &sd_SNP, bool miss_with_mu, bool divid_by_std);
     //void std_XMat(vector< vector<float> > &X, vector<double> &sd_SNP, bool grm_xchr_flag, bool divid_by_std = true);
     void makex_eigenVector(int j, eigenVector &x, bool resize = true, bool minus_2p = false);
     //void make_XMat_eigenMatrix(MatrixXf &X);
@@ -230,7 +228,6 @@ private:
     void manipulate_grm(string grm_file, string keep_indi_file, string remove_indi_file, string sex_file, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool merge_grm_flag, bool dont_read_N = false);
     void output_grm_vec(vector< vector<float> > &A, vector< vector<int> > &A_N, bool output_grm_bin);
     void output_grm(bool output_grm_bin);
-    void eigen_decom_grm(void);
 
     // reml
     void read_phen(string phen_file, vector<string> &phen_ID, vector< vector<string> > &phen_buf, int mphen, int mphen2 = 0);
@@ -249,7 +246,6 @@ private:
     bool calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, int &iter);
     bool inverse_H(eigenMatrix &H);
     bool comput_inverse_logdet_LDLT(eigenMatrix &Vi, double &logdet);
-    void inverse_by_partition(eigenMatrix &V);
     void bend_V(eigenMatrix &Vi);
     void bend_A();
     bool bending_eigenval(eigenVector &eval);
@@ -281,7 +277,7 @@ private:
     // GWAS simulation
     void kosambi();
     int read_QTL_file(string qtl_file, vector<string> &qtl_name, vector<int> &qtl_pos, vector<double> &qtl_eff, vector<int> &have_eff);
-    void output_simu_par(vector<string> &qtl_name, vector<int> &qtl_pos, vector<double> &qtl_eff, vector<double> &qtl_eff_unscaled, double Vp);
+    void output_simu_par(vector<string> &qtl_name, vector<int> &qtl_pos, vector<double> &qtl_eff, double Vp);
     void save_phenfile(vector< vector<double> > &y);
     // not usefully any more
     void GenerCases(string bfile, string qtl_file, int case_num, int control_num, double hsq, double K, bool curr_popu = false, double gnrt = 100);
@@ -508,10 +504,8 @@ private:
     double _ncase2;
     vector< vector<int> > _bivar_pos;
     vector< vector<int> > _bivar_pos_prev;
-//    vector< eigenSparseMat > _Asp;
-//    vector< eigenSparseMat > _Asp_prev;
-    vector< eigenMatrix > _Adn;
-    vector< eigenMatrix > _Adn_prev;
+    vector< eigenSparseMat > _Asp;
+    vector< eigenSparseMat > _Asp_prev;
     vector<eigenMatrix> _A_prev;
     vector<double> _fixed_rg_val;
 

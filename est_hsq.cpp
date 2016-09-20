@@ -259,7 +259,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
             cout << "Note: you can specify the prevalences of the two diseases by the option --reml-bivar-prevalence so that GCTA can transform the estimates of variance explained to the underlying liability scale." << endl;
         }
     }
-    
+
     int pos = 0;
     _r_indx.clear();
     vector<int> kp;
@@ -647,7 +647,7 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
     if (pred_rand_eff) {
         u.resize(_n, _r_indx.size());
         for (i = 0; i < _r_indx.size(); i++) {
-            if (_bivar_reml || _within_family)(u.col(i)) = (((_Adn[_r_indx[i]]) * Py) * varcmp[i]);
+            if (_bivar_reml || _within_family)(u.col(i)) = (((_Asp[_r_indx[i]]) * Py) * varcmp[i]);
             else (u.col(i)) = (((_A[_r_indx[i]]) * Py) * varcmp[i]);
         }
     }
@@ -890,7 +890,7 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         }
     }*/
 
-    char *mtd_str[3] = {"AI-REML algorithm", "Fisher-scoring ...", "EM-REML algorithm ..."};
+    char *mtd_str[3] = {"AI-REML", "Fisher-scoring REML", "EM-REML"};
     int i = 0, constrain_num = 0, iter = 0, reml_mtd_tmp = _reml_mtd;
     double logdet = 0.0, logdet_Xt_Vi_X = 0.0, prev_lgL = -1e20, lgL = -1e20, dlogL = 1000.0;
     eigenVector prev_prev_varcmp(varcmp), prev_varcmp(varcmp), varcomp_init(varcmp);
@@ -910,7 +910,7 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         }
         if (iter == 1) {
             _reml_mtd = reml_mtd_tmp;
-            cout << "Running " << mtd_str[_reml_mtd] << " ..." << "\nIter.\tlogL\t";
+            cout << "Running " << mtd_str[_reml_mtd] << " algorithm ..." << "\nIter.\tlogL\t";
             for (i = 0; i < _r_indx.size(); i++) cout << _var_name[_r_indx[i]] << "\t";
             cout << endl;
         }
@@ -1192,38 +1192,8 @@ bool gcta::comput_inverse_logdet_LDLT(eigenMatrix &Vi, double &logdet) {
         for (i = 0; i < n; i++) logdet += log(d[i]);
         Vi.setIdentity();
         ldlt.solveInPlace(Vi);
-        //ldlt.setZero();
-        //inverse_by_partition(Vi);
     }
     return true;
-}
-
-void gcta::inverse_by_partition(eigenMatrix &V){
-    unsigned n = (unsigned) V.cols();
-    unsigned p = n/2;
-    unsigned q = n-p;
-    if (n<1000) {
-        LDLT<eigenMatrix> ldlt(V);
-        V.setIdentity();
-        ldlt.solveInPlace(V);
-        return;
-    }
-    eigenMatrix V11 = V.topLeftCorner(p,p);
-    eigenMatrix V12 = V.topRightCorner(p,q);
-    eigenMatrix V22 = V.bottomRightCorner(q,q);
-    eigenMatrix V11inv = V11;
-    inverse_by_partition(V11inv);
-    eigenMatrix V22inv = V22;
-    inverse_by_partition(V22inv);
-    eigenMatrix Vi11 = V11 - V12*V22inv*V12.transpose();
-    inverse_by_partition(Vi11);
-    eigenMatrix Vi22 = V22 - V12.transpose()*V11inv*V12;
-    inverse_by_partition(Vi22);
-    eigenMatrix Vi12 = -Vi11*V12*V22inv;
-    V.topLeftCorner(p,p) = Vi11;
-    V.topRightCorner(p,q) = Vi12;
-    V.bottomLeftCorner(q,p) = Vi12.transpose();
-    V.bottomRightCorner(q,q) = Vi22;
 }
 
 bool gcta::comput_inverse_logdet_PLU(eigenMatrix &Vi, double &logdet)
@@ -1292,7 +1262,7 @@ void gcta::calcu_Hi(eigenMatrix &P, eigenMatrix &Hi)
     vector<eigenMatrix> PA(_r_indx.size());
     for (i = 0; i < _r_indx.size(); i++) {
         (PA[i]).resize(_n, _n);
-        if (_bivar_reml || _within_family) (PA[i]) = P * (_Adn[_r_indx[i]]);
+        if (_bivar_reml || _within_family) (PA[i]) = P * (_Asp[_r_indx[i]]);
         else (PA[i]) = P * (_A[_r_indx[i]]);
     }
 
@@ -1329,7 +1299,7 @@ void gcta::reml_equation(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigen
     Py = P*_y;
     eigenVector R(_r_indx.size());
     for (int i = 0; i < _r_indx.size(); i++) {
-        if (_bivar_reml || _within_family) R(i) = (Py.transpose()*(_Adn[_r_indx[i]]) * Py)(0, 0);
+        if (_bivar_reml || _within_family) R(i) = (Py.transpose()*(_Asp[_r_indx[i]]) * Py)(0, 0);
         else R(i) = (Py.transpose()*(_A[_r_indx[i]]) * Py)(0, 0);
     }
 
@@ -1349,7 +1319,7 @@ void gcta::ai_reml(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector
     eigenVector cvec(_n);
     eigenMatrix APy(_n, _r_indx.size());
     for (i = 0; i < _r_indx.size(); i++) {
-        if (_bivar_reml || _within_family) (APy.col(i)) = (_Adn[_r_indx[i]]) * Py;
+        if (_bivar_reml || _within_family) (APy.col(i)) = (_Asp[_r_indx[i]]) * Py;
         else (APy.col(i)) = (_A[_r_indx[i]]) * Py;
     }
 
@@ -1398,7 +1368,7 @@ void gcta::em_reml(eigenMatrix &P, eigenVector &Py, eigenVector &prev_varcmp, ei
     Py = P*_y;
     eigenVector R(_r_indx.size());
     for (i = 0; i < _r_indx.size(); i++) {
-        if (_bivar_reml || _within_family) R(i) = (Py.transpose()*(_Adn[_r_indx[i]]) * Py)(0, 0);
+        if (_bivar_reml || _within_family) R(i) = (Py.transpose()*(_Asp[_r_indx[i]]) * Py)(0, 0);
         else R(i) = (Py.transpose()*(_A[_r_indx[i]]) * Py)(0, 0);
     }
 
@@ -1417,7 +1387,7 @@ void gcta::calcu_tr_PA(eigenMatrix &P, eigenVector &tr_PA) {
     // Calculate trace(PA)
     tr_PA.resize(_r_indx.size());
     for (i = 0; i < _r_indx.size(); i++) {
-        if (_bivar_reml || _within_family) tr_PA(i) = (P * (_Adn[_r_indx[i]])).diagonal().sum();
+        if (_bivar_reml || _within_family) tr_PA(i) = (P * (_Asp[_r_indx[i]])).diagonal().sum();
         else {
             d_buf = 0.0;
             for (k = 0; k < _n; k++) {
@@ -1991,7 +1961,7 @@ void gcta::HE_reg_cov(string grm_file, bool m_grm_flag, string phen_file, string
     cout << "Results from Haseman-Elston regression have been saved in [" + ofile + "]." << endl;
 }
 
-
+/*   // old implementation of single component HE regression
 void gcta::HE_reg(string grm_file, string phen_file, string keep_indi_file, string remove_indi_file, int mphen) {
     int i = 0, j = 0, k = 0, l = 0;
     stringstream errmsg;
@@ -2024,16 +1994,16 @@ void gcta::HE_reg(string grm_file, string phen_file, string keep_indi_file, stri
 
     cout << "\nPerforming Haseman-Elston regression ...\n" << endl;
     int n = _n * (_n - 1) / 2;
-    /*   vector<bool> nomiss(_n*(_n-1));
-       for(i=0, k=0; i<_n; i++){
-           for(j=0; j<i; j++, k++){
-               if(CommFunc::FloatNotEqual(_grm(i,j),0)){
-                   nomiss[k]=true;
-                   n++;
-               }
-               else nomiss[k]=false;
-           }
-       }*/
+//       vector<bool> nomiss(_n*(_n-1));
+//       for(i=0, k=0; i<_n; i++){
+//           for(j=0; j<i; j++, k++){
+//               if(CommFunc::FloatNotEqual(_grm(i,j),0)){
+//                   nomiss[k]=true;
+//                   n++;
+//               }
+//               else nomiss[k]=false;
+//           }
+//       }
 
     // normalise phenotype
     cout << "Standardising the phenotype ..." << endl; 
@@ -2070,4 +2040,4 @@ void gcta::HE_reg(string grm_file, string phen_file, string keep_indi_file, stri
     os << ss.str() << endl;
     cout << "Results from Haseman-Elston regression have been saved in [" + ofile + "]." << endl;
 
-}
+} */
