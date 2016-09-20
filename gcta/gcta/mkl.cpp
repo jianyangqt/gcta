@@ -357,7 +357,13 @@ bool gcta::comput_inverse_logdet_LDLT_mkl(eigenMatrix &Vi, double &logdet)
     // MKL's Cholesky decomposition
     int info = 0, int_n = (int) n;
     char uplo = 'L';
+    
+    cout << "pars for mkl cholesky decomposition: dpotrf(): uplo " << uplo << " int_n " << int_n << " Vi_mkl (matrix) int_n (printed) info " << info << endl;
+
     dpotrf(&uplo, &int_n, Vi_mkl, &int_n, &info);
+    
+    cout << "result: info " << info << " (0: succeed, >0: failed due to insufficient rank)" << endl;
+
     //spotrf( &uplo, &n, Vi_mkl, &n, &info );
     if (info < 0) throw ("Error: Cholesky decomposition failed. Invalid values found in the matrix.\n");
     else if (info > 0) return false;
@@ -369,7 +375,13 @@ bool gcta::comput_inverse_logdet_LDLT_mkl(eigenMatrix &Vi, double &logdet)
         }
 
         // Calcualte V inverse
+        
+        cout << "pars for mkl cholesky inverse: dpotri(): uplo " << uplo << " int_n " << int_n << " Vi_mkl (matrix) int_n (printed) info " << info << endl;
+
         dpotri(&uplo, &int_n, Vi_mkl, &int_n, &info);
+        
+        cout << "result: info " << info << " (0: succeed, otherwise failed)" << endl;
+
         //spotri( &uplo, &n, Vi_mkl, &n, &info );
         if (info < 0) throw ("Error: invalid values found in the varaince-covaraince (V) matrix.\n");
         else if (info > 0) return false;
@@ -405,7 +417,13 @@ bool gcta::comput_inverse_logdet_LU_mkl(eigenMatrix &Vi, double &logdet)
     int LWORK = N*N;
     double *WORK = new double[n * n];
     int INFO;
+    
+    cout << "pars for mkl LU decomposition: dgetrf(): N " << N << " N (printed) Vi_mkl (matrix) N (printed) IPIV (array) INFO " << INFO << endl;
+
     dgetrf(&N, &N, Vi_mkl, &N, IPIV, &INFO);
+    
+    cout << "result: INFO " << INFO << " (0: succeed, otherwise failed)" << endl;
+
     if (INFO < 0) throw ("Error: LU decomposition failed. Invalid values found in the matrix.\n");
     else if (INFO > 0) {
         delete[] Vi_mkl;
@@ -418,7 +436,13 @@ bool gcta::comput_inverse_logdet_LU_mkl(eigenMatrix &Vi, double &logdet)
         }
 
         // Calcualte V inverse
+        
+        cout << "pars for mkl LU inverse: dgetri(): N " << N << " Vi_mkl (matrix) N (printed) IPIV (array) WORK " << WORK << " LWORK " << LWORK << " INFO " << INFO << endl;
+
         dgetri(&N, Vi_mkl, &N, IPIV, WORK, &LWORK, &INFO);
+        
+        cout << "result: INFO " << INFO << " (0: succeed, otherwise failed)" << endl;
+
         if (INFO < 0) throw ("Error: invalid values found in the varaince-covaraince (V) matrix.\n");
         else if (INFO > 0) return false;
         else {

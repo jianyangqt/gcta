@@ -98,6 +98,7 @@ public:
     void make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, double make_grm_scl, bool mlmassoc, bool diag_f3_flag = false, string subpopu_file = "");
     //void make_grm_pca(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, double wind_size, bool mlmassoc);
     void save_grm(string grm_file, string keep_indi_file, string remove_indi_file, string sex_file, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool merge_grm_flag, bool output_grm_bin);
+    void align_grm(string m_grm_file);
     void pca(string grm_file, string keep_indi_file, string remove_indi_file, double grm_cutoff, bool merge_grm_flag, int out_pc_num);
     void snp_pc_loading(string pc_file, int grm_N);
 

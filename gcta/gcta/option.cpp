@@ -65,7 +65,7 @@ void option(int option_num, char* option_str[])
     double maf = 0.0, max_maf = 0.0, dose_Rsq_cutoff = 0.0;
 
     // GRM
-    bool ibc = false, ibc_all = false, grm_flag = false, grm_bin_flag = true, m_grm_flag = false, m_grm_bin_flag = true, make_grm_flag = false, make_grm_inbred_flag = false, dominance_flag = false, make_grm_xchar_flag = false, grm_out_bin_flag = true, make_grm_f3_flag = false;
+    bool ibc = false, ibc_all = false, grm_flag = false, grm_bin_flag = true, m_grm_flag = false, m_grm_bin_flag = true, make_grm_flag = false, make_grm_inbred_flag = false, dominance_flag = false, make_grm_xchar_flag = false, grm_out_bin_flag = true, make_grm_f3_flag = false, align_grm_flag = false;
     bool pca_flag = false, pcl_flag = false;
     double grm_adj_fac = -2.0, grm_cutoff = -2.0, rm_high_ld_cutoff = -1.0, bK_threshold = -10.0;
     double make_grm_scl = 1.0; // G = sum_j {W_j W'_j / (2 p_j q_j)^s} / N where s is the scale exponent
@@ -408,6 +408,9 @@ void option(int option_num, char* option_str[])
             grm_cutoff = atof(argv[++i]);
             if (grm_cutoff >= -1 && grm_cutoff <= 2) cout << "--grm-cutoff " << grm_cutoff << endl;
             else grm_cutoff = -2;
+        } else if (strcmp(argv[i], "--grm-align") == 0) {
+            align_grm_flag = true;
+            thread_flag = true;
         } else if (strcmp(argv[i], "--make-bK") == 0) {
             bK_threshold = atof(argv[++i]);
             if (bK_threshold < 0 || bK_threshold > 1) throw ("\nError: --make-bK threshold should be range from 0 to 1.\n");
@@ -1157,6 +1160,7 @@ void option(int option_num, char* option_str[])
     } else if (grm_flag || m_grm_flag) {
         if (pca_flag) pter_gcta->pca(grm_file, kp_indi_file, rm_indi_file, grm_cutoff, m_grm_flag, out_pc_num);
         else if (make_grm_flag) pter_gcta->save_grm(grm_file, kp_indi_file, rm_indi_file, update_sex_file, grm_cutoff, grm_adj_fac, dosage_compen, m_grm_flag, grm_out_bin_flag);
+        else if (align_grm_flag) pter_gcta->align_grm(grm_file);
         else if (bK_threshold > -1) pter_gcta->grm_bK(grm_file, kp_indi_file, rm_indi_file, bK_threshold, grm_out_bin_flag);
     }
     else if (ld_mean_rsq_seg_flag) pter_gcta->ld_seg(LD_file, LD_seg, LD_wind, LD_rsq_cutoff, dominance_flag);

@@ -288,17 +288,25 @@ bool gcta::calcu_Vi_bivar(eigenMatrix &Vi, eigenVector &prev_varcmp, double &log
     logdet = 0.0;
     string errmsg = "\nError: the V (variance-covariance) matrix is not invertible.";
 
+    cout << "\nCalc Vi bivar ..." << endl;
+
     Vi = eigenMatrix::Zero(_n, _n);
     for (i = 0; i < _r_indx.size(); i++) Vi += _Adn[_r_indx[i]] * prev_varcmp[i];
 
     if (_V_inv_mtd == 0) {
-        if (!comput_inverse_logdet_LDLT(Vi, logdet)) {
-            //cout<<"Note: the variance-covaraince matrix V is non-positive definite. Switching to Cholesky to LU decomposition approach."<<endl;
+        
+        cout << "using LDLT MKL..." << endl;
+
+        if (!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) {
+            cout<<"Note: the variance-covaraince matrix V is non-positive definite. Switching to Cholesky to LU decomposition approach."<<endl;
             _V_inv_mtd = 1;
         }
     }
     if (_V_inv_mtd == 1) {
-        if (!comput_inverse_logdet_LU(Vi, logdet)) throw ("Error: the variance-covaraince matrix V is not invertible.");
+        
+        cout << "using LU MKL..." << endl;
+
+        if (!comput_inverse_logdet_LU_mkl(Vi, logdet)) throw ("Error: the variance-covaraince matrix V is not invertible.");
     }
 
     /*    if(!comput_inverse_logdet_LDLT_mkl(Vi, logdet)){
@@ -311,6 +319,8 @@ bool gcta::calcu_Vi_bivar(eigenMatrix &Vi, eigenVector &prev_varcmp, double &log
             return false;
         }
      */
+
+    cout << "Vi completed." << endl;
 
 }
 
