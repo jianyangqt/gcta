@@ -24,8 +24,8 @@ void gcta::detect_family()
         if(CommFunc::FloatEqual(d_buf1, 0.0) && CommFunc::FloatEqual(d_buf2, 0.0)) _fam_brk_pnt.push_back(i);
     }
     
-    _Adn.resize(_r_indx.size());
-    for(i=0; i<_r_indx.size(); i++) (_Adn[i]).setZero(_n, _n);
+    _Asp.resize(_r_indx.size());
+    for(i=0; i<_r_indx.size(); i++) (_Asp[i]).resize(_n, _n);
     
     int pos=0;
     for(l=0; l<_r_indx.size()-1; l++){
@@ -33,18 +33,23 @@ void gcta::detect_family()
         prev_pnt=0;
         for(k=0; k<_fam_brk_pnt.size(); k++){
             for(j=prev_pnt; j<=_fam_brk_pnt[k]; j++){
-                for(i=prev_pnt; i<=_fam_brk_pnt[k]; i++) _Adn[pos](i,j)=(_A[pos])(i,j);
+                (_Asp[pos]).startVec(j);
+                for(i=prev_pnt; i<=_fam_brk_pnt[k]; i++) (_Asp[pos]).insertBack(i,j)=(_A[pos])(i,j);
             }
             prev_pnt=_fam_brk_pnt[k]+1;
         }
         for(j=prev_pnt; j<_n; j++){
-            for(i=prev_pnt; i<_n; i++) _Adn[pos](i,j)=(_A[pos])(i,j);
+            (_Asp[pos]).startVec(j);
+            for(i=prev_pnt; i<_n; i++) (_Asp[pos]).insertBack(i,j)=(_A[pos])(i,j);
         }
+        (_Asp[pos]).finalize();
     }
     pos=_r_indx[_r_indx.size()-1];
     for(i=0; i<_n; i++){
-        _Adn[pos](i,i)=1.0;
+        (_Asp[pos]).startVec(i);
+        (_Asp[pos]).insertBack(i,i)=1.0;
     }
+    (_Asp[pos]).finalize();
     cout<<"There are "<<_fam_brk_pnt.size()+1<<" sub-matrices detected."<<endl;
     
     // release momery
@@ -63,7 +68,7 @@ bool gcta::calcu_Vi_within_family(eigenMatrix &Vi, eigenVector &prev_varcmp, dou
         logdet=_n*log(prev_varcmp[0]);
     }
     else{
-        for(i=0; i<_r_indx.size(); i++) Vi+=_Adn[_r_indx[i]]*prev_varcmp[i];
+        for(i=0; i<_r_indx.size(); i++) Vi+=(_Asp[_r_indx[i]])*prev_varcmp[i];
         int prev_pnt=0, subn=0;
         logdet=0.0;
         for(i=0; i<_fam_brk_pnt.size()+1; i++){
