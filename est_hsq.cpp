@@ -1949,47 +1949,71 @@ void gcta::HE_reg_cov(string grm_file, bool m_grm_flag, string phen_file, string
     int size = sizeof (float);
     float f_buf = 0.0;
     float grm_cp, r_cp, r_sd;
-    for (i = 0, ii = 0; i < size_grm; i++) {
-        if (i != grm_kp_tr1[ii]) {  // skip unkept individual
-            for (j = 0; j <= i; j++) {
+    
+    int t1i=0, t2i=0, t1j=0, t2j=0;
+    
+    long unsigned numcov = 0;
+    
+    for (i=0, t1i=0, t2i=0; i < size_grm; ++i) {
+        for (j=0, t1j=0, t2j=0; j <= i; ++j) {
+            if (i == grm_kp_tr2[t2i] && j == grm_kp_tr1[t1j]) {
+                for (k = 0; k < n_grm; k++) {
+                    (*A_bin[k]).read((char*) &f_buf, size);
+                    aij[k] = f_buf;
+                    r = k + 1;   // first one is intercept
+                    Lhs(0,r) = Lhs(r,0) += aij[k];   // symetric
+                    LhsVec[t1j](0,r) = LhsVec[t1j](r,0) += aij[k];
+                    for (l = 0; l <= k; l++) {
+                        c = l + 1;
+                        grm_cp = aij[k] * aij[l];
+                        Lhs(c,r) = Lhs(r,c) += grm_cp;
+                        LhsVec[t1j](c,r) = LhsVec[t1j](r,c) += grm_cp;
+                    }
+                    r_cp = aij[k] * y1[t1j] * y2[t2i];
+                    r_sd = aij[k] *(y1[t1j] - y2[t2i])*(y1[t1j] - y2[t2i]);
+                    Rhs_cp[r] += r_cp;
+                    Rhs_sd[r] += r_sd;
+                    RhsCpVec[t1j][r] += r_cp;
+                    RhsSdVec[t1j][r] += r_sd;
+                }
+                ++t1j;
+                ++numcov;
+            }
+            else if (i == grm_kp_tr1[t1i] && j == grm_kp_tr2[t2j]) {
+                for (k = 0; k < n_grm; k++) {
+                    (*A_bin[k]).read((char*) &f_buf, size);
+                    aij[k] = f_buf;
+                    r = k + 1;   // first one is intercept
+                    Lhs(0,r) = Lhs(r,0) += aij[k];   // symetric
+                    LhsVec[t1i](0,r) = LhsVec[t1i](r,0) += aij[k];
+                    for (l = 0; l <= k; l++) {
+                        c = l + 1;
+                        grm_cp = aij[k] * aij[l];
+                        Lhs(c,r) = Lhs(r,c) += grm_cp;
+                        LhsVec[t1i](c,r) = LhsVec[t1i](r,c) += grm_cp;
+                    }
+                    r_cp = aij[k] * y1[t1i] * y2[t2j];
+                    r_sd = aij[k] *(y1[t1i] - y2[t2j])*(y1[t1i] - y2[t2j]);
+                    Rhs_cp[r] += r_cp;
+                    Rhs_sd[r] += r_sd;
+                    RhsCpVec[t1i][r] += r_cp;
+                    RhsSdVec[t1i][r] += r_sd;
+                }
+                ++t2j;
+                ++numcov;
+            }
+            else {
                 for (k = 0; k < n_grm; k++) {
                     (*A_bin[k]).read((char*) &f_buf, size);
                 }
             }
         }
-        else {
-            for (j = 0, jj = 0; j <= i; j++) {
-                if (j != grm_kp_tr2[jj] || j==i) {  // skip unkept individual and diagonals
-                    for (k = 0; k < n_grm; k++) {
-                        (*A_bin[k]).read((char*) &f_buf, size);
-                    }
-                }
-                else {
-                    for (k = 0; k < n_grm; k++) {
-                        (*A_bin[k]).read((char*) &f_buf, size);
-                        aij[k] = f_buf;
-                        r = k + 1;   // first one is intercept
-                        Lhs(0,r) = Lhs(r,0) += aij[k];   // symetric
-                        LhsVec[ii](0,r) = LhsVec[ii](r,0) += aij[k];
-                        for (l = 0; l <= k; l++) {
-                            c = l + 1;
-                            grm_cp = aij[k] * aij[l];
-                            Lhs(c,r) = Lhs(r,c) += grm_cp;
-                            LhsVec[ii](c,r) = LhsVec[ii](r,c) += grm_cp;
-                        }
-                        r_cp = aij[k] * y1[ii] * y2[jj];
-                        r_sd = aij[k] *(y1[ii] - y2[jj])*(y1[ii] - y2[jj]);
-                        Rhs_cp[r] += r_cp;
-                        Rhs_sd[r] += r_sd;
-                        RhsCpVec[ii][r] += r_cp;
-                        RhsSdVec[ii][r] += r_sd;
-                    }
-                    ++jj;
-                }
-            }
-            ++ii;
-        }
+        if (i == grm_kp_tr2[t2i]) ++t2i;
+        if (i == grm_kp_tr1[t1i]) ++t1i;
     }
+    
+    cout << "\n number of covariates: " << numcov << endl;
+    
     
     for (k = 0; k < n_grm; k++) {
         (*A_bin[k]).close();
