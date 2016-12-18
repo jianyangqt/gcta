@@ -12,13 +12,13 @@ export TMPDIR=/state/partition1/tmp
 
 # Set this variable to either UNIX, MAC or WIN
 SYS = UNIX
-OUTPUT = ~/scratch/bin/gcta64_test_new
-#OUTPUT = ./release/gcta64_test
+#OUTPUT = ~/scratch/bin/gcta64_test_new
+OUTPUT = ./release/gcta64_test
 
-MKLROOT = /opt/intel/mkl
-
+#MKLROOT = /opt/intel/mkl
+MKLROOT = /clusterdata/uqzzhen4/local/packages/intel/compilers_and_libraries_2017/linux/mkl
 # Use sinlge precision to store matrix
-SINGLE_PRECISION = 
+#SINGLE_PRECISION = 1 
 
 # Put C++ compiler here; Windows has it's own specific version
 CXX_UNIX = g++
@@ -26,7 +26,7 @@ CXX_WIN = C:\CodeBlocks\MinGW\bin\mingw32-g++.exe
 CXX_MAC = g++
 
 # Any other compiler flags here ( -Wall, -g, etc)
-CXXFLAGS = -w -O3 -m64 -fopenmp -I ../Lib/eigen -DEIGEN_NO_DEBUG -msse2 -std=c++0x -I.
+CXXFLAGS = -w -O3 -m64 -fopenmp -I /clusterdata/uqzzhen4/local/packages/ -DEIGEN_NO_DEBUG -msse2 -std=c++0x -I.
 
 ifdef SINGLE_PRECISION
  CXXFLAGS += -DSINGLE_PRECISION=1
@@ -41,8 +41,8 @@ ifeq ($(SYS),WIN)
 endif
 
 ifeq ($(SYS),UNIX)
- CXXFLAGS += -DUNIX -static -m64 -I$(MKLROOT)/include
- LIB += -static -lz -Wl,--start-group  $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/lib/intel64/libmkl_gnu_thread.a $(MKLROOT)/lib/intel64/libmkl_core.a -Wl,--end-group -lpthread -lm -ldl
+ CXXFLAGS += -DUNIX -DMKL_LP64 -static -m64 -I$(MKLROOT)/include
+ LIB += -static -lz -Wl,--start-group  $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/lib/intel64/libmkl_gnu_thread.a $(MKLROOT)/lib/intel64/libmkl_core.a -Wl,--end-group -lgomp -lpthread -lm -ldl
  CXX = $(CXX_UNIX)
 endif
 

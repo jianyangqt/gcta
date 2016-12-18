@@ -98,6 +98,7 @@ public:
     void save_grm(string grm_file, string keep_indi_file, string remove_indi_file, string sex_file, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool merge_grm_flag, bool output_grm_bin);
     void pca(string grm_file, string keep_indi_file, string remove_indi_file, double grm_cutoff, bool merge_grm_flag, int out_pc_num);
     void snp_pc_loading(string pc_file, int grm_N);
+    void project_loading(string pc_load, int N); 
 
     // bigK + smallK method
     void grm_bK(string grm_file, string keep_indi_file, string remove_indi_file, double threshold, bool grm_out_bin_flag);

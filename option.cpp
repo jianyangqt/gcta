@@ -67,9 +67,14 @@ void option(int option_num, char* option_str[])
     // GRM
     bool ibc = false, ibc_all = false, grm_flag = false, grm_bin_flag = true, m_grm_flag = false, m_grm_bin_flag = true, make_grm_flag = false, make_grm_inbred_flag = false, dominance_flag = false, make_grm_xchar_flag = false, grm_out_bin_flag = true, make_grm_f3_flag = false;
     bool pca_flag = false, pcl_flag = false;
+    bool project_flag = false;
     double grm_adj_fac = -2.0, grm_cutoff = -2.0, rm_high_ld_cutoff = -1.0, bK_threshold = -10.0;
     int dosage_compen = -2, out_pc_num = 20, make_grm_mtd = 0, pcl_grm_N = 0;
     string grm_file = "", paa_file = "", pc_file = "";
+    //pca projection
+    string project_file = "";
+    int project_N = 0;
+
 
     // LD
     string LD_file = "", ld_score_multi_file = "";
@@ -419,6 +424,13 @@ void option(int option_num, char* option_str[])
             pcl_grm_N = atoi(argv[++i]);
             cout << "--pc-loading " << pc_file << " " << pcl_grm_N << endl;
             if(pcl_grm_N < 1 || pcl_grm_N > 1e20) throw("\nError: invalid number of SNPs used to calculate PCs."); 
+        }else if (strcmp(argv[i], "--project-loading") == 0 ){
+            project_flag = true;
+            thread_flag = true;
+            project_file = argv[++i];
+            project_N = atoi(argv[++i]);
+            cout << "--project-loading " << project_file << project_N << endl;
+            if(project_N < 1 || project_N > 1e3) throw("\nError: invalid number of PCs to output");
         }
         // estimation of LD structure
         else if (strcmp(argv[i], "--ld") == 0) {
@@ -1075,6 +1087,7 @@ void option(int option_num, char* option_str[])
                 else if(sbat_seg_flag) pter_gcta->sbat_seg(sbat_sAssoc_file, sbat_seg_size, sbat_ld_cutoff, sbat_write_snpset);
             }
             else if(pcl_flag) pter_gcta->snp_pc_loading(pc_file, pcl_grm_N);
+            else if(project_flag) pter_gcta->project_loading(project_file, project_N);
         }
     } else if (dose_beagle_flag || dose_mach_flag || dose_mach_gz_flag) {
         if (massoc_slct_flag | massoc_joint_flag | !massoc_cond_snplist.empty()) throw ("Error: the --dosage option can't be used in combined with the --cojo options.");

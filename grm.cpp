@@ -685,7 +685,7 @@ void gcta::snp_pc_loading(string pc_file, int grm_N)
     }
 
     eigenVector inv_eigenval(eigenval_num);
-    for(i = 0; i < eigenval_num; i++)  inv_eigenval(i) = 1.0 / (eigenval_buf[i] * grm_N);
+    for(i = 0; i < eigenval_num; i++)  inv_eigenval(i) = 1.0 / (eigenval_buf[i]);
 
     // calculating SNP loading
     if (_mu.empty()) calcu_mu();
@@ -695,7 +695,7 @@ void gcta::snp_pc_loading(string pc_file, int grm_N)
     eigenVector x(_n);
     for(j = 0; j < m ; j++) {
         makex_eigenVector(j, x, false, true);
-        x = x.array() / sqrt(_mu[_include[j]]*(1.0 - 0.5*_mu[_include[j]]));
+        x = x.array() / sqrt(_mu[_include[j]]*(1.0 - 0.5*_mu[_include[j]])) / m;
         snp_loading.row(j) = (eigenvec * x).array() * inv_eigenval.array();
     }
 
@@ -713,6 +713,190 @@ void gcta::snp_pc_loading(string pc_file, int grm_N)
     }
     ofile.close();
 }
+
+//This function changes the original _geno, _include, never use genotype variable after it!!
+void gcta::project_loading(string pc_load, int N){
+
+    string f_pc_load = pc_load + ".pcl";
+    ifstream in_pc_load(f_pc_load.c_str());
+    if (!in_pc_load) throw ("Error: can not open the loading file [" + f_pc_load + "] to read.");
+    
+    // output eigenvec. Moving this up to save the time for user when running in an unwritable directory.
+    string out_filename = _out + ".proj.eigenvec";
+    cout << "\nOpen the projected file for write " << out_filename << endl;
+    ofstream ofile(out_filename.c_str());
+    if(!ofile) throw("Can not open the file [" + out_filename + "] to write.");
+
+    cout << "Reading SNP loading from [" + f_pc_load + "]." << endl;
+    string buf;
+    vector<string> vsec_buf;
+    string header;
+    getline(in_pc_load,header);
+    size_t N_loading_file = count(header.begin(),header.end(),'p');
+    cout << "Number of loading " << N_loading_file << endl;
+
+    while(in_pc_load >> buf){
+        vsec_buf.push_back(buf);
+    }
+    cout << "Read done, buf size " << vsec_buf.size() << endl;
+    int len_col = N_loading_file + 2;
+    int num_snp = vsec_buf.size() / len_col;
+    cout << "Number of SNPs in loading array " << num_snp << endl; 
+    if((vsec_buf.size() % len_col != 0)){
+        throw("Error: the loading file has not same column!");
+    }
+
+    vector<string> snps(num_snp);
+    vector<string> A1(num_snp);
+    #ifdef SINGLE_PRECISION
+    vector<float> snp_loading (num_snp * N);
+    #else
+    vector<double> snp_loading (num_snp * N);
+    #endif
+    for(int read_snp_index=0; read_snp_index < num_snp; read_snp_index++){
+       int base_index = read_snp_index * len_col;
+       snps[read_snp_index] = vsec_buf[base_index];
+       A1[read_snp_index] = vsec_buf[base_index + 1];
+       for(int N_index=0; N_index<N; N_index++){
+           // atof .c_str()
+            #ifdef SINGLE_PRECISION
+            snp_loading[read_snp_index*N + N_index] = atof(vsec_buf[base_index+2+N_index].c_str());
+            #else
+            snp_loading[read_snp_index*N + N_index] = stod(vsec_buf[base_index+2+N_index]);
+            #endif
+        }
+    }
+
+    vsec_buf.clear();
+    vsec_buf.shrink_to_fit();
+    /*
+     * read function, Obsolete: too slow
+    while(getline(in_pc_load,line_buf)){
+        sec_len = StrFunc::split_string(line_buf,vsec_buf);       
+        if(line_num > 0 && sec_len != last_sec_len) throw("Error: each row should have the same number of columns.\n" + vsec_buf[0]);
+        if(sec_len < N + 2) throw("Error: the number of SNP loading should larger than PCs to be projected" + vsec_buf[0]); 
+        if(line_num > 0){
+            snps.push_back(vsec_buf[0]);
+            A1.push_back(vsec_buf[1]);
+            temp_snp_loading.reserve( temp_snp_loading.size() + N );
+            temp_snp_loading.insert(temp_snp_loading.end(), vsec_buf.begin() + 2, vsec_buf.begin() + 2 + N);
+        }
+        //vsec_buf.clear();
+        line_num++;
+        last_sec_len = sec_len;
+    }
+    */
+    /*
+    try{
+        transform(temp_snp_loading.begin(), temp_snp_loading.end(),snp_loading.begin(), [](const string& val){
+                return stof(val);});
+    }catch (const std::invalid_argument&){
+        throw("Error: SNP loading is not a numeric value: ");
+    }
+    temp_snp_loading.clear();
+    temp_snp_loading.shrink_to_fit();
+    */
+
+    //Map the vector to Matrix, share the same memory
+    //eigenMatrix m_snp_loading = Eigen::Map<Eigen::Matrix<double,SNP_NUM,PC_NUM,Eigen::RowMajor> >(snp_loading.data());
+    #ifdef SINGLE_PRECISION
+    eigenMatrix m_snp_loading = Map<Matrix<float,Dynamic,Dynamic,RowMajor> > (snp_loading.data(),snps.size(),N);
+    #else
+    eigenMatrix m_snp_loading = Map<Matrix<double,Dynamic,Dynamic,RowMajor> > (snp_loading.data(),snps.size(),N);
+    #endif
+    cout << "Mapped m_snp_loading 0,0 " << m_snp_loading(0,0) << " 0,1 " << m_snp_loading(0,1) << endl; 
+    cout << "last " << m_snp_loading(num_snp-1,N-1) << endl;
+    
+    //arange genotypes change the _include array;
+    vector<int> snp_index_include(snps.size());
+    StrFunc::match(snps,_snp_name,snp_index_include);
+    cout << snps[0] << " " << _snp_name[snp_index_include[0]] << endl;
+    cout << snps[1] << " " << _snp_name[snp_index_include[1]] << endl;
+    cout << snps[2] << " " << _snp_name[snp_index_include[2]] << endl;
+
+    _include.clear();
+    cout << "Matching Alleles" << endl;
+    for(int snp_index=0; snp_index < snps.size(); snp_index++){
+        int cur_snp_index = snp_index_include[snp_index];
+        if(cur_snp_index >= 0){
+            _include.push_back(cur_snp_index);
+            //out_demo << snps[snp_index] << "\t" << _snp_name[cur_snp_index] << endl;
+            /*
+            if(A1[snp_index].compare(_other_A[cur_snp_index]) == 0){
+                cout << "Warning:" << snps[snp_index] << " swapped the allele order" << endl;
+                // hacked the ref A to make the make_XMat() work as expected
+                string temp = _ref_A[cur_snp_index];
+                _ref_A[cur_snp_index] = _other_A[cur_snp_index];
+                _other_A[cur_snp_index] = temp;
+            }else if(snps[snp_index].compare(_ref_A[cur_snp_index]) == 0){
+                //do nothing, since it is correct
+                ;
+            }else{
+                // set to missing, as the allele was not same as PC loading. 
+                for(int keep_index=0; keep_index < _keep.size(); keep_index++){
+                    _snp_2[cur_snp_index][keep_index] = 0;
+                    _snp_1[cur_snp_index][keep_index] = 1;
+                }
+                cout << "Warning: treat the " << snps[snp_index] << " to miss, as alleles not correct" << endl;
+            }
+            */
+        }else{
+            // this snp is not found, set it to miss, and make_XMat std_XMat will standard it to 0 (mean value)
+            // Full dummy snp to add to the original data structures!
+            cout << "Waring:" << snps[snp_index] << " not found, add it to the genotype and set it to missing" << endl;
+            _include.push_back(_snp_name.size());
+            vector<bool> temp_snp_2(_keep.size(),0);
+            vector<bool> temp_snp_1(_keep.size(),1);
+            _snp_2.push_back(temp_snp_2);
+            _snp_1.push_back(temp_snp_1);
+            _snp_name.push_back(snps[snp_index]);
+            _ref_A.push_back(A1[snp_index]);
+            _other_A.push_back(A1[snp_index]);
+            _allele1.push_back(A1[snp_index]);
+            _allele2.push_back(A1[snp_index]);
+            _chr.push_back(1);
+            _bp.push_back(1);
+            _snp_num = _chr.size();
+        }
+    }
+    cout << "Adjust allele success" << endl;
+
+    /* 
+    // make genotype matrix: GRM way to caculate the w is very slow.
+    bool have_miss = make_XMat(_geno);
+    cout << "make xmat success" << endl;
+    eigenVector sd_SNP;
+    std_XMat(_geno, sd_SNP, false, have_miss, true);
+    cout << "std xmat success" << endl;
+    */
+    if(_mu.empty()) calcu_mu();
+    eigenMatrix geno(_keep.size(), _include.size());
+    eigenVector x(_keep.size());
+    for(int snp_index=0; snp_index < _include.size(); snp_index++){
+        makex_eigenVector(snp_index, x, false,true);
+        geno.col(snp_index) = x.array() / sqrt(_mu[_include[snp_index]]*(1.0 - 0.5*_mu[_include[snp_index]]));
+    } 
+    cout << "geno size: " << geno.size() << " " << geno.rows() << " " << geno.cols() <<  " m_snp_loading size: " << m_snp_loading.size() << " " <<  m_snp_loading.rows() << " " <<  m_snp_loading.cols() << endl;
+
+    // Compute the PCA using _geno and m_snp_loading
+    // Note: the transpose may double the memory usage, it should be fixed in future release; 
+    //eigenMatrix PCs = _geno.transpose() * m_snp_loading;
+    // Fixed, change the column and rows, m_snp_loading * _geno, which save the memory;
+    eigenMatrix PCs = geno * m_snp_loading;
+    cout << "caclulate PCs success" << endl;
+
+    // Output the values
+    for(int ind_index=0; ind_index < _keep.size(); ind_index++){
+        ofile << _fid[_keep[ind_index]] << "\t" << _pid[_keep[ind_index]] << "\t";
+        for(int pc_index=0; pc_index<N; pc_index++){
+            ofile << PCs(ind_index,pc_index) << "\t"; 
+        }
+        ofile << "\n";
+    }
+    ofile.close();
+    cout << "The PCs have been saved to " << out_filename << endl;
+}
+
 
 
 
