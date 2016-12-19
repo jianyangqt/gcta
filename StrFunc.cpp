@@ -172,3 +172,13 @@ void StrFunc::match(const vector<string> &VecA, const vector<string> &VecB, vect
     }
 }
 
+// This function compare two string ignore the case
+bool StrFunc::i_compare(string const& a, string const& b){
+    if (a.length() == b.length()) {
+        return equal(b.begin(), b.end(),
+                    a.begin(), [](unsigned char c1, unsigned char c2){
+                     return std::tolower(c1) == std::tolower(c2);});
+    }else {
+        return false;
+    }
+}

@@ -429,7 +429,7 @@ void option(int option_num, char* option_str[])
             thread_flag = true;
             project_file = argv[++i];
             project_N = atoi(argv[++i]);
-            cout << "--project-loading " << project_file << project_N << endl;
+            cout << "--project-loading " << project_file << " " << project_N << endl;
             if(project_N < 1 || project_N > 1e3) throw("\nError: invalid number of PCs to output");
         }
         // estimation of LD structure

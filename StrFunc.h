@@ -44,6 +44,8 @@ namespace StrFunc
 
 	// match two vectors
 	void match(const vector<string> &VecA, const vector<string> &VecB, vector<int> &VecC);
+        // compare two string ignore the case
+        bool i_compare(string const& a, string const& b);
 }
 
 #endif

@@ -15,8 +15,8 @@ SYS = UNIX
 #OUTPUT = ~/scratch/bin/gcta64_test_new
 OUTPUT = ./release/gcta64_test
 
-#MKLROOT = /opt/intel/mkl
-MKLROOT = /clusterdata/uqzzhen4/local/packages/intel/compilers_and_libraries_2017/linux/mkl
+MKLROOT = /opt/intel/mkl
+#MKLROOT = $(HOME)/local/packages/intel/compilers_and_libraries_2017/linux/mkl
 # Use sinlge precision to store matrix
 #SINGLE_PRECISION = 1 
 
@@ -26,7 +26,7 @@ CXX_WIN = C:\CodeBlocks\MinGW\bin\mingw32-g++.exe
 CXX_MAC = g++
 
 # Any other compiler flags here ( -Wall, -g, etc)
-CXXFLAGS = -w -O3 -m64 -fopenmp -I /clusterdata/uqzzhen4/local/packages/ -DEIGEN_NO_DEBUG -msse2 -std=c++0x -I.
+CXXFLAGS = -w -O3 -Wall -Os -s -m64 -fopenmp -I $(HOME)/local/packages/ -DEIGEN_NO_DEBUG -msse2 -std=c++0x -I.
 
 ifdef SINGLE_PRECISION
  CXXFLAGS += -DSINGLE_PRECISION=1
