@@ -69,7 +69,7 @@ void option(int option_num, char* option_str[])
     bool pca_flag = false, pcl_flag = false;
     bool project_flag = false;
     double grm_adj_fac = -2.0, grm_cutoff = -2.0, rm_high_ld_cutoff = -1.0, bK_threshold = -10.0;
-    int dosage_compen = -2, out_pc_num = 20, make_grm_mtd = 0, pcl_grm_N = 0;
+    int dosage_compen = -2, out_pc_num = 20, make_grm_mtd = 0;
     string grm_file = "", paa_file = "", pc_file = "";
     //pca projection
     string project_file = "";
@@ -421,9 +421,9 @@ void option(int option_num, char* option_str[])
             pcl_flag = true;
             thread_flag = true;
             pc_file = argv[++i];
-            pcl_grm_N = atoi(argv[++i]);
-            cout << "--pc-loading " << pc_file << " " << pcl_grm_N << endl;
-            if(pcl_grm_N < 1 || pcl_grm_N > 1e20) throw("\nError: invalid number of SNPs used to calculate PCs."); 
+            //pcl_grm_N = atoi(argv[++i]);
+            cout << "--pc-loading " << pc_file <<  endl;
+            //if(pcl_grm_N < 1 || pcl_grm_N > 1e20) throw("\nError: invalid number of SNPs used to calculate PCs."); 
         }else if (strcmp(argv[i], "--project-loading") == 0 ){
             project_flag = true;
             thread_flag = true;
@@ -1086,7 +1086,7 @@ void option(int option_num, char* option_str[])
                 else if(!sbat_snpset_file.empty()) pter_gcta->sbat(sbat_sAssoc_file, sbat_snpset_file, sbat_ld_cutoff, sbat_write_snpset);
                 else if(sbat_seg_flag) pter_gcta->sbat_seg(sbat_sAssoc_file, sbat_seg_size, sbat_ld_cutoff, sbat_write_snpset);
             }
-            else if(pcl_flag) pter_gcta->snp_pc_loading(pc_file, pcl_grm_N);
+            else if(pcl_flag) pter_gcta->snp_pc_loading(pc_file);
             else if(project_flag) pter_gcta->project_loading(project_file, project_N);
         }
     } else if (dose_beagle_flag || dose_mach_flag || dose_mach_gz_flag) {

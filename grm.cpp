@@ -636,7 +636,7 @@ void gcta::pca(string grm_file, string keep_indi_file, string remove_indi_file, 
     cout << "The first " << out_pc_num << " eigenvectors of " << n << " individuals have been saved in [" + evec_file + "]." << endl;
 }
 
-void gcta::snp_pc_loading(string pc_file, int grm_N)
+void gcta::snp_pc_loading(string pc_file)
 {
     // read eigenvectors and eigenvalues
     string eigenval_file = pc_file + ".eigenval";
@@ -674,7 +674,8 @@ void gcta::snp_pc_loading(string pc_file, int grm_N)
         uni_id.push_back(_fid[_keep[i]]+":"+_pid[_keep[i]]);
         uni_id_map.insert(pair<string,int>(_fid[_keep[i]]+":"+_pid[_keep[i]], i));
     }
-    _n=_keep.size();
+    _n = _keep.size();
+    int m = _include.size();
     if(_n < 1) throw("Error: no individual is in common between the input files.");
     cout << _n << " individuals in common between the input files are included in the analysis."<<endl;
     
@@ -686,17 +687,16 @@ void gcta::snp_pc_loading(string pc_file, int grm_N)
     }
 
     eigenVector inv_eigenval(eigenval_num);
-    for(i = 0; i < eigenval_num; i++)  inv_eigenval(i) = 1.0 / (eigenval_buf[i]);
+    for(i = 0; i < eigenval_num; i++)  inv_eigenval(i) = 1.0 / (eigenval_buf[i] * m);
 
     // calculating SNP loading
     if (_mu.empty()) calcu_mu();
     cout << "\nCalculating SNP loading ..." << endl;
-    int m = _include.size();
     eigenMatrix snp_loading(m, eigenvec_num);
     eigenVector x(_n);
     for(j = 0; j < m ; j++) {
         makex_eigenVector(j, x, false, true);
-        x = x.array() / sqrt(_mu[_include[j]]*(1.0 - 0.5*_mu[_include[j]])) / m;
+        x = x.array() / sqrt(_mu[_include[j]]*(1.0 - 0.5*_mu[_include[j]]));
         snp_loading.row(j) = (eigenvec * x).array() * inv_eigenval.array();
     }
 
@@ -806,7 +806,10 @@ void gcta::project_loading(string pc_load, int N){
         }
         missnp_list.push_back(snps[snp_index]);
     }
-    
+
+    snp_loading.clear();
+    snp_loading.shrink_to_fit();
+
     //Map the vector to Matrix, share the same memory, thus to save the memory.
     eigenMatrix m_snp_loading = Map< Matrix<t_val,Dynamic,Dynamic,RowMajor> > (filter_snp_loading.data(), _include.size(), N);
     cout << " " << m_snp_loading.rows() << " SNPs are included for loading" << endl;
@@ -819,6 +822,8 @@ void gcta::project_loading(string pc_load, int N){
         ostream_iterator<string> output_iterator(h_miss,"\n");
         copy(missnp_list.begin(), missnp_list.end(), output_iterator);
     }
+    missnp_list.clear();
+    missnp_list.shrink_to_fit();
 
     /* 
     // make genotype matrix: GRM way to caculate the w is very slow.
@@ -828,8 +833,8 @@ void gcta::project_loading(string pc_load, int N){
     std_XMat(_geno, sd_SNP, false, have_miss, true);
     cout << "std xmat success" << endl;
     */
-    cout << "Standardize genotypes..." << endl;
     if(_mu.empty()) calcu_mu();
+    cout << "Standardize genotypes..." << endl;
     eigenMatrix geno(_keep.size(), _include.size());
     eigenVector x(_keep.size());
     for(int snp_index=0; snp_index < _include.size(); snp_index++){
