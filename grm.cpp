@@ -12,6 +12,7 @@
 
 #include "gcta.h"
 #include <iterator>
+#include <unordered_set>
 
 void gcta::enable_grm_bin_flag() {
     _grm_bin_flag = true;
@@ -704,7 +705,7 @@ void gcta::snp_pc_loading(string pc_file)
     cout << "\nSaving the PC loading of " << m << " SNPs to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
     if(!ofile) throw("Can not open the file [" + filename + "] to write.");
-    ofile << "SNP\trefA\tA2";
+    ofile << "SNP\tA1\tA2";
     for(i = 0; i < eigenval_num; i++) ofile << "\tpc" << i+1 << "_loading";
     ofile << endl;
     for(i = 0; i < m; i++){
@@ -787,13 +788,16 @@ void gcta::project_loading(string pc_load, int N){
     cout << "Matching Alleles..." << endl;
     vector<int> snp_index_include(snps.size());
     StrFunc::match(snps,_snp_name,snp_index_include);
-    
+    // _include should be fixed here, it cause maf caculation go vain; 
+    unordered_set<int> ori_SNPs(_include.begin(),_include.end());
     _include.clear();
+
+    cout << "Adjust A1" << endl;
     bool remove_flag = true;
     vector<string> missnp_list;
     for(int snp_index=0; snp_index < snps.size(); snp_index++){
         int cur_snp_index = snp_index_include[snp_index];
-        if(cur_snp_index >= 0){
+        if(cur_snp_index >= 0 && ori_SNPs.find(cur_snp_index) != ori_SNPs.end() ){
             if((StrFunc::i_compare(A1[snp_index],_allele1[cur_snp_index]) && 
                 StrFunc::i_compare(A2[snp_index],_allele2[cur_snp_index])) 
                || (StrFunc::i_compare(A1[snp_index],_allele2[cur_snp_index]) && 
@@ -825,28 +829,39 @@ void gcta::project_loading(string pc_load, int N){
     missnp_list.clear();
     missnp_list.shrink_to_fit();
 
-    /* 
-    // make genotype matrix: GRM way to caculate the w is very slow.
-    bool have_miss = make_XMat(_geno);
-    cout << "make xmat success" << endl;
-    eigenVector sd_SNP;
-    std_XMat(_geno, sd_SNP, false, have_miss, true);
-    cout << "std xmat success" << endl;
-    */
     if(_mu.empty()) calcu_mu();
-    cout << "Standardize genotypes..." << endl;
-    eigenMatrix geno(_keep.size(), _include.size());
-    eigenVector x(_keep.size());
-    for(int snp_index=0; snp_index < _include.size(); snp_index++){
-        makex_eigenVector(snp_index, x, false,true);
-        geno.col(snp_index) = x.array() / sqrt(_mu[_include[snp_index]]*(1.0 - 0.5*_mu[_include[snp_index]]));
-    } 
-    cout << " " << geno.rows() << " subjects, " << geno.cols() << " SNPs." << endl;
-
-    cout << "Project PCs..." << endl;
-    eigenMatrix PCs = geno * m_snp_loading;
-    cout << " " << PCs.rows() << " subjects, " << PCs.cols() << " PCs." << endl;
-
+    cout << "Standardize genotypes and project PCs..." << endl;
+    cout << "Total number of subjects: " << _keep.size() << "\n" << endl;
+    //ofstream demo(_out + ".proj.matrix");
+    eigenMatrix PCs(_keep.size(),N);
+    #pragma omp parallel for ordered schedule(dynamic)
+    for(int ind_index=0; ind_index < _keep.size(); ind_index++){
+        cout << "Processing subject number: " + to_string(ind_index+1) + "\r" << flush;
+        Matrix<t_val,1,Dynamic> geno(_include.size());
+        for(int snp_index=0; snp_index < _include.size(); snp_index++){
+            if (!_snp_1[_include[snp_index]][_keep[ind_index]] || _snp_2[_include[snp_index]][_keep[ind_index]]) {
+                geno(snp_index) = _snp_1[_include[snp_index]][_keep[ind_index]] + _snp_2[_include[snp_index]][_keep[ind_index]];
+                if (_allele1[_include[snp_index]] != _ref_A[_include[snp_index]]) geno(snp_index) = 2.0 - geno(snp_index);
+                geno(snp_index) = (geno(snp_index) - _mu[_include[snp_index]]) / sqrt(_mu[_include[snp_index]]*(1.0 - 0.5*_mu[_include[snp_index]]));
+            }else{
+                geno(snp_index) = 0.0;
+            }
+        }
+        PCs.row(ind_index) = geno * m_snp_loading;
+        /*
+        if(ind_index==0){
+            demo << "geno:" << endl;
+            demo << geno << endl;
+            demo << "m_snp_loading" << endl;
+            demo << m_snp_loading << endl;
+            demo << "PC" << endl;
+            demo << PCs << endl;
+            demo.close();
+        }
+        */
+        geno.resize(0);
+    }
+    
     // Output the values
     for(int ind_index=0; ind_index < _keep.size(); ind_index++){
         ofile << _fid[_keep[ind_index]] << "\t" << _pid[_keep[ind_index]] << "\t";
@@ -856,6 +871,7 @@ void gcta::project_loading(string pc_load, int N){
         ofile << "\n";
     }
     ofile.close();
-    cout << "The PCs have been saved to " << out_filename << endl;
+    
+    cout << "\nFinished, and the PCs have all been saved to " << out_filename << endl;
 }
 
