@@ -705,11 +705,11 @@ void gcta::snp_pc_loading(string pc_file)
     cout << "\nSaving the PC loading of " << m << " SNPs to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
     if(!ofile) throw("Can not open the file [" + filename + "] to write.");
-    ofile << "SNP\tA1\tA2";
+    ofile << "SNP\tA1\tA2\tmu";
     for(i = 0; i < eigenval_num; i++) ofile << "\tpc" << i+1 << "_loading";
     ofile << endl;
     for(i = 0; i < m; i++){
-        ofile << _snp_name[_include[i]] << "\t" << _ref_A[_include[i]] << "\t" << _other_A[_include[i]];
+        ofile << _snp_name[_include[i]] << "\t" << _ref_A[_include[i]] << "\t" << _other_A[_include[i]] << "\t" <<  _mu[_include[i]];
         for(j = 0; j < eigenvec_num; j++) ofile << "\t" << snp_loading(i, j);
         ofile << "\n";
     }
@@ -751,7 +751,7 @@ void gcta::project_loading(string pc_load, int N){
     buf.clear();
     header.clear();
 
-    int len_col = N_loading_file + 3;
+    int len_col = N_loading_file + 4;
     int num_snp = vsec_buf.size() / len_col;
     cout << "Number of SNPs in loading array: " << num_snp << "." << endl; 
     if(vsec_buf.size() % len_col != 0){
@@ -764,20 +764,24 @@ void gcta::project_loading(string pc_load, int N){
     vector<string> snps(num_snp);
     vector<string> A1(num_snp);
     vector<string> A2(num_snp);
+    vector<t_val> mu(num_snp);
     vector<t_val> snp_loading (num_snp * N);
-    vector<t_val> filter_snp_loading;
-    filter_snp_loading.reserve(num_snp * N);
     for(int read_snp_index=0; read_snp_index < num_snp; read_snp_index++){
        int base_index = read_snp_index * len_col;
        snps[read_snp_index] = vsec_buf[base_index];
        A1[read_snp_index] = vsec_buf[base_index + 1];
        A2[read_snp_index] = vsec_buf[base_index + 2];
+       #ifdef SINGLE_PRECISION
+       mu[read_snp_index] = atof(vsec_buf[base_index + 3].c_str());
+       #else
+       mu[read_snp_index] = stod(vsec_buf[base_index + 3]);
+       #endif
        for(int N_index=0; N_index<N; N_index++){
            // atof .c_str()
             #ifdef SINGLE_PRECISION
-            snp_loading[read_snp_index*N + N_index] = atof(vsec_buf[base_index+3+N_index].c_str());
+            snp_loading[read_snp_index*N + N_index] = atof(vsec_buf[base_index+4+N_index].c_str());
             #else
-            snp_loading[read_snp_index*N + N_index] = stod(vsec_buf[base_index+3+N_index]);
+            snp_loading[read_snp_index*N + N_index] = stod(vsec_buf[base_index+4+N_index]);
             #endif
         }
     }
@@ -792,9 +796,13 @@ void gcta::project_loading(string pc_load, int N){
     unordered_set<int> ori_SNPs(_include.begin(),_include.end());
     _include.clear();
 
-    cout << "Adjust A1" << endl;
+    vector<t_val> filter_snp_loading;
+    filter_snp_loading.reserve(num_snp * N);
+
+    cout << "Adjusting A1" << endl;
     bool remove_flag = true;
     vector<string> missnp_list;
+    vector<t_val> mu_adj;
     for(int snp_index=0; snp_index < snps.size(); snp_index++){
         int cur_snp_index = snp_index_include[snp_index];
         if(cur_snp_index >= 0 && ori_SNPs.find(cur_snp_index) != ori_SNPs.end() ){
@@ -803,6 +811,7 @@ void gcta::project_loading(string pc_load, int N){
                || (StrFunc::i_compare(A1[snp_index],_allele2[cur_snp_index]) && 
                 StrFunc::i_compare(A2[snp_index],_allele1[cur_snp_index]))){
                      _include.push_back(cur_snp_index);
+                     mu_adj.push_back(mu[snp_index]);
                      _ref_A[cur_snp_index] = A1[snp_index];
                      filter_snp_loading.insert(filter_snp_loading.end(), snp_loading.begin() + N*snp_index, snp_loading.begin() + N*snp_index + N );
                      continue;
@@ -829,20 +838,21 @@ void gcta::project_loading(string pc_load, int N){
     missnp_list.clear();
     missnp_list.shrink_to_fit();
 
-    if(_mu.empty()) calcu_mu();
+    //if(_mu.empty()) calcu_mu();
     cout << "Standardize genotypes and project PCs..." << endl;
     cout << "Total number of subjects: " << _keep.size() << "\n" << endl;
     //ofstream demo(_out + ".proj.matrix");
+    cout << "Processing subject number: " << endl;
     eigenMatrix PCs(_keep.size(),N);
     #pragma omp parallel for ordered schedule(dynamic)
     for(int ind_index=0; ind_index < _keep.size(); ind_index++){
-        cout << "Processing subject number: " + to_string(ind_index+1) + "\r" << flush;
+        cout <<  to_string(ind_index+1) + "\r" << flush;
         Matrix<t_val,1,Dynamic> geno(_include.size());
         for(int snp_index=0; snp_index < _include.size(); snp_index++){
             if (!_snp_1[_include[snp_index]][_keep[ind_index]] || _snp_2[_include[snp_index]][_keep[ind_index]]) {
                 geno(snp_index) = _snp_1[_include[snp_index]][_keep[ind_index]] + _snp_2[_include[snp_index]][_keep[ind_index]];
                 if (_allele1[_include[snp_index]] != _ref_A[_include[snp_index]]) geno(snp_index) = 2.0 - geno(snp_index);
-                geno(snp_index) = (geno(snp_index) - _mu[_include[snp_index]]) / sqrt(_mu[_include[snp_index]]*(1.0 - 0.5*_mu[_include[snp_index]]));
+                geno(snp_index) = (geno(snp_index) - mu_adj[snp_index]) / sqrt(mu_adj[snp_index]*(1.0 - 0.5*mu_adj[snp_index]));
             }else{
                 geno(snp_index) = 0.0;
             }
