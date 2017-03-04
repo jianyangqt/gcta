@@ -199,6 +199,7 @@ private:
     void std_XMat_d(MatrixXf &X, eigenVector &sd_SNP, bool miss_with_mu, bool divid_by_std);
     //void std_XMat(vector< vector<float> > &X, vector<double> &sd_SNP, bool grm_xchr_flag, bool divid_by_std = true);
     void makex_eigenVector(int j, eigenVector &x, bool resize = true, bool minus_2p = false);
+    void makex_eigenVector_std(int j, eigenVector &x, bool resize = true, double snp_std = 1.0);
     //void make_XMat_eigenMatrix(MatrixXf &X);
     bool make_XMat_subset(MatrixXf &X, vector<int> &snp_indx, bool divid_by_std);
     bool make_XMat_d_subset(MatrixXf &X, vector<int> &snp_indx, bool divid_by_std);
