@@ -98,7 +98,7 @@ void option(int option_num, char* option_str[])
     int mphen = 1, mphen2 = 2, reml_mtd = 0, MaxIter = 100;
     double prevalence = -2.0, prevalence2 = -2.0;
     bool reml_flag = false, pred_rand_eff = false, est_fix_eff = false, blup_snp_flag = false, no_constrain = false, reml_lrt_flag = false, no_lrt = false, bivar_reml_flag = false, ignore_Ce = false, within_family = false, reml_bending = false, HE_reg_flag = false, reml_diag_one = false, bivar_no_constrain = false;
-    bool HE_reg_cov_flag = false;
+    bool HE_reg_bivar_flag = false;
     string phen_file = "", qcovar_file = "", covar_file = "", qgxe_file = "", gxe_file = "", blup_indi_file = "";
     vector<double> reml_priors, reml_priors_var, fixed_rg_val;
     vector<int> reml_drop;
@@ -548,8 +548,8 @@ void option(int option_num, char* option_str[])
             HE_reg_flag = true;
             thread_flag = true;
             cout << "--HEreg" << endl;
-        } else if (strcmp(argv[i], "--HEreg-cov") == 0) {
-            HE_reg_cov_flag = true;
+        } else if (strcmp(argv[i], "--HEreg-bivar") == 0) {
+            HE_reg_bivar_flag = true;
             thread_flag = true;
             vector<int> mphen_buf;
             while (1) {
@@ -558,7 +558,7 @@ void option(int option_num, char* option_str[])
                 mphen_buf.push_back(atoi(argv[i]));
             }
             i--;
-            if (mphen_buf.size() < 2 && mphen_buf.size() > 0) throw ("\nError: --HEreg-cov. Please specify two traits for the HE regression for covariance analysis.");
+            if (mphen_buf.size() < 2 && mphen_buf.size() > 0) throw ("\nError: --HEreg-bivar. Please specify two traits for the HE regression for covariance analysis.");
             if (mphen_buf.size() == 0) {
                 mphen = 1;
                 mphen2 = 2;
@@ -566,8 +566,8 @@ void option(int option_num, char* option_str[])
                 mphen = mphen_buf[0];
                 mphen2 = mphen_buf[1];
             }
-            if (mphen < 1 || mphen2 < 1 || mphen == mphen2) throw ("\nError: --HEreg-cov. Invalid input parameters.");
-            cout << "--HEreg-cov " << mphen << " " << mphen2 << endl;
+            if (mphen < 1 || mphen2 < 1 || mphen == mphen2) throw ("\nError: --HEreg-bivar. Invalid input parameters.");
+            cout << "--HEreg-bivar " << mphen << " " << mphen2 << endl;
         } else if (strcmp(argv[i], "--reml") == 0) {
             reml_flag = true;
             thread_flag = true;
@@ -1138,7 +1138,7 @@ void option(int option_num, char* option_str[])
         else if (mlma_flag) pter_gcta->mlma(grm_file, m_grm_flag, subtract_grm_file, phen_file, qcovar_file, covar_file, mphen, MaxIter, reml_priors, reml_priors_var, no_constrain, within_family, make_grm_inbred_flag, mlma_no_adj_covar);
         else if (mlma_loco_flag) pter_gcta->mlma_loco(phen_file, qcovar_file, covar_file, mphen, MaxIter, reml_priors, reml_priors_var, no_constrain, make_grm_inbred_flag, mlma_no_adj_covar);
     } else if (HE_reg_flag) pter_gcta->HE_reg(grm_file, m_grm_flag, phen_file, kp_indi_file, rm_indi_file, mphen);
-    else if (HE_reg_cov_flag) pter_gcta->HE_reg_cov(grm_file, m_grm_flag, phen_file, kp_indi_file, rm_indi_file, mphen, mphen2);
+    else if (HE_reg_bivar_flag) pter_gcta->HE_reg_bivar(grm_file, m_grm_flag, phen_file, kp_indi_file, rm_indi_file, mphen, mphen2);
     else if ((reml_flag || bivar_reml_flag) && phen_file.empty()) throw ("\nError: phenotype file is required for reml analysis.\n");
     else if (bivar_reml_flag) {
         pter_gcta->fit_bivar_reml(grm_file, phen_file, qcovar_file, covar_file, kp_indi_file, rm_indi_file, update_sex_file, mphen, mphen2, grm_cutoff, grm_adj_fac, dosage_compen, m_grm_flag, pred_rand_eff, est_fix_eff, reml_mtd, MaxIter, reml_priors, reml_priors_var, reml_drop, no_lrt, prevalence, prevalence2, no_constrain, ignore_Ce, fixed_rg_val, bivar_no_constrain);
