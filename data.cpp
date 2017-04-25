@@ -1587,6 +1587,25 @@ void gcta::makex_eigenVector(int j, eigenVector &x, bool resize, bool minus_2p)
     }
 }
 
+//change here: returns standardized genotypes
+void gcta::makex_eigenVector_std(int j, eigenVector &x, bool resize, double snp_std)
+{
+    int i = 0;
+    if (resize) x.resize(_keep.size());
+    #pragma omp parallel for
+    for (i = 0; i < _keep.size(); i++) {
+        if (!_snp_1[_include[j]][_keep[i]] || _snp_2[_include[j]][_keep[i]]) {
+            if (_allele1[_include[j]] == _ref_A[_include[j]]) x[i] = (_snp_1[_include[j]][_keep[i]] + _snp_2[_include[j]][_keep[i]]);
+            else x[i] = 2.0 - (_snp_1[_include[j]][_keep[i]] + _snp_2[_include[j]][_keep[i]]);
+        }
+        else x[i] = _mu[_include[j]];
+        // change here: subtract mean and divide by std
+        x[i] -= _mu[_include[j]];
+        x[i] /= snp_std;
+    }
+}
+
+
 void gcta::save_XMat(bool miss_with_mu, bool std)
 {
     if(std && _dosage_flag) throw("Error: the --recode-std is invalid for dosage data.");
