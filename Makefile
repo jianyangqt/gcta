@@ -8,15 +8,20 @@
 #       MacOS                       MAC
 # ---------------------------------------------------------------------
 
-export TMPDIR=/state/partition1/tmp
+# change the MKL ROOT before compile, we encourage to use 2017 version and above
+MKLROOT = $(HOME)/local/packages/intel/compilers_and_libraries_2017/linux/mkl
+
+# change the EIGEN path before compile, we encourage to use 3.3.3 version
+EIGEN = $(HOME)/local/packages/
+
 
 # Set this variable to either UNIX, MAC or WIN
 SYS = UNIX
-#OUTPUT = ~/scratch/bin/gcta64_test_new
-OUTPUT = ./release/gcta64_test
 
-MKLROOT = /opt/intel/mkl
-#MKLROOT = $(HOME)/local/packages/intel/compilers_and_libraries_2017/linux/mkl
+#mkdir -p release
+
+OUTPUT = ./release/gcta64
+
 # Use sinlge precision to store matrix
 #SINGLE_PRECISION = 1 
 
@@ -26,7 +31,7 @@ CXX_WIN = C:\CodeBlocks\MinGW\bin\mingw32-g++.exe
 CXX_MAC = g++
 
 # Any other compiler flags here ( -Wall, -g, etc)
-CXXFLAGS = -w -O3 -Wall -Os -s -m64 -fopenmp -I $(HOME)/local/packages/ -DEIGEN_NO_DEBUG -msse2 -std=c++0x -I.
+CXXFLAGS = -w -s -O3 -m64 -fopenmp -I $(EIGEN) -DNDEBUG -msse2 -std=c++11 -I.
 
 ifdef SINGLE_PRECISION
  CXXFLAGS += -DSINGLE_PRECISION=1
@@ -94,6 +99,7 @@ OBJ = $(SRC:.cpp=.o)
 all : $(OUTPUT) 
 
 $(OUTPUT) :
+	mkdir -p release
 	$(CXX) $(CXXFLAGS) -o $(OUTPUT) $(OBJ) $(LIB) 
 
 $(OBJ) : $(HDR)

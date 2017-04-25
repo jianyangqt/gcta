@@ -642,6 +642,7 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
     eigenMatrix Vi_X(_n, _X_c), Xt_Vi_X_i(_X_c, _X_c), Hi(_r_indx.size(), _r_indx.size());
     eigenVector Py(_n), varcmp;
     init_varcomp(reml_priors_var, reml_priors, varcmp);
+    //cout << "REML begin reml iteration" << endl;
     double lgL = reml_iteration(Vi_X, Xt_Vi_X_i, Hi, Py, varcmp, reml_priors_var_flag | reml_priors_flag, no_constrain);
     eigenMatrix u;
     if (pred_rand_eff) {
@@ -725,7 +726,8 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
     if(!_reml_force_converge || !_reml_AI_not_invertible){
         cout << "\nSampling variance/covariance of the estimates of variance components:" << endl;
         for (i = 0; i < _r_indx.size(); i++) {
-            for (j = 0; j < _r_indx.size(); j++) cout << setiosflags(ios::scientific) << Hi(i, j) << "\t";
+            //for (j = 0; j < _r_indx.size(); j++) cout << setiosflags(ios::scientific) << Hi(i, j) << "\t";
+            for (j = 0; j < _r_indx.size(); j++) cout <<  Hi(i, j) << "\t";
             cout << endl;
         }
     }
@@ -914,7 +916,8 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
             for (i = 0; i < _r_indx.size(); i++) cout << _var_name[_r_indx[i]] << "\t";
             cout << endl;
         }
-        if (_bivar_reml) calcu_Vi_bivar(_Vi, prev_varcmp, logdet, iter); // Calculate Vi, bivariate analysis
+        //cout << "Iter " << iter << endl;
+        if (_bivar_reml) calcu_Vi_bivar(_Vi, prev_varcmp, logdet, iter); // Calculate Vi, bivariate analysis //very slow
         else if (_within_family) calcu_Vi_within_family(_Vi, prev_varcmp, logdet, iter); // within-family REML
         else {
             if (!calcu_Vi(_Vi, prev_varcmp, logdet, iter)){ // Calculate Vi
@@ -926,10 +929,11 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
                 break;
             }
         }
-        logdet_Xt_Vi_X = calcu_P(_Vi, Vi_X, Xt_Vi_X_i, _P); // Calculate P
+        //cout << "calcu_vi_bivar returned" << endl;
+        logdet_Xt_Vi_X = calcu_P(_Vi, Vi_X, Xt_Vi_X_i, _P); // Calculate P  //quick
         if (_reml_mtd == 0) ai_reml(_P, Hi, Py, prev_varcmp, varcmp, dlogL);
         else if (_reml_mtd == 1) reml_equation(_P, Hi, Py, varcmp);
-        else if (_reml_mtd == 2) em_reml(_P, Py, prev_varcmp, varcmp);
+        else if (_reml_mtd == 2) em_reml(_P, Py, prev_varcmp, varcmp);  //slow ++
         lgL = -0.5 * (logdet_Xt_Vi_X + logdet + (_y.transpose() * Py)(0, 0));
 
         if(_reml_force_converge && _reml_AI_not_invertible) break;
@@ -1318,19 +1322,23 @@ void gcta::ai_reml(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector
     Py = P*_y;
     eigenVector cvec(_n);
     eigenMatrix APy(_n, _r_indx.size());
+    //cout << "AI reml 1 start" << endl;
     for (i = 0; i < _r_indx.size(); i++) {
         if (_bivar_reml || _within_family) (APy.col(i)) = (_Asp[_r_indx[i]]) * Py;
         else (APy.col(i)) = (_A[_r_indx[i]]) * Py;
     }
 
+    //cout << "AI reml 2 start" << endl;
     // Calculate Hi
     eigenVector R(_r_indx.size());
+//pragma omp parallel for private(i)
     for (i = 0; i < _r_indx.size(); i++) {
         R(i) = (Py.transpose()*(APy.col(i)))(0, 0);
         cvec = P * (APy.col(i));
         Hi(i, i) = ((APy.col(i)).transpose() * cvec)(0, 0);
         for (j = 0; j < i; j++) Hi(j, i) = Hi(i, j) = ((APy.col(j)).transpose() * cvec)(0, 0);
     }
+    //cout << "AI reml 2 end" << endl;
     Hi = 0.5 * Hi;
 
     // Calcualte tr(PA) and dL
@@ -1362,18 +1370,22 @@ void gcta::em_reml(eigenMatrix &P, eigenVector &Py, eigenVector &prev_varcmp, ei
 
     // Calculate trace(PA)
     eigenVector tr_PA;
-    calcu_tr_PA(P, tr_PA);
-
+    calcu_tr_PA(P, tr_PA);  // extremely slow
+    //cout << "calcu_tr_PA returned" << endl;
     // Calculate R
     Py = P*_y;
     eigenVector R(_r_indx.size());
-    for (i = 0; i < _r_indx.size(); i++) {
+    #pragma omp parallel for private(i)
+    for (int i = 0; i < _r_indx.size(); i++) {
+        //cout << "EM reml " << i << endl;
         if (_bivar_reml || _within_family) R(i) = (Py.transpose()*(_Asp[_r_indx[i]]) * Py)(0, 0);
         else R(i) = (Py.transpose()*(_A[_r_indx[i]]) * Py)(0, 0);
+        // Calculate Variance component;
+        varcmp(i) = prev_varcmp(i) - prev_varcmp(i) * prev_varcmp(i) * (tr_PA(i) -  R(i)) / _n;
     }
 
     // Calculate variance component
-    for (i = 0; i < _r_indx.size(); i++) varcmp(i) = (prev_varcmp(i) * _n - prev_varcmp(i) * prev_varcmp(i) * tr_PA(i) + prev_varcmp(i) * prev_varcmp(i) * R(i)) / _n;
+    //for (i = 0; i < _r_indx.size(); i++) varcmp(i) = (prev_varcmp(i) * _n - prev_varcmp(i) * prev_varcmp(i) * tr_PA(i) + prev_varcmp(i) * prev_varcmp(i) * R(i)) / _n;
 
     // added by Jian Yang Dec 2014
     //varcmp = (varcmp.array() - prev_varcmp.array())*2 + prev_varcmp.array();        
@@ -1381,13 +1393,33 @@ void gcta::em_reml(eigenMatrix &P, eigenVector &Py, eigenVector &prev_varcmp, ei
 
 // input P, calculate tr(PA)
 void gcta::calcu_tr_PA(eigenMatrix &P, eigenVector &tr_PA) {
-    int i = 0, k = 0, l = 0;
+    int i = 0, l = 0;
     double d_buf = 0.0;
+    int k = 0;
 
     // Calculate trace(PA)
     tr_PA.resize(_r_indx.size());
     for (i = 0; i < _r_indx.size(); i++) {
-        if (_bivar_reml || _within_family) tr_PA(i) = (P * (_Asp[_r_indx[i]])).diagonal().sum();
+        //cout << "calcu_tr_PA " << i << endl;
+        if (_bivar_reml || _within_family){
+            //eigenMatrix temp = P * (_Asp[_r_indx[i]]);
+            //cout << "   matrix product finished" << endl;
+            //tr_PA(i) = (P * (_Asp[_r_indx[i]])).diagonal().sum();   ///extremely slow
+            int cur_r_indx_size = _Asp[_r_indx[i]].outerSize();
+            VectorXd v(cur_r_indx_size);
+            v.setZero(cur_r_indx_size);
+            #pragma omp parallel for private(k)
+            for( k=0; k < cur_r_indx_size; ++k){
+                for(eigenSparseMat::InnerIterator it(_Asp[_r_indx[i]], k); it; ++it){
+                    v(k) += P(it.col(),it.row()) * it.value();
+                }
+            }
+            tr_PA(i) = v.sum();
+            v.resize(0);
+            //tr_PA(i) = temp.diagonal().sum();   ///extremely slow
+            //cout << "diag sum finished" << endl;
+            //temp.resize(0,0);
+        }
         else {
             d_buf = 0.0;
             for (k = 0; k < _n; k++) {

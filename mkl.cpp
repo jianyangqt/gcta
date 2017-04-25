@@ -343,21 +343,24 @@ void gcta::output_grm_mkl(float* A, bool output_grm_bin)
 
 bool gcta::comput_inverse_logdet_LDLT_mkl(eigenMatrix &Vi, double &logdet)
 {
+    //cout << "LDLT" << endl;
     unsigned long i = 0, j = 0, n = Vi.cols();
     double* Vi_mkl = new double[n * n];
     //float* Vi_mkl=new float[n*n];
 
-    #pragma omp parallel for private(j)
-    for (i = 0; i < n; i++) {
-        for (j = 0; j < n; j++) {
+    # pragma omp parallel for private(j)
+    for (j = 0; j < n; j++) {
+        for (i = 0; i < n; i++) {
             Vi_mkl[i * n + j] = Vi(i, j);
         }
     }
+    //cout << "Finished copy" << endl;
 
     // MKL's Cholesky decomposition
     int info = 0, int_n = (int) n;
     char uplo = 'L';
     dpotrf(&uplo, &int_n, Vi_mkl, &int_n, &info);
+    //cout << "Finished decompose" << endl;
     //spotrf( &uplo, &n, Vi_mkl, &n, &info );
     if (info < 0) throw ("Error: Cholesky decomposition failed. Invalid values found in the matrix.\n");
     else if (info > 0) return false;
@@ -368,16 +371,19 @@ bool gcta::comput_inverse_logdet_LDLT_mkl(eigenMatrix &Vi, double &logdet)
             logdet += log(d_buf * d_buf);
         }
 
+        //cout << "start inverse" << endl;
         // Calcualte V inverse
         dpotri(&uplo, &int_n, Vi_mkl, &int_n, &info);
+        //cout << "Inverse finished" << endl;
         //spotri( &uplo, &n, Vi_mkl, &n, &info );
         if (info < 0) throw ("Error: invalid values found in the varaince-covaraince (V) matrix.\n");
         else if (info > 0) return false;
         else {
-            #pragma omp parallel for private(j)
+            # pragma omp parallel for private(j)
             for (j = 0; j < n; j++) {
                 for (i = 0; i <= j; i++) Vi(i, j) = Vi(j, i) = Vi_mkl[i * n + j];
             }
+            //cout << "IDLT finished" << endl;
         }
     }
 

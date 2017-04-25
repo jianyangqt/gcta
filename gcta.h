@@ -29,7 +29,7 @@
 #include <iomanip>
 #include <bitset>
 #include <map>
-//#include <random>
+#include <Eigen/StdVector>
 #include "zfstream.h"
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
@@ -39,6 +39,13 @@
 #include <mkl_cblas.h>
 #include <mkl_lapack.h>
 
+#ifdef SINGLE_PRECISION
+typedef Eigen::SparseMatrix<float, Eigen::ColMajor, long long> eigenSparseMat;
+#else
+typedef Eigen::SparseMatrix<double, Eigen::ColMajor, long long> eigenSparseMat;
+#endif
+//To avoid potential alignment problem. 
+EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION(eigenSparseMat);
 using namespace Eigen;
 using namespace std;
 
@@ -46,13 +53,11 @@ using namespace std;
 typedef DiagonalMatrix<float, Dynamic, Dynamic> eigenDiagMat;
 typedef MatrixXf eigenMatrix;
 typedef VectorXf eigenVector;
-typedef SparseMatrix<float> eigenSparseMat;
 typedef DynamicSparseMatrix<float> eigenDynSparseMat;
 #else
 typedef DiagonalMatrix<double, Dynamic, Dynamic> eigenDiagMat;
 typedef MatrixXd eigenMatrix;
 typedef VectorXd eigenVector;
-typedef SparseMatrix<double> eigenSparseMat;
 typedef DynamicSparseMatrix<double> eigenDynSparseMat;
 #endif
 
@@ -528,6 +533,7 @@ private:
     eigenVector _freq;
     eigenVector _beta;
     eigenVector _beta_se;
+    eigenVector _chisq;
     eigenVector _pval;
     eigenVector _N_o;
     eigenVector _Nd;

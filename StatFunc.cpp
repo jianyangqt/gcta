@@ -9,6 +9,7 @@
  */
 
 #include "StatFunc.h"
+#include "numeric"
 
 ////////// P-value Calculatiion Functions Start ////////////////
 
@@ -770,4 +771,15 @@ double StatFunc::Brents_Kp_min_x(VectorXd &lambda, double x, double lowerLimit, 
         if (i > 1000) return upperLimit+10;
     }
     return b;
+}
+
+
+vector<size_t> StatFunc::sort_re_index(const vector<double> &x) {
+  vector<size_t> x_index(x.size());
+  std::iota(x_index.begin(), x_index.end(), 0);
+
+  sort(x_index.begin(), x_index.end(), [&x](size_t index1, size_t index2) {
+          return x[index1] > x[index2];});
+
+  return x_index;
 }

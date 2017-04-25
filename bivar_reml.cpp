@@ -143,42 +143,67 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
     _bivar_pos.resize(3);
     if (grm_flag) {
         for (i = 0; i < 3 + 3 - ignore_Ce; i++) _r_indx.push_back(i);
-        _Asp.resize(_r_indx.size());
-        for (i = 0; i < _r_indx.size(); i++) (_Asp[i]).resize(_n, _n);
-        if (!no_lrt) drop_comp(drop);
-        _bivar_pos[0].push_back(pos);
-        for (j = 0; j < n1; j++) {
-            (_Asp[pos]).startVec(j);
-            for (i = 0; i < n1; i++) (_Asp[pos]).insertBack(i, j) = _grm(_keep[nms1[i]], _keep[nms1[j]]);
+        _Asp.resize(_r_indx.size(), eigenSparseMat(_n, _n)); 
+
+        static const int n1_elements[] = {n1, 0, n2, 1, 0, n2};
+        static const int n2_elements[] = {0, n2, n1, 0, 1, n1};
+        vector<int> n_element(_n);
+        //cout << "Reserve the matrix" << endl;
+        for (int i = 0; i < _r_indx.size(); i++){
+            std::fill(n_element.begin(), n_element.begin() + n1, n1_elements[i]);
+            std::fill(n_element.begin() + n1, n_element.end(), n2_elements[i]);
+            _Asp[i].reserve(n_element);
         }
+        
+        //cout << "Starting fill the matrix" << endl;
+        if (!no_lrt) drop_comp(drop);
+
+        _bivar_pos[0].push_back(pos);
+// don't try to parallel this, because no improve
+        for (j = 0; j < n1; j++) {
+            for (i = 0; i < n1; i++){
+                (_Asp[pos]).insertBackUncompressed(i, j) = _grm(_keep[nms1[i]], _keep[nms1[j]]);
+            }
+        }
+        (_Asp[pos]).finalize();
+        //cout << "Fill Matrix " << pos << " finished" << endl; 
         pos++;
 
         _bivar_pos[1].push_back(pos);
         for (j = 0; j < n2; j++) {
-            (_Asp[pos]).startVec(j + n1);
-            for (i = 0; i < n2; i++) (_Asp[pos]).insertBack(i + n1, j + n1) = _grm(_keep[nms2[i]], _keep[nms2[j]]);
+            for (i = 0; i < n2; i++){
+                (_Asp[pos]).insertBackUncompressed(i + n1, j + n1) = _grm(_keep[nms2[i]], _keep[nms2[j]]);
+            }
         }
+        (_Asp[pos]).finalize();
+        //cout << "Fill Matrix " << pos << " finished" << endl; 
         pos++;
 
         _bivar_pos[2].push_back(pos);
         for (j = 0; j < n1; j++) {
-            (_Asp[pos]).startVec(j);
-            for (i = 0; i < n2; i++) (_Asp[pos]).insertBack(i + n1, j) = _grm(_keep[nms2[i]], _keep[nms1[j]]);
+            for (i = 0; i < n2; i++){
+                (_Asp[pos]).insertBackUncompressed(i + n1, j) = _grm(_keep[nms2[i]], _keep[nms1[j]]);
+            }
         }
+        //cout << "Fill Matrix " << pos << " part 1 finished" << endl; 
         for (j = 0; j < n2; j++) {
-            (_Asp[pos]).startVec(j + n1);
-            for (i = 0; i < n1; i++) (_Asp[pos]).insertBack(i, j + n1) = _grm(_keep[nms1[i]], _keep[nms2[j]]);
+            for (i = 0; i < n1; i++){
+                (_Asp[pos]).insertBackUncompressed(i, j + n1) = _grm(_keep[nms1[i]], _keep[nms2[j]]);
+            }
         }
+        (_Asp[pos]).finalize();
+        //cout << "Fill Matrix " << pos << " part2 finished" << endl; 
         pos++;
 
-        for (j = 0; j < pos; j++) (_Asp[j]).finalize();
         _grm.resize(0, 0);
+        //cout << "Transform the data finished" << endl;
     } 
     else if (m_grm_flag) {
+        //TODO: get the m_grm portion change same as grm_flag
         if (!sex_file.empty()) update_sex(sex_file);
         for (i = 0; i < 3 * grm_files.size() + 3 - ignore_Ce; i++) _r_indx.push_back(i);
-        _Asp.resize(_r_indx.size());
-        for (i = 0; i < _r_indx.size(); i++) (_Asp[i]).resize(_n, _n);
+        _Asp.resize(_r_indx.size(), eigenSparseMat(_n, _n));
+        //for (i = 0; i < _r_indx.size(); i++) (_Asp[i]).resize(_n, _n);
         if (!no_lrt) drop_comp(drop);
         string prev_file = grm_files[0];
         vector<string> prev_grm_id(grm_id);
@@ -227,32 +252,30 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
 
     _bivar_pos[0].push_back(pos);
     for (i = 0; i < n1; i++) {
-        (_Asp[pos]).startVec(i);
-        (_Asp[pos]).insertBack(i, i) = 1.0;
+        (_Asp[pos]).insertBackUncompressed(i, i) = 1.0;
     }
     (_Asp[pos]).finalize();
+    //cout << "Fill Matrix " << pos << " finished" << endl; 
     pos++;
 
     _bivar_pos[1].push_back(pos);
     for (i = 0; i < n2; i++) {
-        (_Asp[pos]).startVec(i + n1);
-        (_Asp[pos]).insertBack(i + n1, i + n1) = 1.0;
+        (_Asp[pos]).insertBackUncompressed(i + n1, i + n1) = 1.0;
     }
     (_Asp[pos]).finalize();
+    //cout << "Fill Matrix " << pos << " finished" << endl; 
     pos++;
 
     if (!ignore_Ce) {
         _bivar_pos[2].push_back(pos);
         for (j = 0; j < n1; j++) {
-            (_Asp[pos]).startVec(j);
             for (i = 0; i < n2; i++) {
-                if (nms2[i] == nms1[j]) (_Asp[pos]).insertBack(i + n1, j) = 1;
+                if (nms2[i] == nms1[j]) (_Asp[pos]).insertBackUncompressed(i + n1, j) = 1;
             }
         }
         for (j = 0; j < n2; j++) {
-            (_Asp[pos]).startVec(j + n1);
             for (i = 0; i < n1; i++) {
-                if (nms1[i] == nms2[j]) (_Asp[pos]).insertBack(i, j + n1) = 1;
+                if (nms1[i] == nms2[j]) (_Asp[pos]).insertBackUncompressed(i, j + n1) = 1;
             }
         }
         pos++;
@@ -284,18 +307,32 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
     if (!ignore_Ce) _var_name.push_back("C(e)_tr12");
     _ignore_Ce = ignore_Ce;
 
+    //cout << "Starting REML caculation" << endl;
     // run REML algorithm
     reml(pred_rand_eff, est_fix_eff, reml_priors, reml_priors_var, prevalence, prevalence2, no_constrain, no_lrt, false);
 }
 
 bool gcta::calcu_Vi_bivar(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, int &iter) {
-    int i = 0, n = Vi.cols();
+    int k=0;
     double d_buf = 0.0;
     logdet = 0.0;
     string errmsg = "\nError: the V (variance-covariance) matrix is not invertible.";
 
     Vi = eigenMatrix::Zero(_n, _n);
-    for (i = 0; i < _r_indx.size(); i++) Vi += (_Asp[_r_indx[i]]) * prev_varcmp[i];
+   // cout << "calcu_Vi_bivar" << endl;
+    //for (int i = 0; i < _r_indx.size(); i++) Vi += (_Asp[_r_indx[i]]) * prev_varcmp[i];
+    
+    for(int i = 0; i < _r_indx.size(); i++){ 
+        double cur_varcmp = prev_varcmp[i];
+        #pragma omp parallel for private(k)
+        for(k = 0; k < _Asp[_r_indx[i]].outerSize(); ++k){
+            for(eigenSparseMat::InnerIterator it(_Asp[_r_indx[i]], k); it; ++it){
+                Vi(it.row(),it.col()) += it.value() * cur_varcmp;
+            }
+        }
+    }
+
+    //cout << " calcu_Vi_bivar finished" << endl;
 
     if (_V_inv_mtd == 0) {
         if (!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) {
@@ -306,6 +343,7 @@ bool gcta::calcu_Vi_bivar(eigenMatrix &Vi, eigenVector &prev_varcmp, double &log
     if (_V_inv_mtd == 1) {
         if (!comput_inverse_logdet_LU_mkl(Vi, logdet)) throw ("Error: the variance-covaraince matrix V is not invertible.");
     }
+    //cout << "Chop decomposition finished" << endl;
 
     /*    if(!comput_inverse_logdet_LDLT_mkl(Vi, logdet)){
             if(_reml_have_bend_A) throw(errmsg);
