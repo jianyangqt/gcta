@@ -1,0 +1,350 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		BD360CA81C6BFBBC00D210EB /* bivar_reml.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360C881C6BFBBC00D210EB /* bivar_reml.cpp */; };
+		BD360CA91C6BFBBC00D210EB /* CommFunc.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360C8A1C6BFBBC00D210EB /* CommFunc.cpp */; };
+		BD360CAA1C6BFBBC00D210EB /* data.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360C8C1C6BFBBC00D210EB /* data.cpp */; };
+		BD360CAB1C6BFBBC00D210EB /* dcdflib.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360C8D1C6BFBBC00D210EB /* dcdflib.cpp */; };
+		BD360CAC1C6BFBBC00D210EB /* edata.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360C8F1C6BFBBC00D210EB /* edata.cpp */; };
+		BD360CAD1C6BFBBC00D210EB /* eigen_func.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360C901C6BFBBC00D210EB /* eigen_func.cpp */; };
+		BD360CAE1C6BFBBC00D210EB /* ejma.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360C921C6BFBBC00D210EB /* ejma.cpp */; };
+		BD360CAF1C6BFBBC00D210EB /* est_hsq.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360C931C6BFBBC00D210EB /* est_hsq.cpp */; };
+		BD360CB01C6BFBBC00D210EB /* gbat.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360C941C6BFBBC00D210EB /* gbat.cpp */; };
+		BD360CB11C6BFBBC00D210EB /* grm.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360C961C6BFBBC00D210EB /* grm.cpp */; };
+		BD360CB21C6BFBBC00D210EB /* gwas_simu.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360C971C6BFBBC00D210EB /* gwas_simu.cpp */; };
+		BD360CB31C6BFBBC00D210EB /* joint_meta.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360C991C6BFBBC00D210EB /* joint_meta.cpp */; };
+		BD360CB41C6BFBBC00D210EB /* ld.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360C9A1C6BFBBC00D210EB /* ld.cpp */; };
+		BD360CB51C6BFBBC00D210EB /* mkl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360C9B1C6BFBBC00D210EB /* mkl.cpp */; };
+		BD360CB61C6BFBBC00D210EB /* mlm_assoc.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360C9C1C6BFBBC00D210EB /* mlm_assoc.cpp */; };
+		BD360CB71C6BFBBC00D210EB /* option.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360C9D1C6BFBBC00D210EB /* option.cpp */; };
+		BD360CB81C6BFBBC00D210EB /* popu_genet.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360C9E1C6BFBBC00D210EB /* popu_genet.cpp */; };
+		BD360CB91C6BFBBC00D210EB /* raw_geno.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360C9F1C6BFBBC00D210EB /* raw_geno.cpp */; };
+		BD360CBA1C6BFBBC00D210EB /* reml_within_family.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360CA01C6BFBBC00D210EB /* reml_within_family.cpp */; };
+		BD360CBB1C6BFBBC00D210EB /* sbat.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360CA11C6BFBBC00D210EB /* sbat.cpp */; };
+		BD360CBC1C6BFBBC00D210EB /* StatFunc.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360CA21C6BFBBC00D210EB /* StatFunc.cpp */; };
+		BD360CBD1C6BFBBC00D210EB /* StrFunc.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360CA41C6BFBBC00D210EB /* StrFunc.cpp */; };
+		BD360CBE1C6BFBBC00D210EB /* zfstream.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BD360CA61C6BFBBC00D210EB /* zfstream.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		BD360C7C1C6BFB6E00D210EB /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		BD360C7E1C6BFB6E00D210EB /* gcta */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = gcta; sourceTree = BUILT_PRODUCTS_DIR; };
+		BD360C881C6BFBBC00D210EB /* bivar_reml.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = bivar_reml.cpp; sourceTree = "<group>"; };
+		BD360C891C6BFBBC00D210EB /* cdflib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cdflib.h; sourceTree = "<group>"; };
+		BD360C8A1C6BFBBC00D210EB /* CommFunc.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CommFunc.cpp; sourceTree = "<group>"; };
+		BD360C8B1C6BFBBC00D210EB /* CommFunc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CommFunc.h; sourceTree = "<group>"; };
+		BD360C8C1C6BFBBC00D210EB /* data.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = data.cpp; sourceTree = "<group>"; };
+		BD360C8D1C6BFBBC00D210EB /* dcdflib.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = dcdflib.cpp; sourceTree = "<group>"; };
+		BD360C8E1C6BFBBC00D210EB /* dcdflib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = dcdflib.h; sourceTree = "<group>"; };
+		BD360C8F1C6BFBBC00D210EB /* edata.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = edata.cpp; sourceTree = "<group>"; };
+		BD360C901C6BFBBC00D210EB /* eigen_func.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = eigen_func.cpp; sourceTree = "<group>"; };
+		BD360C911C6BFBBC00D210EB /* eigen_func.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = eigen_func.h; sourceTree = "<group>"; };
+		BD360C921C6BFBBC00D210EB /* ejma.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ejma.cpp; sourceTree = "<group>"; };
+		BD360C931C6BFBBC00D210EB /* est_hsq.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = est_hsq.cpp; sourceTree = "<group>"; };
+		BD360C941C6BFBBC00D210EB /* gbat.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = gbat.cpp; sourceTree = "<group>"; };
+		BD360C951C6BFBBC00D210EB /* gcta.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gcta.h; sourceTree = "<group>"; };
+		BD360C961C6BFBBC00D210EB /* grm.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = grm.cpp; sourceTree = "<group>"; };
+		BD360C971C6BFBBC00D210EB /* gwas_simu.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = gwas_simu.cpp; sourceTree = "<group>"; };
+		BD360C981C6BFBBC00D210EB /* ipmpar.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ipmpar.h; sourceTree = "<group>"; };
+		BD360C991C6BFBBC00D210EB /* joint_meta.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = joint_meta.cpp; sourceTree = "<group>"; };
+		BD360C9A1C6BFBBC00D210EB /* ld.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ld.cpp; sourceTree = "<group>"; };
+		BD360C9B1C6BFBBC00D210EB /* mkl.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = mkl.cpp; sourceTree = "<group>"; };
+		BD360C9C1C6BFBBC00D210EB /* mlm_assoc.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = mlm_assoc.cpp; sourceTree = "<group>"; };
+		BD360C9D1C6BFBBC00D210EB /* option.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = option.cpp; sourceTree = "<group>"; };
+		BD360C9E1C6BFBBC00D210EB /* popu_genet.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = popu_genet.cpp; sourceTree = "<group>"; };
+		BD360C9F1C6BFBBC00D210EB /* raw_geno.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = raw_geno.cpp; sourceTree = "<group>"; };
+		BD360CA01C6BFBBC00D210EB /* reml_within_family.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = reml_within_family.cpp; sourceTree = "<group>"; };
+		BD360CA11C6BFBBC00D210EB /* sbat.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sbat.cpp; sourceTree = "<group>"; };
+		BD360CA21C6BFBBC00D210EB /* StatFunc.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = StatFunc.cpp; sourceTree = "<group>"; };
+		BD360CA31C6BFBBC00D210EB /* StatFunc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = StatFunc.h; sourceTree = "<group>"; };
+		BD360CA41C6BFBBC00D210EB /* StrFunc.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = StrFunc.cpp; sourceTree = "<group>"; };
+		BD360CA51C6BFBBC00D210EB /* StrFunc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = StrFunc.h; sourceTree = "<group>"; };
+		BD360CA61C6BFBBC00D210EB /* zfstream.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = zfstream.cpp; sourceTree = "<group>"; };
+		BD360CA71C6BFBBC00D210EB /* zfstream.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = zfstream.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		BD360C7B1C6BFB6E00D210EB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		BD360C751C6BFB6E00D210EB = {
+			isa = PBXGroup;
+			children = (
+				BD360C801C6BFB6E00D210EB /* gcta */,
+				BD360C7F1C6BFB6E00D210EB /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		BD360C7F1C6BFB6E00D210EB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				BD360C7E1C6BFB6E00D210EB /* gcta */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		BD360C801C6BFB6E00D210EB /* gcta */ = {
+			isa = PBXGroup;
+			children = (
+				BD360C881C6BFBBC00D210EB /* bivar_reml.cpp */,
+				BD360C891C6BFBBC00D210EB /* cdflib.h */,
+				BD360C8A1C6BFBBC00D210EB /* CommFunc.cpp */,
+				BD360C8B1C6BFBBC00D210EB /* CommFunc.h */,
+				BD360C8C1C6BFBBC00D210EB /* data.cpp */,
+				BD360C8D1C6BFBBC00D210EB /* dcdflib.cpp */,
+				BD360C8E1C6BFBBC00D210EB /* dcdflib.h */,
+				BD360C8F1C6BFBBC00D210EB /* edata.cpp */,
+				BD360C901C6BFBBC00D210EB /* eigen_func.cpp */,
+				BD360C911C6BFBBC00D210EB /* eigen_func.h */,
+				BD360C921C6BFBBC00D210EB /* ejma.cpp */,
+				BD360C931C6BFBBC00D210EB /* est_hsq.cpp */,
+				BD360C941C6BFBBC00D210EB /* gbat.cpp */,
+				BD360C951C6BFBBC00D210EB /* gcta.h */,
+				BD360C961C6BFBBC00D210EB /* grm.cpp */,
+				BD360C971C6BFBBC00D210EB /* gwas_simu.cpp */,
+				BD360C981C6BFBBC00D210EB /* ipmpar.h */,
+				BD360C991C6BFBBC00D210EB /* joint_meta.cpp */,
+				BD360C9A1C6BFBBC00D210EB /* ld.cpp */,
+				BD360C9B1C6BFBBC00D210EB /* mkl.cpp */,
+				BD360C9C1C6BFBBC00D210EB /* mlm_assoc.cpp */,
+				BD360C9D1C6BFBBC00D210EB /* option.cpp */,
+				BD360C9E1C6BFBBC00D210EB /* popu_genet.cpp */,
+				BD360C9F1C6BFBBC00D210EB /* raw_geno.cpp */,
+				BD360CA01C6BFBBC00D210EB /* reml_within_family.cpp */,
+				BD360CA11C6BFBBC00D210EB /* sbat.cpp */,
+				BD360CA21C6BFBBC00D210EB /* StatFunc.cpp */,
+				BD360CA31C6BFBBC00D210EB /* StatFunc.h */,
+				BD360CA41C6BFBBC00D210EB /* StrFunc.cpp */,
+				BD360CA51C6BFBBC00D210EB /* StrFunc.h */,
+				BD360CA61C6BFBBC00D210EB /* zfstream.cpp */,
+				BD360CA71C6BFBBC00D210EB /* zfstream.h */,
+			);
+			path = gcta;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		BD360C7D1C6BFB6E00D210EB /* gcta */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BD360C851C6BFB6E00D210EB /* Build configuration list for PBXNativeTarget "gcta" */;
+			buildPhases = (
+				BD360C7A1C6BFB6E00D210EB /* Sources */,
+				BD360C7B1C6BFB6E00D210EB /* Frameworks */,
+				BD360C7C1C6BFB6E00D210EB /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = gcta;
+			productName = gcta;
+			productReference = BD360C7E1C6BFB6E00D210EB /* gcta */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		BD360C761C6BFB6E00D210EB /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0720;
+				ORGANIZATIONNAME = "Jian Zeng";
+				TargetAttributes = {
+					BD360C7D1C6BFB6E00D210EB = {
+						CreatedOnToolsVersion = 7.2.1;
+					};
+				};
+			};
+			buildConfigurationList = BD360C791C6BFB6E00D210EB /* Build configuration list for PBXProject "gcta" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = BD360C751C6BFB6E00D210EB;
+			productRefGroup = BD360C7F1C6BFB6E00D210EB /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				BD360C7D1C6BFB6E00D210EB /* gcta */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		BD360C7A1C6BFB6E00D210EB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BD360CB41C6BFBBC00D210EB /* ld.cpp in Sources */,
+				BD360CBD1C6BFBBC00D210EB /* StrFunc.cpp in Sources */,
+				BD360CB91C6BFBBC00D210EB /* raw_geno.cpp in Sources */,
+				BD360CAB1C6BFBBC00D210EB /* dcdflib.cpp in Sources */,
+				BD360CBB1C6BFBBC00D210EB /* sbat.cpp in Sources */,
+				BD360CB21C6BFBBC00D210EB /* gwas_simu.cpp in Sources */,
+				BD360CB61C6BFBBC00D210EB /* mlm_assoc.cpp in Sources */,
+				BD360CB81C6BFBBC00D210EB /* popu_genet.cpp in Sources */,
+				BD360CB71C6BFBBC00D210EB /* option.cpp in Sources */,
+				BD360CA81C6BFBBC00D210EB /* bivar_reml.cpp in Sources */,
+				BD360CB01C6BFBBC00D210EB /* gbat.cpp in Sources */,
+				BD360CA91C6BFBBC00D210EB /* CommFunc.cpp in Sources */,
+				BD360CB51C6BFBBC00D210EB /* mkl.cpp in Sources */,
+				BD360CBE1C6BFBBC00D210EB /* zfstream.cpp in Sources */,
+				BD360CBC1C6BFBBC00D210EB /* StatFunc.cpp in Sources */,
+				BD360CB31C6BFBBC00D210EB /* joint_meta.cpp in Sources */,
+				BD360CAF1C6BFBBC00D210EB /* est_hsq.cpp in Sources */,
+				BD360CAC1C6BFBBC00D210EB /* edata.cpp in Sources */,
+				BD360CB11C6BFBBC00D210EB /* grm.cpp in Sources */,
+				BD360CAD1C6BFBBC00D210EB /* eigen_func.cpp in Sources */,
+				BD360CBA1C6BFBBC00D210EB /* reml_within_family.cpp in Sources */,
+				BD360CAE1C6BFBBC00D210EB /* ejma.cpp in Sources */,
+				BD360CAA1C6BFBBC00D210EB /* data.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		BD360C831C6BFB6E00D210EB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		BD360C841C6BFB6E00D210EB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		BD360C861C6BFB6E00D210EB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		BD360C871C6BFB6E00D210EB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		BD360C791C6BFB6E00D210EB /* Build configuration list for PBXProject "gcta" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BD360C831C6BFB6E00D210EB /* Debug */,
+				BD360C841C6BFB6E00D210EB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BD360C851C6BFB6E00D210EB /* Build configuration list for PBXNativeTarget "gcta" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BD360C861C6BFB6E00D210EB /* Debug */,
+				BD360C871C6BFB6E00D210EB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = BD360C761C6BFB6E00D210EB /* Project object */;
+}

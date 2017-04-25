@@ -1512,6 +1512,827 @@ void gcta::output_blup_snp(eigenMatrix &b_SNP) {
     cout << "BLUP solutions of SNP effects for " << _include.size() << " SNPs have been saved in the file [" + o_b_snp_file + "]." << endl;
 }
 
+void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string keep_indi_file, string remove_indi_file, int mphen) {
+    // a memory-efficient HE regression that can fit multiple GRMs
+    
+    int i=0, j=0, k=0, l=0, r=0, c=0, ii=0, jj=0;
+    stringstream errmsg;
+    vector<string> phen_ID, grm_id, grm_files;
+    vector< vector<string> > phen_buf; // save individuals by column
+    _id_map.clear();
+    
+    // find out how many GRM components
+    if (m_grm_flag) {
+        read_grm_filenames(grm_file, grm_files, false);
+    } else {
+        grm_files.push_back(grm_file);
+    }
+    
+    // number of model terms
+    unsigned n_grm = grm_files.size();
+    unsigned n_term = n_grm + 1; // plus intercept
+    
+    // Find common individuals in GRM and phenotype files
+    // first read in grm.id, which determins the order of model equations
+    vector<ifstream*> A_bin;
+    A_bin.resize(n_grm);
+    int size_grm = 0;
+    for (i = 0; i < n_grm; i++) {
+        if (i==0) {
+            size_grm = read_grm_id(grm_files[i], grm_id, true, true);
+        } else {
+            int n = read_grm_id(grm_files[i], grm_id, true, true);
+            if (n != size_grm) {
+                throw ("Error: file [" + grm_files[i] + "] contains a different number of ind than other GRM file.");
+            }
+        }
+        string grm_binfile = grm_files[i] + ".grm.bin";
+        A_bin[i] = new ifstream(grm_binfile.c_str(), ios::in | ios::binary);
+        if ((*A_bin[i]).bad()) throw ("Error: can not open the file [" + grm_binfile + "] to read.");
+    }
+    update_id_map_kp(grm_id, _id_map, _keep);
+
+    // read phenotypes
+    read_phen(phen_file, phen_ID, phen_buf, mphen);  // ignore individuals with missing phenotypes
+
+    update_id_map_kp(phen_ID, _id_map, _keep);
+    if (!keep_indi_file.empty()) keep_indi(keep_indi_file);
+    if (!remove_indi_file.empty()) remove_indi(remove_indi_file);
+    
+    // find out matched unique ID
+    // model equations (yij and Aij) will be build based on the order of this unique ID vector uni_id, which is in the same order of grm_id
+    vector<string> uni_id;
+    map<string, int> uni_id_map;
+    map<string, int>::iterator iter;
+    for (i = 0; i < _keep.size(); i++) {
+        uni_id.push_back(_fid[_keep[i]] + ":" + _pid[_keep[i]]);    // in order of grm_id
+        uni_id_map.insert(pair<string, int>(_fid[_keep[i]] + ":" + _pid[_keep[i]], i));
+    }
+    _n = _keep.size();
+    if (_n < 1) throw ("Error: no individual is in common in the input files.");
+    cout << _n << " individuals are in common in these files." << endl;
+    
+    // fill phenotypes to _y vector based on the order of uni_id
+    _y.setZero(_n);
+    for (i = 0; i < phen_ID.size(); i++) {
+        iter = uni_id_map.find(phen_ID[i]);
+        if (iter == uni_id_map.end()) continue;
+        _y[iter->second] = atof(phen_buf[i][mphen - 1].c_str());
+    }
+    
+    cout << "\nPerforming Haseman-Elston regression ...\n" << endl;
+
+    // normalise phenotype
+    cout << "Standardising the phenotype ..." << endl;
+    _y.array() -= _y.mean();
+    _y.array() /= sqrt(_y.squaredNorm() / (_n - 1.0));
+    
+    // grm_kp contains the rows to keep in order of uni_id, which is a subset of and in the same order of grm_id
+    vector<int> grm_kp;
+    StrFunc::match(uni_id, grm_id, grm_kp);
+ 
+    
+    // initialize OLS normal equations for each individual
+    // to use jackknife to estimate SE of heritability estimate
+    int long n_obs = 0.5*long(_n)*(long(_n)-1);
+    double z_cp=0, z_sd=0, totalSS_cp=0, totalSS_sd=0;
+    
+    eigenMatrix Lhs;    // X'X
+    eigenVector Rhs_cp; // X'(yi*yj)
+    eigenVector Rhs_sd; // X'(yi-yj)^2
+    Lhs.setZero(n_term, n_term);
+    Rhs_cp.setZero(n_term);
+    Rhs_sd.setZero(n_term);
+    
+    vector<eigenMatrix> LhsVec(_n);
+    vector<eigenVector> RhsCpVec(_n);
+    vector<eigenVector> RhsSdVec(_n);
+    
+    Lhs(0,0) = n_obs; // X'X for intercept
+    for (i = 0; i < _n; ++i) {
+        LhsVec[i].setZero(n_term, n_term);
+        LhsVec[i](0,0) = _n-1;
+        RhsCpVec[i].setZero(n_term);
+        RhsSdVec[i].setZero(n_term);
+        for (j = 0; j < i; ++j) {
+            z_cp = _y[i]*_y[j];
+            z_sd = (_y[i] - _y[j])*(_y[i] - _y[j]);
+            Rhs_cp[0] += z_cp;
+            Rhs_sd[0] += z_sd;
+            RhsCpVec[i][0] += z_cp;
+            RhsSdVec[i][0] += z_sd;
+            RhsCpVec[j][0] += z_cp;
+            RhsSdVec[j][0] += z_sd;
+            totalSS_cp += z_cp * z_cp;
+            totalSS_sd += z_sd * z_sd;
+        }
+    }
+    
+    
+    // Fill GRMij into the ordinary least squares equations without reading the whole GRM(s) into memory
+    cout << "Constructing ordinary least squares equations ..." << endl;
+    eigenVector aij(n_grm);
+    int size = sizeof (float);
+    float f_buf = 0.0;
+    float grm_cp, r_cp, r_sd;
+    for (i = 0, ii = 0; i < size_grm; i++) {
+        if (i != grm_kp[ii]) {
+            for (j = 0; j <= i; j++) {
+                for (k = 0; k < n_grm; k++) {
+                    (*A_bin[k]).read((char*) &f_buf, size);
+                }
+            }
+        }
+        else {
+            for (j = 0, jj = 0; j <= i; j++) {
+                if (j != grm_kp[jj] || j==i) {
+                    for (k = 0; k < n_grm; k++) {
+                        (*A_bin[k]).read((char*) &f_buf, size);
+                    }
+                }
+                else {
+                    for (k = 0; k < n_grm; k++) {
+                        (*A_bin[k]).read((char*) &f_buf, size);
+                        aij[k] = f_buf;
+                        r = k + 1;
+                        Lhs(0,r) = Lhs(r,0) += aij[k];
+                        LhsVec[ii](0,r) = LhsVec[ii](r,0) += aij[k];
+                        LhsVec[jj](0,r) = LhsVec[jj](r,0) += aij[k];
+                        for (l = 0; l <= k; l++) {
+                            c = l + 1;
+                            grm_cp = aij[k] * aij[l];
+                            Lhs(c,r) = Lhs(r,c) += grm_cp;
+                            LhsVec[ii](c,r) = LhsVec[ii](r,c) += grm_cp;
+                            LhsVec[jj](c,r) = LhsVec[jj](r,c) += grm_cp;
+                        }
+                        r_cp = aij[k] * _y[ii] * _y[jj];
+                        r_sd = aij[k] *(_y[ii] - _y[jj])*(_y[ii] - _y[jj]);
+                        Rhs_cp[r] += r_cp;
+                        Rhs_sd[r] += r_sd;
+                        RhsCpVec[ii][r] += r_cp;
+                        RhsCpVec[jj][r] += r_cp;
+                        RhsSdVec[ii][r] += r_sd;
+                        RhsSdVec[jj][r] += r_sd;
+                    }
+                    ++jj;
+                }
+            }
+            ++ii;
+        }
+    }
+
+    for (k = 0; k < n_grm; k++) {
+        (*A_bin[k]).close();
+    }
+    
+    // compute OLS SE and p-value
+    eigenMatrix invLhs = Lhs.inverse();
+    eigenVector beta_cp = invLhs * Rhs_cp;
+    eigenVector beta_sd = invLhs * Rhs_sd;
+    
+    double sse_cp  = totalSS_cp - beta_cp.dot(Rhs_cp);
+    double sse_sd  = totalSS_sd - beta_sd.dot(Rhs_sd);
+    long int df = n_obs - n_term;
+    double vare_cp = sse_cp/df;
+    double vare_sd = sse_sd/df;
+    eigenVector se_cp = (invLhs.diagonal() * vare_cp).array().sqrt();
+    eigenVector se_sd = (invLhs.diagonal() * vare_sd).array().sqrt();
+    
+    cout << "\nLeft-hand side of OLS equations (X'X)\n" << Lhs  << endl << endl;
+    //cout << "vare_cp " << vare_cp << endl;
+    //cout << "vare_sd " << vare_sd << endl << endl;
+    
+    eigenVector pval_cp(n_term);
+    eigenVector pval_sd(n_term);
+    for (i = 0; i < n_term; ++i) {
+        float t_cp=0, t_sd=0;
+        if (se_cp[i] > 0.0) t_cp = fabs(beta_cp[i] / se_cp[i]);
+        if (se_sd[i] > 0.0) t_sd = fabs(beta_sd[i] / se_sd[i]);
+        pval_cp[i] = StatFunc::t_prob(df, t_cp, true);
+        pval_sd[i] = StatFunc::t_prob(df, t_sd, true);
+    }
+    
+    eigenVector kvec;
+    kvec.setOnes(n_term);
+    kvec[0] = 0;
+    double beta_sum_cp = kvec.dot(beta_cp);
+    double beta_sum_sd = kvec.dot(beta_sd);
+    double se_sum_cp = sqrt((kvec.transpose()*invLhs*kvec * vare_cp)(0,0));
+    double se_sum_sd = sqrt((kvec.transpose()*invLhs*kvec * vare_sd)(0,0));
+    double pval_sum_cp = StatFunc::t_prob(df, abs(beta_sum_cp/se_sum_cp), true);
+    double pval_sum_sd = StatFunc::t_prob(df, abs(beta_sum_sd/se_sum_sd), true);
+    
+    
+    // compute jackknife SE and p-value
+    eigenMatrix betaCpMat(_n, n_term);
+    eigenMatrix betaSdMat(_n, n_term);
+    for (i=0; i<_n; ++i) {
+        eigenMatrix invLhsi = (Lhs - LhsVec[i]).inverse();
+        betaCpMat.row(i) = invLhsi*(Rhs_cp - RhsCpVec[i]);
+        betaSdMat.row(i) = invLhsi*(Rhs_sd - RhsSdVec[i]);
+    }
+    
+    eigenVector ones = eigenVector::Ones(_n);
+    eigenVector jk_mean_cp = betaCpMat.colwise().mean();
+    eigenVector jk_mean_sd = betaSdMat.colwise().mean();
+    eigenVector jk_se_cp = (betaCpMat - ones*jk_mean_cp.transpose()).colwise().squaredNorm();
+    eigenVector jk_se_sd = (betaSdMat - ones*jk_mean_sd.transpose()).colwise().squaredNorm();
+    
+    jk_se_cp *= (_n-1.0)/double(_n);
+    jk_se_sd *= (_n-1.0)/double(_n);
+    
+    jk_se_cp = jk_se_cp.array().sqrt();
+    jk_se_sd = jk_se_sd.array().sqrt();
+    
+    eigenVector betaSumCp = betaCpMat.transpose().colwise().sum();
+    eigenVector betaSumSd = betaSdMat.transpose().colwise().sum();
+    
+    betaSumCp -= betaCpMat.col(0);  // subtract intercept
+    betaSumSd -= betaSdMat.col(0);  // subtract intercept
+    
+    double jk_sum_mean_cp = betaSumCp.mean();
+    double jk_sum_mean_sd = betaSumSd.mean();
+    double jk_sum_se_cp = (betaSumCp.array() - jk_sum_mean_cp).matrix().squaredNorm();
+    double jk_sum_se_sd = (betaSumSd.array() - jk_sum_mean_sd).matrix().squaredNorm();
+    
+    jk_sum_se_cp = sqrt((_n-1.0)/double(_n)*jk_sum_se_cp);
+    jk_sum_se_sd = sqrt((_n-1.0)/double(_n)*jk_sum_se_sd);
+    
+    eigenVector jk_pval_cp(n_term);
+    eigenVector jk_pval_sd(n_term);
+    for (i = 0; i < n_term; ++i) {
+        float t_cp=0, t_sd=0;
+        if (jk_se_cp[i] > 0.0) t_cp = fabs(jk_mean_cp[i] / jk_se_cp[i]);
+        if (jk_se_sd[i] > 0.0) t_sd = fabs(jk_mean_sd[i] / jk_se_sd[i]);
+        jk_pval_cp[i] = StatFunc::t_prob(df, t_cp, true);
+        jk_pval_sd[i] = StatFunc::t_prob(df, t_sd, true);
+    }
+    
+    double jk_pval_sum_cp = StatFunc::t_prob(df, abs(jk_sum_mean_cp/jk_sum_se_cp), true);
+    double jk_pval_sum_sd = StatFunc::t_prob(df, abs(jk_sum_mean_sd/jk_sum_se_sd), true);
+    
+    
+    // output
+    stringstream ss;
+    ss << "HE-CP\n";
+    ss << std::left << setw(16) << "Coefficient" << setw(16) << "Estimate" << setw(16) << "SE_OLS" << setw(16) << "SE_Jackknife" << setw(16) << "P_OLS" << setw(16) << "P_Jackknife" << endl;
+    for (i = 0; i < n_term; ++i) {
+        if (i == 0) {
+            ss << setw(16) << "Intercept";
+        } else if (n_grm==1) {
+            ss << setw(16) << "V(G)/Vp";
+        } else {
+            stringstream vi;
+            vi << "V(G" << i << ")/Vp";
+            ss << setw(16) << vi.str();
+        }
+        ss << setw(16) << beta_cp[i] << setw(16) << se_cp[i] << setw(16) << jk_se_cp[i] << setw(16) << pval_cp[i] << setw(16) << jk_pval_cp[i] << endl;
+    }
+    if (n_grm>1) ss << setw(16) << "Sum of V(G)/Vp" << setw(16) << beta_sum_cp << setw(16) << se_sum_cp << setw(16) << jk_sum_se_cp << setw(16) << pval_sum_cp << setw(16) << jk_pval_sum_cp << endl;
+    ss << endl;
+    ss << "HE-SD\n";
+    ss << setw(16) << "Coefficient" << setw(16) << "Estimate" << setw(16) << "SE_OLS" << setw(16) << "SE_Jackknife" << setw(16) << "P_OLS" << setw(16) << "P_Jackknife" << endl;
+    for (i = 0; i < n_term; ++i) {
+        if (i == 0) {
+            ss << setw(16) << "Intercept";
+        } else if (n_grm==1) {
+            ss << setw(16) << "V(G)/Vp";
+        } else {
+            stringstream vi;
+            vi << "V(G" << i << ")/Vp";
+            ss << setw(16) << vi.str();
+        }
+        ss << setw(16) << -0.5*beta_sd[i] << setw(16) << 0.5*se_sd[i] << setw(16) << 0.5*jk_se_sd[i] << setw(16) << pval_sd[i] << setw(16) << jk_pval_sd[i] << endl;
+    }
+    if (n_grm>1) ss << setw(16) << "Sum of V(G)/Vp" << setw(16) << -0.5*beta_sum_sd << setw(16) << 0.5*se_sum_sd << setw(16) << 0.5*jk_sum_se_sd << setw(16) << pval_sum_sd << setw(16) << jk_pval_sum_sd << endl;
+    cout << ss.str() << endl;
+    string ofile = _out + ".HEreg";
+    ofstream os(ofile.c_str());
+    if (!os) throw ("Error: can not open the file [" + ofile + "] to write.");
+    os << ss.str() << endl;
+    cout << "Results from Haseman-Elston regression have been saved in [" + ofile + "]." << endl;
+}
+
+void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, string keep_indi_file, string remove_indi_file, int mphen, int mphen2) {
+    // bivariate HE regression for two traits
+    
+    int i=0, j=0, k=0, l=0, r=0, c=0, ii=0, jj=0, t=0;
+    stringstream errmsg;
+    vector<string> phen_ID, grm_id, grm_files;
+    vector< vector<string> > phen_buf; // save individuals by column
+    _id_map.clear();
+    
+    // find out how many GRM components
+    if (m_grm_flag) {
+        read_grm_filenames(grm_file, grm_files, false);
+    } else {
+        grm_files.push_back(grm_file);
+    }
+    
+    // number of model terms
+    unsigned n_grm = grm_files.size();
+    unsigned n_term = n_grm + 1; // plus intercept
+    
+    // Find common individuals in GRM and phenotype files
+    // first read in grm.id, which determins the order of model equations
+    vector<ifstream*> A_bin;
+    A_bin.resize(n_grm);
+    int size_grm = 0;
+    for (i = 0; i < n_grm; i++) {
+        if (i==0) {
+            size_grm = read_grm_id(grm_files[i], grm_id, true, true);
+        } else {
+            int n = read_grm_id(grm_files[i], grm_id, true, true);
+            if (n != size_grm) {
+                throw ("Error: file [" + grm_files[i] + "] contains a different number of ind than other GRM file.");
+            }
+        }
+        string grm_binfile = grm_files[i] + ".grm.bin";
+        A_bin[i] = new ifstream(grm_binfile.c_str(), ios::in | ios::binary);
+        if ((*A_bin[i]).bad()) throw ("Error: can not open the file [" + grm_binfile + "] to read.");
+    }
+    update_id_map_kp(grm_id, _id_map, _keep);
+    
+    // read phenotypes
+    _bivar_reml = true;  // need this to read in phenotype of both traits using the function below
+    read_phen(phen_file, phen_ID, phen_buf, mphen, mphen2);  // ignore individuals with missing phenotypes on both traits
+    _bivar_reml = false;
+    
+    update_id_map_kp(phen_ID, _id_map, _keep);
+    if (!keep_indi_file.empty()) keep_indi(keep_indi_file);
+    if (!remove_indi_file.empty()) remove_indi(remove_indi_file);
+    
+    // find out the matched unique ID for either trait
+    // model equations (yij and Aij) will be build based on the order of the unique ID vector, which is in the same order of grm_id
+    vector<string> uni_id;
+    map<string, int> uni_id_map;
+    map<string, int>::iterator iter;
+    string combinedID;
+    for (i = 0; i < _keep.size(); i++) {
+        combinedID = _fid[_keep[i]] + ":" + _pid[_keep[i]];  // in order of grm_id
+        uni_id.push_back(combinedID);
+        uni_id_map.insert(pair<string, int>(combinedID, i));
+    }
+    _n = _keep.size();
+    if (_n < 1) throw ("Error: no individual is in common in the input files.");
+    cout << _n << " individuals are in common in these files." << endl;
+    
+    
+    // find out matched unique ID for each trait
+    // ans store phenotypes separately for each trait based on their own unique id order
+    unsigned long n1 = 0, n2 = 0;
+    eigenVector y1 = eigenVector::Zero(_n);
+    eigenVector y2 = eigenVector::Zero(_n);
+    
+    vector<string> uni_id_tr1;
+    vector<string> uni_id_tr2;
+    
+    vector<int> phen_kp;  // index of phenotyped individuals
+    
+    mphen--;
+    mphen2--;
+
+    StrFunc::match(uni_id, phen_ID, phen_kp);
+    for (i=0; i < phen_kp.size(); i++) {
+        int idx = phen_kp[i];
+        if (phen_buf[idx][mphen] != "NA" && phen_buf[idx][mphen] != "-9") {
+            uni_id_tr1.push_back(uni_id[i]);
+            y1[n1++] = atof(phen_buf[idx][mphen].c_str());
+            //cout << i << " " << idx << " " << phen_buf[idx][mphen] << " " << atof(phen_buf[idx][mphen].c_str()) << endl;
+        }
+        if (phen_buf[idx][mphen2] != "NA" && phen_buf[idx][mphen2] != "-9") {
+            uni_id_tr2.push_back(uni_id[i]);
+            y2[n2++] = atof(phen_buf[idx][mphen2].c_str());
+        }
+        ++ii;
+    }
+    y1.conservativeResize(n1);
+    y2.conservativeResize(n2);
+    
+    cout << y1.size() << " non-missing phenotypes for trait #1 and " << y2.size() << " for trait #2" << endl;
+    if (y1.size()==0) throw("Error: no non-missing phenotypes for trait 1.");
+    if (y2.size()==0) throw("Error: no non-missing phenotypes for trait 2.");
+
+    // grm_kp contains the rows of grm_id to keep in order of uni_id, which is a subset of and in the same order of grm_id
+    vector<int> grm_kp_tr1;
+    vector<int> grm_kp_tr2;
+    
+    StrFunc::match(uni_id_tr1, grm_id, grm_kp_tr1);
+    StrFunc::match(uni_id_tr2, grm_id, grm_kp_tr2);
+    
+    
+    cout << "\nPerforming Haseman-Elston regression ...\n" << endl;
+    
+    // normalise phenotype
+    cout << "Standardising the phenotype ..." << endl;
+    y1.array() -= y1.mean();
+    y2.array() -= y2.mean();
+    y1.array() /= sqrt(y1.squaredNorm() / (n1 - 1.0));
+    y2.array() /= sqrt(y2.squaredNorm() / (n2 - 1.0));
+    
+
+    // initialize OLS normal equations for each individual
+    // to use jackknife to estimate SE of heritability estimate
+    vector<eigenMatrix> Lhs(3);  // X'X       for trait 1, 2 and their covariance
+    vector<eigenVector> Rhs(3);  // X'(yi*yj) for trait 1, 2 and their covariance
+    vector<vector<eigenMatrix> > LhsJk(3);  // Leave-one-individual-out (Jackknife) Lhs for the 3 var-cov componenets
+    vector<vector<eigenVector> > RhsJk(3);  // Leave-one-individual-out (Jackknife) Rhs for the 3 var-cov componenets
+
+    unsigned long minn = min(n1,n2);
+    unsigned long maxn = max(n1,n2);
+
+    vector<unsigned long> nObs = {n1*(n1-1)/2, n2*(n2-1)/2, n1*n2};
+    vector<unsigned long> nJk  = {n1, n2, minn};
+    
+    double z = 0.0;
+    vector<double> totalSS = {0, 0, 0};
+
+    for (t = 0; t < 3; ++t) {
+        Lhs[t].setZero(n_term, n_term);
+        Lhs[t](0,0) = nObs[t];   // X'X for intercept
+        Rhs[t].setZero(n_term);
+        LhsJk[t].resize(nJk[t]);
+        RhsJk[t].resize(nJk[t]);
+    }
+    
+    for (i=0; i<n1; ++i) {  // for trait 1
+        LhsJk[0][i].setZero(n_term, n_term);
+        LhsJk[0][i](0,0) = n1-1;
+        RhsJk[0][i].setZero(n_term);
+        for (j=0; j<i; ++j) {
+            z = y1[i]*y1[j];
+            Rhs[0][0] += z;
+            RhsJk[0][i][0] += z;
+            RhsJk[0][j][0] += z;
+            totalSS[0] += z*z;
+        }
+    }
+    
+    for (i=0; i<n2; ++i) {  // for trait 2
+        LhsJk[1][i].setZero(n_term, n_term);
+        LhsJk[1][i](0,0) = n2-1;
+        RhsJk[1][i].setZero(n_term);
+        for (j=0; j<i; ++j) {
+            z = y2[i]*y2[j];
+            Rhs[1][0] += z;
+            RhsJk[1][i][0] += z;
+            RhsJk[1][j][0] += z;
+            totalSS[1] += z*z;
+        }
+    }
+    
+    eigenVector *ymin = minn == n1 ? &y1 : &y2;
+    eigenVector *ymax = maxn == n1 ? &y1 : &y2;
+    
+    for (i=0; i<minn; ++i) {  // for covariance between trait 1 and trait 2
+        LhsJk[2][i].setZero(n_term, n_term);
+        LhsJk[2][i](0,0) = n1+n2-1;
+        RhsJk[2][i].setZero(n_term);
+    }
+    for (i=0; i<minn; ++i) {
+        for (j=0; j<maxn; ++j) {
+            z = (*ymin)[i]*(*ymax)[j];
+            Rhs[2][0] += z;
+            if (j<minn) {
+                RhsJk[2][i][0] += z;
+                RhsJk[2][j][0] += z;
+            }
+            if (i==j) RhsJk[2][i][0] -= z;
+            totalSS[2] += z*z;
+        }
+    }
+    
+    
+    // Fill GRMij into the ordinary least squares equations without reading the whole GRM(s) into memory
+    cout << "Constructing ordinary least squares equations ..." << endl;
+    eigenVector aij(n_grm);
+    int size = sizeof (float);
+    float f_buf = 0.0;
+    float lhs, rhs;
+    long t1i=0, t2i=0, t12i=0, t21i=0;
+    long t1j=0, t2j=0, t12j=0, t21j=0;
+    
+    unsigned long count[] = {0,0,0};
+    
+    for (i = 0; i < size_grm; ++i) {
+        t1j = t2j = t12j = t21j = 0;
+        for (j = 0; j <= i; ++j) {
+            if (i == grm_kp_tr1[t1i] && j == grm_kp_tr1[t1j] && i!=j) {   // Trait 1
+                for (k = 0; k < n_grm; k++) {
+                    (*A_bin[k]).read((char*) &f_buf, size);
+                    aij[k] = f_buf;
+                    r = k + 1;   // first one is intercept
+                    Lhs[0](0,r) = Lhs[0](r,0) += aij[k];   // symetric
+                    LhsJk[0][t1i](0,r) = LhsJk[0][t1i](r,0) += aij[k];
+                    LhsJk[0][t1j](0,r) = LhsJk[0][t1j](r,0) += aij[k];
+                    for (l = 0; l <= k; l++) {
+                        c = l + 1;
+                        lhs = aij[k] * aij[l];
+                        Lhs[0](c,r) = Lhs[0](r,c) += lhs;
+                        LhsJk[0][t1i](c,r) = LhsJk[0][t1i](r,c) += lhs;
+                        LhsJk[0][t1j](c,r) = LhsJk[0][t1j](r,c) += lhs;
+                    }
+                    rhs = aij[k] * y1[t1i] * y1[t1j];
+                    Rhs[0][r] += rhs;
+                    RhsJk[0][t1i][r] += rhs;
+                    RhsJk[0][t1j][r] += rhs;
+                }
+                ++t1j;
+                ++count[0];
+            }
+            else if (i == grm_kp_tr2[t2i] && j == grm_kp_tr2[t2j] && i!=j) {   // Trait 2
+                for (k = 0; k < n_grm; k++) {
+                    (*A_bin[k]).read((char*) &f_buf, size);
+                    aij[k] = f_buf;
+                    r = k + 1;   // first one is intercept
+                    Lhs[1](0,r) = Lhs[1](r,0) += aij[k];   // symetric
+                    LhsJk[1][t2i](0,r) = LhsJk[1][t2i](r,0) += aij[k];
+                    LhsJk[1][t2j](0,r) = LhsJk[1][t2j](r,0) += aij[k];
+                    for (l = 0; l <= k; l++) {
+                        c = l + 1;
+                        lhs = aij[k] * aij[l];
+                        Lhs[1](c,r) = Lhs[1](r,c) += lhs;
+                        LhsJk[1][t2i](c,r) = LhsJk[1][t2i](r,c) += lhs;
+                        LhsJk[1][t2j](c,r) = LhsJk[1][t2j](r,c) += lhs;
+                    }
+                    rhs = aij[k] * y2[t2i] * y2[t2j];
+                    Rhs[1][r] += rhs;
+                    RhsJk[1][t2i][r] += rhs;
+                    RhsJk[1][t2j][r] += rhs;
+                }
+                ++t2j;
+                ++count[1];
+            }
+            else if (i == grm_kp_tr1[t12i] && j == grm_kp_tr2[t21j]) {  // Trait 1 x Trait 2
+                for (k = 0; k < n_grm; k++) {
+                    (*A_bin[k]).read((char*) &f_buf, size);
+                    aij[k] = f_buf;
+                    r = k + 1;
+                    Lhs[2](0,r) = Lhs[2](r,0) += aij[k];
+                    if (t12i < minn && t21j < minn) {  // square matrix of size of min(n1, n2)
+                        LhsJk[2][t12i](0,r) = LhsJk[2][t12i](r,0) += aij[k];
+                        LhsJk[2][t21j](0,r) = LhsJk[2][t21j](r,0) += aij[k];  // crossout the row and the column
+                    }
+                    if (t12i == t21j) {
+                        LhsJk[2][t12i](0,r) = LhsJk[2][t12i](r,0) -= aij[k];  // the cross-point is double counted
+                    }
+                    for (l = 0; l <= k; l++) {
+                        c = l + 1;
+                        lhs = aij[k] * aij[l];
+                        Lhs[2](c,r) = Lhs[2](r,c) += lhs;
+                        if (t12i < minn && t21j < minn) {
+                            LhsJk[2][t12i](c,r) = LhsJk[2][t12i](r,c) += lhs;
+                            LhsJk[2][t21j](c,r) = LhsJk[2][t21j](r,c) += lhs;
+                        }
+                        if (t12i == t21j) {
+                            LhsJk[2][t12i](c,r) = LhsJk[2][t12i](r,c) -= lhs;
+                        }
+                    }
+                    rhs = aij[k] * y1[t12i] * y2[t21j];
+                    Rhs[2][r] += rhs;
+                    if (t12i < minn && t21j < minn) {
+                        RhsJk[2][t12i][r] += rhs;
+                        RhsJk[2][t21j][r] += rhs;
+                    }
+                    if (t12i == t21j) {
+                        RhsJk[2][t12i][r] -= rhs;
+                    }
+                }
+                ++t21j;
+                ++count[2];
+            }
+            else if (i == grm_kp_tr2[t21i] && j == grm_kp_tr1[t12j]) {  // Trait 2 x Trait 1
+                for (k = 0; k < n_grm; k++) {
+                    (*A_bin[k]).read((char*) &f_buf, size);
+                    aij[k] = f_buf;
+                    r = k + 1;
+                    Lhs[2](0,r) = Lhs[2](r,0) += aij[k];
+                    if (t21i < minn && t12j < minn) {
+                        LhsJk[2][t12j](0,r) = LhsJk[2][t12j](r,0) += aij[k];
+                        LhsJk[2][t21i](0,r) = LhsJk[2][t21i](r,0) += aij[k];
+                    }
+                    if (t21i == t12j) {
+                        LhsJk[2][t12j](0,r) = LhsJk[2][t12j](r,0) -= aij[k];
+                    }
+                    for (l = 0; l <= k; l++) {
+                        c = l + 1;
+                        lhs = aij[k] * aij[l];
+                        Lhs[2](c,r) = Lhs[2](r,c) += lhs;
+                        if (t21i < minn && t12j < minn) {
+                            LhsJk[2][t12j](c,r) = LhsJk[2][t12j](r,c) += lhs;
+                            LhsJk[2][t21i](c,r) = LhsJk[2][t21i](r,c) += lhs;
+                        }
+                        if (t21i == t12j) {
+                            LhsJk[2][t12j](c,r) = LhsJk[2][t12j](r,c) -= lhs;
+                        }
+                    }
+                    rhs = aij[k] * y1[t12j] * y2[t21i];
+                    Rhs[2][r] += rhs;
+                    if (t21i < minn && t12j < minn) {
+                        RhsJk[2][t12j][r] += rhs;
+                        RhsJk[2][t21i][r] += rhs;
+                    }
+                    if (t21i == t12j) {
+                        RhsJk[2][t12j][r] -= rhs;
+                    }
+                }
+                ++t12j;
+                ++count[2];
+            }
+            else {
+                for (k = 0; k < n_grm; k++) {
+                    (*A_bin[k]).read((char*) &f_buf, size);
+                }
+            }
+        }
+        if (i == grm_kp_tr1[t1i] ) ++t1i;
+        if (i == grm_kp_tr2[t2i] ) ++t2i;
+        if (i == grm_kp_tr1[t12i]) ++t12i;
+        if (i == grm_kp_tr2[t21i]) ++t21i;
+    }
+    
+    
+    cout << "\n length of covariates:" << endl;
+    cout << "\t trait1:  " << count[0] << endl;
+    cout << "\t trait2:  " << count[1] << endl;
+    cout << "\t trait12: " << count[2] << endl;
+    
+    
+    for (k = 0; k < n_grm; k++) {
+        (*A_bin[k]).close();
+    }
+    
+    // print X'X
+    eigenMatrix LhsAll;
+    LhsAll.setZero(3*n_term, 3*n_term);
+    LhsAll.topLeftCorner(n_term, n_term) = Lhs[0];
+    LhsAll.block(n_term, n_term, n_term, n_term) = Lhs[1];
+    LhsAll.bottomRightCorner(n_term, n_term) = Lhs[2];
+    
+    cout << "\nLeft-hand side of OLS equations (X'X)\n" << LhsAll  << endl << endl;
+    
+    // compute OLS variance-covariance matrix of estimates and p-value
+    vector<eigenMatrix> invLhs(3);
+    vector<eigenVector> beta(3);
+    vector<eigenVector> se(3);
+    vector<eigenVector> pval(3);
+    vector<double> vare(3);
+    vector<long unsigned> df(3);
+    eigenVector kvec;
+    kvec.setOnes(n_term);
+    kvec[0] = 0;
+    vector<double> betaSum(3);
+    vector<double> seSum(3);
+    vector<double> pvalSum(3);
+    for (t=0; t<3; ++t) {
+        invLhs[t] = Lhs[t].inverse();
+        beta[t] = invLhs[t]*Rhs[t];
+        double sse = totalSS[t] - beta[t].dot(Rhs[t]);
+        df[t] = nObs[t] - n_term;
+        vare[t] = sse/df[t];
+        se[t] = (invLhs[t].diagonal() * vare[t]).array().sqrt();
+        eigenVector tstat = (beta[t].array()/se[t].array()).abs();
+        pval[t].setZero(n_term);
+        for (i=0; i<n_term; ++i) {
+            pval[t][i] = StatFunc::t_prob(df[t], tstat[i], true);
+        }
+        betaSum[t] = kvec.dot(beta[t]);
+        seSum[t] = sqrt((kvec.transpose()*invLhs[t]*kvec * vare[t])(0,0));
+        pvalSum[t] = StatFunc::t_prob(df[t], abs(betaSum[t]/seSum[t]), true);
+    }
+    
+    
+    // compute jackknife SE and p-value
+    vector<eigenMatrix> betaJk(3);
+    vector<eigenVector> seJk(3);
+    vector<eigenVector> pvalJk(3);
+    vector<eigenVector> betaSumJk(3);
+    vector<double> seSumJk(3);
+    vector<double> pvalSumJk(3);
+    eigenMatrix invLhsi;
+    for (t=0; t<3; ++t) {
+        betaJk[t].setZero(nJk[t], n_term);
+        for (i=0; i<nJk[t]; ++i) {
+            invLhsi = (Lhs[t] - LhsJk[t][i]).inverse();
+            betaJk[t].row(i) = invLhsi*(Rhs[t]-RhsJk[t][i]);
+        }
+        eigenVector ones = eigenVector::Ones(nJk[t]);
+        eigenVector betaMeanJk = betaJk[t].colwise().mean();
+        seJk[t] = (betaJk[t] - ones*betaMeanJk.transpose()).colwise().squaredNorm();
+        seJk[t] *= (nJk[t]-1)/double(nJk[t]);
+        seJk[t] = seJk[t].array().sqrt();
+        
+        betaSumJk[t] = betaJk[t].transpose().colwise().sum();
+        betaSumJk[t] -= betaJk[t].col(0);  // subtract intercept
+        double betaSumMeanJk = betaSumJk[t].mean();
+        seSumJk[t] = (betaSumJk[t].array() - betaSumMeanJk).matrix().squaredNorm();
+        seSumJk[t] = sqrt((nJk[t]-1)/double(nJk[t])*seSumJk[t]);
+        
+        eigenVector tstat = (betaMeanJk.array()/seJk[t].array()).abs();
+        pvalJk[t].setZero(n_term);
+        for (i = 0; i < n_term; ++i) {
+            pvalJk[t][i] = StatFunc::t_prob(df[t], tstat[i], true);
+        }
+        pvalSumJk[t] = StatFunc::t_prob(df[t], abs(betaSumMeanJk/seSumJk[t]), true);
+    }
+    
+    
+    // genetic correlation between traits
+    vector<double> rG(n_grm);
+    vector<double> rG_se(n_grm);
+    vector<double> rG_seJk(n_grm);
+    double V1=0, V2=0, C=0, varV1=0, varV2=0, varC=0;
+    for (i=0; i<n_grm; ++i) {
+        V1 = beta[0][i+1];
+        V2 = beta[1][i+1];
+        C  = beta[2][i+1];
+        varV1 = se[0][i+1]*se[0][i+1];
+        varV2 = se[1][i+1]*se[1][i+1];
+        varC  = se[2][i+1]*se[2][i+1];
+        rG[i] = C/sqrt(V1*V2);
+        rG_se[i] = sqrt(rG[i]*rG[i]*(varC/(C*C) + varV1/(4*V1*V1) + varV2/(4*V2*V2)));   // OLS estimate with Talor serial
+        
+        // Jackknife estimate of SE of rG
+        eigenVector rgJk = betaJk[2].col(i+1).head(minn).array() / (betaJk[0].col(i+1).head(minn).array() * betaJk[1].col(i+1).head(minn).array()).sqrt();
+        rG_seJk[i] = (rgJk.array() - rgJk.mean()).matrix().squaredNorm();
+        rG_seJk[i] = sqrt((minn-1)/double(minn)*rG_seJk[i]);
+    }
+    V1 = betaSum[0];
+    V2 = betaSum[1];
+    C  = betaSum[2];
+    varV1 = seSum[0]*seSum[0];
+    varV2 = seSum[1]*seSum[1];
+    varC  = seSum[2]*seSum[2];
+    double rG_sum = C/sqrt(V1*V2);
+    double rG_sum_se = sqrt(rG_sum*rG_sum*(varC/(C*C) + varV1/(4*V1*V1) + varV2/(4*V2*V2)));
+    eigenVector rgJk = betaSumJk[2].head(minn).array() / (betaSumJk[0].head(minn).array() * betaSumJk[1].head(minn).array()).sqrt();
+    double rG_sum_seJk = (rgJk.array() - rgJk.mean()).matrix().squaredNorm();
+    rG_sum_seJk = sqrt((minn-1)/double(minn)*rG_sum_seJk);
+
+    
+    // sampling variance-covariance of estimates of variance components
+    cout << "\nJackknife sampling variance/covariance of the estimates of heritabilities:" << endl;
+    eigenMatrix betaGJk(minn, 3*n_grm);
+    j = 0;
+    for (i=0; i<n_grm; ++i) {
+        for (t=0; t<3; ++t) {
+            betaGJk.col(j++) = betaJk[t].col(i+1);
+        }
+    }
+    eigenMatrix centered = betaGJk.rowwise() - betaGJk.colwise().mean();
+    eigenMatrix varcov = (centered.adjoint() * centered) / double(minn);
+    varcov *= double(minn-1);
+    
+    cout << varcov << endl << endl;
+    
+    
+    // output
+    vector<int> trid = {1, 2, 12};
+    vector<string> trch = {"V", "V", "C"};
+    stringstream ss;
+    ss << "\nHE-CP\n";
+    ss << std::left << setw(20) << "Coefficient" << setw(16) << "Estimate" << setw(16) << "SE_OLS" << setw(16) << "SE_Jackknife" << setw(16) << "P_OLS" << setw(16) << "P_Jackknife" << endl;
+    for (t=0; t<3; ++t) {
+        stringstream tmp;
+        tmp << "Intercept_tr" << trid[t];
+        ss  << setw(20) << tmp.str() << setw(16) << beta[t][0] << setw(16) << se[t][0] << setw(16) << seJk[t][0] << setw(16) << pval[t][0] << setw(16) << pvalJk[t][0] << endl;
+    }
+    for (i = 1; i < n_term; ++i) {
+        for (t=0; t<3; ++t) {
+            stringstream tmp;
+            if (n_grm==1) tmp << trch[t] << "(G)/Vp_tr" << trid[t];
+            else          tmp << trch[t] << "(G" << i << ")/Vp_tr" << trid[t];
+            ss  << setw(20) << tmp.str() << setw(16) << beta[t][i] << setw(16) << se[t][i] << setw(16) << seJk[t][i] << setw(16) << pval[t][i] << setw(16) << pvalJk[t][i] << endl;
+        }
+    }
+    if (n_grm>1) {
+        for (t=0; t<3; ++t) {
+            stringstream tmp;
+            tmp << "Sum of " << trch[t] << "(G)/Vp_tr" << trid[t];
+            ss << setw(20) << tmp.str() << setw(16) << betaSum[t] << setw(16) << seSum[t] << setw(16) << seSumJk[t] << setw(16) << pvalSum[t] << setw(16) << pvalSumJk[t] << endl;
+        }
+    }
+    for (i = 0; i < n_grm; ++i) {
+        stringstream tmp;
+        tmp << "rG" << i+1;
+        ss << setw(20) << tmp.str() << setw(16) << rG[i] << setw(16) << rG_se[i] << setw(16) << rG_seJk[i] << endl;
+    }
+    if (n_grm>1) {
+        ss << setw(20) << "Total rG" << setw(16) << rG_sum << setw(16) << rG_sum_se << setw(16) << rG_sum_seJk << endl;
+    }
+    ss << setw(20) << "N_tr1" << setw(16) << n1 << endl;
+    ss << setw(20) << "N_tr2" << setw(16) << n2 << endl;
+    ss << endl;
+    cout << ss.str() << endl;
+    string ofile = _out + ".HEreg";
+    ofstream os(ofile.c_str());
+    if (!os) throw ("Error: can not open the file [" + ofile + "] to write.");
+    os << ss.str() << endl;
+    cout << "Results from Haseman-Elston regression have been saved in [" + ofile + "]." << endl;
+}
+
+
+/*   // old implementation of single component HE regression
 void gcta::HE_reg(string grm_file, string phen_file, string keep_indi_file, string remove_indi_file, int mphen) {
     int i = 0, j = 0, k = 0, l = 0;
     stringstream errmsg;
@@ -1544,16 +2365,16 @@ void gcta::HE_reg(string grm_file, string phen_file, string keep_indi_file, stri
 
     cout << "\nPerforming Haseman-Elston regression ...\n" << endl;
     int n = _n * (_n - 1) / 2;
-    /*   vector<bool> nomiss(_n*(_n-1));
-       for(i=0, k=0; i<_n; i++){
-           for(j=0; j<i; j++, k++){
-               if(CommFunc::FloatNotEqual(_grm(i,j),0)){
-                   nomiss[k]=true;
-                   n++;
-               }
-               else nomiss[k]=false;
-           }
-       }*/
+//       vector<bool> nomiss(_n*(_n-1));
+//       for(i=0, k=0; i<_n; i++){
+//           for(j=0; j<i; j++, k++){
+//               if(CommFunc::FloatNotEqual(_grm(i,j),0)){
+//                   nomiss[k]=true;
+//                   n++;
+//               }
+//               else nomiss[k]=false;
+//           }
+//       }
 
     // normalise phenotype
     cout << "Standardising the phenotype ..." << endl; 
@@ -1565,7 +2386,7 @@ void gcta::HE_reg(string grm_file, string phen_file, string keep_indi_file, stri
         for (j = 0; j < i; j++, k++) {
             y_sd[k] = (y[i] - y[j])*(y[i] - y[j]);
             y_cp[k] = y[i]*y[j];
-            x[k] = _grm(i, j);
+            x[k] = _grm(i, j);   // Is this a bug? should i,j refer to ind in the keep list??
         }
     }
     eigenMatrix reg_sum_sd = reg(y_sd, x, rst, true);
@@ -1590,4 +2411,4 @@ void gcta::HE_reg(string grm_file, string phen_file, string keep_indi_file, stri
     os << ss.str() << endl;
     cout << "Results from Haseman-Elston regression have been saved in [" + ofile + "]." << endl;
 
-}
+} */

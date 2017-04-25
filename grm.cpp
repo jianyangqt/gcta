@@ -560,6 +560,63 @@ void gcta::merge_grm(string merge_grm_file) {
     cout << "\n" << grm_files.size() << " GRMs have been merged together." << endl;
 }
 
+void gcta::align_grm(string m_grm_file) {
+    vector<string> grm_files, grm_id;
+    read_grm_filenames(m_grm_file, grm_files);
+    
+    int f = 0, i = 0, j = 0;
+    for (f = 0; f < grm_files.size(); f++) {
+        read_grm(grm_files[f], grm_id, false, true);
+        update_id_map_kp(grm_id, _id_map, _keep);
+    }
+    vector<string> uni_id;
+    for (i = 0; i < _keep.size(); i++) uni_id.push_back(_fid[_keep[i]] + ":" + _pid[_keep[i]]);
+    _n = uni_id.size();
+    if (_n == 0) throw ("Error: no individual is in common in the GRM files.");
+    else cout << _n << " individuals in common in the GRM files." << endl;
+    
+    string _out_save = _out;
+    
+    vector<int> kp;
+    eigenMatrix grm = eigenMatrix::Zero(_n, _n);
+    eigenMatrix grm_N = eigenMatrix::Zero(_n, _n);
+    for (f = 0; f < grm_files.size(); f++) {
+        cout << "Reading the GRM from the " << f + 1 << "th file ..." << endl;
+        grm.setZero(_n, _n);
+        grm_N.setZero(_n, _n);
+        read_grm(grm_files[f], grm_id);
+        StrFunc::match(uni_id, grm_id, kp);
+        for (i = 0; i < _n; i++) {
+            for (j = 0; j <= i; j++) {
+                if (kp[i] >= kp[j]) {
+                    grm(i, j) = _grm(kp[i], kp[j]) * _grm_N(kp[i], kp[j]);
+                    grm_N(i, j) = _grm_N(kp[i], kp[j]);
+                } else {
+                    grm(i, j) = _grm(kp[j], kp[i]) * _grm_N(kp[j], kp[i]);
+                    grm_N(i, j) = _grm_N(kp[j], kp[i]);
+                }
+            }
+        }
+        for (i = 0; i < _n; i++) {
+            for (j = 0; j <= i; j++) {
+                if (grm_N(i, j) == 0) _grm(i, j) = 0;
+                else _grm(i, j) = grm(i, j) / grm_N(i, j);
+                _grm_N(i, j) = grm_N(i, j);
+            }
+        }
+        
+        _out = grm_files[f] + ".aligned";
+        output_grm(true);
+    }
+    
+    _out = _out_save;
+    
+    grm.resize(0, 0);
+    grm_N.resize(0, 0);
+    cout << "\n" << grm_files.size() << " GRMs have been aligned." << endl;
+}
+
+
 void gcta::read_grm_filenames(string merge_grm_file, vector<string> &grm_files, bool out_log) {
     ifstream merge_grm(merge_grm_file.c_str());
     if (!merge_grm) throw ("Error: can not open the file [" + merge_grm_file + "] to read.");
