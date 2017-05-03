@@ -20,7 +20,7 @@ After it finishes, the binary file is in release folder
 
 ## Develop guide
 1. Fork the repository into your own account by clicking the fork button
-2. Revise the code (to be discused)
+2. Revise the code 
     * Minor bug fix
     1. Clone your own forked repository.
     2. Revise the code in the master branch, and push back into your own repository.
@@ -34,6 +34,8 @@ After it finishes, the binary file is in release folder
     3. Make a **New pull request** from your own repository, write the document how to use the new function
 
 3. The admin merge the pull request and merge the branch periodically to publish new version of GCTA. 
+
+(You can also work as old way: fork new branch in the main repository)
 
 > Notice: pay attention to the changes in the main master repository,
 we should always fecth the upstream and merge the changes first before making the **New pull request**,
