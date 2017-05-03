@@ -109,6 +109,7 @@ namespace StatFunc
     double Kpp(double zeta, VectorXd &lambda);
     double Kp_min_x(double zeta, VectorXd &lambda, double x);
     double Brents_Kp_min_x(VectorXd &lambda, double x, double lowerLimit, double upperLimit, double errorTol);
+    vector<size_t> sort_re_index(const vector<double> &x);
 }
 
 #endif

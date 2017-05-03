@@ -11,6 +11,8 @@
  */
 
 #include "gcta.h"
+#include <iterator>
+#include <unordered_set>
 
 void gcta::enable_grm_bin_flag() {
     _grm_bin_flag = true;
@@ -558,6 +560,63 @@ void gcta::merge_grm(string merge_grm_file) {
     cout << "\n" << grm_files.size() << " GRMs have been merged together." << endl;
 }
 
+void gcta::align_grm(string m_grm_file) {
+    vector<string> grm_files, grm_id;
+    read_grm_filenames(m_grm_file, grm_files);
+    
+    int f = 0, i = 0, j = 0;
+    for (f = 0; f < grm_files.size(); f++) {
+        read_grm(grm_files[f], grm_id, false, true);
+        update_id_map_kp(grm_id, _id_map, _keep);
+    }
+    vector<string> uni_id;
+    for (i = 0; i < _keep.size(); i++) uni_id.push_back(_fid[_keep[i]] + ":" + _pid[_keep[i]]);
+    _n = uni_id.size();
+    if (_n == 0) throw ("Error: no individual is in common in the GRM files.");
+    else cout << _n << " individuals in common in the GRM files." << endl;
+    
+    string _out_save = _out;
+    
+    vector<int> kp;
+    eigenMatrix grm = eigenMatrix::Zero(_n, _n);
+    eigenMatrix grm_N = eigenMatrix::Zero(_n, _n);
+    for (f = 0; f < grm_files.size(); f++) {
+        cout << "Reading the GRM from the " << f + 1 << "th file ..." << endl;
+        grm.setZero(_n, _n);
+        grm_N.setZero(_n, _n);
+        read_grm(grm_files[f], grm_id);
+        StrFunc::match(uni_id, grm_id, kp);
+        for (i = 0; i < _n; i++) {
+            for (j = 0; j <= i; j++) {
+                if (kp[i] >= kp[j]) {
+                    grm(i, j) = _grm(kp[i], kp[j]) * _grm_N(kp[i], kp[j]);
+                    grm_N(i, j) = _grm_N(kp[i], kp[j]);
+                } else {
+                    grm(i, j) = _grm(kp[j], kp[i]) * _grm_N(kp[j], kp[i]);
+                    grm_N(i, j) = _grm_N(kp[j], kp[i]);
+                }
+            }
+        }
+        for (i = 0; i < _n; i++) {
+            for (j = 0; j <= i; j++) {
+                if (grm_N(i, j) == 0) _grm(i, j) = 0;
+                else _grm(i, j) = grm(i, j) / grm_N(i, j);
+                _grm_N(i, j) = grm_N(i, j);
+            }
+        }
+        
+        _out = grm_files[f] + ".aligned";
+        output_grm(true);
+    }
+    
+    _out = _out_save;
+    
+    grm.resize(0, 0);
+    grm_N.resize(0, 0);
+    cout << "\n" << grm_files.size() << " GRMs have been aligned." << endl;
+}
+
+
 void gcta::read_grm_filenames(string merge_grm_file, vector<string> &grm_files, bool out_log) {
     ifstream merge_grm(merge_grm_file.c_str());
     if (!merge_grm) throw ("Error: can not open the file [" + merge_grm_file + "] to read.");
@@ -635,7 +694,7 @@ void gcta::pca(string grm_file, string keep_indi_file, string remove_indi_file, 
     cout << "The first " << out_pc_num << " eigenvectors of " << n << " individuals have been saved in [" + evec_file + "]." << endl;
 }
 
-void gcta::snp_pc_loading(string pc_file, int grm_N)
+void gcta::snp_pc_loading(string pc_file)
 {
     // read eigenvectors and eigenvalues
     string eigenval_file = pc_file + ".eigenval";
@@ -673,7 +732,8 @@ void gcta::snp_pc_loading(string pc_file, int grm_N)
         uni_id.push_back(_fid[_keep[i]]+":"+_pid[_keep[i]]);
         uni_id_map.insert(pair<string,int>(_fid[_keep[i]]+":"+_pid[_keep[i]], i));
     }
-    _n=_keep.size();
+    _n = _keep.size();
+    int m = _include.size();
     if(_n < 1) throw("Error: no individual is in common between the input files.");
     cout << _n << " individuals in common between the input files are included in the analysis."<<endl;
     
@@ -685,12 +745,11 @@ void gcta::snp_pc_loading(string pc_file, int grm_N)
     }
 
     eigenVector inv_eigenval(eigenval_num);
-    for(i = 0; i < eigenval_num; i++)  inv_eigenval(i) = 1.0 / (eigenval_buf[i] * grm_N);
+    for(i = 0; i < eigenval_num; i++)  inv_eigenval(i) = 1.0 / (eigenval_buf[i] * m);
 
     // calculating SNP loading
     if (_mu.empty()) calcu_mu();
     cout << "\nCalculating SNP loading ..." << endl;
-    int m = _include.size();
     eigenMatrix snp_loading(m, eigenvec_num);
     eigenVector x(_n);
     for(j = 0; j < m ; j++) {
@@ -703,16 +762,183 @@ void gcta::snp_pc_loading(string pc_file, int grm_N)
     cout << "\nSaving the PC loading of " << m << " SNPs to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
     if(!ofile) throw("Can not open the file [" + filename + "] to write.");
-    ofile << "SNP\trefA";
+    ofile << "SNP\tA1\tA2\tmu";
     for(i = 0; i < eigenval_num; i++) ofile << "\tpc" << i+1 << "_loading";
     ofile << endl;
     for(i = 0; i < m; i++){
-        ofile << _snp_name[_include[i]] << "\t" << _ref_A[_include[i]];
+        ofile << _snp_name[_include[i]] << "\t" << _ref_A[_include[i]] << "\t" << _other_A[_include[i]] << "\t" <<  _mu[_include[i]];
         for(j = 0; j < eigenvec_num; j++) ofile << "\t" << snp_loading(i, j);
         ofile << "\n";
     }
     ofile.close();
 }
 
+//This function changes the original _geno, _include, never use genotype variable after it!!
+void gcta::project_loading(string pc_load, int N){
 
+    #ifdef SINGLE_PRECISION
+    typedef float t_val;
+    #else
+    typedef double t_val;
+    #endif
+    const std::string red("\033[0;31m ");
+    const std::string reset(" \033[0m ");
+
+    string f_pc_load = pc_load + ".pcl";
+    ifstream h_pc_load(f_pc_load.c_str());
+    if (!h_pc_load) throw (red + "Error:" + reset + "can't open the loading file [" + f_pc_load + "] to read.");
+    
+    // output eigenvec. Moving this up to save the time for user when running in an unwritable directory.
+    string out_filename = _out + ".proj.eigenvec";
+    //cout << "\nOpen the projected file for write [" << out_filename << "]."<< endl;
+    ofstream ofile(out_filename.c_str());
+    if(!ofile) throw(red + "Error:" + reset + "failed to open the file [" + out_filename + "] to write.");
+
+    cout << "Reading SNP loading from [" + f_pc_load + "]." << endl;
+    string buf;
+    vector<string> vsec_buf;
+    string header;
+    getline(h_pc_load,header);
+    size_t N_loading_file = count(header.begin(),header.end(),'p');
+    cout << "Number of PC loading: " << N_loading_file << endl;
+    while(h_pc_load >> buf){
+        vsec_buf.push_back(buf);
+    }
+    h_pc_load.close();
+    buf.clear();
+    header.clear();
+
+    int len_col = N_loading_file + 4;
+    int num_snp = vsec_buf.size() / len_col;
+    cout << "Number of SNPs in loading array: " << num_snp << "." << endl; 
+    if(vsec_buf.size() % len_col != 0){
+        throw(red + "Error:" + reset + "the loading file has different number of column! Please check your loading file");
+    }
+    if(N > N_loading_file){
+        throw(red + "Error:" + reset + "only " + to_string(N_loading_file) + " loadings, thus not able to project into " + to_string(N) + " PCs.");
+    }
+
+    vector<string> snps(num_snp);
+    vector<string> A1(num_snp);
+    vector<string> A2(num_snp);
+    vector<t_val> mu(num_snp);
+    vector<t_val> snp_loading (num_snp * N);
+    for(int read_snp_index=0; read_snp_index < num_snp; read_snp_index++){
+       int base_index = read_snp_index * len_col;
+       snps[read_snp_index] = vsec_buf[base_index];
+       A1[read_snp_index] = vsec_buf[base_index + 1];
+       A2[read_snp_index] = vsec_buf[base_index + 2];
+       #ifdef SINGLE_PRECISION
+       mu[read_snp_index] = atof(vsec_buf[base_index + 3].c_str());
+       #else
+       mu[read_snp_index] = stod(vsec_buf[base_index + 3]);
+       #endif
+       for(int N_index=0; N_index<N; N_index++){
+           // atof .c_str()
+            #ifdef SINGLE_PRECISION
+            snp_loading[read_snp_index*N + N_index] = atof(vsec_buf[base_index+4+N_index].c_str());
+            #else
+            snp_loading[read_snp_index*N + N_index] = stod(vsec_buf[base_index+4+N_index]);
+            #endif
+        }
+    }
+
+    vsec_buf.clear();
+    vsec_buf.shrink_to_fit();
+    
+    cout << "Matching Alleles..." << endl;
+    vector<int> snp_index_include(snps.size());
+    StrFunc::match(snps,_snp_name,snp_index_include);
+    // _include should be fixed here, it cause maf caculation go vain; 
+    unordered_set<int> ori_SNPs(_include.begin(),_include.end());
+    _include.clear();
+
+    vector<t_val> filter_snp_loading;
+    filter_snp_loading.reserve(num_snp * N);
+
+    cout << "Adjusting A1" << endl;
+    bool remove_flag = true;
+    vector<string> missnp_list;
+    vector<t_val> mu_adj;
+    for(int snp_index=0; snp_index < snps.size(); snp_index++){
+        int cur_snp_index = snp_index_include[snp_index];
+        if(cur_snp_index >= 0 && ori_SNPs.find(cur_snp_index) != ori_SNPs.end() ){
+            if((StrFunc::i_compare(A1[snp_index],_allele1[cur_snp_index]) && 
+                StrFunc::i_compare(A2[snp_index],_allele2[cur_snp_index])) 
+               || (StrFunc::i_compare(A1[snp_index],_allele2[cur_snp_index]) && 
+                StrFunc::i_compare(A2[snp_index],_allele1[cur_snp_index]))){
+                     _include.push_back(cur_snp_index);
+                     mu_adj.push_back(mu[snp_index]);
+                     _ref_A[cur_snp_index] = A1[snp_index];
+                     filter_snp_loading.insert(filter_snp_loading.end(), snp_loading.begin() + N*snp_index, snp_loading.begin() + N*snp_index + N );
+                     continue;
+            }
+        }
+        missnp_list.push_back(snps[snp_index]);
+    }
+
+    snp_loading.clear();
+    snp_loading.shrink_to_fit();
+
+    //Map the vector to Matrix, share the same memory, thus to save the memory.
+    eigenMatrix m_snp_loading = Map< Matrix<t_val,Dynamic,Dynamic,RowMajor> > (filter_snp_loading.data(), _include.size(), N);
+    cout << " " << m_snp_loading.rows() << " SNPs are included for loading" << endl;
+
+    if(missnp_list.size() > 0){
+        cout << red << "Warning:" << reset << missnp_list.size() << " SNPs are not found or alleles mismatch in the target genotype" << endl; 
+        string miss_file = _out + ".proj.missnp";
+        cout << " See [" << miss_file << "] for more details, if plenty of SNPs missed, the projection might be biased." << endl;
+        ofstream h_miss(miss_file);
+        ostream_iterator<string> output_iterator(h_miss,"\n");
+        copy(missnp_list.begin(), missnp_list.end(), output_iterator);
+    }
+    missnp_list.clear();
+    missnp_list.shrink_to_fit();
+
+    //if(_mu.empty()) calcu_mu();
+    cout << "Standardize genotypes and project PCs..." << endl;
+    cout << "Total number of subjects: " << _keep.size() << "\n" << endl;
+    //ofstream demo(_out + ".proj.matrix");
+    cout << "Processing subject number: " << endl;
+    eigenMatrix PCs(_keep.size(),N);
+    #pragma omp parallel for ordered schedule(dynamic)
+    for(int ind_index=0; ind_index < _keep.size(); ind_index++){
+        cout <<  to_string(ind_index+1) + "\r" << flush;
+        Matrix<t_val,1,Dynamic> geno(_include.size());
+        for(int snp_index=0; snp_index < _include.size(); snp_index++){
+            if (!_snp_1[_include[snp_index]][_keep[ind_index]] || _snp_2[_include[snp_index]][_keep[ind_index]]) {
+                geno(snp_index) = _snp_1[_include[snp_index]][_keep[ind_index]] + _snp_2[_include[snp_index]][_keep[ind_index]];
+                if (_allele1[_include[snp_index]] != _ref_A[_include[snp_index]]) geno(snp_index) = 2.0 - geno(snp_index);
+                geno(snp_index) = (geno(snp_index) - mu_adj[snp_index]) / sqrt(mu_adj[snp_index]*(1.0 - 0.5*mu_adj[snp_index]));
+            }else{
+                geno(snp_index) = 0.0;
+            }
+        }
+        PCs.row(ind_index) = geno * m_snp_loading;
+        /*
+        if(ind_index==0){
+            demo << "geno:" << endl;
+            demo << geno << endl;
+            demo << "m_snp_loading" << endl;
+            demo << m_snp_loading << endl;
+            demo << "PC" << endl;
+            demo << PCs << endl;
+            demo.close();
+        }
+        */
+        geno.resize(0);
+    }
+    
+    // Output the values
+    for(int ind_index=0; ind_index < _keep.size(); ind_index++){
+        ofile << _fid[_keep[ind_index]] << "\t" << _pid[_keep[ind_index]] << "\t";
+        for(int pc_index=0; pc_index<N; pc_index++){
+            ofile << PCs(ind_index,pc_index) << "\t"; 
+        }
+        ofile << "\n";
+    }
+    ofile.close();
+    
+    cout << "\nFinished, and the PCs have all been saved to " << out_filename << endl;
+}
 

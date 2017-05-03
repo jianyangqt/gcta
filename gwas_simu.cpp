@@ -140,6 +140,9 @@ void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, 
     if(eff_mod == 0){
         eigenVector sd_SNP;
         std_XMat(X, sd_SNP, false, true, true);
+    } else {
+        eigenVector sd_SNP;
+        std_XMat(X, sd_SNP, false, true, false);
     }
 
     // Calculate Ve and threhold

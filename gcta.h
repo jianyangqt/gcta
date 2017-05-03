@@ -29,7 +29,7 @@
 #include <iomanip>
 #include <bitset>
 #include <map>
-//#include <random>
+#include <Eigen/StdVector>
 #include "zfstream.h"
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
@@ -39,6 +39,13 @@
 #include <mkl_cblas.h>
 #include <mkl_lapack.h>
 
+#ifdef SINGLE_PRECISION
+typedef Eigen::SparseMatrix<float, Eigen::ColMajor, long long> eigenSparseMat;
+#else
+typedef Eigen::SparseMatrix<double, Eigen::ColMajor, long long> eigenSparseMat;
+#endif
+//To avoid potential alignment problem. 
+EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION(eigenSparseMat);
 using namespace Eigen;
 using namespace std;
 
@@ -46,13 +53,11 @@ using namespace std;
 typedef DiagonalMatrix<float, Dynamic, Dynamic> eigenDiagMat;
 typedef MatrixXf eigenMatrix;
 typedef VectorXf eigenVector;
-typedef SparseMatrix<float> eigenSparseMat;
 typedef DynamicSparseMatrix<float> eigenDynSparseMat;
 #else
 typedef DiagonalMatrix<double, Dynamic, Dynamic> eigenDiagMat;
 typedef MatrixXd eigenMatrix;
 typedef VectorXd eigenVector;
-typedef SparseMatrix<double> eigenSparseMat;
 typedef DynamicSparseMatrix<double> eigenDynSparseMat;
 #endif
 
@@ -96,15 +101,19 @@ public:
     void make_grm(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, bool mlmassoc, bool diag_f3_flag = false, string subpopu_file = "");
     //void make_grm_pca(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, double wind_size, bool mlmassoc);
     void save_grm(string grm_file, string keep_indi_file, string remove_indi_file, string sex_file, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool merge_grm_flag, bool output_grm_bin);
+    void align_grm(string m_grm_file);
     void pca(string grm_file, string keep_indi_file, string remove_indi_file, double grm_cutoff, bool merge_grm_flag, int out_pc_num);
-    void snp_pc_loading(string pc_file, int grm_N);
+    void snp_pc_loading(string pc_file);
+    void project_loading(string pc_load, int N); 
 
     // bigK + smallK method
     void grm_bK(string grm_file, string keep_indi_file, string remove_indi_file, double threshold, bool grm_out_bin_flag);
 
     void enable_grm_bin_flag();
     void fit_reml(string grm_file, string phen_file, string qcovar_file, string covar_file, string qGE_file, string GE_file, string keep_indi_file, string remove_indi_file, string sex_file, int mphen, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool m_grm_flag, bool pred_rand_eff, bool est_fix_eff, int reml_mtd, int MaxIter, vector<double> reml_priors, vector<double> reml_priors_var, vector<int> drop, bool no_lrt, double prevalence, bool no_constrain, bool mlmassoc = false, bool within_family = false, bool reml_bending = false, bool reml_diag_one = false);
-    void HE_reg(string grm_file, string phen_file, string keep_indi_file, string remove_indi_file, int mphen);
+    //void HE_reg(string grm_file, string phen_file, string keep_indi_file, string remove_indi_file, int mphen); // old HE regression method
+    void HE_reg(string grm_file, bool m_grm_flag, string phen_file, string keep_indi_file, string remove_indi_file, int mphen); // allow multiple regression
+    void HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, string keep_indi_file, string remove_indi_file, int mphen, int mphen2); // estimate genetic covariance between two traits
     void blup_snp_geno();
     void blup_snp_dosage();
     void set_reml_force_inv();
@@ -528,6 +537,7 @@ private:
     eigenVector _freq;
     eigenVector _beta;
     eigenVector _beta_se;
+    eigenVector _chisq;
     eigenVector _pval;
     eigenVector _N_o;
     eigenVector _Nd;

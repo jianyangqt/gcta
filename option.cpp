@@ -66,10 +66,16 @@ void option(int option_num, char* option_str[])
 
     // GRM
     bool ibc = false, ibc_all = false, grm_flag = false, grm_bin_flag = true, m_grm_flag = false, m_grm_bin_flag = true, make_grm_flag = false, make_grm_inbred_flag = false, dominance_flag = false, make_grm_xchar_flag = false, grm_out_bin_flag = true, make_grm_f3_flag = false;
+    bool align_grm_flag = false;
     bool pca_flag = false, pcl_flag = false;
+    bool project_flag = false;
     double grm_adj_fac = -2.0, grm_cutoff = -2.0, rm_high_ld_cutoff = -1.0, bK_threshold = -10.0;
-    int dosage_compen = -2, out_pc_num = 20, make_grm_mtd = 0, pcl_grm_N = 0;
+    int dosage_compen = -2, out_pc_num = 20, make_grm_mtd = 0;
     string grm_file = "", paa_file = "", pc_file = "";
+    //pca projection
+    string project_file = "";
+    int project_N = 0;
+
 
     // LD
     string LD_file = "", ld_score_multi_file = "";
@@ -97,6 +103,7 @@ void option(int option_num, char* option_str[])
     int mphen = 1, mphen2 = 2, reml_mtd = 0, MaxIter = 100;
     double prevalence = -2.0, prevalence2 = -2.0;
     bool reml_flag = false, pred_rand_eff = false, est_fix_eff = false, blup_snp_flag = false, no_constrain = false, reml_lrt_flag = false, no_lrt = false, bivar_reml_flag = false, ignore_Ce = false, within_family = false, reml_bending = false, HE_reg_flag = false, reml_diag_one = false, bivar_no_constrain = false;
+    bool HE_reg_bivar_flag = false;
     string phen_file = "", qcovar_file = "", covar_file = "", qgxe_file = "", gxe_file = "", blup_indi_file = "";
     vector<double> reml_priors, reml_priors_var, fixed_rg_val;
     vector<int> reml_drop;
@@ -398,6 +405,9 @@ void option(int option_num, char* option_str[])
             grm_cutoff = atof(argv[++i]);
             if (grm_cutoff >= -1 && grm_cutoff <= 2) cout << "--grm-cutoff " << grm_cutoff << endl;
             else grm_cutoff = -2;
+        } else if (strcmp(argv[i], "--grm-align") == 0) {
+            align_grm_flag = true;
+            thread_flag = true;
         } else if (strcmp(argv[i], "--make-bK") == 0) {
             bK_threshold = atof(argv[++i]);
             if (bK_threshold < 0 || bK_threshold > 1) throw ("\nError: --make-bK threshold should be range from 0 to 1.\n");
@@ -416,9 +426,16 @@ void option(int option_num, char* option_str[])
             pcl_flag = true;
             thread_flag = true;
             pc_file = argv[++i];
-            pcl_grm_N = atoi(argv[++i]);
-            cout << "--pc-loading " << pc_file << " " << pcl_grm_N << endl;
-            if(pcl_grm_N < 1 || pcl_grm_N > 1e20) throw("\nError: invalid number of SNPs used to calculate PCs."); 
+            //pcl_grm_N = atoi(argv[++i]);
+            cout << "--pc-loading " << pc_file <<  endl;
+            //if(pcl_grm_N < 1 || pcl_grm_N > 1e20) throw("\nError: invalid number of SNPs used to calculate PCs."); 
+        }else if (strcmp(argv[i], "--project-loading") == 0 ){
+            project_flag = true;
+            thread_flag = true;
+            project_file = argv[++i];
+            project_N = atoi(argv[++i]);
+            cout << "--project-loading " << project_file << " " << project_N << endl;
+            if(project_N < 1 || project_N > 1e3) throw("\nError: invalid number of PCs to output");
         }
         // estimation of LD structure
         else if (strcmp(argv[i], "--ld") == 0) {
@@ -543,6 +560,26 @@ void option(int option_num, char* option_str[])
             HE_reg_flag = true;
             thread_flag = true;
             cout << "--HEreg" << endl;
+        } else if (strcmp(argv[i], "--HEreg-bivar") == 0) {
+            HE_reg_bivar_flag = true;
+            thread_flag = true;
+            vector<int> mphen_buf;
+            while (1) {
+                i++;
+                if (strcmp(argv[i], "gcta") == 0 || strncmp(argv[i], "--", 2) == 0) break;
+                mphen_buf.push_back(atoi(argv[i]));
+            }
+            i--;
+            if (mphen_buf.size() < 2 && mphen_buf.size() > 0) throw ("\nError: --HEreg-bivar. Please specify two traits for the HE regression for covariance analysis.");
+            if (mphen_buf.size() == 0) {
+                mphen = 1;
+                mphen2 = 2;
+            } else {
+                mphen = mphen_buf[0];
+                mphen2 = mphen_buf[1];
+            }
+            if (mphen < 1 || mphen2 < 1 || mphen == mphen2) throw ("\nError: --HEreg-bivar. Invalid input parameters.");
+            cout << "--HEreg-bivar " << mphen << " " << mphen2 << endl;
         } else if (strcmp(argv[i], "--reml") == 0) {
             reml_flag = true;
             thread_flag = true;
@@ -1074,7 +1111,8 @@ void option(int option_num, char* option_str[])
                 else if(!sbat_snpset_file.empty()) pter_gcta->sbat(sbat_sAssoc_file, sbat_snpset_file, sbat_ld_cutoff, sbat_write_snpset);
                 else if(sbat_seg_flag) pter_gcta->sbat_seg(sbat_sAssoc_file, sbat_seg_size, sbat_ld_cutoff, sbat_write_snpset);
             }
-            else if(pcl_flag) pter_gcta->snp_pc_loading(pc_file, pcl_grm_N);
+            else if(pcl_flag) pter_gcta->snp_pc_loading(pc_file);
+            else if(project_flag) pter_gcta->project_loading(project_file, project_N);
         }
     } else if (dose_beagle_flag || dose_mach_flag || dose_mach_gz_flag) {
         if (massoc_slct_flag | massoc_joint_flag | !massoc_cond_snplist.empty()) throw ("Error: the --dosage option can't be used in combined with the --cojo options.");
@@ -1112,7 +1150,8 @@ void option(int option_num, char* option_str[])
         else if (fst_flag) pter_gcta->Fst(subpopu_file);
         else if (mlma_flag) pter_gcta->mlma(grm_file, m_grm_flag, subtract_grm_file, phen_file, qcovar_file, covar_file, mphen, MaxIter, reml_priors, reml_priors_var, no_constrain, within_family, make_grm_inbred_flag, mlma_no_adj_covar);
         else if (mlma_loco_flag) pter_gcta->mlma_loco(phen_file, qcovar_file, covar_file, mphen, MaxIter, reml_priors, reml_priors_var, no_constrain, make_grm_inbred_flag, mlma_no_adj_covar);
-    } else if (HE_reg_flag) pter_gcta->HE_reg(grm_file, phen_file, kp_indi_file, rm_indi_file, mphen);
+    } else if (HE_reg_flag) pter_gcta->HE_reg(grm_file, m_grm_flag, phen_file, kp_indi_file, rm_indi_file, mphen);
+    else if (HE_reg_bivar_flag) pter_gcta->HE_reg_bivar(grm_file, m_grm_flag, phen_file, kp_indi_file, rm_indi_file, mphen, mphen2);
     else if ((reml_flag || bivar_reml_flag) && phen_file.empty()) throw ("\nError: phenotype file is required for reml analysis.\n");
     else if (bivar_reml_flag) {
         pter_gcta->fit_bivar_reml(grm_file, phen_file, qcovar_file, covar_file, kp_indi_file, rm_indi_file, update_sex_file, mphen, mphen2, grm_cutoff, grm_adj_fac, dosage_compen, m_grm_flag, pred_rand_eff, est_fix_eff, reml_mtd, MaxIter, reml_priors, reml_priors_var, reml_drop, no_lrt, prevalence, prevalence2, no_constrain, ignore_Ce, fixed_rg_val, bivar_no_constrain);
@@ -1121,6 +1160,7 @@ void option(int option_num, char* option_str[])
     } else if (grm_flag || m_grm_flag) {
         if (pca_flag) pter_gcta->pca(grm_file, kp_indi_file, rm_indi_file, grm_cutoff, m_grm_flag, out_pc_num);
         else if (make_grm_flag) pter_gcta->save_grm(grm_file, kp_indi_file, rm_indi_file, update_sex_file, grm_cutoff, grm_adj_fac, dosage_compen, m_grm_flag, grm_out_bin_flag);
+        else if (align_grm_flag) pter_gcta->align_grm(grm_file);
         else if (bK_threshold > -1) pter_gcta->grm_bK(grm_file, kp_indi_file, rm_indi_file, bK_threshold, grm_out_bin_flag);
     }
     else if (ld_mean_rsq_seg_flag) pter_gcta->ld_seg(LD_file, LD_seg, LD_wind, LD_rsq_cutoff, dominance_flag);
