@@ -3,7 +3,7 @@
  *
  * GCTA options
  *
- * 2010-2016 by Jian Yang <jian.yang@uq.edu.au> and others
+ * 2010-2017 by Jian Yang <jian.yang@uq.edu.au> and others
  *
  * This file is distributed under the GNU General Public
  * License, Version 2.  Please see the file COPYING for more
@@ -19,8 +19,8 @@ int main(int argc, char* argv[])
 {
     cout << "*******************************************************************" << endl;
     cout << "* Genome-wide Complex Trait Analysis (GCTA)" << endl;
-    cout << "* version 1.26.0" << endl;
-    cout << "* (C) 2010-2016, The University of Queensland" << endl;
+    cout << "* version 1.26.9 beta" << endl;
+    cout << "* (C) 2010-2017, The University of Queensland" << endl;
     cout << "* MIT License" << endl;
     cout << "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>" << endl;
     cout << "*******************************************************************" << endl;
