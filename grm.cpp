@@ -293,7 +293,7 @@ void gcta::read_grm(string grm_file, vector<string> &grm_id, bool out_id_log, bo
 }
 
 void gcta::read_grm_gz(string grm_file, vector<string> &grm_id, bool out_id_log, bool read_id_only) {
-    int n = read_grm_id(grm_file, grm_id, out_id_log, read_id_only);
+    long n = read_grm_id(grm_file, grm_id, out_id_log, read_id_only);
 
     if (read_id_only) return;
 
@@ -328,7 +328,7 @@ void gcta::read_grm_gz(string grm_file, vector<string> &grm_id, bool out_id_log,
     zinf.close();
     if (!_within_family && nline != (int) (n * (n + 1)*0.5)){
         stringstream errmsg_tmp;
-        errmsg_tmp << "Error: there are " << nline << " lines in the [" << grm_gzfile << "] file. The expected number of lines is " << (int) (n * (n + 1)*0.5) << "." << endl;
+        errmsg_tmp << "Error: there are " << nline << " lines in the [" << grm_gzfile << "] file. The expected number of lines is " << (long) (n * (n + 1)*0.5) << "." << endl;
         throw(errmsg_tmp.str());
         //throw ("Error: incorrect number of lines in the grm file. *.grm.gz file and *.grm.id file are mismatched?");
     }
