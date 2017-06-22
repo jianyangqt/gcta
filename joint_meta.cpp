@@ -452,7 +452,7 @@ void gcta::massoc_cond(const vector<int> &slct, const vector<int> &remain, eigen
             Z_Bi_buf = _Z.col(j).transpose() * _B_i;
             if (_Z.col(j).dot(Z_Bi_buf) / _MSX_B[j] < _jma_collinear) {
                 bC[i] = _beta[j] - Z_Bi.cwiseProduct(_D_N).dot(b) / B2;
-                bC_se[i] = (B2 - _Z_N.col(j).dot(Z_Bi)) / (B2 * B2);
+                bC_se[i] = 1/B2;     // Revised by Zhihong 4 April 2017 //bC_se[i] = (B2 - _Z_N.col(j).dot(Z_Bi)) / (B2 * B2);
             }
         }
         if (_jma_actual_geno) bC_se[i] *= _jma_Ve - (B2 * bC[i] * _beta[j]) / (_Nd[j] - n - 1);
