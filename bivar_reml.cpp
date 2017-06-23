@@ -141,21 +141,22 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
     int pos = 0;
     _r_indx.clear();
     _bivar_pos.resize(3);
+
+    static const int n1_elements[] = {n1, 0, n2, 1, 0, n2};
+    static const int n2_elements[] = {0, n2, n1, 0, 1, n1};
+    vector<int> n_element(_n);
+
     if (grm_flag) {
         for (i = 0; i < 3 + 3 - ignore_Ce; i++) _r_indx.push_back(i);
         _Asp.resize(_r_indx.size(), eigenSparseMat(_n, _n)); 
 
-        static const int n1_elements[] = {n1, 0, n2, 1, 0, n2};
-        static const int n2_elements[] = {0, n2, n1, 0, 1, n1};
-        vector<int> n_element(_n);
-        //cout << "Reserve the matrix" << endl;
+        //reserve the memory
         for (int i = 0; i < _r_indx.size(); i++){
             std::fill(n_element.begin(), n_element.begin() + n1, n1_elements[i]);
             std::fill(n_element.begin() + n1, n_element.end(), n2_elements[i]);
             _Asp[i].reserve(n_element);
         }
         
-        //cout << "Starting fill the matrix" << endl;
         if (!no_lrt) drop_comp(drop);
 
         _bivar_pos[0].push_back(pos);
@@ -199,10 +200,23 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
         //cout << "Transform the data finished" << endl;
     } 
     else if (m_grm_flag) {
-        //TODO: get the m_grm portion change same as grm_flag
         if (!sex_file.empty()) update_sex(sex_file);
         for (i = 0; i < 3 * grm_files.size() + 3 - ignore_Ce; i++) _r_indx.push_back(i);
         _Asp.resize(_r_indx.size(), eigenSparseMat(_n, _n));
+
+        for (int i = 0; i < _r_indx.size() - 3 + ignore_Ce; i++){
+            std::fill(n_element.begin(), n_element.begin() + n1, n1_elements[i % 3]);
+            std::fill(n_element.begin() + n1, n_element.end(), n2_elements[i % 3]);
+            _Asp[i].reserve(n_element);
+        }
+
+        for(int i = _r_indx.size() -3 + ignore_Ce; i < _r_indx.size(); i++){
+            std::fill(n_element.begin(), n_element.begin() + n1, n1_elements[i]);
+            std::fill(n_element.begin() + n1, n_element.end(), n2_elements[i]);
+            _Asp[i].reserve(n_element);
+        }
+       
+            
         //for (i = 0; i < _r_indx.size(); i++) (_Asp[i]).resize(_n, _n);
         if (!no_lrt) drop_comp(drop);
         string prev_file = grm_files[0];
@@ -219,30 +233,28 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
 
             _bivar_pos[0].push_back(pos);
             for (j = 0; j < n1; j++) {
-                (_Asp[pos]).startVec(j);
-                for (i = 0; i < n1; i++) (_Asp[pos]).insertBack(i, j) = _grm(kp[nms1[i]], _keep[nms1[j]]);
+                for (i = 0; i < n1; i++) (_Asp[pos]).insertBackUncompressed(i, j) = _grm(kp[nms1[i]], _keep[nms1[j]]);
             }
+            (_Asp[pos]).finalize();
             pos++;
 
             _bivar_pos[1].push_back(pos);
             for (j = 0; j < n2; j++) {
-                (_Asp[pos]).startVec(j + n1);
-                for (i = 0; i < n2; i++) (_Asp[pos]).insertBack(i + n1, j + n1) = _grm(kp[nms2[i]], _keep[nms2[j]]);
+                for (i = 0; i < n2; i++) (_Asp[pos]).insertBackUncompressed(i + n1, j + n1) = _grm(kp[nms2[i]], _keep[nms2[j]]);
             }
+            (_Asp[pos]).finalize();
             pos++;
 
             _bivar_pos[2].push_back(pos);
             for (j = 0; j < n1; j++) {
-                (_Asp[pos]).startVec(j);
-                for (i = 0; i < n2; i++) (_Asp[pos]).insertBack(i + n1, j) = _grm(kp[nms2[i]], _keep[nms1[j]]);
+                for (i = 0; i < n2; i++) (_Asp[pos]).insertBackUncompressed(i + n1, j) = _grm(kp[nms2[i]], _keep[nms1[j]]);
             }
             for (j = 0; j < n2; j++) {
-                (_Asp[pos]).startVec(j + n1);
-                for (i = 0; i < n1; i++) (_Asp[pos]).insertBack(i, j + n1) = _grm(kp[nms1[i]], _keep[nms2[j]]);
+                for (i = 0; i < n1; i++) (_Asp[pos]).insertBackUncompressed(i, j + n1) = _grm(kp[nms1[i]], _keep[nms2[j]]);
             }
+            (_Asp[pos]).finalize();
             pos++;
 
-            for (j = pos0; j < pos; j++) (_Asp[j]).finalize();
             prev_file = grm_files[k];
             prev_grm_id = grm_id;
         }
@@ -255,7 +267,6 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
         (_Asp[pos]).insertBackUncompressed(i, i) = 1.0;
     }
     (_Asp[pos]).finalize();
-    //cout << "Fill Matrix " << pos << " finished" << endl; 
     pos++;
 
     _bivar_pos[1].push_back(pos);
@@ -263,7 +274,6 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
         (_Asp[pos]).insertBackUncompressed(i + n1, i + n1) = 1.0;
     }
     (_Asp[pos]).finalize();
-    //cout << "Fill Matrix " << pos << " finished" << endl; 
     pos++;
 
     if (!ignore_Ce) {
