@@ -1,4 +1,10 @@
 *.o
 *.swp
+*.tar
+*.gz
+*.bed
+*.bim
+*.fam
+*.tmp
 .ycm_extra_conf.py
 release/

@@ -2,65 +2,57 @@
 # -----------------------------------------------------------------
 #   Makefile for GCTA 
 #   
-#   Supported platforms
-#       Unix / Linux                UNIX
+#   Supported platforms (x86_64 only)
+#       Linux                       UNIX
 #       Windows                     WIN
 #       MacOS                       MAC
 # ---------------------------------------------------------------------
 
 # change the MKL ROOT before compile, we encourage to use 2017 version and above
-MKLROOT = $(HOME)/local/packages/intel/compilers_and_libraries_2017/linux/mkl
+#MKLROOT = $(HOME)/local/packages/intel/compilers_and_libraries_2017/linux/mkl
+MKLROOT = /opt/intel/compilers_and_libraries/mac/mkl
 
-# change the EIGEN path before compile, we encourage to use 3.3.3 version
-EIGEN = $(HOME)/local/packages/
-
-
-# Set this variable to either UNIX, MAC or WIN
-SYS = UNIX
-
-#mkdir -p release
-
-OUTPUT = ./release/gcta64
+# change the EIGEN path before compile, we encourage to use 3.3.3 version and above
+#EIGEN = $(HOME)/local/packages/
+EIGEN = /usr/local/Cellar/eigen/3.3.4/include/eigen3
 
 # Use sinlge precision to store matrix
 #SINGLE_PRECISION = 1 
-
-# Put C++ compiler here; Windows has it's own specific version
-CXX_UNIX = g++
-CXX_WIN = C:\CodeBlocks\MinGW\bin\mingw32-g++.exe
-CXX_MAC = g++
-
-# Any other compiler flags here ( -Wall, -g, etc)
-CXXFLAGS = -w -s -O3 -m64 -fopenmp -I $(EIGEN) -DNDEBUG -msse2 -std=c++11 -I.
-
 ifdef SINGLE_PRECISION
  CXXFLAGS += -DSINGLE_PRECISION=1
 endif
 
-# Some system specific flags
+OUTPUT = ./release/gcta64
 
-ifeq ($(SYS),WIN)
- CXXFLAGS += -DWIN -static -I ../Lib/zlib
- LIB += ../Lib/zlib/zlib.lib 
- CXX = $(CXX_WIN)
+############################################
+###  Linux configuration ##################
+
+CXXFLAGS = -w -s -O3 -m64 -fopenmp -DNDEBUG -msse2 -std=c++11 -DMKL_LP64 -I. -I$(MKLROOT)/include -I$(EIGEN) 
+LDFLAGS = -static -lz -Wl,--start-group  $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/lib/intel64/libmkl_gnu_thread.a $(MKLROOT)/lib/intel64/libmkl_core.a -Wl,--end-group -lgomp -lpthread -lm -ldl
+
+############################################
+### Mac and Windows configuration ##########
+### Windows not supported by this makefile # 
+
+# Windows specified 
+ifeq ($(OS),Windows_NT)
+    # zlib header
+    # CXXFLAGS += -I zlib_header
+    # LDFLAGS = mkl_intel_lp64.lib mkl_intel_thread.lib mkl_core.lib libiomp5md.lib zlib.lib
+    $(error Windows is not supported currently)
+else
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Darwin)
+        # cann't compile with clang, we must install g++ manually
+        CXX = g++-7
+	# static linking have some problems
+        LDFLAGS = -L${MKLROOT}/lib -Wl,-rpath,${MKLROOT}/lib -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -L/usr/local/opt/llvm/lib -liomp5 -lpthread -lm -ldl -lz 
+    endif
 endif
 
-ifeq ($(SYS),UNIX)
- CXXFLAGS += -DUNIX -DMKL_LP64 -static -m64 -I$(MKLROOT)/include
- LIB += -static -lz -Wl,--start-group  $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/lib/intel64/libmkl_gnu_thread.a $(MKLROOT)/lib/intel64/libmkl_core.a -Wl,--end-group -lgomp -lpthread -lm -ldl
- CXX = $(CXX_UNIX)
-endif
+############################################
+### Configuration of all platform ##########
 
-ifeq ($(SYS),MAC)
- CXXFLAGS += -DUNIX -Dfopen64=fopen 
-#-isysroot /Developer/SDKs/MacOSX10.5.sdk -mmacosx-version-min=10.5
- LIB += -lz
- CXX = $(CXX_MAC)
-endif
-
-#ifeq ($(SYS),SOLARIS)
-# CXX = $(CXX_UNIX)
-#endif
 
 HDR += CommFunc.h \
 	   cdflib.h \
@@ -100,7 +92,7 @@ all : $(OUTPUT)
 
 $(OUTPUT) :
 	mkdir -p release
-	$(CXX) $(CXXFLAGS) -o $(OUTPUT) $(OBJ) $(LIB) 
+	$(CXX) -o $(OUTPUT) $(OBJ) $(LDFLAGS) 
 
 $(OBJ) : $(HDR)
 
