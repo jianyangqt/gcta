@@ -1090,8 +1090,17 @@ bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, i
         logdet = _n * log(prev_varcmp[0]);
     } 
     else {
-        for (i = 0; i < _r_indx.size(); i++) Vi += (_A[_r_indx[i]]) * prev_varcmp[i];
+        //for (i = 0; i < _r_indx.size(); i++) Vi += (_A[_r_indx[i]]) * prev_varcmp[i];
         
+        for(int i = 0; i < _r_indx.size(); i++){ 
+            double cur_varcmp = prev_varcmp[i];
+            #pragma omp parallel for private(k)
+            for(k = 0; k < _Asp[_r_indx[i]].outerSize(); ++k){
+                for(eigenSparseMat::InnerIterator it(_Asp[_r_indx[i]], k); it; ++it){
+                    Vi(it.row(),it.col()) += it.value() * cur_varcmp;
+                }
+            }
+        }   
         if (_V_inv_mtd == 0) {
             if (!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) {
                 if(_reml_force_inv) {
@@ -2017,9 +2026,11 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
     for (i = 0; i < size_grm; ++i) {
         t1j = t2j = t12j = t21j = 0;
         for (j = 0; j <= i; ++j) {
-            if (i == grm_kp_tr1[t1i] && j == grm_kp_tr1[t1j] && i!=j) {   // Trait 1
-                for (k = 0; k < n_grm; k++) {
-                    (*A_bin[k]).read((char*) &f_buf, size);
+            for (k = 0; k < n_grm; k++) {
+                (*A_bin[k]).read((char*) &f_buf, size);
+                if (i == j) continue;
+                
+                if (i == grm_kp_tr1[t1i] && j == grm_kp_tr1[t1j]) {   // Trait 1
                     aij[k] = f_buf;
                     r = k + 1;   // first one is intercept
                     Lhs[0](0,r) = Lhs[0](r,0) += aij[k];   // symetric
@@ -2036,13 +2047,13 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
                     Rhs[0][r] += rhs;
                     RhsJk[0][t1i][r] += rhs;
                     RhsJk[0][t1j][r] += rhs;
+                    if (k == n_grm-1) {
+                        ++t1j;
+                        ++count[0];
+                    }
                 }
-                ++t1j;
-                ++count[0];
-            }
-            else if (i == grm_kp_tr2[t2i] && j == grm_kp_tr2[t2j] && i!=j) {   // Trait 2
-                for (k = 0; k < n_grm; k++) {
-                    (*A_bin[k]).read((char*) &f_buf, size);
+                
+                if (i == grm_kp_tr2[t2i] && j == grm_kp_tr2[t2j]) {   // Trait 2
                     aij[k] = f_buf;
                     r = k + 1;   // first one is intercept
                     Lhs[1](0,r) = Lhs[1](r,0) += aij[k];   // symetric
@@ -2059,13 +2070,13 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
                     Rhs[1][r] += rhs;
                     RhsJk[1][t2i][r] += rhs;
                     RhsJk[1][t2j][r] += rhs;
+                    if (k == n_grm-1) {
+                        ++t2j;
+                        ++count[1];
+                    }
                 }
-                ++t2j;
-                ++count[1];
-            }
-            else if (i == grm_kp_tr1[t12i] && j == grm_kp_tr2[t21j]) {  // Trait 1 x Trait 2
-                for (k = 0; k < n_grm; k++) {
-                    (*A_bin[k]).read((char*) &f_buf, size);
+                
+                if (i == grm_kp_tr1[t12i] && j == grm_kp_tr2[t21j]) {  // Trait 1 x Trait 2
                     aij[k] = f_buf;
                     r = k + 1;
                     Lhs[2](0,r) = Lhs[2](r,0) += aij[k];
@@ -2097,13 +2108,12 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
                     if (t12i == t21j) {
                         RhsJk[2][t12i][r] -= rhs;
                     }
+                    if (k == n_grm-1) {
+                        ++t21j;
+                        ++count[2];
+                    }
                 }
-                ++t21j;
-                ++count[2];
-            }
-            else if (i == grm_kp_tr2[t21i] && j == grm_kp_tr1[t12j]) {  // Trait 2 x Trait 1
-                for (k = 0; k < n_grm; k++) {
-                    (*A_bin[k]).read((char*) &f_buf, size);
+                else if (i == grm_kp_tr2[t21i] && j == grm_kp_tr1[t12j]) {  // Trait 2 x Trait 1
                     aij[k] = f_buf;
                     r = k + 1;
                     Lhs[2](0,r) = Lhs[2](r,0) += aij[k];
@@ -2135,18 +2145,16 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
                     if (t21i == t12j) {
                         RhsJk[2][t12j][r] -= rhs;
                     }
-                }
-                ++t12j;
-                ++count[2];
-            }
-            else {
-                for (k = 0; k < n_grm; k++) {
-                    (*A_bin[k]).read((char*) &f_buf, size);
+                    if (k == n_grm-1) {
+                        ++t12j;
+                        ++count[2];
+                    }
                 }
             }
         }
-        if (i == grm_kp_tr1[t1i] ) ++t1i;
-        if (i == grm_kp_tr2[t2i] ) ++t2i;
+        
+        if (i == grm_kp_tr1[t1i] && t1i < n1-1) ++t1i;
+        if (i == grm_kp_tr2[t2i] && t2i < n2-1) ++t2i;
         if (i == grm_kp_tr1[t12i]) ++t12i;
         if (i == grm_kp_tr2[t21i]) ++t21i;
     }
@@ -2314,7 +2322,8 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
     }
     for (i = 0; i < n_grm; ++i) {
         stringstream tmp;
-        tmp << "rG" << i+1;
+        if (n_grm==1) tmp << "rG";
+        else          tmp << "rG" << i+1;
         ss << setw(20) << tmp.str() << setw(16) << rG[i] << setw(16) << rG_se[i] << setw(16) << rG_seJk[i] << endl;
     }
     if (n_grm>1) {
@@ -2330,7 +2339,6 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
     os << ss.str() << endl;
     cout << "Results from Haseman-Elston regression have been saved in [" + ofile + "]." << endl;
 }
-
 
 /*   // old implementation of single component HE regression
 void gcta::HE_reg(string grm_file, string phen_file, string keep_indi_file, string remove_indi_file, int mphen) {
