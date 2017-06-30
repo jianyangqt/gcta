@@ -19,7 +19,7 @@ int main(int argc, char* argv[])
 {
     cout << "*******************************************************************" << endl;
     cout << "* Genome-wide Complex Trait Analysis (GCTA)" << endl;
-    cout << "* version 1.26.9 beta" << endl;
+    cout << "* version 1.30 beta2" << endl;
     cout << "* (C) 2010-2017, The University of Queensland" << endl;
     cout << "* MIT License" << endl;
     cout << "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>" << endl;
@@ -1011,7 +1011,11 @@ void option(int option_num, char* option_str[])
     // OpenMP
     stringstream ss;
     ss << thread_num;
-    setenv("OMP_NUM_THREADS", ss.str().c_str(), 1);
+#ifdef __unix__
+	setenv("OMP_NUM_THREADS", ss.str().c_str(), 1);
+#else
+	_putenv_s("OMP_NUM_THREADS", ss.str().c_str());
+#endif
     omp_set_num_threads(thread_num);
     if (thread_flag) {
         if (thread_num == 1) cout << "Note: This is a multi-thread program. You could specify the number of threads by the --thread-num option to speed up the computation if there are multiple processors in your machine." << endl;
@@ -1020,8 +1024,12 @@ void option(int option_num, char* option_str[])
 
     // set autosome
     if (autosome_flag) {
-        extract_chr_start = 1;
-        extract_chr_end = autosome_num;
+        if(extract_chr_start == extract_chr_end && extract_chr_start != 0){
+            cout << "Warning: --autosome option omitted. You have specified the chromosome to analysis." << endl;
+        }else{
+            extract_chr_start = 1;
+            extract_chr_end = autosome_num;
+        }
     }
     if (make_grm_xchar_flag) extract_chr_start = extract_chr_end = (autosome_num + 1);
 

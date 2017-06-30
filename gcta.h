@@ -380,6 +380,13 @@ private:
     void get_sbat_seg_blk(int seg_size, vector< vector<int> > &snp_set_indx, vector<int> &set_chr, vector<int> &set_start_bp, vector<int> &set_end_bp);
     void rm_cor_sbat(MatrixXf &R, double R_cutoff, int m, vector<int> &rm_ID1);
 
+	// gene based association test 
+	void gbat_read_snpAssoc(string snpAssoc_file, vector<string>& snp_name, vector<int>& snp_chr, vector<int>& snp_bp, vector<double>& snp_pval);
+	void gbat_read_geneAnno(string gAnno_file, vector<string>& gene_name, vector<int>& gene_chr, vector<int>& gene_bp1, vector<int>& gene_bp2);
+	void gbat_calcu_ld(MatrixXf & X, eigenVector & sumsq_x, int snp1_indx, int snp2_indx, MatrixXf & C);
+	void gbat(string sAssoc_file, string gAnno_file, int wind, int simu_num);
+	double gbat_simu_p(int & seed, int size, eigenMatrix & L, int simu_num, double chisq_o);
+
 
     //////////////////////
     // gene expresion data

@@ -9,6 +9,7 @@
  */
 
 #include "StrFunc.h"
+#include <cctype>
 
 int StrFunc::split_string(const string &str, vector<string> &vec_str, string separator)
 {
@@ -177,7 +178,7 @@ bool StrFunc::i_compare(string const& a, string const& b){
     if (a.length() == b.length()) {
         return equal(b.begin(), b.end(),
                     a.begin(), [](unsigned char c1, unsigned char c2){
-                     return std::tolower(c1) == std::tolower(c2);});
+                     return ::tolower(c1) == ::tolower(c2);});
     }else {
         return false;
     }

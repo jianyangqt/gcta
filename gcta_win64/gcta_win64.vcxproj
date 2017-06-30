@@ -1,0 +1,134 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{1586BD91-5670-4552-B603-494BE2297176}</ProjectGuid>
+    <Keyword>MakeFileProj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>Intel C++ Compiler 17.0</PlatformToolset>
+    <UseIntelMKL>No</UseIntelMKL>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>Intel C++ Compiler 17.0</PlatformToolset>
+    <UseIntelMKL>No</UseIntelMKL>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IncludePath>$(MKLIncludeDir);$(IncludePath);C:\Users\zhili.zheng\Documents\Program\eigen-3.3.4;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\include;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\include;C:\Users\zhili.zheng\Documents\Program\zlib-1.2.11;</IncludePath>
+    <LibraryPath>$(OmpLibDir);$(LibraryPath);C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\lib\intel64;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\lib\intel64;C:\Users\zhili.zheng\Documents\Program\zlib-1.2.11\contrib\vstudio\vc14\x64\ZlibStatRelease;</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IncludePath>$(MKLIncludeDir);$(IncludePath);C:\Users\zhili.zheng\Documents\Program\eigen-3.3.4;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\include;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\include;C:\Users\zhili.zheng\Documents\Program\zlib-1.2.11;</IncludePath>
+    <LibraryPath>$(OmpLibDir);$(LibraryPath);C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\lib\intel64;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\lib\intel64;C:\Users\zhili.zheng\Documents\Program\zlib-1.2.11\contrib\vstudio\vc14\x64\ZlibStatRelease;</LibraryPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <InterproceduralOptimization>MultiFile</InterproceduralOptimization>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <OptimizeForWindowsApplication>true</OptimizeForWindowsApplication>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <Parallelization>true</Parallelization>
+      <OpenMP>GenerateParallelCode</OpenMP>
+      <Cpp0xSupport>true</Cpp0xSupport>
+      <AdditionalOptions>/DMKL_LP64 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;mkl_intel_lp64.lib;mkl_intel_thread.lib;mkl_core.lib;libiomp5md.lib;zlibstat.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <InterproceduralOptimization>MultiFile</InterproceduralOptimization>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <OptimizeForWindowsApplication>true</OptimizeForWindowsApplication>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <Parallelization>true</Parallelization>
+      <OpenMP>GenerateParallelCode</OpenMP>
+      <Cpp0xSupport>true</Cpp0xSupport>
+      <AdditionalOptions>/DMKL_LP64 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;mkl_intel_lp64.lib;mkl_intel_thread.lib;mkl_core.lib;libiomp5md.lib;zlibstat.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <Text Include="readme.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\bivar_reml.cpp" />
+    <ClCompile Include="..\CommFunc.cpp" />
+    <ClCompile Include="..\data.cpp" />
+    <ClCompile Include="..\dcdflib.cpp" />
+    <ClCompile Include="..\edata.cpp" />
+    <ClCompile Include="..\eigen_func.cpp" />
+    <ClCompile Include="..\ejma.cpp" />
+    <ClCompile Include="..\est_hsq.cpp" />
+    <ClCompile Include="..\gbat.cpp" />
+    <ClCompile Include="..\grm.cpp" />
+    <ClCompile Include="..\gwas_simu.cpp" />
+    <ClCompile Include="..\joint_meta.cpp" />
+    <ClCompile Include="..\ld.cpp" />
+    <ClCompile Include="..\mkl.cpp" />
+    <ClCompile Include="..\mlm_assoc.cpp" />
+    <ClCompile Include="..\option.cpp" />
+    <ClCompile Include="..\popu_genet.cpp" />
+    <ClCompile Include="..\raw_geno.cpp" />
+    <ClCompile Include="..\reml_within_family.cpp" />
+    <ClCompile Include="..\sbat.cpp" />
+    <ClCompile Include="..\StatFunc.cpp" />
+    <ClCompile Include="..\StrFunc.cpp" />
+    <ClCompile Include="..\zfstream.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\cdflib.h" />
+    <ClInclude Include="..\CommFunc.h" />
+    <ClInclude Include="..\dcdflib.h" />
+    <ClInclude Include="..\eigen_func.h" />
+    <ClInclude Include="..\gcta.h" />
+    <ClInclude Include="..\ipmpar.h" />
+    <ClInclude Include="..\StatFunc.h" />
+    <ClInclude Include="..\StrFunc.h" />
+    <ClInclude Include="..\zfstream.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

@@ -204,15 +204,15 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
         for (i = 0; i < 3 * grm_files.size() + 3 - ignore_Ce; i++) _r_indx.push_back(i);
         _Asp.resize(_r_indx.size(), eigenSparseMat(_n, _n));
 
-        for (int i = 0; i < _r_indx.size() - 3 + ignore_Ce; i++){
+        for (int i = 0; i < 3 * grm_files.size(); i++){
             std::fill(n_element.begin(), n_element.begin() + n1, n1_elements[i % 3]);
             std::fill(n_element.begin() + n1, n_element.end(), n2_elements[i % 3]);
             _Asp[i].reserve(n_element);
         }
 
-        for(int i = _r_indx.size() -3 + ignore_Ce; i < _r_indx.size(); i++){
-            std::fill(n_element.begin(), n_element.begin() + n1, n1_elements[i]);
-            std::fill(n_element.begin() + n1, n_element.end(), n2_elements[i]);
+        for(int i = 3 * grm_files.size(); i < _r_indx.size(); i++){
+            std::fill(n_element.begin(), n_element.begin() + n1, n1_elements[i - 3]);
+            std::fill(n_element.begin() + n1, n_element.end(), n2_elements[i - 3]);
             _Asp[i].reserve(n_element);
         }
        
@@ -294,6 +294,7 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
     // construct X matrix
     vector<eigenMatrix> E_float;
     eigenMatrix qE_float;
+    cout << "Constructing the covariances" << endl;
     construct_X(_keep.size(), uni_id_map, qcovar_flag, qcovar_num, qcovar_ID, qcovar, covar_flag, covar_num, covar_ID, covar, E_float, qE_float);
     eigenMatrix X(_X);
     _X = eigenMatrix::Zero(_n, _X_c * 2);
@@ -317,7 +318,6 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
     if (!ignore_Ce) _var_name.push_back("C(e)_tr12");
     _ignore_Ce = ignore_Ce;
 
-    //cout << "Starting REML caculation" << endl;
     // run REML algorithm
     reml(pred_rand_eff, est_fix_eff, reml_priors, reml_priors_var, prevalence, prevalence2, no_constrain, no_lrt, false);
 }

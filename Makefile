@@ -9,12 +9,12 @@
 # ---------------------------------------------------------------------
 
 # change the MKL ROOT before compile, we encourage to use 2017 version and above
-#MKLROOT = $(HOME)/local/packages/intel/compilers_and_libraries_2017/linux/mkl
-MKLROOT = /opt/intel/compilers_and_libraries/mac/mkl
+MKLROOT = $(ib)/local/intel_MKL2017_U3/compilers_and_libraries/linux/mkl
+#MKLROOT = /opt/intel/compilers_and_libraries/mac/mkl
 
 # change the EIGEN path before compile, we encourage to use 3.3.3 version and above
-#EIGEN = $(HOME)/local/packages/
-EIGEN = /usr/local/Cellar/eigen/3.3.4/include/eigen3
+EIGEN = $(ib)/local/Eigen/eigen-3.3.4
+#EIGEN = /usr/local/Cellar/eigen/3.3.4/include/eigen3
 
 # Use sinlge precision to store matrix
 #SINGLE_PRECISION = 1 
@@ -39,7 +39,7 @@ ifeq ($(OS),Windows_NT)
     # zlib header
     # CXXFLAGS += -I zlib_header
     # LDFLAGS = mkl_intel_lp64.lib mkl_intel_thread.lib mkl_core.lib libiomp5md.lib zlib.lib
-    $(error Windows is not supported currently)
+    $(error Windows is not supported by make, you can turn to gcta_win64 to build)
 else
     UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Darwin)
