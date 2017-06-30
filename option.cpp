@@ -1011,10 +1011,12 @@ void option(int option_num, char* option_str[])
     // OpenMP
     stringstream ss;
     ss << thread_num;
-#ifdef __unix__
+#ifdef _WIN32
+	_putenv_s("OMP_NUM_THREADS", ss.str().c_str());
+#elif defined __linux__ || defined __APPLE__
 	setenv("OMP_NUM_THREADS", ss.str().c_str(), 1);
 #else
-	_putenv_s("OMP_NUM_THREADS", ss.str().c_str());
+#error Only Windows, Mac and Linux are supported.
 #endif
     omp_set_num_threads(thread_num);
     if (thread_flag) {
