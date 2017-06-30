@@ -304,7 +304,7 @@ void gcta::read_grm_gz(string grm_file, vector<string> &grm_id, bool out_id_log,
     zinf.open(grm_gzfile.c_str());
     if (!zinf.is_open()) throw ("Error: can not open the file [" + grm_gzfile + "] to read.");
 
-    int indx1 = 0, indx2 = 0, nline = 0;
+    long indx1 = 0, indx2 = 0, nline = 0;
     double grm_buf = 0.0, grm_N_buf;
     string errmsg = "Error: failed to read [" + grm_gzfile + "]. The format of the GRM file has been changed?\nError occurs in line:\n";
     cout << "Reading the GRM from [" + grm_gzfile + "]." << endl;
@@ -326,7 +326,7 @@ void gcta::read_grm_gz(string grm_file, vector<string> &grm_id, bool out_id_log,
         if (ss >> str_buf) throw (errmsg + buf);
     }
     zinf.close();
-    if (!_within_family && nline != (int) (n * (n + 1)*0.5)){
+    if (!_within_family && nline != (long) n * (n + 1)*0.5){
         stringstream errmsg_tmp;
         errmsg_tmp << "Error: there are " << nline << " lines in the [" << grm_gzfile << "] file. The expected number of lines is " << (long) (n * (n + 1)*0.5) << "." << endl;
         throw(errmsg_tmp.str());

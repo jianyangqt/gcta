@@ -8,12 +8,12 @@
 # ---------------------------------------------------------------------
 
 # change the MKL ROOT before compile, we encourage to use 2017 version and above
-# MKLROOT = $(ib)/local/intel_MKL2017_U3/compilers_and_libraries/linux/mkl
-MKLROOT = /opt/intel/compilers_and_libraries/mac/mkl
+MKLROOT = $(ib)/local/intel_MKL2017_U3/compilers_and_libraries/linux/mkl
+#MKLROOT = /opt/intel/compilers_and_libraries/mac/mkl
 
 # change the EIGEN path before compile, we encourage to use 3.3.3 version and above
-#EIGEN = $(ib)/local/Eigen/eigen-3.3.4
-EIGEN = /usr/local/Cellar/eigen/3.3.4/include/eigen3
+EIGEN = $(ib)/local/Eigen/eigen-3.3.4
+#EIGEN = /usr/local/Cellar/eigen/3.3.4/include/eigen3
 
 # Use sinlge precision to store matrix
 #SINGLE_PRECISION = 1 
