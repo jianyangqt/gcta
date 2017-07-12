@@ -1090,17 +1090,18 @@ bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, i
         logdet = _n * log(prev_varcmp[0]);
     } 
     else {
-        //for (i = 0; i < _r_indx.size(); i++) Vi += (_A[_r_indx[i]]) * prev_varcmp[i];
-        
+        for (i = 0; i < _r_indx.size(); i++) Vi += (_A[_r_indx[i]]) * prev_varcmp[i];
+       /* 
         for(int i = 0; i < _r_indx.size(); i++){ 
             double cur_varcmp = prev_varcmp[i];
             #pragma omp parallel for private(k)
-            for(k = 0; k < _Asp[_r_indx[i]].outerSize(); ++k){
-                for(eigenSparseMat::InnerIterator it(_Asp[_r_indx[i]], k); it; ++it){
+            for(k = 0; k < _A[_r_indx[i]].outerSize(); ++k){
+                for(eigenSparseMat::InnerIterator it(_A[_r_indx[i]], k); it; ++it){
                     Vi(it.row(),it.col()) += it.value() * cur_varcmp;
                 }
             }
         }   
+        */
         if (_V_inv_mtd == 0) {
             if (!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) {
                 if(_reml_force_inv) {
@@ -1280,11 +1281,17 @@ void gcta::calcu_Hi(eigenMatrix &P, eigenMatrix &Hi)
     }
 
     // Calculate Hi
+    double d_bufs[_n];
     for (i = 0; i < _r_indx.size(); i++) {
         for (j = 0; j <= i; j++) {
+            memset(d_bufs, 0, _n * sizeof(double));
             d_buf = 0.0;
+            #pragma omp parallel for private(k)
             for (k = 0; k < _n; k++) {
-                for (l = 0; l < _n; l++) d_buf += (PA[i])(k, l)*(PA[j])(l, k);
+                for (l = 0; l < _n; l++) d_bufs[k] += (PA[i])(k, l)*(PA[j])(l, k);
+            }
+            for(k = 0; k < _n; k++){
+                d_buf += d_bufs[k];
             }
             Hi(i, j) = Hi(j, i) = d_buf;
         }
@@ -1408,6 +1415,7 @@ void gcta::calcu_tr_PA(eigenMatrix &P, eigenVector &tr_PA) {
 
     // Calculate trace(PA)
     tr_PA.resize(_r_indx.size());
+    double d_bufs[_n];
     for (i = 0; i < _r_indx.size(); i++) {
         //cout << "calcu_tr_PA " << i << endl;
         if (_bivar_reml || _within_family){
@@ -1431,8 +1439,13 @@ void gcta::calcu_tr_PA(eigenMatrix &P, eigenVector &tr_PA) {
         }
         else {
             d_buf = 0.0;
+            memset(d_bufs, 0, _n * sizeof(double));
+            #pragma omp parallel for private(k)
             for (k = 0; k < _n; k++) {
-                for (l = 0; l < _n; l++) d_buf += P(k, l)*(_A[_r_indx[i]])(k, l);
+                for (l = 0; l < _n; l++) d_bufs[k] += P(k, l)*(_A[_r_indx[i]])(k, l);
+            }
+            for(k = 0; k < _n; k++){
+                d_buf += d_bufs[k];
             }
             tr_PA(i) = d_buf;
         }
