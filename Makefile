@@ -26,7 +26,7 @@ OUTPUT = ./release/gcta64
 ############################################
 ###  Linux configuration ##################
 
-CXXFLAGS = -w -s -O3 -m64 -fopenmp -DNDEBUG -msse2 -std=c++11 -DMKL_LP64 -I. -I$(MKLROOT)/include -I$(EIGEN) 
+CXXFLAGS = -w -s -O3 -m64 -fopenmp -DNDEBUG -msse2 -std=c++11 -DMKL_LP64 -I. -I$(MKLROOT)/include -I$(EIGEN)
 LDFLAGS = -static -lz -Wl,--start-group  $(MKLROOT)/lib/intel64/libmkl_intel_lp64.a $(MKLROOT)/lib/intel64/libmkl_gnu_thread.a $(MKLROOT)/lib/intel64/libmkl_core.a -Wl,--end-group -lgomp -lpthread -lm -ldl
 
 ############################################

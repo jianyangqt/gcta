@@ -273,6 +273,7 @@ void gcta::rm_cor_snp(int m, int start, float *rsq, double rsq_cutoff, vector<in
 void gcta::calcu_mean_rsq(int wind_size, double rsq_cutoff, bool dominance_flag)
 {
     check_autosome();
+    if (_mu.empty()) calcu_mu();
 
     int i = 0, m = _include.size();
 
