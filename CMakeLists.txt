@@ -11,6 +11,18 @@ if(WIN32)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--stack,10000000")
 endif()
 
+SET(EIGEN3_INCLUDE_DIR "$ENV{EIGEN3_INCLUDE_DIR}")
+IF(NOT EIGEN3_INCLUDE_DIR)
+    MESSAGE(FATAL_ERROR "Specify environment variable EIGEN3_INCLUDE_DIR to the location of Eigen3 package")
+ENDIF()
+INCLUDE_DIRECTORIES("${EIGEN3_INCLUDE_DIR}")
+
+SET(MKLROOT "$ENV{MKLROOT}")
+IF(NOT MKLROOT)
+    MESSAGE(FATAL_ERROR "Specify environment variable MKLROOT to the location of Intel MKL package")
+ENDIF()
+INCLUDE_DIRECTORIES("${MKLROOT}/include")
+
 set(CMAKE_BUILD_TYPE RELEASE)
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64 -fopenmp -msse4.2 -DMKL_LP64")
@@ -37,18 +49,6 @@ endif()
 set(COMMON_INCLUDES ${PROJECT_SOURCE_DIR}/include)
 set(MAIN_SOURCE "${PROJECT_SOURCE_DIR}/src/main.cpp")
 include_directories(${COMMON_INCLUDES})
-
-SET(EIGEN3_INCLUDE_DIR "$ENV{EIGEN3_INCLUDE_DIR}")
-IF(NOT EIGEN3_INCLUDE_DIR)
-    MESSAGE(FATAL_ERROR "Specify environment variable EIGEN3_INCLUDE_DIR to the location of Eigen3 package")
-ENDIF()
-INCLUDE_DIRECTORIES("${EIGEN3_INCLUDE_DIR}")
-
-SET(MKLROOT "$ENV{MKLROOT}")
-IF(NOT MKLROOT)
-    MESSAGE(FATAL_ERROR "Specify environment variable MKLROOT to the location of Intel MKL package")
-ENDIF()
-INCLUDE_DIRECTORIES("${MKLROOT}/include")
 
 
 file(GLOB SRCS "${PROJECT_SOURCE_DIR}/src/*.cpp")
