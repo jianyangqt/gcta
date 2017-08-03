@@ -1,0 +1,10 @@
+#ifndef TEST_CONFIG
+#define TEST_CONFIG
+
+#include <string>
+#include <iostream>
+using namespace std;
+
+string CUR_SRC_DIR("@CMAKE_CURRENT_SOURCE_DIR@");
+string CUR_OUT_DIR("@CMAKE_BINARY_DIR@/log_out");
+#endif
