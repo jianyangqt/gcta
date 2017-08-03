@@ -1,17 +1,20 @@
 /*
-   GCTA: a tool for Genome-wide Complex Trait Analysis
+ *
+ * GCTA: a tool for Genome-wide Complex Trait Analysis
+ *
+ * 2010-2017 by Jian Yang <jian.yang@uq.edu.au> and others
+ *
+ * Mock layer of version 2 by Zhili Zheng <zhilizheng@outlook.com>
+ *
+ * Options parser, and bridge unsupported flags to version 1.
 
-   Options parser
+ * This file is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
 
-   Developed by Zhili Zheng<zhilizheng@outlook.com>
-
-   This file is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   A copy of the GNU General Public License is attached along with this program.
-   If not, see <http://www.gnu.org/licenses/>.
+ * A copy of the GNU General Public License is attached along with this program.
+ * If not, see <http://www.gnu.org/licenses/>.
 */
 #include <iostream>
 #include "Logger.h"
@@ -25,6 +28,7 @@
 #include <vector>
 #include <string>
 #include <chrono>
+#include "main/option.h"
 
 using std::bind;
 using std::map;
@@ -38,8 +42,14 @@ int main(int argc, char *argv[]){
     vector<string> keys;
     string last_key = "";
     string cur_string = "";
+    LOGGER.m(0, "*******************************************************************");
+    LOGGER.m(0, "* Genome-wide Complex Trait Analysis (GCTA)");
+    LOGGER.m(0, "* version 1.90 beta1");
+    LOGGER.m(0, "* (C) 2010-2017, The University of Queensland");
+    LOGGER.m(0, "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>");
+    LOGGER.m(0, "*******************************************************************");
     if(argc == 1){
-        LOGGER.i(0, "The GCTA has lots of options, you can refer to our online document at URL http://cnsgenomics.com/software/gcta/");
+        LOGGER.m(0, "The GCTA has lots of options, you can refer to our online document at URL http://cnsgenomics.com/software/gcta/");
         LOGGER.e(0, "No analysis has been launched by the option(s)");
     }
     for(int index = 1; index < argc; index++){
@@ -94,21 +104,8 @@ int main(int argc, char *argv[]){
         LOGGER.e(0, "No \"--out\" options find, you might forget to specify the output option");
     }
 
-    // List all of the options
-    LOGGER.i(0, "");
-    LOGGER.i(0, "Options: ");
-    LOGGER.i(0, " ");
-    for(auto &key : keys){
-        LOGGER << key << " ";
-        for(auto & element : options[key]){
-            LOGGER << element << " ";
-        }
-        LOGGER << std::endl;
-    }
-    LOGGER.i(0, "");
-
     // multi thread mode
-    int thread_num = 4;
+    int thread_num = 1;
     int is_threaded = false;
     if(options.find("--thread-num") != options.end()){
         vector<string> thread_nums = options["--thread-num"];
@@ -121,15 +118,6 @@ int main(int argc, char *argv[]){
             }
         }
     }
-
-    if(is_threaded) {
-        LOGGER.i(0, "The analysis will run in " + std::to_string(thread_num) + " threads");
-    }else{
-        LOGGER.i(0, "The analysis will run in 4 threads to calculate in default; You can specify --thread-num number to "
-                "change this behavior");
-    }
-    LOGGER.i(0, "Note: Some analysis will ignore the multi-thread mode");
-    ThreadPool *threadPool = ThreadPool::GetPool(thread_num - 1);
 
 
     //start register the options
@@ -156,16 +144,38 @@ int main(int argc, char *argv[]){
         }
         out += module_names[index] + ", ";
     }
-    if(mains.size() > 1){
-        LOGGER.e(0, "multiple main functions are" + out + "not available currently");
-    }else if(mains.size() == 1){
+    if(mains.size() != 0){
+        // List all of the options
+        LOGGER.i(0, "");
+        LOGGER.i(0, "Options: ");
+        LOGGER.i(0, " ");
+        for(auto &key : keys){
+            LOGGER << key << " ";
+            for(auto & element : options[key]){
+                LOGGER << element << " ";
+            }
+            LOGGER << std::endl;
+        }
+        LOGGER.i(0, "");
+
+        if(mains.size() > 1) LOGGER.e(0, "multiple main functions are not available currently");
+        if(is_threaded) {
+            LOGGER.i(0, "The analysis will run in " + std::to_string(thread_num) + " threads");
+            LOGGER.i(0, "Note: Some analysis will ignore the multi-thread mode");
+            ThreadPool *threadPool = ThreadPool::GetPool(thread_num - 1);
+        }
         processMains[mains[0]]();
-    }else{
-        LOGGER.e(0, "No main function specified");
-    }
+   }else{
+       try{
+           option(argc, argv);
+       }catch (const string &err_msg) {
+           LOGGER.e(0, err_msg);         
+       }catch (const char *err_msg) {
+           LOGGER.e(0, string(err_msg));
+       }
+   }
 
     auto end = std::chrono::steady_clock::now();
     float duration = std::chrono::duration_cast<std::chrono::duration<float>>(end - start).count();
     LOGGER.i(0, "Finished in " + std::to_string(duration) + " seconds");
-
 }
