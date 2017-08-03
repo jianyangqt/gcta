@@ -16,6 +16,7 @@ if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64 -msse4.2")
     set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS} -O3 -flto")
     set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} ${CMAKE_CXX_FLAGS} -O0 -g")
+    message(FALTAL_ERROR "GCTA has an known issue compile with Clang, we are checking the code")
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64 -msse4.2 -pthread")
     set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS} -O3 -flto")
@@ -27,7 +28,7 @@ elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
     set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS} -O3 -ipo")
     set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} ${CMAKE_CXX_FLAGS} -O0 -Og")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    message(FALTAL_ERROR "GCTA can not compile by Microsft C++ compiler currently, we are debuging this")
+    message(FALTAL_ERROR "GCTA can not compile by Microsft C++ compiler in CMake currently, please use gcta_win64 folder to build")
 endif()
 
 set(COMMON_INCLUDES ${PROJECT_SOURCE_DIR}/include)
@@ -45,11 +46,12 @@ foreach(_lib ${SRCS})
     list(APPEND libs_list ${lib_name})
 endforeach(_lib)
 
-add_executable(gcta2 ${MAIN_SOURCE})
-target_link_libraries(gcta2 ${libs_list})
+add_executable(gcta64 ${MAIN_SOURCE})
+target_link_libraries(gcta64 ${libs_list})
 
-enable_testing()
-ADD_SUBDIRECTORY(test)
+# Testing has some problems currently
+#enable_testing()
+#ADD_SUBDIRECTORY(test)
 
 IF(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json")
   EXECUTE_PROCESS( COMMAND ${CMAKE_COMMAND} -E copy_if_different

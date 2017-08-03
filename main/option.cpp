@@ -8,6 +8,12 @@
  * This file is distributed under the GNU General Public
  * License, Version 2.  Please see the file COPYING for more
  * details
+ *
+ * Mocked by Zhili.
+ *
+ * This folder contains most majority functions of GCTA.
+ * We are moving toward version 2 by huge mocks on original version.
+ * 
  */
 
 #include <stdlib.h>
@@ -15,7 +21,7 @@
 
 void option(int option_num, char* option_str[]);
 
-int main(int argc, char* argv[])
+int main_v1(int argc, char* argv[])
 {
     cout << "*******************************************************************" << endl;
     cout << "* Genome-wide Complex Trait Analysis (GCTA)" << endl;
