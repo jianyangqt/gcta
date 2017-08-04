@@ -284,10 +284,10 @@ void option(int option_num, char* option_str[])
         } else if (strcmp(argv[i], "--out") == 0) {
             out = argv[++i];
             cout << "--out " << out << endl;
-        } else if (strcmp(argv[i], "--freq") == 0) {
+        } else if (strcmp(argv[i], "--freq-v1") == 0) {
             out_freq_flag = true;
             thread_flag = true;
-            cout << "--freq" << endl;
+            cout << "--freq-v1" << endl;
         } else if (strcmp(argv[i], "--ssq") == 0) {
             out_ssq_flag = true;
             cout << "--ssq" << endl;
@@ -341,7 +341,7 @@ void option(int option_num, char* option_str[])
             rm_high_ld_cutoff = atof(argv[++i]);
             cout << "--rm-high-ld " << rm_high_ld_cutoff << endl;
             if (rm_high_ld_cutoff <= 0 || rm_high_ld_cutoff >= 1) throw ("\nError: the value to be specified after --rm-high-ld should be within the range from 0 to 1.\n");
-        } else if (strcmp(argv[i], "--make-grm") == 0 || strcmp(argv[i], "--make-grm-bin") == 0) {
+        } else if (strcmp(argv[i], "--make-grm-v1") == 0 || strcmp(argv[i], "--make-grm-bin") == 0) {
             make_grm_flag = true;
             thread_flag = true;
             cout << argv[i] << endl;
@@ -407,9 +407,9 @@ void option(int option_num, char* option_str[])
             dosage_compen = atoi(argv[++i]);
             cout << "--dc " << dosage_compen << endl;
             if (dosage_compen != 0 && dosage_compen != 1) throw ("\nError: the value to be specified after --dc should be 0 or 1.\n");
-        } else if (strcmp(argv[i], "--grm-cutoff") == 0) {
+        } else if (strcmp(argv[i], "--grm-cutoff-v1") == 0) {
             grm_cutoff = atof(argv[++i]);
-            if (grm_cutoff >= -1 && grm_cutoff <= 2) cout << "--grm-cutoff " << grm_cutoff << endl;
+            if (grm_cutoff >= -1 && grm_cutoff <= 2) cout << "--grm-cutoff-v1 " << grm_cutoff << endl;
             else grm_cutoff = -2;
         } else if (strcmp(argv[i], "--grm-align") == 0) {
             align_grm_flag = true;

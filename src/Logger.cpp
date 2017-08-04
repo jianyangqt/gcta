@@ -9,6 +9,7 @@
       * w:  prompt warning message
       * d:  debug message, only seen in the debug mode
       * m:  message that only show on the terminal that not log into logger file
+      * l:  log into logger file only;
       * p:  progress, that always show in one line in the terminal but no output into logger file.
       * << :  use like std::cout
 
@@ -117,6 +118,11 @@ void Logger::m(int level, const string &message){
     m_stat = PROGRESS;
     std::lock_guard<std::mutex> lock(log_mutex);
     (*m_pThis) << level << message << endl;
+}
+
+void Logger::l(int level, const string &message){
+    string spaces(level * 2, ' ');
+    m_logFile << spaces << message << endl;
 }
 
 Logger& Logger::operator<<(const string& message){

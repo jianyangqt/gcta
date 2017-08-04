@@ -9,6 +9,7 @@
       * w:  prompt warning message
       * d:  debug message, only seen in the debug mode
       * m:  message that only show on the terminal that not log into logger file
+      * l:  log into logger file only
       * p:  progress, that always show in one line in the terminal but no output into logger file.
       * << :  use like std::cout
 
@@ -46,6 +47,7 @@ public:
     void w(int level, const string& message);
     void p(int level, const string& message);
     void m(int level, const string& message);
+    void l(int level, const string& message);
     Logger& operator<<(const string& message);
     Logger& operator<<(int level);
     Logger& operator<<(Type type);

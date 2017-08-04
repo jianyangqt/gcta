@@ -36,13 +36,20 @@ using std::function;
 using std::placeholders::_1;
 using std::placeholders::_2;
 
-void out_ver(bool out_file){
-    LOGGER.i(0, "*******************************************************************");
-    LOGGER.i(0, "* Genome-wide Complex Trait Analysis (GCTA)");
-    LOGGER.i(0, "* version 1.90 beta1");
-    LOGGER.i(0, "* (C) 2010-2017, The University of Queensland");
-    LOGGER.i(0, "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>");
-    LOGGER.i(0, "*******************************************************************");
+void out_ver(bool flag_outFile){
+    function<void (int, const string&)> log;
+    if(flag_outFile){
+        log = bind(&Logger::l, LOGGER_P, _1, _2);
+    }else{
+        log = bind(&Logger::m, LOGGER_P, _1, _2);
+    }
+
+    log(0, "*******************************************************************");
+    log(0, "* Genome-wide Complex Trait Analysis (GCTA)");
+    log(0, "* version 1.90 beta1");
+    log(0, "* (C) 2010-2017, The University of Queensland");
+    log(0, "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>");
+    log(0, "*******************************************************************");
 }
 
 int main(int argc, char *argv[]){
@@ -125,7 +132,7 @@ int main(int argc, char *argv[]){
 
 
     //start register the options
-    // Please take care the order, C++ has few reflation feature, I did in a ugly way.
+    // Please take care of the order, C++ has few reflation feature, I did in a ugly way.
     vector<string> module_names = {"phenotype", "marker", "genotype", "genetic relationship matrix"};
     vector<bool (*)(map<string, vector<string>>&)> registers = {
             Pheno::registerOption,
@@ -168,8 +175,8 @@ int main(int argc, char *argv[]){
         if(is_threaded) {
             LOGGER.i(0, "The analysis will run in " + std::to_string(thread_num) + " threads");
             LOGGER.i(0, "Note: Some analysis will ignore the multi-thread mode");
-            ThreadPool *threadPool = ThreadPool::GetPool(thread_num - 1);
         }
+        ThreadPool *threadPool = ThreadPool::GetPool(thread_num - 1);
         processMains[mains[0]]();
     }else{
         try{
