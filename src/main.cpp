@@ -36,19 +36,23 @@ using std::function;
 using std::placeholders::_1;
 using std::placeholders::_2;
 
+void out_ver(bool out_file){
+    LOGGER.i(0, "*******************************************************************");
+    LOGGER.i(0, "* Genome-wide Complex Trait Analysis (GCTA)");
+    LOGGER.i(0, "* version 1.90 beta1");
+    LOGGER.i(0, "* (C) 2010-2017, The University of Queensland");
+    LOGGER.i(0, "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>");
+    LOGGER.i(0, "*******************************************************************");
+}
+
 int main(int argc, char *argv[]){
+    out_ver(false);
     auto start = std::chrono::steady_clock::now();
     map<string, vector<string>> options;
     vector<string> keys;
     string last_key = "";
     string cur_string = "";
-    LOGGER.m(0, "*******************************************************************");
-    LOGGER.m(0, "* Genome-wide Complex Trait Analysis (GCTA)");
-    LOGGER.m(0, "* version 1.90 beta1");
-    LOGGER.m(0, "* (C) 2010-2017, The University of Queensland");
-    LOGGER.m(0, "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>");
-    LOGGER.m(0, "*******************************************************************");
-    if(argc == 1){
+   if(argc == 1){
         LOGGER.m(0, "The GCTA has lots of options, you can refer to our online document at URL http://cnsgenomics.com/software/gcta/");
         LOGGER.e(0, "No analysis has been launched by the option(s)");
     }
@@ -85,12 +89,13 @@ int main(int argc, char *argv[]){
     options["parts"].push_back(std::to_string(cur_part));
 
     //Find the --out options
+    string log_name;
     if(options.find("--out") != options.end()){
         vector<string> outs = options["--out"];
         if(outs.size() == 0){
             LOGGER.e(0, "you might forget to specify the output filename in the \"--out\" option");
         }else{
-            string log_name = outs[0];
+            log_name = outs[0];
             if(is_parted){
                 //log_name = outs[0] + ".parted_" + std::to_string(num_parts) + "_" + std::to_string(cur_part);
                 std::string s_parts = std::to_string(num_parts);
@@ -98,7 +103,6 @@ int main(int argc, char *argv[]){
                 log_name = outs[0] + ".parted_" + s_parts + "_" + std::string(s_parts.length() - c_parts.length(), '0') + c_parts;
             }
             options["out"].push_back(log_name);
-            LOGGER.open(log_name + ".log");
         }
     }else{
         LOGGER.e(0, "No \"--out\" options find, you might forget to specify the output option");
@@ -145,6 +149,8 @@ int main(int argc, char *argv[]){
         out += module_names[index] + ", ";
     }
     if(mains.size() != 0){
+        LOGGER.open(log_name + ".log");
+        out_ver(true);
         // List all of the options
         LOGGER.i(0, "");
         LOGGER.i(0, "Options: ");
@@ -165,15 +171,15 @@ int main(int argc, char *argv[]){
             ThreadPool *threadPool = ThreadPool::GetPool(thread_num - 1);
         }
         processMains[mains[0]]();
-   }else{
-       try{
-           option(argc, argv);
-       }catch (const string &err_msg) {
-           LOGGER.e(0, err_msg);         
-       }catch (const char *err_msg) {
-           LOGGER.e(0, string(err_msg));
-       }
-   }
+    }else{
+        try{
+            option(argc, argv);
+        }catch (const string &err_msg) {
+            LOGGER.e(0, err_msg);         
+        }catch (const char *err_msg) {
+            LOGGER.e(0, string(err_msg));
+        }
+    }
 
     auto end = std::chrono::steady_clock::now();
     float duration = std::chrono::duration_cast<std::chrono::duration<float>>(end - start).count();
