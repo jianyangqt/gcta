@@ -313,8 +313,6 @@ GRM::GRM(Geno *geno) {
 
     num_individual = part_keep_indices.second - part_keep_indices.first + 1;
     num_grm = ((uint64_t) part_keep_indices.first + part_keep_indices.second + 2) * num_individual / 2;
-    LOGGER.i(2, "Part " + to_string(part) + ": " + to_string(part_keep_indices.first) + "-" + to_string(part_keep_indices.second));
-    LOGGER.i(3, "Total sample: " + to_string(num_individual) + ", total GRM: " + to_string(num_grm));
 
     uint64_t fill_grm = (num_grm + num_count_handle - 1) / num_count_handle * num_count_handle;
     int ret_grm = posix_memalign((void **)&grm, 32, fill_grm * sizeof(double));
@@ -348,6 +346,8 @@ GRM::GRM(Geno *geno) {
 
     LOGGER.i(0, "Start: ", "calculate Part " + to_string(part) + ", Subjects " + to_string(num_individual) +
                            ", Total parts " + to_string(num_parts) + ", in " + to_string(thread_parts.size()) + " threads");
+    LOGGER.i(2, "Part " + to_string(part) + ": " + to_string(part_keep_indices.first) + "-" + to_string(part_keep_indices.second));
+    LOGGER.i(3, "Total sample: " + to_string(num_individual) + ", total GRM: " + to_string(num_grm));
 
     o_name = options["out"];
 
@@ -521,6 +521,7 @@ void GRM::calculate_GRM(uint8_t *buf, int num_marker) {
 }
 
 void GRM::deduce_GRM(){
+    LOGGER.i(0, "Success", "GRM calculations finished");
     //Just for test
 #ifndef NDEBUG
     fclose(o_geno0);
@@ -735,7 +736,6 @@ bool GRM::registerOption(map<string, vector<string>>& options_in) {
         std::map<string, vector<string>> t_option;
         t_option["--autosome"] = {};
         Marker::registerOption(t_option);
-        LOGGER.i(0, "GRM is calculated based on autosome only (chr 1 - 22) if no --chr flag is specified");
         return_value = true;
     }
 
@@ -779,6 +779,7 @@ void GRM::processMain() {
     vector<function<void (uint8_t *, int)>> callBacks;
     for(auto &process_function : processFunctions){
         if(process_function == "make_grm"){
+            LOGGER.i(0, "GRM is calculated based on autosome only (chr 1 - 22) if no --chr flag is specified");
             Pheno pheno;
             Marker marker;
             Geno geno(&pheno, &marker);

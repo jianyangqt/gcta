@@ -101,7 +101,7 @@ void Geno::init_AF() {
     countA2A2.reserve(marker->count_extract());
     num_blocks = marker->count_extract() / Constants::NUM_MARKER_READ +
                  (marker->count_extract() % Constants::NUM_MARKER_READ != 0);
-    LOGGER.i(0, "The program will run in " + to_string(num_blocks) + " blocks");
+    LOGGER.d(0, "The program will run in " + to_string(num_blocks) + " blocks");
 }
 
 void Geno::init_AsyncBuffer(){

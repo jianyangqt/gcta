@@ -130,6 +130,7 @@ int main(int argc, char *argv[]){
         }
     }
 
+    map<string, vector<string>> options_total = options;
 
     //start register the options
     // Please take care of the order, C++ has few reflation feature, I did in a ugly way.
@@ -164,7 +165,7 @@ int main(int argc, char *argv[]){
         LOGGER.i(0, " ");
         for(auto &key : keys){
             LOGGER << key << " ";
-            for(auto & element : options[key]){
+            for(auto & element : options_total[key]){
                 LOGGER << element << " ";
             }
             LOGGER << std::endl;

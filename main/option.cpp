@@ -147,6 +147,7 @@ void option(int option_num, char* option_str[])
     for (i = 0; i < option_num; i++) argv[i] = option_str[i];
     argv[option_num] = "gcta";
     argv[option_num + 1] = "gcta";
+    cout << "Accepted Options:" << endl;
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--thread-num") == 0) {
             thread_num = atoi(argv[++i]);

@@ -263,27 +263,43 @@ bool Marker::registerOption(map<string, vector<string>>& options_in){
     }
     // include the x y xy MT
     options_i["last_chr"] = options_i["last_chr_autosome"] + 4;
-    options_i["start_chr"] = 0;
-    options_i["end_chr"] = options_i["last_chr"];
+    if(options_i.find("start_chr") == options_i.end()){
+        options_i["start_chr"] = 0;
+        options_i["end_chr"] = options_i["last_chr"];
+    }
 
     bool filterChrFlag = false;
+    static bool specifiedChrFlag = false;
 
     if(options_in.find("--autosome") != options_in.end()){
-        options_i["start_chr"] = 1;
-        options_i["end_chr"] = options_i["last_chr_autosome"];
-        filterChrFlag = true;
+        if(specifiedChrFlag){
+            if(options_i["start_chr"] < 1 || options_i["end_chr"] > options_i["last_chr_autosome"]){
+                LOGGER.e(0, "Chromosome range has been fixed by --chr flag, however it was not in autosome range");
+            }
+        }else{
+            options_i["start_chr"] = 1;
+            options_i["end_chr"] = options_i["last_chr_autosome"];
+            filterChrFlag = true;
+        }
     }
 
     if(options_in.find("--autosome-x-y") != options_in.end()){
         if(filterChrFlag){
             LOGGER.w(0, "One of the chromosome filter has been applied, it has been overrided by --autosome-x-y");
         }
-        options_i["start_chr"] = 1;
-        options_i["end_chr"] = 24;
-        filterChrFlag = true;
+        if(specifiedChrFlag){
+            if(options_i["start_chr"] < 1 || options_i["end_chr"] > options_i["last_chr_autosome"] + 2){
+                LOGGER.e(0, "Chromosome range has been fixed by --chr flag, however it was not in autosome range");
+            }
+        }else{
+            options_i["start_chr"] = 1;
+            options_i["end_chr"] = options_i["last_chr_autosome"] + 2;
+            filterChrFlag = true;
+        }
     }
 
     if(options_in.find("--chr") != options_in.end()){
+        specifiedChrFlag = true;
         if(filterChrFlag){
             LOGGER.w(0, "One of the chromosome filter has been applied, it has been overrided by --chr");
         }
