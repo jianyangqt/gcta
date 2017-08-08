@@ -28,6 +28,7 @@
 #include <vector>
 #include <string>
 #include <chrono>
+#include <algorithm>
 #include "main/option.h"
 
 using std::bind;
@@ -55,6 +56,10 @@ void out_ver(bool flag_outFile){
 int main(int argc, char *argv[]){
     out_ver(false);
     auto start = std::chrono::steady_clock::now();
+    vector<string> supported_flagsV2 = {"--bfile", "--bim", "--fam", "--bed", "--keep", "--remove", 
+        "--chr", "--autosome-num", "--autosome", "--extract", "--exclude", "--maf", "--max-maf", 
+        "--freq", "--out", "--make-grm", "--thread-num",
+        "--part", "--grm-cutoff", "--no-grm"};
     map<string, vector<string>> options;
     vector<string> keys;
     string last_key = "";
@@ -156,7 +161,14 @@ int main(int argc, char *argv[]){
         }
         out += module_names[index] + ", ";
     }
-    if(mains.size() != 0){
+    bool unKnownFlag = false;
+    for(string &key : keys){
+        if(std::find(supported_flagsV2.begin(), supported_flagsV2.end(), key) == supported_flagsV2.end()){
+            unKnownFlag = true;
+            break;
+        }
+    }
+    if(mains.size() != 0 || !unKnownFlag){
         LOGGER.open(log_name + ".log");
         out_ver(true);
         // List all of the options

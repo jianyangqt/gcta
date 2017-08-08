@@ -729,14 +729,35 @@ bool GRM::registerOption(map<string, vector<string>>& options_in) {
     options["out"] = options_in["out"][0];
 
     if(options_in.find("--make-grm") != options_in.end()){
-        processFunctions.push_back("make_grm");
-        options["num_parts"] = options_in["parts"][0];
-        options["cur_part"] = options_in["parts"][0];
-        options_in.erase("--make-grm");
-        std::map<string, vector<string>> t_option;
-        t_option["--autosome"] = {};
-        Marker::registerOption(t_option);
-        return_value = true;
+        if(options_in.find("--grm") == options_in.end()){
+            processFunctions.push_back("make_grm");
+            options["num_parts"] = options_in["parts"][0];
+            options["cur_part"] = options_in["parts"][0];
+            options_in.erase("--make-grm");
+            std::map<string, vector<string>> t_option;
+            t_option["--autosome"] = {};
+            Marker::registerOption(t_option);
+            return_value = true;
+        }else{
+            if(options_in.find("--grm-cutoff") != options_in.end()){
+                if(options_in["--grm-cutoff"].size() == 1){
+                    options_d["grm_cutoff"] = std::stod(options_in["--grm-cutoff"][0]);
+                }else{
+                    LOGGER.e(0, "--grm-cutoff can't put in cutoff value other than one value currently");
+                }
+                if(options.find("grm_file") == options.end()){
+                    LOGGER.e(0, "can't find --grm flag that is critical to --grm-cutoff");
+                }
+
+                processFunctions.push_back("grm_cutoff");
+                options_in.erase("--grm-cutoff");
+                if(options_in.find("--no-grm") != options_in.end()){
+                    options["no_grm"] = "true";
+                }
+                return_value = true;
+            }
+        }
+
     }
 
     if(options_in.find("--grm") != options_in.end()){
@@ -754,22 +775,6 @@ bool GRM::registerOption(map<string, vector<string>>& options_in) {
     Pheno::addOneFileOption("keep_file", "", "--keep", options_in, options);
     Pheno::addOneFileOption("remove_file", "", "--remove", options_in, options);
 
-    if(options_in.find("--grm-cutoff") != options_in.end()){
-        if(options_in["--grm-cutoff"].size() == 1){
-            options_d["grm_cutoff"] = std::stod(options_in["--grm-cutoff"][0]);
-        }else{
-            LOGGER.e(0, "--grm-cutoff can't put in cutoff value other than one value currently");
-        }
-        if(options.find("grm_file") == options.end()){
-            LOGGER.e(0, "can't find --grm flag that is critical to --grm-cutoff");
-        }
-        processFunctions.push_back("grm_cutoff");
-        options_in.erase("--grm-cutoff");
-        if(options_in.find("--no-grm") != options_in.end()){
-            options["no_grm"] = "true";
-        }
-        return_value = true;
-    }
 
     return return_value;
 

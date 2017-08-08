@@ -380,6 +380,10 @@ bool Geno::registerOption(map<string, vector<string>>& options_in) {
         return_value = true;
     }
 
+    addOneFileOption("update_freq_file", "", "--update-freq", options_in);
+    addOneFileOption("update_ref_allele_file", "", "--update-ref-allele", options_in);
+    
+
     return return_value;
 }
 

@@ -808,7 +808,7 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
             for (j = 0; j < _r_indx.size(); j++) o_rand_eff << setprecision(6) << Py[i] * varcmp[j] << "\t" << u(i, j) << "\t";
             o_rand_eff << endl;
         }
-        cout << "\nBLUP of the genetic effects for " << _keep.size() << " individuals has been saved in the file [" + rand_eff_file + "]." << endl;
+        cout << "\nBLUP solutions of the genetic effects for " << _keep.size() << " individuals has been saved in the file [" + rand_eff_file + "]." << endl;
     }
 }
 
@@ -1463,7 +1463,7 @@ void gcta::blup_snp_geno() {
     double x = 0.0, fcount = 0.0;
 
     // Calcuate A matrix
-    cout << "Calculating the BLUP solution to SNP effects ..." << endl;
+    cout << "Calculating the BLUP solutions to SNP effects ..." << endl;
     vector<double> var_SNP(_include.size());
     eigenMatrix b_SNP = eigenMatrix::Zero(_include.size(), col_num); // variance of each SNP, 2pq
     for (j = 0; j < _include.size(); j++) {
@@ -1501,7 +1501,7 @@ void gcta::blup_snp_dosage() {
     }
 
     // Calculate A matrix
-    cout << "Calculating the BLUP solution to SNP effects using imputed dosage scores ... " << endl;
+    cout << "Calculating the BLUP solutions to SNP effects using imputed dosage scores ... " << endl;
     vector<double> var_SNP(_include.size()); // variance of each SNP, 2pq
     eigenMatrix b_SNP = eigenMatrix::Zero(_include.size(), col_num); // variance of each SNP, 2pq
     for (j = 0; j < _include.size(); j++) {

@@ -57,6 +57,12 @@ Marker::Marker() {
         extract_marker(excludelist, false);
     }
 
+    if(options.find("update_ref_allele_file") != options.end()){
+
+
+    }
+    
+
 }
 
 void Marker::read_bim(string bim_file) {
@@ -247,6 +253,7 @@ bool Marker::registerOption(map<string, vector<string>>& options_in){
     addOneFileOption("marker_file", "", "--bim", options_in);
     addOneFileOption("extract_file", "", "--extract", options_in);
     addOneFileOption("exclude_file", "", "--exclude", options_in);
+    addOneFileOption("update_ref_allele_file", "", "--update-ref-allele", options_in);
 
     if(options_in.find("--autosome-num") != options_in.end()){
         if(options_in["--autosome-num"].size() == 1){
