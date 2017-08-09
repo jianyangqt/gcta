@@ -29,9 +29,15 @@
 using std::cout;
 
 std::mutex Logger::log_mutex;
+#ifdef _WIN32 
+std::map<Logger::Type, string> Logger::style_map = {{Logger::INFO, ""}, {Logger::PROMPT, ""},
+                                                     {Logger::PROGRESS, "\r"}, {Logger::WARN, ""},
+                                                     {Logger::ERROR, ""}, {Logger::DEBUG, ""}};
+#else
 std::map<Logger::Type, string> Logger::style_map = {{Logger::INFO, "\033[0m"}, {Logger::PROMPT, "\033[0;32m"},
                                                      {Logger::PROGRESS, "\r"}, {Logger::WARN, "\033[0;33m"},
                                                      {Logger::ERROR, "\033[0;31m"}, {Logger::DEBUG, "\033[0;34m"}};
+#endif
 Logger* Logger::m_pThis = NULL;
 Logger::Type Logger::m_stat = Logger::INFO;
 std::ofstream Logger::m_logFile;
