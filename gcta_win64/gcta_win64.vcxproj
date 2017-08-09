@@ -40,16 +40,16 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(MKLIncludeDir);$(IncludePath);C:\Users\zhili.zheng\Documents\Program\eigen-3.3.4;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\include;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\include;C:\Users\zhili.zheng\Documents\Program\zlib-1.2.11;</IncludePath>
+    <IncludePath>$(MKLIncludeDir);$(IncludePath);C:\Users\zhili.zheng\Documents\Program\eigen-3.3.4;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\include;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\include;C:\Users\zhili.zheng\Documents\Program\zlib-1.2.11;..\include;..\</IncludePath>
     <LibraryPath>$(OmpLibDir);$(LibraryPath);C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\lib\intel64;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\lib\intel64;C:\Users\zhili.zheng\Documents\Program\zlib-1.2.11\contrib\vstudio\vc14\x64\ZlibStatRelease;</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(MKLIncludeDir);$(IncludePath);C:\Users\zhili.zheng\Documents\Program\eigen-3.3.4;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\include;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\include;C:\Users\zhili.zheng\Documents\Program\zlib-1.2.11;</IncludePath>
+    <IncludePath>$(MKLIncludeDir);$(IncludePath);C:\Users\zhili.zheng\Documents\Program\eigen-3.3.4;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\include;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\include;C:\Users\zhili.zheng\Documents\Program\zlib-1.2.11;..\include;..\</IncludePath>
     <LibraryPath>$(OmpLibDir);$(LibraryPath);C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\lib\intel64;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\lib\intel64;C:\Users\zhili.zheng\Documents\Program\zlib-1.2.11\contrib\vstudio\vc14\x64\ZlibStatRelease;</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <InterproceduralOptimization>MultiFile</InterproceduralOptimization>
+      <InterproceduralOptimization>SingleFile</InterproceduralOptimization>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -63,6 +63,7 @@
       <OpenMP>GenerateParallelCode</OpenMP>
       <Cpp0xSupport>true</Cpp0xSupport>
       <AdditionalOptions>/DMKL_LP64 %(AdditionalOptions)</AdditionalOptions>
+      <ObjectFileName>$(IntDir)/%(RelativeDir)/</ObjectFileName>
     </ClCompile>
     <Link>
       <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;mkl_intel_lp64.lib;mkl_intel_thread.lib;mkl_core.lib;libiomp5md.lib;zlibstat.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -70,7 +71,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <InterproceduralOptimization>MultiFile</InterproceduralOptimization>
+      <InterproceduralOptimization>SingleFile</InterproceduralOptimization>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -84,49 +85,74 @@
       <OpenMP>GenerateParallelCode</OpenMP>
       <Cpp0xSupport>true</Cpp0xSupport>
       <AdditionalOptions>/DMKL_LP64 %(AdditionalOptions)</AdditionalOptions>
+      <ObjectFileName>$(IntDir)/%(RelativeDir)/</ObjectFileName>
     </ClCompile>
     <Link>
       <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;mkl_intel_lp64.lib;mkl_intel_thread.lib;mkl_core.lib;libiomp5md.lib;zlibstat.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <Text Include="..\main\CMakeLists.txt" />
     <Text Include="readme.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\bivar_reml.cpp" />
-    <ClCompile Include="..\CommFunc.cpp" />
-    <ClCompile Include="..\data.cpp" />
-    <ClCompile Include="..\dcdflib.cpp" />
-    <ClCompile Include="..\edata.cpp" />
-    <ClCompile Include="..\eigen_func.cpp" />
-    <ClCompile Include="..\ejma.cpp" />
-    <ClCompile Include="..\est_hsq.cpp" />
-    <ClCompile Include="..\gbat.cpp" />
-    <ClCompile Include="..\grm.cpp" />
-    <ClCompile Include="..\gwas_simu.cpp" />
-    <ClCompile Include="..\joint_meta.cpp" />
-    <ClCompile Include="..\ld.cpp" />
-    <ClCompile Include="..\mkl.cpp" />
-    <ClCompile Include="..\mlm_assoc.cpp" />
-    <ClCompile Include="..\option.cpp" />
-    <ClCompile Include="..\popu_genet.cpp" />
-    <ClCompile Include="..\raw_geno.cpp" />
-    <ClCompile Include="..\reml_within_family.cpp" />
-    <ClCompile Include="..\sbat.cpp" />
-    <ClCompile Include="..\StatFunc.cpp" />
-    <ClCompile Include="..\StrFunc.cpp" />
-    <ClCompile Include="..\zfstream.cpp" />
+    <ClCompile Include="..\main\bivar_reml.cpp" />
+    <ClCompile Include="..\main\CommFunc.cpp" />
+    <ClCompile Include="..\main\data.cpp" />
+    <ClCompile Include="..\main\dcdflib.cpp" />
+    <ClCompile Include="..\main\edata.cpp" />
+    <ClCompile Include="..\main\eigen_func.cpp" />
+    <ClCompile Include="..\main\ejma.cpp" />
+    <ClCompile Include="..\main\est_hsq.cpp" />
+    <ClCompile Include="..\main\gbat.cpp" />
+    <ClCompile Include="..\main\grm.cpp" />
+    <ClCompile Include="..\main\gwas_simu.cpp" />
+    <ClCompile Include="..\main\joint_meta.cpp" />
+    <ClCompile Include="..\main\ld.cpp" />
+    <ClCompile Include="..\main\mkl.cpp" />
+    <ClCompile Include="..\main\mlm_assoc.cpp" />
+    <ClCompile Include="..\main\option.cpp" />
+    <ClCompile Include="..\main\popu_genet.cpp" />
+    <ClCompile Include="..\main\raw_geno.cpp" />
+    <ClCompile Include="..\main\reml_within_family.cpp" />
+    <ClCompile Include="..\main\sbat.cpp" />
+    <ClCompile Include="..\main\StatFunc.cpp" />
+    <ClCompile Include="..\main\StrFunc.cpp" />
+    <ClCompile Include="..\main\zfstream.cpp" />
+    <ClCompile Include="..\src\Geno.cpp" />
+    <ClCompile Include="..\src\GRM.cpp" />
+    <ClCompile Include="..\src\Logger.cpp" />
+    <ClCompile Include="..\src\main.cpp" />
+    <ClCompile Include="..\src\Marker.cpp" />
+    <ClCompile Include="..\src\Pheno.cpp" />
+    <ClCompile Include="..\src\tables.cpp" />
+    <ClCompile Include="..\src\ThreadPool.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\cdflib.h" />
-    <ClInclude Include="..\CommFunc.h" />
-    <ClInclude Include="..\dcdflib.h" />
-    <ClInclude Include="..\eigen_func.h" />
-    <ClInclude Include="..\gcta.h" />
-    <ClInclude Include="..\ipmpar.h" />
-    <ClInclude Include="..\StatFunc.h" />
-    <ClInclude Include="..\StrFunc.h" />
-    <ClInclude Include="..\zfstream.h" />
+    <ClInclude Include="..\include\AsyncBuffer.hpp" />
+    <ClInclude Include="..\include\constants.hpp" />
+    <ClInclude Include="..\include\Geno.h" />
+    <ClInclude Include="..\include\GRM.h" />
+    <ClInclude Include="..\include\Logger.h" />
+    <ClInclude Include="..\include\Marker.h" />
+    <ClInclude Include="..\include\mem.hpp" />
+    <ClInclude Include="..\include\Pheno.h" />
+    <ClInclude Include="..\include\tables.h" />
+    <ClInclude Include="..\include\ThreadPool.h" />
+    <ClInclude Include="..\include\utils.hpp" />
+    <ClInclude Include="..\main\cdflib.h" />
+    <ClInclude Include="..\main\CommFunc.h" />
+    <ClInclude Include="..\main\dcdflib.h" />
+    <ClInclude Include="..\main\eigen_func.h" />
+    <ClInclude Include="..\main\gcta.h" />
+    <ClInclude Include="..\main\ipmpar.h" />
+    <ClInclude Include="..\main\option.h" />
+    <ClInclude Include="..\main\StatFunc.h" />
+    <ClInclude Include="..\main\StrFunc.h" />
+    <ClInclude Include="..\main\zfstream.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\main\Makefile" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

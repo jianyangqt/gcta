@@ -9,6 +9,7 @@ SET(CMAKE_C_STANDARD 11)
 # fix win stack size issue
 if(WIN32)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--stack,10000000")
+    MESSAGE(FATAL_ERROR "GCTA can't build on Windows with CMake currently, you can build with Visual Studio in gcta_win64 directory")
 endif()
 
 SET(EIGEN3_INCLUDE_DIR "$ENV{EIGEN3_INCLUDE_DIR}")

@@ -16,105 +16,169 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="readme.txt" />
+    <Text Include="..\main\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\bivar_reml.cpp">
+    <ClCompile Include="..\main\bivar_reml.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\CommFunc.cpp">
+    <ClCompile Include="..\main\CommFunc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\data.cpp">
+    <ClCompile Include="..\main\data.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\dcdflib.cpp">
+    <ClCompile Include="..\main\dcdflib.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\edata.cpp">
+    <ClCompile Include="..\main\edata.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\eigen_func.cpp">
+    <ClCompile Include="..\main\eigen_func.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\ejma.cpp">
+    <ClCompile Include="..\main\ejma.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\est_hsq.cpp">
+    <ClCompile Include="..\main\est_hsq.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\gbat.cpp">
+    <ClCompile Include="..\main\gbat.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\grm.cpp">
+    <ClCompile Include="..\main\grm.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\gwas_simu.cpp">
+    <ClCompile Include="..\main\gwas_simu.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\joint_meta.cpp">
+    <ClCompile Include="..\main\joint_meta.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\ld.cpp">
+    <ClCompile Include="..\main\ld.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\mkl.cpp">
+    <ClCompile Include="..\main\mkl.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\mlm_assoc.cpp">
+    <ClCompile Include="..\main\mlm_assoc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\option.cpp">
+    <ClCompile Include="..\main\option.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\popu_genet.cpp">
+    <ClCompile Include="..\main\popu_genet.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\raw_geno.cpp">
+    <ClCompile Include="..\main\raw_geno.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\reml_within_family.cpp">
+    <ClCompile Include="..\main\reml_within_family.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\sbat.cpp">
+    <ClCompile Include="..\main\sbat.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\StatFunc.cpp">
+    <ClCompile Include="..\main\StatFunc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\StrFunc.cpp">
+    <ClCompile Include="..\main\StrFunc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\zfstream.cpp">
+    <ClCompile Include="..\main\zfstream.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\Geno.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\GRM.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\Logger.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\Marker.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\Pheno.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\tables.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\ThreadPool.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\cdflib.h">
+    <ClInclude Include="..\main\cdflib.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\CommFunc.h">
+    <ClInclude Include="..\main\CommFunc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\dcdflib.h">
+    <ClInclude Include="..\main\dcdflib.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\eigen_func.h">
+    <ClInclude Include="..\main\eigen_func.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\gcta.h">
+    <ClInclude Include="..\main\gcta.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\ipmpar.h">
+    <ClInclude Include="..\main\ipmpar.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\StatFunc.h">
+    <ClInclude Include="..\main\option.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\StrFunc.h">
+    <ClInclude Include="..\main\StatFunc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\zfstream.h">
+    <ClInclude Include="..\main\StrFunc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\main\zfstream.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\AsyncBuffer.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\constants.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\Geno.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\GRM.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\Logger.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\Marker.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\mem.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\Pheno.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\tables.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\ThreadPool.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\utils.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\main\Makefile" />
   </ItemGroup>
 </Project>
