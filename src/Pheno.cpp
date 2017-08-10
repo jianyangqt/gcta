@@ -203,7 +203,7 @@ void Pheno::set_keep(vector<string> indi_marks, vector<string> marks, vector<uin
         keeps.erase(std::remove_if(keeps.begin(), keeps.end(), diff), keeps.end());
     }
 
-    LOGGER.i(0, "After filtering subjects, " + to_string(keeps.size()) + " subjects remained.");
+    LOGGER.i(0, string("After ") + (isKeep?"keeping":"removeing") +  " subjects, " + to_string(keeps.size()) + " subjects remained.");
 }
 
 void Pheno::reinit_rm(vector<uint32_t> keeps, vector<uint32_t> &rms, int total_sample_number) {

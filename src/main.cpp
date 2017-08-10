@@ -30,6 +30,7 @@
 #include <chrono>
 #include <algorithm>
 #include "main/option.h"
+#include "utils.hpp" 
 
 using std::bind;
 using std::map;
@@ -51,6 +52,8 @@ void out_ver(bool flag_outFile){
     log(0, "* (C) 2010-2017, The University of Queensland");
     log(0, "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>");
     log(0, "*******************************************************************");
+    log(0, "Analysis started: " + getLocalTime());
+    log(0, "Hostname: " + getHostName());
 }
 
 int main(int argc, char *argv[]){
@@ -201,7 +204,10 @@ int main(int argc, char *argv[]){
         }
     }
 
+    LOGGER.i(0, "");
+
     auto end = std::chrono::steady_clock::now();
     float duration = std::chrono::duration_cast<std::chrono::duration<float>>(end - start).count();
-    LOGGER.i(0, "Finished in " + std::to_string(duration) + " seconds");
+    LOGGER.i(0, "Analysis finished: " + getLocalTime());
+    LOGGER.i(0, "Computational time: " + std::to_string(duration) + " seconds");
 }

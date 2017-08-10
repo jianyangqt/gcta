@@ -116,7 +116,9 @@ void Marker::read_bim(string bim_file) {
     num_marker = name.size();
     num_extract = index_extract.size();
     LOGGER.i(0, to_string(num_marker) + " markers to be included from [" + bim_file + "].");
-    LOGGER.i(2, to_string(num_extract) + " markers checked with good chromosome number");
+    if(num_marker != num_extract){
+        LOGGER.i(0, to_string(num_extract) + " markers to be included for further analysis (filter by chromosome)");
+    }
     bim.close();
 }
 
@@ -163,7 +165,7 @@ void Marker::extract_marker(vector<string> markers, bool isExtract) {
     num_extract = index_extract.size();
     num_exclude = index_exclude.size();
 
-    LOGGER.i(0, "After filtering SNP, " + to_string(num_exclude) + " SNPs removed, " + to_string(num_extract) + " SNPs remained.");
+    LOGGER.i(0, string("After ") + (isExtract? "extracting" : "excluding") +  " SNP, " + to_string(num_exclude) + " SNPs removed, " + to_string(num_extract) + " SNPs remained.");
 
 }
 

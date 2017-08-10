@@ -344,10 +344,8 @@ GRM::GRM(Geno *geno) {
 
     //t_print(begin, "  INIT finished");
 
-    LOGGER.i(0, "Start: ", "calculate Part " + to_string(part) + ", Subjects " + to_string(num_individual) +
-                           ", Total parts " + to_string(num_parts) + ", in " + to_string(thread_parts.size()) + " threads");
-    LOGGER.i(2, "Part " + to_string(part) + ": " + to_string(part_keep_indices.first) + "-" + to_string(part_keep_indices.second));
-    LOGGER.i(3, "Total sample: " + to_string(num_individual) + ", total GRM: " + to_string(num_grm));
+    LOGGER.i(0, "Start: ", "part " + to_string(part) + ", Subjects ID: " + to_string(part_keep_indices.first) + "-" + to_string(part_keep_indices.second) + ". Total parts " + to_string(num_parts) + ". " + to_string(thread_parts.size()) + " threads");
+    LOGGER.i(2, to_string(num_individual) + " samples, " + to_string(geno->marker->count_extract()) + " markers, " + to_string(num_grm) + " GRM");
 
     o_name = options["out"];
 
@@ -784,7 +782,7 @@ void GRM::processMain() {
     vector<function<void (uint8_t *, int)>> callBacks;
     for(auto &process_function : processFunctions){
         if(process_function == "make_grm"){
-            LOGGER.i(0, "GRM is calculated based on autosome only (chr 1 - 22) if no --chr flag is specified");
+            LOGGER.i(0, "Note: GRM is calculated based on autosome or the chromosome specified by --chr");
             Pheno pheno;
             Marker marker;
             Geno geno(&pheno, &marker);
