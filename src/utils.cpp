@@ -6,6 +6,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef __unix__
+#include <unistd.h>
+#endif
+
 std::string getHostName(){
     char *temp = NULL;
     std::string computerName;
@@ -20,11 +24,10 @@ std::string getHostName(){
     if (temp != NULL) {
         computerName = temp;
     } else {
-//#include <unistd.h>
         temp = new char[512];
-//        if (gethostname(temp, 512) == 0) {
-//            computerName = temp;
-//        }
+        if (gethostname(temp, 512) == 0) {
+            computerName = temp;
+        }
         delete []temp;
     }
     return computerName;
