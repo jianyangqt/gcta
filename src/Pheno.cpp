@@ -305,7 +305,7 @@ bool Pheno::registerOption(map<string, vector<string>>& options_in){
     }
 
     if(options_in.find("--pheno") != options_in.end()){
-        LOGGER.w(0, "--pheno didn't work this time");
+        //LOGGER.w(0, "--pheno didn't work this time");
 
         if(options_in.find("--mpheno") != options_in.end()){
             ;

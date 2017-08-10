@@ -727,7 +727,7 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
         cout << "\nSampling variance/covariance of the estimates of variance components:" << endl;
         for (i = 0; i < _r_indx.size(); i++) {
             //for (j = 0; j < _r_indx.size(); j++) cout << setiosflags(ios::scientific) << Hi(i, j) << "\t";
-            for (j = 0; j < _r_indx.size(); j++) cout <<  Hi(i, j) << "\t";
+            for (j = 0; j < _r_indx.size(); j++) cout << std::scientific << Hi(i, j) << "\t";
             cout << endl;
         }
     }
@@ -737,7 +737,7 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
         for (i = 0; i < _X_c; i++) {
             if (i == 0) cout << "mean\t";
             else cout << "X_" << i + 1 << "\t";
-            cout << setiosflags(ios::fixed) << _b[i] << "\t" << sqrt(Xt_Vi_X_i(i, i)) << endl;
+            cout << std::fixed << _b[i] << "\t" << sqrt(Xt_Vi_X_i(i, i)) << endl;
         }
     }
 
@@ -781,7 +781,8 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
         o_reml << "logL0\t" << setprecision(3) << lgL_rdu_mdl << endl;
         o_reml << "LRT\t" << setprecision(3) << LRT << endl;
         o_reml << "df\t" << setprecision(1) << _r_indx.size() - _r_indx_drop.size() << endl;
-        o_reml << "Pval\t" << setprecision(4) << setiosflags(ios::scientific) << 0.5 * StatFunc::chi_prob(_r_indx.size() - _r_indx_drop.size(), LRT) << setiosflags(ios::fixed) << endl;
+        //o_reml << "Pval\t" << setprecision(4) << setiosflags(ios::scientific) << 0.5 * StatFunc::chi_prob(_r_indx.size() - _r_indx_drop.size(), LRT) << setiosflags(ios::fixed) << endl;
+        o_reml << "Pval\t" << std::scientific << setprecision(4) << 0.5 * StatFunc::chi_prob(_r_indx.size() - _r_indx_drop.size(), LRT) << std::fixed << endl;
     }
     if (_bivar_reml && !_fixed_rg_val.empty()) {
         o_reml << "logL0\t" << setprecision(3) << lgL_fixed_rg << " (when rG fixed at ";
@@ -789,7 +790,8 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
         o_reml << _fixed_rg_val[_fixed_rg_val.size() - 1] << ")" << endl;
         o_reml << "LRT\t" << setprecision(3) << LRT << endl;
         o_reml << "df\t" << setprecision(1) << _fixed_rg_val.size() << endl;
-        o_reml << "Pval\t" << setprecision(4) << setiosflags(ios::scientific) << 0.5 * StatFunc::chi_prob(_fixed_rg_val.size(), LRT) << setiosflags(ios::fixed) << " (one-tailed test)" << endl;
+        //o_reml << "Pval\t" << setprecision(4) << setiosflags(ios::scientific) << 0.5 * StatFunc::chi_prob(_fixed_rg_val.size(), LRT) << setiosflags(ios::fixed) << " (one-tailed test)" << endl;
+        o_reml << "Pval\t" << std::scientific << setprecision(4) << 0.5 * StatFunc::chi_prob(_fixed_rg_val.size(), LRT) << std::fixed << " (one-tailed test)" << endl;
     }
     o_reml << "n\t" << _n << endl;
     if (est_fix_eff) {
