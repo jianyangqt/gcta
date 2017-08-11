@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef __unix__
+#if defined(__unix__) || defined(__APPLE__)
 #include <unistd.h>
 #endif
 
@@ -30,8 +30,8 @@ std::string getHostName(){
         }
         delete []temp;
     }
-    return computerName;
 #endif
+    return computerName;
 }
 
 std::string getLocalTime(){
