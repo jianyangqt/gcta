@@ -54,6 +54,7 @@ void out_ver(bool flag_outFile){
     log(0, "*******************************************************************");
     log(0, "Analysis started: " + getLocalTime());
     log(0, "Hostname: " + getHostName());
+    log(0, "");
 }
 
 int main(int argc, char *argv[]){
@@ -95,9 +96,23 @@ int main(int argc, char *argv[]){
     bool is_parted = false;
 
     if(options.find("--part") != options.end()){
-        num_parts = std::stoi(options["--part"][0]);
-        cur_part = std::stoi(options["--part"][1]);
-        is_parted = true;
+        if(options["--part"].size() == 2){
+            try{
+                num_parts = std::stoi(options["--part"][0]);
+                cur_part = std::stoi(options["--part"][1]);
+            }catch(std::invalid_argument&){
+                LOGGER.e(0, "--part can only deal with integer value");
+            }
+            if(num_parts <= 0 || cur_part <=0){
+                LOGGER.e(0, "--part arguments should >= 1");
+            }
+            if(num_parts < cur_part){
+                LOGGER.e(0, "--part  1st parameter (number of parts) can't less than 2nd parameter");
+            }
+            is_parted = true;
+        }else{
+            LOGGER.e(0, "--part takes two arguments, total parts and part to calculate currently");
+        }
     }
 
     options["parts"].push_back(std::to_string(num_parts));
@@ -171,11 +186,10 @@ int main(int argc, char *argv[]){
             break;
         }
     }
-    if(mains.size() != 0 || !unKnownFlag){
+    if(mains.size() != 0 && !unKnownFlag){
         LOGGER.open(log_name + ".log");
         out_ver(true);
         // List all of the options
-        LOGGER.i(0, "");
         LOGGER.i(0, "Options: ");
         LOGGER.i(0, " ");
         for(auto &key : keys){

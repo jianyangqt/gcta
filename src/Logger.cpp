@@ -92,7 +92,7 @@ void Logger::Log(int level, Type type, const string& prompt, const string& messa
 
 void Logger::e(int level, const string& message){
     m_pThis->Log(level, ERROR, "Error: ", message);
-    m_pThis->Log(level, INFO, "", "An error occurs, please check the data");
+    m_pThis->Log(level, INFO, "", "An error occurs, please check the options or data");
     exit(1);
 }
 
