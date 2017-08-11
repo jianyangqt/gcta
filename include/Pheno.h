@@ -45,7 +45,7 @@ public:
     uint8_t extract_genobit(uint8_t * const buf, int index_in_keep);
     vector<uint32_t> get_index_keep();
 
-    static bool registerOption(map<string, vector<string>>& options);
+    static int registerOption(map<string, vector<string>>& options);
     static void processMain();
     static vector<string> read_sublist(string sublist_file);
     static void addOneFileOption(string key_store, string append_string, string key_name,

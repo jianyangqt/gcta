@@ -62,8 +62,8 @@ int main(int argc, char *argv[]){
     auto start = std::chrono::steady_clock::now();
     vector<string> supported_flagsV2 = {"--bfile", "--bim", "--fam", "--bed", "--keep", "--remove", 
         "--chr", "--autosome-num", "--autosome", "--extract", "--exclude", "--maf", "--max-maf", 
-        "--freq", "--out", "--make-grm", "--thread-num",
-        "--part", "--grm-cutoff", "--no-grm"};
+        "--freq", "--out", "--make-grm", "--make-grm-part", "--thread-num", "--grm",
+        "--grm-cutoff", "--grm-no-relative", "--cutoff-detail"};
     map<string, vector<string>> options;
     vector<string> keys;
     string last_key = "";
@@ -91,48 +91,13 @@ int main(int argc, char *argv[]){
         }
     }
 
-    int num_parts = 1;
-    int cur_part = 1;
-    bool is_parted = false;
-
-    if(options.find("--part") != options.end()){
-        if(options["--part"].size() == 2){
-            try{
-                num_parts = std::stoi(options["--part"][0]);
-                cur_part = std::stoi(options["--part"][1]);
-            }catch(std::invalid_argument&){
-                LOGGER.e(0, "--part can only deal with integer value");
-            }
-            if(num_parts <= 0 || cur_part <=0){
-                LOGGER.e(0, "--part arguments should >= 1");
-            }
-            if(num_parts < cur_part){
-                LOGGER.e(0, "--part  1st parameter (number of parts) can't less than 2nd parameter");
-            }
-            is_parted = true;
-        }else{
-            LOGGER.e(0, "--part takes two arguments, total parts and part to calculate currently");
-        }
-    }
-
-    options["parts"].push_back(std::to_string(num_parts));
-    options["parts"].push_back(std::to_string(cur_part));
-
-    //Find the --out options
-    string log_name;
+     //Find the --out options
     if(options.find("--out") != options.end()){
         vector<string> outs = options["--out"];
         if(outs.size() == 0){
             LOGGER.e(0, "you might forget to specify the output filename in the \"--out\" option");
         }else{
-            log_name = outs[0];
-            if(is_parted){
-                //log_name = outs[0] + ".parted_" + std::to_string(num_parts) + "_" + std::to_string(cur_part);
-                std::string s_parts = std::to_string(num_parts);
-                std::string c_parts = std::to_string(cur_part);
-                log_name = outs[0] + ".parted_" + s_parts + "_" + std::string(s_parts.length() - c_parts.length(), '0') + c_parts;
-            }
-            options["out"].push_back(log_name);
+            options["out"].push_back(outs[0]);
         }
     }else{
         LOGGER.e(0, "No \"--out\" options find, you might forget to specify the output option");
@@ -148,7 +113,7 @@ int main(int argc, char *argv[]){
                 thread_num = std::stoi(thread_nums[0]);
                 is_threaded = true;
             }catch(std::invalid_argument&){
-                LOGGER.w(0, "can't get thread number from --thread-num option");
+                LOGGER.e(0, "can't get thread number from --thread-num option");
             }
         }
     }
@@ -158,7 +123,7 @@ int main(int argc, char *argv[]){
     //start register the options
     // Please take care of the order, C++ has few reflation feature, I did in a ugly way.
     vector<string> module_names = {"phenotype", "marker", "genotype", "genetic relationship matrix"};
-    vector<bool (*)(map<string, vector<string>>&)> registers = {
+    vector<int (*)(map<string, vector<string>>&)> registers = {
             Pheno::registerOption,
             Marker::registerOption,
             Geno::registerOption,
@@ -172,12 +137,13 @@ int main(int argc, char *argv[]){
     };
 
     vector<int> mains;
-    string out = "";
     for(int index = 0; index != module_names.size(); index++){
-        if(registers[index](options)){
+        int num_reg = registers[index](options);
+        if(num_reg == 1){
             mains.push_back(index);
+        }else if(num_reg > 1){
+            LOGGER.e(0, "multiple main functions are invalid currently");
         }
-        out += module_names[index] + ", ";
     }
     bool unKnownFlag = false;
     for(string &key : keys){
@@ -187,7 +153,7 @@ int main(int argc, char *argv[]){
         }
     }
     if(mains.size() != 0 && !unKnownFlag){
-        LOGGER.open(log_name + ".log");
+        LOGGER.open(options["out"][0] + ".log");
         out_ver(true);
         // List all of the options
         LOGGER.i(0, "Options: ");
@@ -201,7 +167,7 @@ int main(int argc, char *argv[]){
         }
         LOGGER.i(0, "");
 
-        if(mains.size() > 1) LOGGER.e(0, "multiple main functions are not available currently");
+        if(mains.size() > 1) LOGGER.e(0, "multiple main functions are invalid currently");
         if(is_threaded) {
             LOGGER.i(0, "The analysis will run in " + std::to_string(thread_num) + " threads");
             LOGGER.i(0, "Note: Some analysis will ignore the multi-thread mode");

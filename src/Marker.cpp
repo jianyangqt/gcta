@@ -250,7 +250,7 @@ void Marker::addOneFileOption(string key_store, string append_string, string key
     }
 }
 
-bool Marker::registerOption(map<string, vector<string>>& options_in){
+int Marker::registerOption(map<string, vector<string>>& options_in){
     addOneFileOption("marker_file", ".bim", "--bfile", options_in);
     addOneFileOption("marker_file", "", "--bim", options_in);
     addOneFileOption("extract_file", "", "--extract", options_in);
@@ -337,7 +337,7 @@ bool Marker::registerOption(map<string, vector<string>>& options_in){
 
     }
 
-    return false;
+    return 0;
 }
 
 

@@ -32,7 +32,7 @@ public:
     bool isInExtract(uint32_t index);
     uint32_t getExtractIndex(uint32_t extractedIndex);
     string get_marker(int extract_index);
-    static bool registerOption(map<string, vector<string>>& options_in);
+    static int registerOption(map<string, vector<string>>& options_in);
     static void processMain();
     void extract_marker(vector<string> markers, bool isExtract);
     void remove_extracted_index(vector<int> remove_index);

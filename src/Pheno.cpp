@@ -291,7 +291,7 @@ void Pheno::addOneFileOption(string key_store, string append_string, string key_
     }
 }
 
-bool Pheno::registerOption(map<string, vector<string>>& options_in){
+int Pheno::registerOption(map<string, vector<string>>& options_in){
     addOneFileOption("pheno_file", ".fam", "--bfile", options_in, options);
     addOneFileOption("pheno_file", "", "--fam", options_in, options);
     options_in.erase("--fam");
@@ -312,7 +312,7 @@ bool Pheno::registerOption(map<string, vector<string>>& options_in){
         }
     }
     // no main
-    return false;
+    return 0;
 }
 
 void Pheno::processMain(){

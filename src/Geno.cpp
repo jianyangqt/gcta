@@ -321,8 +321,8 @@ void Geno::addOneFileOption(string key_store, string append_string, string key_n
     }
 }
 
-bool Geno::registerOption(map<string, vector<string>>& options_in) {
-    bool return_value = false;
+int Geno::registerOption(map<string, vector<string>>& options_in) {
+    int return_value = 0;
     addOneFileOption("geno_file", ".bed","--bfile", options_in);
     options_in.erase("--bfile");
     options_d["min_maf"] = 0.0;
@@ -377,7 +377,7 @@ bool Geno::registerOption(map<string, vector<string>>& options_in) {
 
         options["out"] = options_in["--out"][0];
 
-        return_value = true;
+        return_value++;
     }
 
     addOneFileOption("update_freq_file", "", "--update-freq", options_in);

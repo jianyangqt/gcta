@@ -45,7 +45,7 @@ public:
     void freq(uint8_t *buf, int num_marker);
     bool check_bed();
     void out_freq(string filename);
-    static bool registerOption(map<string, vector<string>>& options_in);
+    static int registerOption(map<string, vector<string>>& options_in);
     static void processMain();
 
 private:

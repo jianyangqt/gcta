@@ -38,7 +38,7 @@ public:
     void N_thread(int grm_index_from, int grm_index_to);
     void deduce_GRM();
     vector<uint32_t> divide_parts(uint32_t from, uint32_t to, uint32_t num_parts);
-    static bool registerOption(map<string, vector<string>>& options_in);
+    static int registerOption(map<string, vector<string>>& options_in);
     static void processMain();
     void loop_block(vector<function<void (double *buf, int num_block)>> callbacks
                     = vector<function<void (double *buf, int num_block)>>());
