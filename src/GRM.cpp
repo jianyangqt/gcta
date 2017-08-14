@@ -780,7 +780,7 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
 
             std::string s_parts = std::to_string(num_parts);
             std::string c_parts = std::to_string(cur_part);
-            options["out"] = options["out"] + ".parted_" + s_parts + "_" + std::string(s_parts.length() - c_parts.length(), '0') + c_parts;
+            options["out"] = options["out"] + ".part_" + s_parts + "_" + std::string(s_parts.length() - c_parts.length(), '0') + c_parts;
             options_in["out"][0] = options["out"];
             processFunctions.push_back("make_grm");
             options_in.erase(part_grm);
