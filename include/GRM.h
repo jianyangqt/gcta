@@ -24,6 +24,7 @@
 #include <utility>
 #include <cmath>
 #include "constants.hpp"
+#include "mem.hpp"
 
 using std::string;
 using std::vector;
@@ -33,6 +34,15 @@ class GRM {
 public:
     GRM(Geno *geno_filename);
     GRM();
+    ~GRM() {
+        posix_mem_free(grm);
+        posix_mem_free(N);
+        delete[] lookup_GRM_table;
+        delete[] sub_miss;
+        posix_mem_free(geno_buf);
+        posix_mem_free(mask_buf);
+        posix_mem_free(cmask_buf);
+    };
     void calculate_GRM(uint8_t *buf, int num_marker);
     void grm_thread(int grm_index_from, int grm_index_to);
     void N_thread(int grm_index_from, int grm_index_to);
@@ -71,7 +81,8 @@ private:
 
 
     double GRM_table[Constants::NUM_MARKER_READ][8];
-    double lookup_GRM_table[Constants::NUM_MARKER_READ / num_marker_block][num_lookup_table];
+    //double lookup_GRM_table[Constants::NUM_MARKER_READ / num_marker_block][num_lookup_table];
+    double (*lookup_GRM_table)[num_lookup_table];
 
     vector<uint16_t> elements = {0, 2, 3, 4, 5, 6, 7};
     uint64_t num_byte_geno;

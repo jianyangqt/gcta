@@ -26,6 +26,9 @@
 
 #ifndef GCTA2_LOGGER_H
 #define GCTA2_LOGGER_H
+#if !defined(_DEBUG) && defined(_WIN32)
+#define NDEBUG
+#endif
 #include <mutex>
 #include <string>
 #include <map>

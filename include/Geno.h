@@ -56,7 +56,7 @@ private:
     int last_byte_NA_sample;
     int64_t num_byte_buffer;
     int num_blocks;
-    AsyncBuffer<uint8_t>* asyncBuffer;
+    AsyncBuffer<uint8_t>* asyncBuffer = NULL;
 
     GBitCountTable g_table;
     vector<double> AFA1;

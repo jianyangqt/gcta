@@ -22,7 +22,6 @@
 #include <algorithm>
 #include <iomanip>
 #include <sstream>
-#include "mem.hpp"
 #include <cstring>
 #include <numeric>
 #include <unordered_set>
@@ -298,6 +297,8 @@ GRM::GRM(Geno *geno) {
 
     this->num_byte_cmask = sizeof(uint64_t) * Constants::NUM_MARKER_READ * index_keep.size() / num_cmask_block;
 
+    lookup_GRM_table = new double[Constants::NUM_MARKER_READ / num_marker_block][num_lookup_table];
+
     int ret1 = posix_memalign((void **) &geno_buf, 32, num_byte_geno);
     int ret2 = posix_memalign((void **) &mask_buf, 32, num_byte_geno);
     int ret3 = posix_memalign((void **) &cmask_buf, 32, num_byte_cmask); 
@@ -553,8 +554,10 @@ void GRM::deduce_GRM(){
         LOGGER.e(0, "can't open " + o_name + ".grm.bin or .grm.N.bin to write");
     }
 
-    float w_grm[index_keep.size()];
-    float w_N[index_keep.size()];
+    uint32_t num_sample = index_keep.size();
+    float *w_grm = new float[num_sample];
+    float *w_N = new float[num_sample];
+
     double *po_grm = grm;
     uint32_t *po_N = N;
     uint32_t sub_miss1;
@@ -579,6 +582,8 @@ void GRM::deduce_GRM(){
     }
     fclose(grm_out);
     fclose(N_out);
+    delete[] w_grm;
+    delete[] w_N;
     //t_print(begin, "  GRM deduce finished");
     LOGGER.i(0, "GRM has been saved in the file [" + o_name + ".grm.bin]");
     LOGGER.i(0, "Number of SNPs in each pair of individuals has been saved in the file [" + o_name + ".grm.N.bin]");

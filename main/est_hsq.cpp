@@ -1283,7 +1283,8 @@ void gcta::calcu_Hi(eigenMatrix &P, eigenMatrix &Hi)
     }
 
     // Calculate Hi
-    double d_bufs[_n];
+    //double d_bufs[_n];
+    double *d_bufs = new double[_n];
     for (i = 0; i < _r_indx.size(); i++) {
         for (j = 0; j <= i; j++) {
             memset(d_bufs, 0, _n * sizeof(double));
@@ -1306,6 +1307,7 @@ void gcta::calcu_Hi(eigenMatrix &P, eigenMatrix &Hi)
         }
         else throw ("Error: the information matrix is not invertible.");
     }
+    delete[] d_bufs;
 }
 
 // use Fisher-scoring to estimate variance component
@@ -1417,7 +1419,8 @@ void gcta::calcu_tr_PA(eigenMatrix &P, eigenVector &tr_PA) {
 
     // Calculate trace(PA)
     tr_PA.resize(_r_indx.size());
-    double d_bufs[_n];
+    //double d_bufs[_n];
+    double *d_bufs = new double[_n];
     for (i = 0; i < _r_indx.size(); i++) {
         //cout << "calcu_tr_PA " << i << endl;
         if (_bivar_reml || _within_family){
@@ -1452,6 +1455,7 @@ void gcta::calcu_tr_PA(eigenMatrix &P, eigenVector &tr_PA) {
             tr_PA(i) = d_buf;
         }
     }
+    delete[] d_bufs;
 }
 
 // blue estimate of SNP effect
