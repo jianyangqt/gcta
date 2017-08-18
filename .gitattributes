@@ -6,6 +6,9 @@
 *.cc text
 *.md text
 *.txt text
+*.html text
+*.xml text
+*.json text
 
 *.sln text eol=crlf
 *.vcxproj text eol=crlf
