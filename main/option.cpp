@@ -18,6 +18,7 @@
 
 #include <stdlib.h>
 #include "gcta.h"
+#include "Logger.h"
 
 void option(int option_num, char* option_str[]);
 
@@ -141,6 +142,12 @@ void option(int option_num, char* option_str[])
     int make_erm_mtd = 1;
     double ecojo_p = 5e-6, ecojo_collinear = 0.9, ecojo_lambda = -1;
     bool efile_flag=false, eR_file_flag = false, ecojo_slct_flag = false, ecojo_blup_flag = false, make_erm_flag = false;
+
+    // mtCOJO
+    string mtcojolist_file="", ref_ld_dirt="", w_ld_dirt="";
+    int nsnp_heidi=10, nsnp_gsmr=10;
+    double gwas_thresh=5e-8, heidi_thresh=0.05;
+    bool mtcojo_flag=false;
 
     int argc = option_num;
     vector<char *> argv(option_num + 2);
@@ -965,8 +972,16 @@ void option(int option_num, char* option_str[])
             thread_flag = true;
             cout << "--make-erm-alg " << make_erm_mtd << endl;
             if (make_erm_mtd < 1 || make_erm_mtd > 3) throw ("\nError: --make-erm-alg should be 1, 2 or 3.\n");
-        } 
-        else if (strcmp(argv[i], "gcta") == 0) break;
+        } else if (strcmp(argv[i], "--mtcojo") == 0) {
+            mtcojo_flag = true;
+            mtcojolist_file = argv[++i];
+            cout << "--mtcojo " << mtcojolist_file << endl;
+            CommFunc::FileExist(mtcojolist_file);
+        } else if (strcmp(argv[i], "--ref-ld-chr") == 0) {
+     
+        } else if (strcmp(argv[i], "--w-ld-chr") == 0) {
+
+        } else if (strcmp(argv[i], "gcta") == 0) break;
         else {
             stringstream errmsg;
             errmsg << "\nError: invalid option \"" << argv[i] << "\".\n";
@@ -1124,6 +1139,9 @@ void option(int option_num, char* option_str[])
             else if (massoc_slct_flag | massoc_joint_flag) pter_gcta->run_massoc_slct(massoc_file, massoc_wind, massoc_p, massoc_collinear, massoc_top_SNPs, massoc_joint_flag, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag, massoc_mld_slct_alg);
             else if (!massoc_cond_snplist.empty()) pter_gcta->run_massoc_cond(massoc_file, massoc_cond_snplist, massoc_wind, massoc_collinear, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag);
             else if (massoc_sblup_flag) pter_gcta->run_massoc_sblup(massoc_file, massoc_wind, massoc_sblup_fac);
+            else if (mtcojo_flag){
+                LOGGER.open();
+                pter_gcta->mtcojo(mtcojolist_file, ref_ld_dirt, w_ld_dirt, gwas_thresh, heidi_thresh, nsnp_heidi, nsnp_gsmr);
             else if (simu_qt_flag || simu_cc) pter_gcta->GWAS_simu(bfile, simu_rep, simu_causal, simu_case_num, simu_control_num, simu_h2, simu_K, simu_seed, simu_output_causal, simu_emb_flag, simu_eff_mod);
             else if (make_bed_flag) pter_gcta->save_plink();
             else if (fst_flag) pter_gcta->Fst(subpopu_file);
