@@ -28,6 +28,7 @@
 #include "utils.hpp"
 #include "ThreadPool.h"
 #include "AsyncBuffer.hpp"
+#include "utils.hpp"
 
 using std::to_string;
 
@@ -91,6 +92,75 @@ GRM::GRM(){
     }
 
 }
+
+void GRM::prune_FAM(float thresh){
+    LOGGER.i(0, "Pruning the FAM with a cut off of " + to_string(thresh) + "...");
+    LOGGER.i(0, "Total number of parts to proceed: " + to_string(index_grm_pairs.size()));
+    FILE *grmFile = fopen((grm_file + ".grm.bin").c_str(), "rb");
+
+    std::ofstream o_id((options["out"] + ".grm.id").c_str());
+    std::ofstream o_fam((options["out"] + ".grm.fam").c_str());
+    if(!o_id) LOGGER.e(0, "can't write to [" + options["out"] + ".grm.id]");
+    if(!o_fam) LOGGER.e(0, "can't write to [" + options["out"] + ".grm.fam]");
+
+    //Save the kept IDs, which may change by --keep and --remove
+    vector<string> keep_ID;
+    keep_ID.reserve(index_keep.size());
+    for(auto & index : index_keep){
+        keep_ID.emplace_back(grm_ids[index]);
+    }
+    LOGGER.i(2, "Saving " + to_string(keep_ID.size()) + " individual IDs");
+    std::copy(keep_ID.begin(), keep_ID.end(), std::ostream_iterator<string>(o_id, "\n"));
+    o_id.close();
+    keep_ID.clear();
+    keep_ID.shrink_to_fit();
+
+
+    // Save pair1 par2 GRM
+    std::unordered_set<int> keeps_ori(index_keep.begin(), index_keep.end());
+    float *grm_buf = new float[num_byte_buffer];
+    float cur_grm, *cur_grm_pos0;
+    vector<float> rm_grm;
+    vector<int> rm_grm_ID1, rm_grm_ID2;
+    for(int part_index = 0; part_index != index_grm_pairs.size(); part_index++){
+        if(fread(grm_buf, sizeof(float), byte_part_grms[part_index], grmFile) != byte_part_grms[part_index]){
+            LOGGER.e(0, "Read GRM failed between line " + to_string(index_grm_pairs[part_index].first + 1) + " and "
+                        + to_string(index_grm_pairs[part_index].second + 1));
+        };
+        if(part_index % 50 == 0){
+            LOGGER.i(2, "Processing part " + to_string(part_index + 1));
+        }
+        cur_grm_pos0 = grm_buf;
+        for(int id1 = index_grm_pairs[part_index].first; id1 != index_grm_pairs[part_index].second + 1; id1++){
+            if (keeps_ori.find(id1) == keeps_ori.end()) {
+                cur_grm_pos0 += id1 + 1;
+                continue;
+            }
+            for(int id2 : index_keep){
+                if(id2 > id1) break;
+                cur_grm = *(cur_grm_pos0 + id2);
+                if(cur_grm > thresh){
+                    rm_grm_ID1.push_back(id1);
+                    rm_grm_ID2.push_back(id2);
+                    rm_grm.push_back(cur_grm);
+                }
+            }
+            cur_grm_pos0 += id1 + 1;
+        }
+    }
+    delete [] grm_buf;
+
+    LOGGER.i(0, "Saving FAM (" + to_string(rm_grm.size()) + " pairs) to [" + options["out"] + ".grm.fam]");
+    auto sorted_index = sort_indexes(rm_grm_ID2, rm_grm_ID1);
+    for(auto index : sorted_index){
+        o_fam << rm_grm_ID1[index] << "\t" << rm_grm_ID2[index] << "\t" << rm_grm[index] << std::endl;
+    }
+    o_fam.close();
+    LOGGER.i(0, "Success:", "FAM pruning finished");
+
+}
+
+
 
 void GRM::cut_rel(float thresh, bool no_grm){
     LOGGER.i(0, "Pruning the GRM with a cutoff of " + to_string(thresh) + "...");
@@ -853,6 +923,19 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
 
     }
 
+    if(options_in.find("--make-fam") != options_in.end()){
+        if(options.find("grm_file") == options.end()){
+            LOGGER.e(0, "can't find --grm flag that is essential to --make-fam");
+        }
+        if(options_in["--make-fam"].size() == 1){
+            options_d["grm_cutoff"] = std::stod(options_in["--make-fam"][0]);
+            processFunctions.push_back("make_fam");
+        }else{
+            LOGGER.e(0, "--make-fam can't deal with more than one value currently");
+        }
+        return_value++;
+    }
+
     return return_value;
 
 }
@@ -882,6 +965,11 @@ void GRM::processMain() {
             grm.cut_rel(options_d["grm_cutoff"], no_grm);
            // grm.loop_block(callBacks);
 
+        }
+
+        if(process_function == "make_fam"){
+            GRM grm;
+            grm.prune_FAM(options_d["grm_cutoff"]);
         }
     }
 

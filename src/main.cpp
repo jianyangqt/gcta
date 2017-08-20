@@ -63,7 +63,7 @@ int main(int argc, char *argv[]){
     vector<string> supported_flagsV2 = {"--bfile", "--bim", "--fam", "--bed", "--keep", "--remove", 
         "--chr", "--autosome-num", "--autosome", "--extract", "--exclude", "--maf", "--max-maf", 
         "--freq", "--out", "--make-grm", "--make-grm-part", "--thread-num", "--grm",
-        "--grm-cutoff", "--grm-no-relative", "--cutoff-detail"};
+        "--grm-cutoff", "--grm-no-relative", "--cutoff-detail", "--make-fam"};
     map<string, vector<string>> options;
     vector<string> keys;
     string last_key = "";

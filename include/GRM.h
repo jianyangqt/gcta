@@ -43,6 +43,7 @@ public:
         posix_mem_free(mask_buf);
         posix_mem_free(cmask_buf);
     };
+
     void calculate_GRM(uint8_t *buf, int num_marker);
     void grm_thread(int grm_index_from, int grm_index_to);
     void N_thread(int grm_index_from, int grm_index_to);
@@ -53,6 +54,7 @@ public:
     void loop_block(vector<function<void (double *buf, int num_block)>> callbacks
                     = vector<function<void (double *buf, int num_block)>>());
     void cut_rel(float thresh, bool no_grm = false);
+    void prune_FAM(float thresh);
 
 private:
     Geno *geno;

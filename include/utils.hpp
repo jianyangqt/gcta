@@ -27,8 +27,46 @@
 #endif
 
 #include <string>
+#include <vector>
+#include <numeric>
+#include <algorithm>
 
 std::string getHostName();
 std::string getLocalTime();
+
+template <typename T>
+std::vector<size_t> sort_indexes(const std::vector<T> &v) {
+    std::vector<size_t> index(v.size());
+    std::iota(index.begin(), index.end(), 0);
+
+    std::sort(index.begin(), index.end(),
+            [&v](size_t item1, size_t item2) {
+                return v[item1] < v[item2];
+            });
+
+    return index;
+}
+
+template <typename T>
+std::vector<size_t> sort_indexes(const std::vector<T> &v1, const std::vector<T> &v2) {
+    if(v1.size() != v2.size())return std::vector<size_t>();
+
+    std::vector<size_t> index(v1.size());
+    std::iota(index.begin(), index.end(), 0);
+
+    std::sort(index.begin(), index.end(),
+            [&v1, &v2](size_t item1, size_t item2) {
+                if(v1[item1] < v1[item2]){
+                    return true;
+                }else if(v1[item1] == v1[item2]){
+                    return v2[item1] < v2[item2];
+                }else{
+                    return false;
+                }
+            }
+    );
+
+    return index;
+}
 
 #endif
