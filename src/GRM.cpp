@@ -98,10 +98,10 @@ void GRM::prune_FAM(float thresh){
     LOGGER.i(0, "Total number of parts to proceed: " + to_string(index_grm_pairs.size()));
     FILE *grmFile = fopen((grm_file + ".grm.bin").c_str(), "rb");
 
-    std::ofstream o_id((options["out"] + ".grm.id").c_str());
-    std::ofstream o_fam((options["out"] + ".grm.fam").c_str());
-    if(!o_id) LOGGER.e(0, "can't write to [" + options["out"] + ".grm.id]");
-    if(!o_fam) LOGGER.e(0, "can't write to [" + options["out"] + ".grm.fam]");
+    std::ofstream o_id((options["out"] + ".ffam.id").c_str());
+    std::ofstream o_fam((options["out"] + ".ffam.pair").c_str());
+    if(!o_id) LOGGER.e(0, "can't write to [" + options["out"] + ".ffam.id]");
+    if(!o_fam) LOGGER.e(0, "can't write to [" + options["out"] + ".ffam.pair]");
 
     //Save the kept IDs, which may change by --keep and --remove
     vector<string> keep_ID;
@@ -150,13 +150,14 @@ void GRM::prune_FAM(float thresh){
     }
     delete [] grm_buf;
 
-    LOGGER.i(0, "Saving FAM (" + to_string(rm_grm.size()) + " pairs) to [" + options["out"] + ".grm.fam]");
-    auto sorted_index = sort_indexes(rm_grm_ID2, rm_grm_ID1);
-    for(auto index : sorted_index){
+    LOGGER.i(0, "Saving FAM (" + to_string(rm_grm.size()) + " pairs) to [" + options["out"] + ".ffam.pair]");
+//    auto sorted_index = sort_indexes(rm_grm_ID2, rm_grm_ID1);
+//    for(auto index : sorted_index){
+    for(int index = 0; index != rm_grm.size(); index++){
         o_fam << rm_grm_ID1[index] << "\t" << rm_grm_ID2[index] << "\t" << rm_grm[index] << std::endl;
     }
     o_fam.close();
-    LOGGER.i(0, "Success:", "FAM pruning finished");
+    LOGGER.i(0, "Success:", "make FAM finished");
 
 }
 

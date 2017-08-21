@@ -50,7 +50,6 @@ Geno::Geno(Pheno* pheno, Marker* marker) {
     init_AF();
     init_AsyncBuffer();
     filter_MAF();
-
 }
 
 void Geno::filter_MAF(){
@@ -74,11 +73,13 @@ void Geno::filter_MAF(){
         }
 
         for(auto index = remove_extract_index.rbegin(); index != remove_extract_index.rend(); ++index){
-            LOGGER.d(5, to_string(*index));
-            AFA1.erase(AFA1.begin()+ (*index));
-            countA1A1.erase(countA1A1.begin()+ (*index));
-            countA1A2.erase(countA1A2.begin()+ (*index));
-            countA2A2.erase(countA2A2.begin()+ (*index));
+            auto rindex = *index;
+            LOGGER.d(5, to_string(rindex));
+            AFA1.erase(AFA1.begin() + rindex);
+            countA1A1.erase(countA1A1.begin() + rindex);
+            countA1A2.erase(countA1A2.begin() + rindex);
+            countA2A2.erase(countA2A2.begin() + rindex);
+            RDev.erase(RDev.begin() + rindex);
         }
 
         marker->remove_extracted_index(remove_extract_index);
@@ -95,12 +96,15 @@ void Geno::init_AF() {
     countA1A2.clear();
     countA1A1.clear();
     countA2A2.clear();
-    AFA1.reserve(marker->count_extract());
-    countA1A1.reserve(marker->count_extract());
-    countA1A2.reserve(marker->count_extract());
-    countA2A2.reserve(marker->count_extract());
-    num_blocks = marker->count_extract() / Constants::NUM_MARKER_READ +
-                 (marker->count_extract() % Constants::NUM_MARKER_READ != 0);
+    RDev.clear();
+    uint32_t num_marker = marker->count_extract();
+    AFA1.reserve(num_marker);
+    countA1A1.reserve(num_marker);
+    countA1A2.reserve(num_marker);
+    countA2A2.reserve(num_marker);
+    RDev = vector<double>(num_marker, 0.0); 
+    num_blocks = num_marker / Constants::NUM_MARKER_READ +
+                 (num_marker % Constants::NUM_MARKER_READ != 0);
     LOGGER.d(0, "The program will run in " + to_string(num_blocks) + " blocks");
 }
 
@@ -121,7 +125,7 @@ void Geno::out_freq(string filename){
     if (!o_freq) { LOGGER.e(0, "can not open the file [" + name_frq + "] to write"); }
     vector<string> out_contents;
     out_contents.reserve(AFA1.size() + 1);
-    out_contents.push_back("CHR\tSNP\tA1\tA2\tAF\tNCHROBS");
+    out_contents.push_back("CHR\tSNP\tPOS\tA1\tA2\tAF\tNCHROBS");
     for(int i = 0; i != AFA1.size(); i++){
         out_contents.push_back(marker->get_marker(marker->getExtractIndex(i)) + "\t" + to_string(AFA1[i])
                                + "\t" + to_string( 2*(countA1A1[i] + countA1A2[i] + countA2A2[i])));
@@ -299,6 +303,35 @@ void Geno::loop_block(vector<function<void (uint8_t *buf, int num_marker)>> call
         }
 
         asyncBuffer->end_read();
+
+        num_finished_markers += cur_num_marker_read;
+    }
+}
+
+void Geno::makeMarkerX(uint8_t *buf, int cur_marker, double *w_buf){
+    uint32_t cur_raw_marker = num_finished_markers + cur_marker;
+    uint8_t *cur_buf = buf + cur_marker * num_byte_per_marker;
+    double af = AFA1[cur_raw_marker];
+    double mu = 2.0 * af;
+    double rdev = 1.0 / sqrt(mu * (1.0 - af));
+    RDev[cur_raw_marker] = rdev; 
+
+    double g1_lookup[4];
+    g1_lookup[0] = (2.0 - mu) * rdev;
+    g1_lookup[1] = (1.0 - mu) * rdev;
+    g1_lookup[2] = 0.0;
+    g1_lookup[3] = (0.0 - mu) * rdev;
+
+    double g_lookup[256][4];
+    for(uint8_t i = 0; i <= 255; i++){
+        for(uint8_t j = 0; j < 4; j++){
+            g_lookup[i][j] = g1_lookup[(i >> (2 * j)) & 3];
+        }
+    }
+
+    for(uint32_t index = 0; index != pheno->count_keep(); index++){
+        uint32_t raw_index = pheno->index_keep[index];
+        w_buf[index] = g_lookup[*(cur_buf + (raw_index / 4))][raw_index % 4]; 
     }
 }
 

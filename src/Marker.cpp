@@ -184,8 +184,8 @@ void Marker::remove_extracted_index(vector<int> remove_index) {
 }
 
 string Marker::get_marker(int extract_index){
-    return std::to_string(chr[extract_index]) + "\t" + name[extract_index] + "\t" +
-            a1[extract_index] + "\t" + a2[extract_index];
+    return std::to_string(chr[extract_index]) + "\t" + name[extract_index] + "\t" + 
+            std::to_string(pd[extract_index]) + "\t" + a1[extract_index] + "\t" + a2[extract_index];
 }
 
 bool Marker::isInExtract(uint32_t index) {

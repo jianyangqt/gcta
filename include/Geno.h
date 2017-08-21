@@ -45,6 +45,7 @@ public:
     void freq(uint8_t *buf, int num_marker);
     bool check_bed();
     void out_freq(string filename);
+    void makeMarkerX(uint8_t *buf, int cur_marker, double *w_buf);
     static int registerOption(map<string, vector<string>>& options_in);
     static void processMain();
 
@@ -56,6 +57,7 @@ private:
     int last_byte_NA_sample;
     int64_t num_byte_buffer;
     int num_blocks;
+    int num_finished_markers = 0;
     AsyncBuffer<uint8_t>* asyncBuffer = NULL;
 
     GBitCountTable g_table;
@@ -63,6 +65,7 @@ private:
     vector<uint32_t> countA1A1;
     vector<uint32_t> countA1A2;
     vector<uint32_t> countA2A2;
+    vector<double> RDev;
 
     static map<string, string> options;
     static map<string, double> options_d;
@@ -76,7 +79,7 @@ private:
     void init_AsyncBuffer();
     void filter_MAF();
 
-    friend class GRM;
+    friend class GRM, FastFAM;
  };
 
 

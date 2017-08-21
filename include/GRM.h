@@ -32,7 +32,7 @@ using std::pair;
 
 class GRM {
 public:
-    GRM(Geno *geno_filename);
+    GRM(Geno *geno);
     GRM();
     ~GRM() {
         posix_mem_free(grm);
