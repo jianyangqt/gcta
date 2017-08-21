@@ -79,7 +79,8 @@ private:
     void init_AsyncBuffer();
     void filter_MAF();
 
-    friend class GRM, FastFAM;
+    friend class GRM;
+    friend class FastFAM;
  };
 
 

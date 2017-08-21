@@ -36,16 +36,21 @@ FastFAM::FastFAM(Geno *geno){
     beta = new double[num_marker];
     se = new double[num_marker];
     p = new double[num_marker];
+
     SpMat fam;
+
+    string ffam_file = "";
     readFAM(ffam_file, fam);
 
     double VG;
     double VR;
     inverseFAM(fam, VG, VR);
+    double *pheno = new double[num_indi];
+    phenoVec = Map<VectorXd> (pheno, num_indi);
     // TODO  read Pheno;
 }
 
-void FastFam::readFAM(string filename, SpMat& fam){
+void FastFAM::readFAM(string filename, SpMat& fam){
     std::vector<string> sublist = Pheno::read_sublist(filename + ".ffam.id");
 
     uint32_t num_indi = sublist.size();
@@ -109,7 +114,7 @@ void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
 
     // V
     fam *= VG;
-    fam.noalias() += eye * VR;
+    fam += eye * VR;
 
     Eigen::SimplicialLDLT<SpMat> solver;
     solver.compute(fam);
@@ -137,7 +142,7 @@ void FastFAM::calculate_fam(uint8_t *buf, int num_marker){
         MatrixXd xMat_V = xMat.transpose() * V_inverse;
         // 
         double xMat_V_x = 1.0 / (xMat_V * xMat)(0, 0);
-        double xMat_V_p = (xMat_V * phenoMat)(0, 0);
+        double xMat_V_p = (xMat_V * phenoVec)(0, 0);
         
         double temp_beta =  xMat_V_x * xMat_V_p;
         double temp_se = sqrt(xMat_V_x);
@@ -159,7 +164,7 @@ void FastFAM::output(string filename){
     //TODO get the real effect
     std::ofstream out(filename.c_str());
     vector<string> header{"CHR", "SNP", "POS", "A1", "A2", "AF1", "beta", "se", "p"};
-    std::copy(header.begin(), header.end(), std::ofstream_iterator<string>(out, "\t"));
+    std::copy(header.begin(), header.end(), std::ostream_iterator<string>(out, "\t"));
     out << std::endl;
     for(int index = 0; index != num_marker; index++){
         out << geno->marker->get_marker(geno->marker->getExtractIndex(index)) << "\t" <<

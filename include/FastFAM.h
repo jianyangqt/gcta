@@ -30,9 +30,9 @@ using Eigen::VectorXd;
 using Eigen::SparseMatrix;
 using Eigen::Dynamic;
 
-typedef SparseMatrix<double, Eigen::ColMajor, long long> SpMat
+typedef SparseMatrix<double, Eigen::ColMajor, long long> SpMat;
 
-class FastFAM{
+class FastFAM {
 public:
     FastFAM(Geno *geno);
     ~FastFAM(){
@@ -59,7 +59,7 @@ private:
     double *p;
 
     SpMat V_inverse;
-    Map< VectorXd > phenoMat(NULL);
+    VectorXd phenoVec;
 
     void inverseFAM(SpMat& fam, double VG, double VR);
 
