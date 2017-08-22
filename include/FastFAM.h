@@ -23,12 +23,14 @@
 #include "Geno.h"
 #include "Eigen/Dense"
 #include "Eigen/Sparse"
+#include <vector>
 
 using Eigen::Map;
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 using Eigen::SparseMatrix;
 using Eigen::Dynamic;
+using std::vector;
 
 typedef SparseMatrix<double, Eigen::ColMajor, long long> SpMat;
 
@@ -44,7 +46,7 @@ public:
     void calculate_fam(uint8_t *buf, int num_marker);
     void output(string filename);
 
-    static void readFAM(string filename, SpMat& fam);
+    static void readFAM(string filename, SpMat& fam, int num_indi);
     
     static int registerOption(map<string, vector<string>>& options_in);
     static void processMain();
@@ -59,9 +61,14 @@ private:
     double *p;
 
     SpMat V_inverse;
+    vector<double> phenos;
     VectorXd phenoVec;
 
     void inverseFAM(SpMat& fam, double VG, double VR);
+
+    static map<string, string> options;
+    static map<string, double> options_d;
+    static vector<string> processFunctions;
 
 };
 

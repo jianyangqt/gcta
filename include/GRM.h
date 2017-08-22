@@ -54,7 +54,7 @@ public:
     void loop_block(vector<function<void (double *buf, int num_block)>> callbacks
                     = vector<function<void (double *buf, int num_block)>>());
     void cut_rel(float thresh, bool no_grm = false);
-    void prune_FAM(float thresh);
+    void prune_sparse(float thresh);
 
 private:
     Geno *geno;

@@ -93,15 +93,15 @@ GRM::GRM(){
 
 }
 
-void GRM::prune_FAM(float thresh){
-    LOGGER.i(0, "Pruning the FAM with a cut off of " + to_string(thresh) + "...");
+void GRM::prune_sparse(float thresh){
+    LOGGER.i(0, "Pruning the GRM to sparse with a cut off of " + to_string(thresh) + "...");
     LOGGER.i(0, "Total number of parts to proceed: " + to_string(index_grm_pairs.size()));
     FILE *grmFile = fopen((grm_file + ".grm.bin").c_str(), "rb");
 
-    std::ofstream o_id((options["out"] + ".ffam.id").c_str());
-    std::ofstream o_fam((options["out"] + ".ffam.pair").c_str());
-    if(!o_id) LOGGER.e(0, "can't write to [" + options["out"] + ".ffam.id]");
-    if(!o_fam) LOGGER.e(0, "can't write to [" + options["out"] + ".ffam.pair]");
+    std::ofstream o_id((options["out"] + ".grm.id").c_str());
+    std::ofstream o_fam((options["out"] + ".grm.sp").c_str());
+    if(!o_id) LOGGER.e(0, "can't write to [" + options["out"] + ".grm.id]");
+    if(!o_fam) LOGGER.e(0, "can't write to [" + options["out"] + ".grm.sp]");
 
     //Save the kept IDs, which may change by --keep and --remove
     vector<string> keep_ID;
@@ -150,14 +150,14 @@ void GRM::prune_FAM(float thresh){
     }
     delete [] grm_buf;
 
-    LOGGER.i(0, "Saving FAM (" + to_string(rm_grm.size()) + " pairs) to [" + options["out"] + ".ffam.pair]");
+    LOGGER.i(0, "Saving GRM sparse (" + to_string(rm_grm.size()) + " pairs) to [" + options["out"] + ".grm.sp]");
 //    auto sorted_index = sort_indexes(rm_grm_ID2, rm_grm_ID1);
 //    for(auto index : sorted_index){
     for(int index = 0; index != rm_grm.size(); index++){
         o_fam << rm_grm_ID1[index] << "\t" << rm_grm_ID2[index] << "\t" << rm_grm[index] << std::endl;
     }
     o_fam.close();
-    LOGGER.i(0, "Success:", "make FAM finished");
+    LOGGER.i(0, "Success:", "make GRM sparse finished");
 
 }
 
@@ -924,15 +924,18 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
 
     }
 
-    if(options_in.find("--make-fam") != options_in.end()){
+    string curFlag;
+    curFlag = "--make-bK-sparse";
+
+    if(options_in.find(curFlag) != options_in.end()){
         if(options.find("grm_file") == options.end()){
-            LOGGER.e(0, "can't find --grm flag that is essential to --make-fam");
+            LOGGER.e(0, "can't find --grm flag that is essential to " + curFlag);
         }
-        if(options_in["--make-fam"].size() == 1){
-            options_d["grm_cutoff"] = std::stod(options_in["--make-fam"][0]);
+        if(options_in[curFlag].size() == 1){
+            options_d["grm_cutoff"] = std::stod(options_in[curFlag][0]);
             processFunctions.push_back("make_fam");
         }else{
-            LOGGER.e(0, "--make-fam can't deal with more than one value currently");
+            LOGGER.e(0, curFlag + " can't deal with more than one value currently");
         }
         return_value++;
     }
@@ -970,7 +973,7 @@ void GRM::processMain() {
 
         if(process_function == "make_fam"){
             GRM grm;
-            grm.prune_FAM(options_d["grm_cutoff"]);
+            grm.prune_sparse(options_d["grm_cutoff"]);
         }
     }
 

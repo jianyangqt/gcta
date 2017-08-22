@@ -39,25 +39,32 @@ FastFAM::FastFAM(Geno *geno){
 
     SpMat fam;
 
-    string ffam_file = "";
-    readFAM(ffam_file, fam);
+    string ffam_file = options["grmsparse_file"];
+    readFAM(ffam_file, fam, num_indi);
 
-    double VG;
-    double VR;
+    vector<string> ids;
+    geno->pheno->get_pheno(ids, phenos);
+    if(ids.size() != num_indi){
+        LOGGER.e(0, "Phenotype is not equal, this shall be a flag bug");
+    }
+    phenoVec = Map<VectorXd> (phenos.data(), num_indi);
+
+    double VG = std::stod(options["G"]);
+    double VR = std::stod(options["E"]);
     inverseFAM(fam, VG, VR);
-    double *pheno = new double[num_indi];
-    phenoVec = Map<VectorXd> (pheno, num_indi);
-    // TODO  read Pheno;
 }
 
-void FastFAM::readFAM(string filename, SpMat& fam){
-    std::vector<string> sublist = Pheno::read_sublist(filename + ".ffam.id");
+void FastFAM::readFAM(string filename, SpMat& fam, int num_indi){
+    std::vector<string> sublist = Pheno::read_sublist(filename + ".grm.id");
 
-    uint32_t num_indi = sublist.size();
+    uint32_t num_indi_sub = sublist.size();
+    if(num_indi_sub != num_indi){
+        LOGGER.e(0, "Number of Phenotype is not equal to sparse grm");
+    }
 
-    std::ifstream pair_list((filename + ".ffam.pair").c_str());
+    std::ifstream pair_list((filename + ".grm.sp").c_str());
     if(!pair_list){
-        LOGGER.e(0, "can't read [" + filename + ".ffam.pair]");
+        LOGGER.e(0, "can't read [" + filename + ".grm.sp]");
     }
 
     string line;
@@ -128,9 +135,8 @@ void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
 }
 
 
-
-
 void FastFAM::calculate_fam(uint8_t *buf, int num_marker){
+    LOGGER.i(0, "calculate the fam");
     // Memory fam_size * 2 * 4 + (N * 8 * 2 ) * thread_num + M * 3 * 8  B
     for(int cur_marker = 0; cur_marker < num_marker; cur_marker++){
         double *w_buf = new double[num_indi];
@@ -173,4 +179,58 @@ void FastFAM::output(string filename){
     out.close();
     LOGGER.i(0, "Success:", "saved result to [" + filename +"]");
 }
+
+int FastFAM::registerOption(map<string, vector<string>>& options_in){
+    int returnValue = 0;
+    options["out"] = options_in["out"][0] + ".fastFAM.assoc";
+
+    string curFlag = "--fastFAM";
+    if(options_in.find(curFlag) != options_in.end()){
+        processFunctions.push_back("fast_fam");
+        returnValue++;
+        options_in.erase(curFlag);
+    }
+
+    curFlag = "--grm-sparse";
+    if(options_in.find(curFlag) != options_in.end()){
+        if(options_in[curFlag].size() == 1){
+            options["grmsparse_file"] = options_in[curFlag][0];
+        }else{
+            LOGGER.e(0, curFlag + "can't deal with 0 or > 1 files");
+        }
+        options_in.erase(curFlag);
+    }
+
+    curFlag = "--ge";
+    if(options_in.find(curFlag) != options_in.end()){
+        if(options_in[curFlag].size() == 2){
+            options["G"] = options_in[curFlag][0];
+            options["E"] = options_in[curFlag][1];
+        }else{
+            LOGGER.e(0, curFlag + " can't handle other than 2 numbers");
+        }
+        options_in.erase(curFlag);
+    }
+
+    return returnValue;
+}
+
+void FastFAM::processMain(){
+    vector<function<void (uint8_t *, int)>> callBacks;
+    for(auto &process_function : processFunctions){
+        if(process_function == "fast_fam"){
+            Pheno pheno;
+            Marker marker;
+            Geno geno(&pheno, &marker);
+            FastFAM ffam(&geno);
+
+            callBacks.push_back(bind(&Geno::freq, &geno, _1, _2));
+            callBacks.push_back(bind(&FastFAM::calculate_fam, &ffam, _1, _2));
+            geno.loop_block(callBacks);
+
+            ffam.output(options["out"]);
+        }
+    }
+}
+
 
