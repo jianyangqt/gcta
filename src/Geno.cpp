@@ -332,7 +332,7 @@ void Geno::makeMarkerX(uint8_t *buf, int cur_marker, double *w_buf){
 
     for(uint32_t index = 0; index != pheno->count_keep(); index++){
         //TODO every time copy, rewrite;
-        uint32_t raw_index = pheno->get_index_keep()[index];
+        uint32_t raw_index = (pheno->get_index_keep())[index];
         w_buf[index] = g_lookup[*(cur_buf + (raw_index / 4))][raw_index % 4]; 
     }
 }

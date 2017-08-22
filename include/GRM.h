@@ -59,7 +59,6 @@ public:
 private:
     Geno *geno;
     vector<uint32_t> index_keep;
-    uint32_t *p_index_keep;
     uint32_t part;
     uint32_t num_parts;
     uint32_t num_individual;

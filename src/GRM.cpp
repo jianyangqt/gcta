@@ -359,8 +359,8 @@ void GRM::init_AsyncBuffer(){
 GRM::GRM(Geno *geno) {
     //clock_t begin = t_begin();
     this->geno = geno;
+    // Pay attention to not reflect the newest changes of keep;
     this->index_keep = geno->pheno->get_index_keep();
-    this->p_index_keep = this->index_keep.data();
     this->part = std::stoi(options["cur_part"]);
     this->num_parts = std::stoi(options["num_parts"]);
 

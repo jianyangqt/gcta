@@ -23,6 +23,7 @@
 #include "Logger.h"
 #include <algorithm>
 #include <numeric>
+#include <cmath>
 
 using std::to_string;
 
@@ -45,6 +46,28 @@ Pheno::Pheno() {
         set_keep(remove_subjects, mark, index_keep, false);
     }
 
+    if(options.find("qpheno_file") != options.end()){
+        vector<vector<double>> phenos;
+        vector<string> pheno_subjects = read_sublist(options["qpheno_file"], &phenos);
+        int cur_pheno = 1;
+        if(options.find("mpheno") != options.end()){
+            try{
+                cur_pheno = std::stoi(options["mpheno"]);
+            }catch(std::invalid_argument&){
+                LOGGER.e(0, "--mpheno isn't a numberic value");
+            }
+        }
+
+        if(cur_pheno <= 0 || cur_pheno > phenos.size()){
+            LOGGER.e(0, "selected pheno column can't be less than 0 or larger than --pheno columns");
+        }
+
+        cur_pheno -= 1;
+
+        update_pheno(pheno_subjects, phenos[cur_pheno]);
+        
+    }
+
     reinit_rm(index_keep, index_rm, num_ind);
     num_keep = index_keep.size();
     num_rm = index_rm.size();
@@ -52,29 +75,48 @@ Pheno::Pheno() {
     init_mask_block();
 }
 
-vector<string> Pheno::read_sublist(string sublist_file) {
+// TODO filter the non-number strings other than nan
+vector<string> Pheno::read_sublist(string sublist_file, vector<vector<double>> *phenos) {
     vector<string> subject_list;
     std::ifstream sublist(sublist_file.c_str());
 
     string line;
     int line_number = 0;
     int last_length = 0;
+    bool init_pheno = true;
     while(std::getline(sublist, line)){
         line_number++;
         std::istringstream line_buf(line);
         std::istream_iterator<string> begin(line_buf), end;
         vector<string> line_elements(begin, end);
-        if(line_elements.size() < 2){
+        int num_elements = line_elements.size();
+        if(num_elements < 2){
             LOGGER.e(0, "the subject list file [" + sublist_file + "], line " + to_string(line_number) +
                         " has elements less than 2");
         }
-
-        if(line_number > 1 && line_elements.size() != last_length){
-            LOGGER.w(0, "the subject list file [" + sublist_file + "], line " + to_string(line_number) +
-                        " has different elements");
+        if(phenos && init_pheno){
+            phenos->resize(num_elements - 2);
+            init_pheno = false;
         }
+
+        if(line_number > 1 && num_elements != last_length){
+            string errmsg = "the subject list file [" + sublist_file + "], line " + to_string(line_number) +
+                        " has different elements";
+            if(phenos){
+                LOGGER.e(0, errmsg);
+            }else{
+                LOGGER.w(0, errmsg);
+            }
+        }
+
         subject_list.push_back(line_elements[0] + "\t" + line_elements[1]);
-        last_length = line_elements.size();
+        if(phenos){
+            for(int index = 2; index != num_elements; index++){
+                (*phenos)[index - 2].push_back(strtod(line_elements[index].c_str(), NULL));
+            }
+        }
+
+        last_length = num_elements;
     }
     sublist.close();
     LOGGER.i(0, "Get " + to_string(line_number) + " subjects from [" + sublist_file + "]");
@@ -108,7 +150,7 @@ void Pheno::read_fam(string fam_file) {
         fa_id.push_back(line_elements[2]);
         mo_id.push_back(line_elements[3]);
         sex.push_back(std::stoi(line_elements[4]));
-        pheno.push_back(std::stod(line_elements[5]));
+        pheno.push_back(strtod("nan", NULL)); //5
         last_length = line_elements.size();
 
         index_keep.push_back(line_number - 1);
@@ -147,9 +189,21 @@ PhenoMask Pheno::get_indi_mask(uint32_t ori_index){
     }
 }
 
-vector<uint32_t> Pheno::get_index_keep() {
+vector<uint32_t>& Pheno::get_index_keep() {
     return this->index_keep;
 }
+
+void Pheno::get_pheno(vector<string>& ids, vector<double>& pheno){
+    ids.clear();
+    ids.reserve(index_keep.size());
+    pheno.clear();
+    pheno.reserve(index_keep.size());
+    for(auto& index : index_keep){
+        ids.push_back(mark[index]);
+        pheno.push_back(this->pheno[index]);
+    }
+}
+
 
 uint8_t Pheno::extract_genobit(uint8_t *const buf, int index_in_keep) {
     //return 3;
@@ -180,7 +234,7 @@ uint32_t Pheno::count_keep(){
 
 // remove have larger priority than keep, keep in mind, once the SNP has been removed, it
 // will never be kept again
-void Pheno::set_keep(vector<string> indi_marks, vector<string> marks, vector<uint32_t>& keeps, bool isKeep) {
+void Pheno::set_keep(vector<string>& indi_marks, vector<string>& marks, vector<uint32_t>& keeps, bool isKeep) {
     std::sort(indi_marks.begin(), indi_marks.end());
     vector<uint32_t> pIN;
     uint32_t counter = 0;
@@ -205,6 +259,25 @@ void Pheno::set_keep(vector<string> indi_marks, vector<string> marks, vector<uin
 
     LOGGER.i(0, string("After ") + (isKeep?"keeping":"removeing") +  " subjects, " + to_string(keeps.size()) + " subjects remained.");
 }
+
+void Pheno::update_pheno(vector<string>& indi_marks, vector<double>& phenos){
+    std::sort(indi_marks.begin(), indi_marks.end());
+    vector<uint32_t> pIN;
+    for(auto& index : index_keep){
+        auto lower = std::lower_bound(indi_marks.begin(), indi_marks.end(), mark[index]);
+        int lower_index = lower - indi_marks.begin();
+        if(lower != indi_marks.end() && (*lower) == mark[index] && !isnan(phenos[lower_index])){
+            pIN.push_back(index);
+            pheno[index] = phenos[lower_index];
+        }
+    }
+
+    index_keep = pIN;
+
+    LOGGER.i(0, "After updating phenotypes, " + to_string(index_keep.size()) + " subjects remained.");
+}
+
+
 
 void Pheno::reinit_rm(vector<uint32_t> keeps, vector<uint32_t> &rms, int total_sample_number) {
     vector<uint32_t> whole_index(total_sample_number);
@@ -305,12 +378,18 @@ int Pheno::registerOption(map<string, vector<string>>& options_in){
     }
 
     if(options_in.find("--pheno") != options_in.end()){
-        //LOGGER.w(0, "--pheno didn't work this time");
-
-        if(options_in.find("--mpheno") != options_in.end()){
-            ;
-        }
+        addOneFileOption("qpheno_file", "", "--pheno", options_in, options);
+        options_in.erase("--pheno");
     }
+
+    if(options_in.find("--mpheno") != options_in.end()){
+        if(options.find("qpheno_file") == options.end()){
+            LOGGER.e(0, "--mpheno has to combine with --pheno");
+        }
+        options["mpheno"] = options_in["--mpheno"][0];
+        options_in.erase("--mpheno");
+    }
+
     // no main
     return 0;
 }
