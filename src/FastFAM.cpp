@@ -20,13 +20,15 @@
 #include <cmath>
 #include <algorithm>
 #include <Eigen/SparseCholesky>
-#include <vector>
 #include <sstream>
 #include <iterator>
 #include "utils.hpp"
 #include "Logger.h"
 
-using std::vector;
+
+map<string, string> FastFAM::options;
+map<string, double> FastFAM::options_d;
+vector<string> FastFAM::processFunctions;
 
 FastFAM::FastFAM(Geno *geno){
     this->geno = geno;
@@ -139,6 +141,7 @@ void FastFAM::calculate_fam(uint8_t *buf, int num_marker){
     LOGGER.i(0, "calculate the fam");
     // Memory fam_size * 2 * 4 + (N * 8 * 2 ) * thread_num + M * 3 * 8  B
     for(int cur_marker = 0; cur_marker < num_marker; cur_marker++){
+        LOGGER.i(2, to_string(cur_marker));
         double *w_buf = new double[num_indi];
         geno->makeMarkerX(buf, cur_marker, w_buf);
 

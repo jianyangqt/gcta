@@ -39,7 +39,7 @@ endif()
 find_library(lib_core NAMES mkl_core PATHS "${MKLROOT}/lib/intel64" "${MKLROOT}/lib")
 set(MKL_LIB ${lib_lp64} ${lib_thread} ${lib_core})
 
-set(CMAKE_BUILD_TYPE RELEASE)
+#set(CMAKE_BUILD_TYPE DEBUG)
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64 -fopenmp -msse4.2 -DMKL_LP64")
     set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} ${CMAKE_CXX_FLAGS} -O3 -flto -DNDEBUG")

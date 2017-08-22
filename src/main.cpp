@@ -22,6 +22,7 @@
 #include "Marker.h"
 #include "Pheno.h"
 #include "GRM.h"
+#include "FastFAM.h"
 #include "ThreadPool.h"
 #include <functional>
 #include <map>
@@ -123,18 +124,20 @@ int main(int argc, char *argv[]){
 
     //start register the options
     // Please take care of the order, C++ has few reflation feature, I did in a ugly way.
-    vector<string> module_names = {"phenotype", "marker", "genotype", "genetic relationship matrix"};
+    vector<string> module_names = {"phenotype", "marker", "genotype", "GRM", "fastFAM"};
     vector<int (*)(map<string, vector<string>>&)> registers = {
             Pheno::registerOption,
             Marker::registerOption,
             Geno::registerOption,
-            GRM::registerOption
+            GRM::registerOption,
+            FastFAM::registerOption
     };
     vector<void (*)()> processMains = {
             Pheno::processMain,
             Marker::processMain,
             Geno::processMain,
-            GRM::processMain
+            GRM::processMain,
+            FastFAM::processMain
     };
 
     vector<int> mains;

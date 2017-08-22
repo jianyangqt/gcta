@@ -324,8 +324,8 @@ void Geno::makeMarkerX(uint8_t *buf, int cur_marker, double *w_buf){
     g1_lookup[3] = (0.0 - mu) * rdev;
 
     double g_lookup[256][4];
-    for(uint8_t i = 0; i <= 255; i++){
-        for(uint8_t j = 0; j < 4; j++){
+    for(uint16_t i = 0; i <= 255; i++){
+        for(uint16_t j = 0; j < 4; j++){
             g_lookup[i][j] = g1_lookup[(i >> (2 * j)) & 3];
         }
     }

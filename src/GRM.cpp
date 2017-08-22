@@ -268,7 +268,7 @@ void GRM::cut_rel(float thresh, bool no_grm){
         keep_ID.emplace_back(grm_ids[index]);
     }
 
-    LOGGER.i(0, "After pruning the GRM, there are " + to_string(removed_ID.size()) + " individuals (" + to_string(keep_ID.size()) + " individuals removed).");
+    LOGGER.i(0, "After pruning the GRM, there are " + to_string(keep_ID.size()) + " individuals (" + to_string(removed_ID.size()) + " individuals removed).");
     std::copy(keep_ID.begin(), keep_ID.end(), std::ostream_iterator<string>(o_keep, "\n"));
     o_keep.close();
     LOGGER.i(2, "Pruned unrelated IDs have been saved to " + options["out"] + ".grm.id");
