@@ -56,6 +56,9 @@ FastFAM::FastFAM(Geno *geno){
     }
     phenoVec = Map<VectorXd> (phenos.data(), num_indi);
 
+    double phenoVec_mean = phenoVec.mean();
+    phenoVec -= VectorXd::Ones(phenoVec.size()) * phenoVec_mean;
+
     SpMat fam;
 
     vector<string> grm_id;
@@ -288,6 +291,7 @@ void FastFAM::processMain(){
             Geno geno(&pheno, &marker);
             FastFAM ffam(&geno);
 
+            LOGGER.i(0, "Running fastFAM...");
             callBacks.push_back(bind(&Geno::freq, &geno, _1, _2));
             callBacks.push_back(bind(&FastFAM::calculate_fam, &ffam, _1, _2));
             geno.loop_block(callBacks);
