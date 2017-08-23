@@ -45,7 +45,7 @@ public:
     void freq(uint8_t *buf, int num_marker);
     bool check_bed();
     void out_freq(string filename);
-    void makeMarkerX(uint8_t *buf, int cur_marker, double *w_buf);
+    void makeMarkerX(uint8_t *buf, int cur_marker, double *w_buf, bool center, bool std);
     static int registerOption(map<string, vector<string>>& options_in);
     static void processMain();
 

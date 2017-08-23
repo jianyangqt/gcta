@@ -309,19 +309,26 @@ void Geno::loop_block(vector<function<void (uint8_t *buf, int num_marker)>> call
     }
 }
 
-void Geno::makeMarkerX(uint8_t *buf, int cur_marker, double *w_buf){
+void Geno::makeMarkerX(uint8_t *buf, int cur_marker, double *w_buf, bool center, bool std){
     uint32_t cur_raw_marker = num_finished_markers + cur_marker;
     uint8_t *cur_buf = buf + cur_marker * num_byte_per_marker;
     double af = AFA1[cur_raw_marker];
     double mu = 2.0 * af;
-    double rdev = 1.0 / sqrt(mu * (1.0 - af));
-    RDev[cur_raw_marker] = rdev; 
+    double center_value = 0.0;
+    if(center){
+        center_value = mu;
+    }
+    double rdev = 1.0;
+    if(std){
+        rdev = 1.0 / sqrt(mu * (1.0 - af));
+        RDev[cur_raw_marker] = rdev; 
+    }
 
     double g1_lookup[4];
-    g1_lookup[0] = (2.0 - mu) * rdev;
-    g1_lookup[1] = (1.0 - mu) * rdev;
-    g1_lookup[2] = 0.0;
-    g1_lookup[3] = (0.0 - mu) * rdev;
+    g1_lookup[0] = (2.0 - center_value) * rdev;
+    g1_lookup[1] = (mu - center_value) * rdev;
+    g1_lookup[2] = (1.0 - center_value) * rdev;
+    g1_lookup[3] = (0.0 - center_value) * rdev;
 
     double g_lookup[256][4];
     for(uint16_t i = 0; i <= 255; i++){

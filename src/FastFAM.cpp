@@ -24,6 +24,7 @@
 #include <iterator>
 #include "utils.hpp"
 #include "Logger.h"
+#include "ThreadPool.h"
 
 
 map<string, string> FastFAM::options;
@@ -138,15 +139,30 @@ void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
 
 
 void FastFAM::calculate_fam(uint8_t *buf, int num_marker){
-    LOGGER.i(0, "calculate the fam");
     // Memory fam_size * 2 * 4 + (N * 8 * 2 ) * thread_num + M * 3 * 8  B
-    for(int cur_marker = 0; cur_marker < num_marker; cur_marker++){
-        LOGGER.i(2, to_string(cur_marker));
-        double *w_buf = new double[num_indi];
-        geno->makeMarkerX(buf, cur_marker, w_buf);
+    int num_thread = THREADS.getThreadCount() + 1; 
 
-        Map< VectorXd > xMat(w_buf, num_indi);
+    int num_marker_part = (num_marker + num_thread - 1) / num_thread;
+    for(int index = 0; index != num_thread - 1; index++){
+        THREADS.AddJob(std::bind(&FastFAM::reg_thread, this, buf, index * num_marker_part, (index + 1) * num_marker_part));
+    }
 
+    reg_thread(buf, (num_thread - 1) * num_marker_part, num_marker);
+
+    THREADS.WaitAll();
+
+    num_finished_marker += num_marker;
+    if(num_finished_marker % 30000 == 0){
+        LOGGER.i(2, to_string(num_finished_marker) + " markers finished"); 
+    }
+}
+
+void FastFAM::reg_thread(uint8_t *buf, int from_marker, int to_marker){
+    double *w_buf = new double[num_indi];
+    Map< VectorXd > xMat(w_buf, num_indi);
+    MatrixXd XMat_V;
+    for(int cur_marker = from_marker; cur_marker < to_marker; cur_marker++){
+        geno->makeMarkerX(buf, cur_marker, w_buf, true, false);
         // Xt * V-1
         MatrixXd xMat_V = xMat.transpose() * V_inverse;
         // 
@@ -159,15 +175,16 @@ void FastFAM::calculate_fam(uint8_t *buf, int num_marker){
 
         uint32_t cur_raw_marker = num_finished_marker + cur_marker;
 
-        beta[cur_raw_marker] = temp_beta * geno->RDev[cur_raw_marker]; 
+        beta[cur_raw_marker] = temp_beta; //* geno->RDev[cur_raw_marker]; 
         se[cur_raw_marker] = temp_se;
-        p[cur_raw_marker] = StatFunc::pchisq(temp_z * temp_z, 1); 
-        
-        delete[] w_buf;
+        {
+            std::lock_guard<std::mutex> lock(chisq_lock);
+            p[cur_raw_marker] = StatFunc::pchisq(temp_z * temp_z, 1); 
+        } 
     }
-
-    num_finished_marker += num_marker;
+    delete[] w_buf;
 }
+
 
 void FastFAM::output(string filename){
     //TODO get the real effect

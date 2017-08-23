@@ -24,6 +24,7 @@
 #include "Eigen/Dense"
 #include "Eigen/Sparse"
 #include <vector>
+#include <mutex>
 
 using Eigen::Map;
 using Eigen::MatrixXd;
@@ -60,6 +61,9 @@ private:
     double *se;
     double *p;
 
+    std::mutex chisq_lock;
+    
+
     SpMat V_inverse;
     vector<double> phenos;
     VectorXd phenoVec;
@@ -69,6 +73,8 @@ private:
     static map<string, string> options;
     static map<string, double> options_d;
     static vector<string> processFunctions;
+
+    void reg_thread(uint8_t *buf, int from_marker, int to_marker);
 
 };
 
