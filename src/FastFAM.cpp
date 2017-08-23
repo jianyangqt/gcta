@@ -40,10 +40,14 @@ FastFAM::FastFAM(Geno *geno){
     se = new double[num_marker];
     p = new double[num_marker];
 
-    SpMat fam;
-
-    string ffam_file = options["grmsparse_file"];
-    readFAM(ffam_file, fam, num_indi);
+    double VG;
+    double VR;
+    bool flag_est_GE = true;
+    if(options.find("G") != options.end()){
+        VG = std::stod(options["G"]);
+        VR = std::stod(options["E"]);
+        flag_est_GE = false;
+    }
 
     vector<string> ids;
     geno->pheno->get_pheno(ids, phenos);
@@ -52,17 +56,57 @@ FastFAM::FastFAM(Geno *geno){
     }
     phenoVec = Map<VectorXd> (phenos.data(), num_indi);
 
-    double VG = std::stod(options["G"]);
-    double VR = std::stod(options["E"]);
+    SpMat fam;
+
+    vector<string> grm_id;
+    string ffam_file = options["grmsparse_file"];
+    readFAM(ffam_file, fam, ids);
+
+    vector<double> Aij;
+    vector<double> Zij;
+ 
+    if(flag_est_GE){
+        LOGGER.i(0, "Estimate VG with HE regression");
+        for(int k = 0; k < fam.outerSize(); ++k){
+            for(SpMat::InnerIterator it(fam, k); it; ++it){
+                if(it.row() < it.col()){
+                    Aij.push_back(it.value());
+                    Zij.push_back(phenos[it.row()] * phenos[it.col()]);
+                }
+            }
+        }
+
+        VG = HEreg(Zij, Aij);
+        VR = 1.0 - VG;
+        LOGGER.i(2, "VG=" + to_string(VG) + ", VE=" + to_string(VR));
+    }
+
     inverseFAM(fam, VG, VR);
 }
 
-void FastFAM::readFAM(string filename, SpMat& fam, int num_indi){
-    std::vector<string> sublist = Pheno::read_sublist(filename + ".grm.id");
+double FastFAM::HEreg(vector<double> &Zij, vector<double> &Aij){
+    Map<VectorXd> ZVec(Zij.data(), Zij.size());
+    Map<VectorXd> AVec(Aij.data(), Aij.size());
 
-    uint32_t num_indi_sub = sublist.size();
-    if(num_indi_sub != num_indi){
-        LOGGER.e(0, "Number of Phenotype is not equal to sparse grm");
+    double Zmean = ZVec.mean();
+    double Amean = AVec.mean();
+    ZVec -= (VectorXd::Ones(ZVec.size())) * Zmean;
+    AVec -= (VectorXd::Ones(AVec.size())) * Amean;
+
+    double A2v = (AVec.transpose() * AVec)(0, 0);
+    if(A2v < 1e-6){
+        LOGGER.e(0, "can't solve the regression");
+    }
+    double AZ = (AVec.transpose() * ZVec)(0, 0);
+    return (1.0 / A2v) * AZ;
+}
+    
+
+void FastFAM::readFAM(string filename, SpMat& fam, vector<string> &ids){
+    uint32_t num_indi = ids.size();
+    std::vector<string> sublist = Pheno::read_sublist(filename + ".grm.id");
+    if(sublist != ids){
+        LOGGER.e(0, "Sparse GRM has some difference to the kept samples in genotype, you can prune the GRM again with --keep");
     }
 
     std::ifstream pair_list((filename + ".grm.sp").c_str());
