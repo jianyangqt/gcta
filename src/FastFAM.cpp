@@ -58,6 +58,11 @@ FastFAM::FastFAM(Geno *geno){
 
     double phenoVec_mean = phenoVec.mean();
     phenoVec -= VectorXd::Ones(phenoVec.size()) * phenoVec_mean;
+    if(options.find("concovar") != options.end()){
+        MatrixXd concovar;
+        conditionCovarReg(phenoVec, concovar);
+    }
+
 
     SpMat fam;
 
@@ -85,6 +90,10 @@ FastFAM::FastFAM(Geno *geno){
     }
 
     inverseFAM(fam, VG, VR);
+}
+
+void FastFAM::conditionCovarReg(VectorXd &pheno, MatrixXd &covar){
+
 }
 
 double FastFAM::HEreg(vector<double> &Zij, vector<double> &Aij){
@@ -277,6 +286,15 @@ int FastFAM::registerOption(map<string, vector<string>>& options_in){
             LOGGER.e(0, curFlag + " can't handle other than 2 numbers");
         }
         options_in.erase(curFlag);
+    }
+
+    curFlag = "--concovar";
+    if(options_in.find(curFlag) != options_in.end()){
+        if(options_in[curFlag].size() == 1){
+            options["concovar"] = options_in[curFlag][0];
+        }else{
+            LOGGER.e(0, curFlag + "can't deal with covar other than 1");
+        }
     }
 
     return returnValue;

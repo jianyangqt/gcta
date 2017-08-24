@@ -49,7 +49,7 @@ void out_ver(bool flag_outFile){
 
     log(0, "*******************************************************************");
     log(0, "* Genome-wide Complex Trait Analysis (GCTA)");
-    log(0, "* version 1.90 beta1.04");
+    log(0, "* version 1.90 beta1.05");
     log(0, "* (C) 2010-2017, The University of Queensland");
     log(0, "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>");
     log(0, "*******************************************************************");
@@ -65,7 +65,7 @@ int main(int argc, char *argv[]){
         "--chr", "--autosome-num", "--autosome", "--extract", "--exclude", "--maf", "--max-maf", 
         "--freq", "--out", "--make-grm", "--make-grm-part", "--thread-num", "--grm",
         "--grm-cutoff", "--grm-no-relative", "--cutoff-detail", "--make-bK-sparse", "--pheno",
-        "--mpheno", "--ge", "--fastFAM", "--grm-sparse"};
+        "--mpheno", "--ge", "--fastFAM", "--grm-sparse", "--concovar"};
     map<string, vector<string>> options;
     vector<string> keys;
     string last_key = "";

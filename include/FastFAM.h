@@ -49,6 +49,7 @@ public:
 
     static void readFAM(string filename, SpMat& fam, vector<string> &ids);
     static double HEreg(vector<double> &Zij, vector<double> &Aij);
+    static void conditionCovarReg(VectorXd &pheno, MatrixXd &covar);
     
     static int registerOption(map<string, vector<string>>& options_in);
     static void processMain();
