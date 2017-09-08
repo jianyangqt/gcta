@@ -245,24 +245,26 @@ void Geno::freq(uint8_t *buf, int num_marker) {
     //pheno->mask_geno_keep(buf, num_marker);
     int cur_num_marker_read = num_marker;
     static bool isLastTrunkSingle = (num_byte_per_marker % 2 != 0);
-    static int num_trunk_per_marker = num_byte_per_marker / 2  + isLastTrunkSingle;
+    static int num_trunk_per_marker = num_byte_per_marker / 2;
     for(int cur_marker_index = 0; cur_marker_index < cur_num_marker_read; ++cur_marker_index){
         //It will cause problems when memory in critical stage.
         //However, other part of this program will also goes wrong in this situation.
         uint16_t *p_buf = (uint16_t *) (buf + cur_marker_index * num_byte_per_marker);
         uint32_t curA1A1 = 0, curA1A2 = 0, curA2A2 = 0;
-        uint16_t *trunk_buf = NULL;
-        for(int cur_trunk = 0; cur_trunk < num_trunk_per_marker - 1; ++cur_trunk){
-            trunk_buf = p_buf + cur_trunk;
+        uint16_t *trunk_buf = p_buf;
+        for(int cur_trunk = 0; cur_trunk < num_trunk_per_marker; ++cur_trunk){
             curA1A1 += g_table.get(*trunk_buf, 0);
             curA1A2 += g_table.get(*trunk_buf, 1);
             curA2A2 += g_table.get(*trunk_buf, 2);
+            trunk_buf++;
         }
-        uint16_t last_trunk = *(trunk_buf + 1);
-        last_trunk = last_trunk >> (8 * isLastTrunkSingle);
-        curA1A1 += (g_table.get(last_trunk, 0) - 4 * isLastTrunkSingle - last_byte_NA_sample);
-        curA1A2 += g_table.get(last_trunk, 1);
-        curA2A2 += g_table.get(last_trunk, 2);
+        if(isLastTrunkSingle){
+            uint16_t last_trunk = *trunk_buf;
+            last_trunk = last_trunk & 255;
+            curA1A1 += (g_table.get(last_trunk, 0) - 4 - last_byte_NA_sample);
+            curA1A2 += g_table.get(last_trunk, 1);
+            curA2A2 += g_table.get(last_trunk, 2);
+        }
         countA1A1.push_back(curA1A1);
         countA1A2.push_back(curA1A2);
         countA2A2.push_back(curA2A2);
