@@ -266,7 +266,7 @@ void Pheno::update_pheno(vector<string>& indi_marks, vector<double>& phenos){
     for(auto& index : index_keep){
         auto lower = std::lower_bound(indi_marks.begin(), indi_marks.end(), mark[index]);
         int lower_index = lower - indi_marks.begin();
-        if(lower != indi_marks.end() && (*lower) == mark[index] && !isnan(phenos[lower_index])){
+        if(lower != indi_marks.end() && (*lower) == mark[index] && ! std::isnan(phenos[lower_index])){
             pIN.push_back(index);
             pheno[index] = phenos[lower_index];
         }
