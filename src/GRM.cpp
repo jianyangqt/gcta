@@ -469,7 +469,8 @@ void GRM::calculate_GRM(uint8_t *buf, int num_marker) {
     for (int index_marker = 0; index_marker != num_marker; index_marker++) {
         double af = geno->AFA1[finished_marker + index_marker];
         double mu = af * 2.0;
-        double rdev = 1.0 / (mu * (1.0 - af));
+        double dev = mu * (1.0 - af);
+        double rdev = (dev < 1.0e-50) ? 0 : (1.0 / dev);
         GRM_table[index_marker][0] = (2.0 - mu) * (2.0 - mu) * rdev;  // 00 00
         GRM_table[index_marker][2] = (2.0 - mu) * (1.0 - mu) * rdev;  // 00 10
         GRM_table[index_marker][3] = (2.0 - mu) * (0.0 - mu) * rdev;  // 00 11
