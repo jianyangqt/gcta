@@ -54,7 +54,7 @@ public:
     void loop_block(vector<function<void (double *buf, int num_block)>> callbacks
                     = vector<function<void (double *buf, int num_block)>>());
     void cut_rel(float thresh, bool no_grm = false);
-    void prune_sparse(float thresh);
+    void prune_fam(float thresh, bool isSparse = true);
 
 private:
     Geno *geno;
@@ -100,6 +100,7 @@ private:
 
     static map<string, string> options;
     static map<string, double> options_d;
+    static map<string, bool> options_b;
     static vector<string> processFunctions;
 
     string grm_file;

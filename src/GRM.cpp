@@ -34,6 +34,7 @@ using std::to_string;
 
 map<string, string> GRM::options;
 map<string, double> GRM::options_d;
+map<string, bool> GRM::options_b;
 vector<string> GRM::processFunctions;
 
 
@@ -93,15 +94,21 @@ GRM::GRM(){
 
 }
 
-void GRM::prune_sparse(float thresh){
+void GRM::prune_fam(float thresh, bool isSparse){
     LOGGER.i(0, "Pruning the GRM to sparse with a cut off of " + to_string(thresh) + "...");
     LOGGER.i(0, "Total number of parts to proceed: " + to_string(index_grm_pairs.size()));
     FILE *grmFile = fopen((grm_file + ".grm.bin").c_str(), "rb");
 
     std::ofstream o_id((options["out"] + ".grm.id").c_str());
-    std::ofstream o_fam((options["out"] + ".grm.sp").c_str());
     if(!o_id) LOGGER.e(0, "can't write to [" + options["out"] + ".grm.id]");
-    if(!o_fam) LOGGER.e(0, "can't write to [" + options["out"] + ".grm.sp]");
+    std::ofstream o_fam;
+    FILE* o_bk;
+    if(isSparse){
+        o_fam.open((options["out"] + ".grm.sp").c_str());
+        if(!o_fam) LOGGER.e(0, "can't write to [" + options["out"] + ".grm.sp]");
+    }else{
+        o_bk = fopen((options["out"] + ".grm.bin").c_str(), "wb");
+    }
 
     //Save the kept IDs, which may change by --keep and --remove
     vector<string> keep_ID;
@@ -122,6 +129,8 @@ void GRM::prune_sparse(float thresh){
     float cur_grm, *cur_grm_pos0;
     vector<float> rm_grm;
     vector<int> rm_grm_ID1, rm_grm_ID2;
+    float *out_grm_buf = new float[num_byte_buffer];
+    float *cur_grm_buf;
     for(int part_index = 0; part_index != index_grm_pairs.size(); part_index++){
         if(fread(grm_buf, sizeof(float), byte_part_grms[part_index], grmFile) != byte_part_grms[part_index]){
             LOGGER.e(0, "Read GRM failed between line " + to_string(index_grm_pairs[part_index].first + 1) + " and "
@@ -131,6 +140,8 @@ void GRM::prune_sparse(float thresh){
             LOGGER.i(2, "Processing part " + to_string(part_index + 1));
         }
         cur_grm_pos0 = grm_buf;
+        cur_grm_buf = out_grm_buf;
+
         for(int id1 = index_grm_pairs[part_index].first; id1 != index_grm_pairs[part_index].second + 1; id1++){
             if (keeps_ori.find(id1) == keeps_ori.end()) {
                 cur_grm_pos0 += id1 + 1;
@@ -143,22 +154,85 @@ void GRM::prune_sparse(float thresh){
                     rm_grm_ID1.push_back(id1);
                     rm_grm_ID2.push_back(id2);
                     rm_grm.push_back(cur_grm);
+                    *(cur_grm_buf++) = cur_grm;
+                }else{
+                    *(cur_grm_buf++) = 0.0;
                 }
+
             }
             cur_grm_pos0 += id1 + 1;
         }
+        if(!isSparse){
+            int write_items = cur_grm_buf - out_grm_buf;
+            if(fwrite(out_grm_buf, sizeof(float), write_items, o_bk) != write_items){
+                LOGGER.e(0, "Write output failed"); 
+            }
+        }
+
     }
     delete [] grm_buf;
-
-    LOGGER.i(0, "Saving GRM sparse (" + to_string(rm_grm.size()) + " pairs) to [" + options["out"] + ".grm.sp]");
-//    auto sorted_index = sort_indexes(rm_grm_ID2, rm_grm_ID1);
-//    for(auto index : sorted_index){
-    for(int index = 0; index != rm_grm.size(); index++){
-        o_fam << rm_grm_ID1[index] << "\t" << rm_grm_ID2[index] << "\t" << rm_grm[index] << std::endl;
+    delete [] out_grm_buf;
+    fclose(grmFile);
+    if(!isSparse){
+        fclose(o_bk);
     }
-    o_fam.close();
-    LOGGER.i(0, "Success:", "make GRM sparse finished");
 
+    if(isSparse){
+        LOGGER.i(0, "Saving GRM sparse (" + to_string(rm_grm.size()) + " pairs) to [" + options["out"] + ".grm.sp]");
+        //    auto sorted_index = sort_indexes(rm_grm_ID2, rm_grm_ID1);
+        //    for(auto index : sorted_index){
+        for(int index = 0; index != rm_grm.size(); index++){
+            o_fam << rm_grm_ID1[index] << "\t" << rm_grm_ID2[index] << "\t" << rm_grm[index] << std::endl;
+        }
+        o_fam.close();
+        LOGGER.i(0, "Success:", "make GRM sparse finished");
+        return;
+    }else{
+        LOGGER.i(0, "GRM has been saved to [" + options["out"] + ".grm.bin]");
+    }
+
+    FILE *NFile = fopen((grm_file + ".grm.N.bin").c_str(), "rb");
+    FILE *ONFile = fopen((options["out"] + ".grm.N.bin").c_str(), "wb");
+    float *N_buf = new float[num_byte_buffer];
+    float *cur_N_pos0;
+    float *out_N_buf = new float[num_byte_buffer];
+    float *cur_N_buf;
+    for(int part_index = 0; part_index != index_grm_pairs.size(); part_index++){
+        if(fread(N_buf, sizeof(float), byte_part_grms[part_index], NFile) != byte_part_grms[part_index]){
+            LOGGER.w(0, "Read GRM N failed between line " + to_string(index_grm_pairs[part_index].first + 1) + " and "
+                        + to_string(index_grm_pairs[part_index].second + 1));
+            LOGGER.i(0, "Stop prune the GRM N");
+            break;
+        };
+        if(part_index % 50 == 0){
+            LOGGER.i(2, "Processing part " + to_string(part_index + 1));
+        }
+        cur_N_pos0 = N_buf;
+        cur_N_buf = out_N_buf;
+
+        for(int id1 = index_grm_pairs[part_index].first; id1 != index_grm_pairs[part_index].second + 1; id1++){
+            if (keeps_ori.find(id1) == keeps_ori.end()) {
+                cur_N_pos0 += id1 + 1;
+                continue;
+            }
+            for(int id2 : index_keep){
+                if(id2 > id1) break;
+                *(cur_N_buf++) = *(cur_N_pos0 + id2);
+            }
+            cur_N_pos0 += id1 + 1;
+        }
+
+        int write_items = cur_N_buf - out_N_buf;
+        if(fwrite(out_N_buf, sizeof(float), write_items, ONFile) != write_items){
+            LOGGER.e(0, "Write GRM N failed"); 
+        }
+
+    }
+    delete [] out_N_buf;
+    delete [] N_buf;
+    fclose(ONFile);
+    fclose(NFile);
+    LOGGER.i(0, "GRM N has been saved to [" + options["out"] + ".grm.N.bin]");
 }
 
 
@@ -168,19 +242,22 @@ void GRM::cut_rel(float thresh, bool no_grm){
     LOGGER.i(0, "Total number of parts to proceed: " + to_string(index_grm_pairs.size()));
     FILE *grmFile = fopen((grm_file + ".grm.bin").c_str(), "rb");
     // put this first to avoid unwritable disk
-    std::ofstream o_keep((options["out"] + ".grm.id").c_str());
-    if((!o_keep)){
-        LOGGER.e(0, "can't write to [" + options["out"] + ".grm.id]");
+    std::ofstream o_keep;
+    if(!no_grm){
+        o_keep.open((options["out"] + ".grm.id").c_str());
+        if((!o_keep)){
+            LOGGER.e(0, "can't write to [" + options["out"] + ".grm.id]");
+        }
     }
 
     bool detail_flag = false;
-    std::ofstream out_grm, o_remove;
+    std::ofstream out_fam, o_single;
     if(options.find("cutoff_detail") != options.end()){
         detail_flag = true;
-        out_grm.open((options["out"] + ".rel.pair").c_str());
-        o_remove.open((options["out"] + ".rel.id").c_str());
-        if((!out_grm) || (!o_remove)){
-            LOGGER.e(0, "can't write to [" + options["out"] + ".rel.pair, rel.id]");
+        out_fam.open((options["out"] + ".family.txt").c_str());
+        o_single.open((options["out"] + ".singleton.txt").c_str());
+        if((!out_fam) || (!o_single)){
+            LOGGER.e(0, "can't write to [" + options["out"] + ".family.txt, .singleton.txt]");
         }
     }
  
@@ -220,12 +297,11 @@ void GRM::cut_rel(float thresh, bool no_grm){
     delete [] grm_buf;
 
     if(detail_flag){
-        LOGGER.i(0, "Saving related pairs");
         for(int index = 0; index != rm_grm.size(); index++){
-            out_grm << grm_ids[rm_grm_ID1[index]] << "\t" <<  grm_ids[rm_grm_ID2[index]] << "\t" << rm_grm[index] << std::endl;
+            out_fam << grm_ids[rm_grm_ID1[index]] << "\t" <<  grm_ids[rm_grm_ID2[index]] << "\t" << rm_grm[index] << std::endl;
         }
-        out_grm.close();
-        LOGGER.i(0, "Related sample pairs have been saved to " + options["out"] + ".rel.pair");
+        out_fam.close();
+        LOGGER.i(0, "Related family pairs have been saved to " + options["out"] + ".family.txt");
     }
 
     int i_buf;
@@ -269,14 +345,16 @@ void GRM::cut_rel(float thresh, bool no_grm){
     }
 
     LOGGER.i(0, "After pruning the GRM, there are " + to_string(keep_ID.size()) + " individuals (" + to_string(removed_ID.size()) + " individuals removed).");
-    std::copy(keep_ID.begin(), keep_ID.end(), std::ostream_iterator<string>(o_keep, "\n"));
-    o_keep.close();
-    LOGGER.i(2, "Pruned unrelated IDs have been saved to " + options["out"] + ".grm.id");
+    if(!no_grm){
+        std::copy(keep_ID.begin(), keep_ID.end(), std::ostream_iterator<string>(o_keep, "\n"));
+        o_keep.close();
+        LOGGER.i(2, "Pruned unrelated IDs have been saved to " + options["out"] + ".grm.id");
+    }
 
     if(detail_flag){
-        std::copy(removed_ID.begin(), removed_ID.end(), std::ostream_iterator<string>(o_remove, "\n"));
-        o_remove.close();
-        LOGGER.i(2, "IDs removed have been saved to " + options["out"] + ".rel.id");
+        std::copy(keep_ID.begin(), keep_ID.end(), std::ostream_iterator<string>(o_single, "\n"));
+        o_single.close();
+        LOGGER.i(2, "Pruned singleton IDs has been saved to " + options["out"] + ".singleton.txt");
     }
 
     if(no_grm) {
@@ -310,7 +388,7 @@ void GRM::cut_rel(float thresh, bool no_grm){
     outBinFile(NFile, N_out_file);
     fclose(NFile);
     fclose(N_out_file);
-    LOGGER.i(2, "number of SNPs has been saved to [" + options["out"] + ".grm.N.bin]");
+    LOGGER.i(2, "Number of SNPs has been saved to [" + options["out"] + ".grm.N.bin]");
 }
 
 void GRM::outBinFile(FILE *sFile, FILE *dFile) {
@@ -874,6 +952,9 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
     options["num_parts"] = std::to_string(num_parts);
     options["cur_part"] = std::to_string(cur_part);
 
+    if(options_in.find("--grm-singleton") != options_in.end()){
+        options_in["--make-grm"] = {};
+    }
 
     if(options_in.find("--make-grm") != options_in.end()){
         if(options.find("grm_file") == options.end()){
@@ -900,19 +981,22 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
                 return_value++;
             }
 
-            if(options_in.find("--grm-no-relative") != options_in.end()){
-                if(options_in["--grm-no-relative"].size() == 1){
-                    options_d["grm_cutoff"] = std::stod(options_in["--grm-no-relative"][0]);
+            string opitem = "--grm-singleton";
+
+            if(options_in.find(opitem) != options_in.end()){
+                if(options_in[opitem].size() == 1){
+                    options_d["grm_cutoff"] = std::stod(options_in[opitem][0]);
                 }else{
-                    LOGGER.e(0, "--grm-no-relative can't deal with more than one value currently");
+                    LOGGER.e(0, opitem + " can't deal with more than one value currently");
                 }
                 if(options.find("grm_file") == options.end()){
-                    LOGGER.e(0, "can't find --grm flag that is essential to --grm-no-relative");
+                    LOGGER.e(0, "can't find --grm flag that is essential to " + opitem);
                 }
 
                 processFunctions.push_back("grm_cutoff");
-                options_in.erase("--grm-no-relative");
+                options_in.erase(opitem);
                 options["no_grm"] = "true";
+                options["cutoff_detail"] = "true";
 
                 return_value++;
             }
@@ -925,21 +1009,25 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
 
     }
 
-    string curFlag;
-    curFlag = "--make-bK-sparse";
-
-    if(options_in.find(curFlag) != options_in.end()){
-        if(options.find("grm_file") == options.end()){
-            LOGGER.e(0, "can't find --grm flag that is essential to " + curFlag);
+    vector<string> flags = {"--make-bK-sparse", "--make-bK"};
+    vector<bool> isSparse = {true, false};
+    for(int index = 0; index != flags.size(); index++){
+        string curFlag = flags[index];
+        if(options_in.find(curFlag) != options_in.end()){
+            if(options.find("grm_file") == options.end()){
+                LOGGER.e(0, "can't find --grm flag that is essential to " + curFlag);
+            }
+            if(options_in[curFlag].size() == 1){
+                options_d["grm_cutoff"] = std::stod(options_in[curFlag][0]);
+                options_b["sparse"] = isSparse[index]; 
+                processFunctions.push_back("make_fam");
+            }else{
+                LOGGER.e(0, curFlag + " can't deal with more than one value currently");
+            }
+            return_value++;
         }
-        if(options_in[curFlag].size() == 1){
-            options_d["grm_cutoff"] = std::stod(options_in[curFlag][0]);
-            processFunctions.push_back("make_fam");
-        }else{
-            LOGGER.e(0, curFlag + " can't deal with more than one value currently");
-        }
-        return_value++;
     }
+
 
     return return_value;
 
@@ -974,7 +1062,7 @@ void GRM::processMain() {
 
         if(process_function == "make_fam"){
             GRM grm;
-            grm.prune_sparse(options_d["grm_cutoff"]);
+            grm.prune_fam(options_d["grm_cutoff"], options_b["sparse"]);
         }
     }
 
