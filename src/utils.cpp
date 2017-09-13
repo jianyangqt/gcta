@@ -1,10 +1,10 @@
 #include <utils.hpp>
 #include <cstdlib>
-#include <ctime>
 #include <iomanip>
 #include <sstream>
 #include <stdio.h>
 #include <stdlib.h>
+#include <chrono>
 
 #if defined(__unix__) || defined(__APPLE__)
 #include <unistd.h>
@@ -35,8 +35,9 @@ std::string getHostName(){
 }
 
 std::string getLocalTime(){
-    std::time_t t = std::time(nullptr);
-    auto tm = std::put_time(std::localtime(&t), "%c %Z");
+    auto now = std::chrono::system_clock::now();
+    auto now_c = std::chrono::system_clock::to_time_t(now);
+    auto tm = std::put_time(std::localtime(&now_c), "%c %Z");
     std::ostringstream oss;
     oss << tm;
     return oss.str();

@@ -40,12 +40,12 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(MKLIncludeDir);$(IncludePath);C:\Users\zhili.zheng\Documents\Program\eigen-3.3.4;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\include;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\include;C:\Users\zhili.zheng\Documents\Program\zlib-1.2.11;..\include;..\</IncludePath>
-    <LibraryPath>$(OmpLibDir);$(LibraryPath);C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\lib\intel64;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\lib\intel64;C:\Users\zhili.zheng\Documents\Program\zlib-1.2.11\contrib\vstudio\vc14\x64\ZlibStatRelease;</LibraryPath>
+    <IncludePath>$(MKLIncludeDir);$(IncludePath);D:\Program\eigen-3.3.4;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\include;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\include;D:\Program\zlib-1.2.11;..\include;..\</IncludePath>
+    <LibraryPath>$(OmpLibDir);$(LibraryPath);C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\lib\intel64;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\lib\intel64;D:\Program\zlib-1.2.11\contrib\vstudio\vc14\x64\ZlibStatRelease</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(MKLIncludeDir);$(IncludePath);C:\Users\zhili.zheng\Documents\Program\eigen-3.3.4;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\include;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\include;C:\Users\zhili.zheng\Documents\Program\zlib-1.2.11;..\include;..\</IncludePath>
-    <LibraryPath>$(OmpLibDir);$(LibraryPath);C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\lib\intel64;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\lib\intel64;C:\Users\zhili.zheng\Documents\Program\zlib-1.2.11\contrib\vstudio\vc14\x64\ZlibStatRelease;</LibraryPath>
+    <IncludePath>$(MKLIncludeDir);$(IncludePath);D:\Program\eigen-3.3.4;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\include;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\include;D:\Program\zlib-1.2.11;..\include;..\</IncludePath>
+    <LibraryPath>$(OmpLibDir);$(LibraryPath);C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\lib\intel64;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\lib\intel64;D:\Program\zlib-1.2.11\contrib\vstudio\vc14\x64\ZlibStatRelease</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -119,6 +119,7 @@
     <ClCompile Include="..\main\StatFunc.cpp" />
     <ClCompile Include="..\main\StrFunc.cpp" />
     <ClCompile Include="..\main\zfstream.cpp" />
+    <ClCompile Include="..\src\FastFAM.cpp" />
     <ClCompile Include="..\src\Geno.cpp" />
     <ClCompile Include="..\src\GRM.cpp" />
     <ClCompile Include="..\src\Logger.cpp" />
@@ -132,6 +133,7 @@
   <ItemGroup>
     <ClInclude Include="..\include\AsyncBuffer.hpp" />
     <ClInclude Include="..\include\constants.hpp" />
+    <ClInclude Include="..\include\FastFAM.h" />
     <ClInclude Include="..\include\Geno.h" />
     <ClInclude Include="..\include\GRM.h" />
     <ClInclude Include="..\include\Logger.h" />
