@@ -49,7 +49,7 @@ void out_ver(bool flag_outFile){
 
     log(0, "*******************************************************************");
     log(0, "* Genome-wide Complex Trait Analysis (GCTA)");
-    log(0, "* version 1.91 beta0");
+    log(0, "* version 1.90.1 beta");
     log(0, "* (C) 2010-2017, The University of Queensland");
     log(0, "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>");
     log(0, "*******************************************************************");
