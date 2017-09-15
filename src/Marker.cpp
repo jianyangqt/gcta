@@ -267,7 +267,7 @@ int Marker::registerOption(map<string, vector<string>>& options_in){
         }else{
             LOGGER.e(0, "Multiple --autosome-num is not supported");
         }
-    }else{
+    }else if(options_i.find("last_chr_autosome") == options_i.end()){
         options_i["last_chr_autosome"] = 22;
     }
     // include the x y xy MT
