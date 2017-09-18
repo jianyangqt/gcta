@@ -10,6 +10,7 @@
 
 #include "StatFunc.h"
 #include "numeric"
+#include <random>
 
 ////////// P-value Calculatiion Functions Start ////////////////
 
@@ -226,7 +227,14 @@ double StatFunc::UniformDev(double a, double b, int &idum) {
     return a + (b - a) * ran1(idum);
 }
 
+static std::random_device ran_device;
+static std::mt19937 gen(ran_device());
+static std::uniform_real_distribution<double> u_dis(0, 1);
+
 double StatFunc::ran1(int &idum) {
+    return u_dis(gen);
+}
+/*
     const int IA = 16807, IM = 2147483647, IQ = 127773, IR = 2836, NTAB = 32;
     const int NDIV = (1 + (IM - 1) / NTAB);
     const double EPS = 3.0e-16, AM = 1.0 / IM, RNMX = (1.0 - EPS);
@@ -255,6 +263,7 @@ double StatFunc::ran1(int &idum) {
     if ((temp = AM * iy) > RNMX) return RNMX;
     else return temp;
 }
+*/
 
 double StatFunc::chidev(int &idum, const double df) {
     if (df > 2.0) return 2.0 * cheng_gamdev(idum, df * 0.5);

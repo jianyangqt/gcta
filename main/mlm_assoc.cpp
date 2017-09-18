@@ -476,8 +476,9 @@ void gcta::mlma_loco(string phen_file, string qcovar_file, string covar_file, in
         reml_priors_var=_varcmp;
         _P.resize(0,0);
         _A[0].resize(0,0);
-        
-        mlma_calcu_stat(y, (geno_chrs[c1]), n, _include.size(), beta[c1], se[c1], pval[c1]);
+
+        if(no_adj_covar)  mlma_calcu_stat_covar(y, (geno_chrs[c1]), n, _include.size(), beta[c1], se[c1], pval[c1]);
+        else mlma_calcu_stat(y, (geno_chrs[c1]), n, _include.size(), beta[c1], se[c1], pval[c1]);
         
         _include=include_o;
         _snp_name_map=snp_name_map_o;
