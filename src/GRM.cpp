@@ -745,7 +745,7 @@ void GRM::N_thread(int grm_index_from, int grm_index_to){
     uint64_t cmask1, cmask2, cmask;
     uint64_t *p_cmask1, *p_cmask2;
     uint64_t *cur_cmask;
-    uint32_t *po_N_start = N + (grm_index_from + 1 + part_keep_indices.first) * (grm_index_from - part_keep_indices.first) / 2;
+    uint32_t *po_N_start = N + ((uint64_t)grm_index_from + 1 + part_keep_indices.first) * (grm_index_from - part_keep_indices.first) / 2;
     for(int cur_block = 0; cur_block != Constants::NUM_MARKER_READ / num_cmask_block; cur_block++){
         cur_cmask = cmask_buf + cur_block * index_keep.size();
         po_N = po_N_start;
@@ -775,7 +775,6 @@ void GRM::grm_thread(int grm_index_from, int grm_index_to) {
     //LOGGER.i(0, "GRMthread: ", to_string(grm_index_from) + " " + to_string(grm_index_to));
 
     double *po_grm;
-    uint32_t *po_N;
     uint64_t geno, mask;
     uint64_t *p_geno1, *p_geno2, geno1;
     uint64_t *p_mask1, *p_mask2, mask1;
@@ -783,8 +782,7 @@ void GRM::grm_thread(int grm_index_from, int grm_index_to) {
     uint16_t geno_p1, geno_p2, geno_p3, geno_p4;
     double *table0, *table1, *table2, *table3;
     int cur_geno_block, start_geno_block;
-    int grm_pos_offset = (grm_index_from + 1 + part_keep_indices.first) * (grm_index_from - part_keep_indices.first) / 2;
-    uint32_t *po_N_start = N + grm_pos_offset;
+    uint64_t grm_pos_offset = ((uint64_t)grm_index_from + 1 + part_keep_indices.first) * (grm_index_from - part_keep_indices.first) / 2;
     double *po_grm_start = grm + grm_pos_offset;
     for (int cur_block = 0; cur_block != cur_num_block; cur_block++) {
         cur_geno_block = cur_block * num_block_handle;
@@ -799,7 +797,6 @@ void GRM::grm_thread(int grm_index_from, int grm_index_to) {
         cur_mask = (uint64_t *) (mask_buf + start_geno_block);
 
         po_grm = po_grm_start;
-        po_N = po_N_start;
 
         p_geno1 = cur_geno + grm_index_from;
         p_mask1 = cur_mask + grm_index_from;
@@ -837,7 +834,6 @@ void GRM::grm_thread(int grm_index_from, int grm_index_to) {
                     p_geno2++;
                     p_mask2++;
                     po_grm++;
-                    po_N++;
                 }
             }else{
                 for (int index_pair2 = 0; index_pair2 != index_pair1 + 1; index_pair2++) {
@@ -858,7 +854,6 @@ void GRM::grm_thread(int grm_index_from, int grm_index_to) {
                     p_geno2++;
                     p_mask2++;
                     po_grm++;
-                    po_N++;
                 }
             }
 
