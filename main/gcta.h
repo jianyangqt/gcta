@@ -167,6 +167,12 @@ public:
     void sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sbat_ld_cutoff, bool sbat_write_snpset);
     void sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, bool sbat_write_snpset);
     void sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, bool sbat_write_snpset);
+    
+    // mtCOJO
+    void mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, double clump_thresh1, double clump_thresh2, int clump_wind_size, double clump_r2_thresh, double gwas_thresh, double heidi_thresh, int nsnp_heidi, int nsnp_gsmr, bool heidi_flag);
+    void read_mtcojofile(string mtcojolist_file, string &target_pheno, vector<string> &covar_pheno, int &ncovar, vector<string> &snplist, vector<vector<string>> &snp_a1, vector<vector<string>> &snp_a2, vector<vector<double>> &snp_freq,  vector<vector<double>> &snp_b, vector<vector<double>> &snp_se, vector<vector<double>> &snp_pval, vector<vector<double>> &snp_n, vector<double> &popu_prev, vector<double> &smpl_prev);
+    vector<string> clumping_meta(vector<string> snplist, vector<int> include_snp, vector<double> snp_pval, double pval_thresh1, double pval_thresh2, int wind_size, double r2_thresh);
+    vector<double> gsmr_meta(vector<string> snplist, vector<int> include_snp, map<string,int> snp_sumdata_map, vector<double> bzx, vector<double> bzx_se, vector<double> bzx_pval, vector<double> bzy, vector<double> bzy_se, double pval_thresh1, double pval_thresh2, int wind_size, double r2_thresh, double gwas_thresh, double heidi_thresh, int nsnp_gsmr, int nsnp_heidi, bool flag_heidi) ;
 
 
     /////////////////////////
