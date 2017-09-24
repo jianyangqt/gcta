@@ -33,6 +33,7 @@
 #include <string>
 #include <map>
 #include <fstream>
+#include <chrono>
 #define LOGGER (*Logger::GetLogger())
 #define LOGGER_P Logger::GetLogger()
 using std::string;
@@ -51,6 +52,8 @@ public:
     void p(int level, const string& message);
     void m(int level, const string& message);
     void l(int level, const string& message);
+    void ts(string marker);
+    float tp(string marker);
     Logger& operator<<(const string& message);
     Logger& operator<<(int level);
     Logger& operator<<(Type type);
@@ -63,6 +66,7 @@ public:
 
 private:
     static std::map<Logger::Type, string> style_map;
+    static std::map<string, std::chrono::time_point<std::chrono::steady_clock>> time_map;
 
     static std::mutex log_mutex;
 

@@ -35,6 +35,7 @@
 
 using std::bind;
 using std::map;
+using std::to_string;
 using std::function;
 using std::placeholders::_1;
 using std::placeholders::_2;
@@ -60,7 +61,7 @@ void out_ver(bool flag_outFile){
 
 int main(int argc, char *argv[]){
     out_ver(false);
-    auto start = std::chrono::steady_clock::now();
+    LOGGER.ts("main");
     vector<string> supported_flagsV2 = {"--bfile", "--bim", "--fam", "--bed", "--keep", "--remove", 
         "--chr", "--autosome-num", "--autosome", "--extract", "--exclude", "--maf", "--max-maf", 
         "--freq", "--out", "--make-grm", "--make-grm-part", "--thread-num", "--grm",
@@ -71,8 +72,9 @@ int main(int argc, char *argv[]){
     string last_key = "";
     string cur_string = "";
    if(argc == 1){
-        LOGGER.m(0, "The GCTA has lots of options, online document http://cnsgenomics.com/software/gcta/");
-        LOGGER.e(0, "No analysis has been launched by the option(s)");
+        LOGGER.m(0, "Error: no analysis has been launched by the option(s)");
+        LOGGER.m(0, "Please see online documentation at http://cnsgenomics.com/software/gcta");
+        return 1;
     }
     for(int index = 1; index < argc; index++){
         cur_string = argv[index];
@@ -82,11 +84,11 @@ int main(int argc, char *argv[]){
                 options[last_key] = {};
                 keys.push_back(last_key);
             }else{
-                LOGGER.e(0, "Find double options: " + cur_string);
+                LOGGER.e(0, "Find multiple options: " + cur_string);
             }
         }else{
             if(last_key == ""){
-                LOGGER.e(0, "the first options isn't start with \"--\": " + cur_string);
+                LOGGER.e(0, "the option must start with \"--\": " + cur_string);
             }else{
                 options[last_key].push_back(cur_string);
             }
@@ -97,12 +99,12 @@ int main(int argc, char *argv[]){
     if(options.find("--out") != options.end()){
         vector<string> outs = options["--out"];
         if(outs.size() == 0){
-            LOGGER.e(0, "you might forget to specify the output filename in the \"--out\" option");
+            LOGGER.e(0, "no output file name in the \"--out\" option");
         }else{
             options["out"].push_back(outs[0]);
         }
     }else{
-        LOGGER.e(0, "No \"--out\" options find, you might forget to specify the output option");
+        LOGGER.e(0, "missing the --out option");
     }
 
     // multi thread mode
@@ -173,8 +175,7 @@ int main(int argc, char *argv[]){
 
         if(mains.size() > 1) LOGGER.e(0, "multiple main functions are invalid currently");
         if(is_threaded) {
-            LOGGER.i(0, "The analysis will run in " + std::to_string(thread_num) + " threads");
-            LOGGER.i(0, "Note: Some analysis will ignore the multi-thread mode");
+            LOGGER.i(0, "The program will be running on " + std::to_string(thread_num) + " threads");
         }
         ThreadPool *threadPool = ThreadPool::GetPool(thread_num - 1);
         processMains[mains[0]]();
@@ -190,8 +191,14 @@ int main(int argc, char *argv[]){
 
     LOGGER.i(0, "");
 
-    auto end = std::chrono::steady_clock::now();
-    float duration = std::chrono::duration_cast<std::chrono::duration<float>>(end - start).count();
     LOGGER.i(0, "Analysis finished: " + getLocalTime());
-    LOGGER.i(0, "Computational time: " + std::to_string(duration) + " seconds");
+    float duration = LOGGER.tp("main");
+    int hours = (int) duration / 3600;
+    string time_str = (hours == 0) ? "" : (to_string(hours) + " hour" + ((hours == 1) ? " ": "s "));
+    int mins = (int) (duration - 3600 * hours) / 60;
+    time_str += (mins == 0) ? "" : (to_string(mins) + " minute" + ((mins == 1) ? " ": "s "));
+    float seconds = duration - 3600 * hours - 60 * mins;
+    time_str = time_str + ((time_str == "") ? to_string(seconds) : to_string((int)seconds)) + " second(s)"; 
+
+    LOGGER.i(0, "Computational time: " + time_str);
 }

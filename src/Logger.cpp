@@ -26,9 +26,11 @@
 
 #include "Logger.h"
 #include <iostream>
+
 using std::cout;
 
 std::mutex Logger::log_mutex;
+std::map<string, std::chrono::time_point<std::chrono::steady_clock>> Logger::time_map;
 #ifdef _WIN32 
 std::map<Logger::Type, string> Logger::style_map = {{Logger::INFO, ""}, {Logger::PROMPT, ""},
                                                      {Logger::PROGRESS, "\r"}, {Logger::WARN, ""},
@@ -129,6 +131,22 @@ void Logger::m(int level, const string &message){
 void Logger::l(int level, const string &message){
     string spaces(level * 2, ' ');
     m_logFile << spaces << message << endl;
+}
+
+void Logger::ts(string key){
+    time_map[key] = std::chrono::steady_clock::now();
+}
+
+float Logger::tp(string key){
+    auto end = std::chrono::steady_clock::now();
+    float secs = 0.0;
+    if(time_map.find(key) != time_map.end()){
+        auto duration = end - time_map[key];
+        secs = std::chrono::duration_cast<std::chrono::duration<float>>(duration).count();
+    }else{
+        m_pThis->w(2, "can't find key of time start");
+    }
+    return secs;
 }
 
 Logger& Logger::operator<<(const string& message){

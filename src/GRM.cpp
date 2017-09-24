@@ -511,9 +511,9 @@ GRM::GRM(Geno *geno) {
     }
 
     //t_print(begin, "  INIT finished");
-
-    LOGGER.i(0, "Start: ", "part " + to_string(part) + ", Subjects ID: " + to_string(part_keep_indices.first) + "-" + to_string(part_keep_indices.second) + ". Total parts " + to_string(num_parts) + ". " + to_string(thread_parts.size()) + " threads");
-    LOGGER.i(2, to_string(num_individual) + " samples, " + to_string(geno->marker->count_extract()) + " markers, " + to_string(num_grm) + " GRM");
+    LOGGER.i(0, "Computing the genetic relationship matrix (GRM) ...");
+    LOGGER.i(0, "Subset " + to_string(part) + "/" + to_string(num_parts) + ", no. subject " + to_string(part_keep_indices.first + 1) + "-" + to_string(part_keep_indices.second + 1));
+    LOGGER.i(1, to_string(num_individual) + " samples, " + to_string(geno->marker->count_extract()) + " markers, " + to_string(num_grm) + " GRM elements");
 
     o_name = options["out"];
 
@@ -682,13 +682,11 @@ void GRM::calculate_GRM(uint8_t *buf, int num_marker) {
     //out_message << std::fixed << std::setprecision(2) << finished_marker * 100.0 / geno->marker->count_extract();
     //LOGGER.i(0, out_message.str() + "% has been finished");
 
-    if(finished_marker % 30000 == 0){
-        LOGGER.i(4, to_string(finished_marker) + " SNPs finished");
-    }
 }
 
 void GRM::deduce_GRM(){
-    LOGGER.i(0, "Success", "GRM calculations finished");
+    LOGGER.i(0, "The GRM computation is completed.");
+    LOGGER.i(0, "Saving GRM...");
     //Just for test
 #ifndef NDEBUG
     fclose(o_geno0);
@@ -902,7 +900,7 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
         }
         options_in.erase("--grm");
         if(options["grm_file"] == options["out"]){
-            LOGGER.e(0, "can't set the name of input same with output name");
+            LOGGER.e(0, "not allowed to have the same file name for the input and output");
         }
     }
 
@@ -1032,7 +1030,7 @@ void GRM::processMain() {
     vector<function<void (uint8_t *, int)>> callBacks;
     for(auto &process_function : processFunctions){
         if(process_function == "make_grm"){
-            LOGGER.i(0, "Note: GRM is calculated based on autosome or the chromosome specified by --chr");
+            LOGGER.i(0, "Note: GRM is computed using the SNPs on the autosome.");
             Pheno pheno;
             Marker marker;
             Geno geno(&pheno, &marker);

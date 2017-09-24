@@ -124,6 +124,7 @@ vector<string> Pheno::read_sublist(string sublist_file, vector<vector<double>> *
 }
 
 void Pheno::read_fam(string fam_file) {
+    LOGGER.i(0, "Reading PLINK FAM file from [" + fam_file + "]...");
     std::ifstream fam(fam_file.c_str());
     if(!fam){
         LOGGER.e(0, "can not open the file [" + fam_file + "] to read");
@@ -257,7 +258,7 @@ void Pheno::set_keep(vector<string>& indi_marks, vector<string>& marks, vector<u
         keeps.erase(std::remove_if(keeps.begin(), keeps.end(), diff), keeps.end());
     }
 
-    LOGGER.i(0, string("After ") + (isKeep?"keeping":"removeing") +  " subjects, " + to_string(keeps.size()) + " subjects remained.");
+    LOGGER.i(0, string("After ") + (isKeep?"keeping":"removing") +  " subjects, " + to_string(keeps.size()) + " subjects remained.");
 }
 
 void Pheno::update_pheno(vector<string>& indi_marks, vector<double>& phenos){
@@ -279,17 +280,16 @@ void Pheno::update_pheno(vector<string>& indi_marks, vector<double>& phenos){
 
 
 
-void Pheno::reinit_rm(vector<uint32_t> keeps, vector<uint32_t> &rms, int total_sample_number) {
+void Pheno::reinit_rm(vector<uint32_t> &keeps, vector<uint32_t> &rms, int total_sample_number) {
     vector<uint32_t> whole_index(total_sample_number);
     std::iota(whole_index.begin(), whole_index.end(), 0);
-    auto diff = [&keeps](int key) ->bool{
-        return std::find(keeps.begin(), keeps.end(), key) != keeps.end();
-    };
-    whole_index.erase(std::remove_if(whole_index.begin(), whole_index.end(), diff), whole_index.end());
-
     rms.clear();
-    rms.reserve(whole_index.size());
-    rms.assign(whole_index.begin(), whole_index.end());
+    if(whole_index.size() == keeps.size()){
+        return;
+    }else{
+        std::set_difference(whole_index.begin(), whole_index.end(), keeps.begin(), keeps.end(),
+                std::inserter(rms, rms.begin()));
+    }
 }
 
 void Pheno::init_mask_block(){
@@ -352,7 +352,7 @@ void Pheno::addOneFileOption(string key_store, string append_string, string key_
             options[key_store] = options_in[key_name][0] + append_string;
         }else if(options_in[key_name].size() > 1){
             options[key_store] = options_in[key_name][0] + append_string;
-            LOGGER.w(0, "Subject list: multiple " + key_name + ", use the first one only" );
+            LOGGER.w(0, "There are multiple " + key_name + ". Only the first one will be used in the analysis" );
         }else{
             LOGGER.e(0, "no " + key_name + " parameter found");
         }
@@ -374,7 +374,7 @@ int Pheno::registerOption(map<string, vector<string>>& options_in){
     //options_in.erase("--remove"); // also may use in the GRM
 
     if(options_in.find("--update-sex") != options_in.end()){
-        LOGGER.w(0, "--update-sex didn't work this time");
+       // LOGGER.w(0, "--update-sex didn't work this time");
     }
 
     if(options_in.find("--pheno") != options_in.end()){

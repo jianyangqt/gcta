@@ -58,6 +58,7 @@ private:
     int64_t num_byte_buffer;
     int num_blocks;
     int num_finished_markers = 0;
+    int num_marker_freq = 0;
     AsyncBuffer<uint8_t>* asyncBuffer = NULL;
 
     GBitCountTable g_table;

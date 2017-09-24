@@ -41,6 +41,7 @@ Marker::Marker() {
     chr_maps["MT"] = last_chr_autosome + 4;
     chr_maps["mt"] = last_chr_autosome + 4;
 
+
     if(options.find("marker_file") != options.end()){
         read_bim(options["marker_file"]);
     }else{
@@ -66,6 +67,7 @@ Marker::Marker() {
 }
 
 void Marker::read_bim(string bim_file) {
+    LOGGER.i(0, "Reading PLINK BIM file from [" + bim_file + "]...");
     std::ifstream bim(bim_file.c_str());
     if(!bim){
         LOGGER.e(0, "can not open the file [" + bim_file + "] to read");
@@ -115,9 +117,9 @@ void Marker::read_bim(string bim_file) {
     }
     num_marker = name.size();
     num_extract = index_extract.size();
-    LOGGER.i(0, to_string(num_marker) + " markers to be included from [" + bim_file + "].");
+    LOGGER.i(0, to_string(num_marker) + " SNPs to be included from [" + bim_file + "].");
     if(num_marker != num_extract){
-        LOGGER.i(0, to_string(num_extract) + " markers to be included for further analysis (filter by chromosome)");
+        LOGGER.i(0, to_string(num_extract) + " SNPs remained after filtered by --chr");
     }
     bim.close();
 }

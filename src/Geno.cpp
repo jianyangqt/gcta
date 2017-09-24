@@ -26,6 +26,8 @@
 #include <iostream>
 #include <iterator>
 #include <cmath>
+#include <sstream>
+#include <iomanip>
 
 using std::thread;
 using std::to_string;
@@ -55,6 +57,7 @@ Geno::Geno(Pheno* pheno, Marker* marker) {
 
 void Geno::filter_MAF(){
     if((options_d["min_maf"] != 0.0) || (options_d["max_maf"] != 0.5)){
+        LOGGER.i(0, "Computing allele frequencies...");
         vector<function<void (uint8_t *, int)>> callBacks;
         callBacks.push_back(bind(&Geno::freq, this, _1, _2));
         loop_block(callBacks);
@@ -87,7 +90,7 @@ void Geno::filter_MAF(){
         init_AsyncBuffer();
         num_blocks = marker->count_extract() / Constants::NUM_MARKER_READ +
                      (marker->count_extract() % Constants::NUM_MARKER_READ != 0);
-        LOGGER.i(0, to_string(remove_extract_index.size()) + " SNPs removed due to --maf, " + to_string(marker->count_extract()) + " remained");
+        LOGGER.i(0, to_string(remove_extract_index.size()) + " SNPs removed due to --maf or --max-maf,  " + to_string(marker->count_extract()) + " remained");
     }
 
 }
@@ -99,10 +102,10 @@ void Geno::init_AF() {
     countA2A2.clear();
     RDev.clear();
     uint32_t num_marker = marker->count_extract();
-    AFA1.reserve(num_marker);
-    countA1A1.reserve(num_marker);
-    countA1A2.reserve(num_marker);
-    countA2A2.reserve(num_marker);
+    AFA1.resize(num_marker);
+    countA1A1.resize(num_marker);
+    countA1A2.resize(num_marker);
+    countA2A2.resize(num_marker);
     RDev = vector<double>(num_marker, 0.0); 
     num_blocks = num_marker / Constants::NUM_MARKER_READ +
                  (num_marker % Constants::NUM_MARKER_READ != 0);
@@ -122,6 +125,7 @@ Geno::~Geno(){
 
 void Geno::out_freq(string filename){
     string name_frq = filename + ".frq";
+    LOGGER.i(0, "Saving allele frequencies...");
     std::ofstream o_freq(name_frq.c_str());
     if (!o_freq) { LOGGER.e(0, "can not open the file [" + name_frq + "] to write"); }
     vector<string> out_contents;
@@ -133,7 +137,7 @@ void Geno::out_freq(string filename){
     }
     std::copy(out_contents.begin(), out_contents.end(), std::ostream_iterator<string>(o_freq, "\n"));
     o_freq.close();
-    LOGGER.i(0, "Success", "--freq: Allele frequencies written to [" + name_frq + "]");
+    LOGGER.i(0, "Allele frequencies of " + to_string(AFA1.size()) + " SNPs have been saved in the file [" + name_frq + "]");
 }
 
 bool Geno::check_bed(){
@@ -171,7 +175,9 @@ bool Geno::check_bed(){
 }
 
 void Geno::read_bed(){
-    LOGGER.d(0, "read bed start");
+    LOGGER.i(0, "Reading PLINK BED file from [" + bed_file + "] in SNP-major format...");
+    //LOGGER.i(0, "Genotype data for " + to_string(pheno->count_keep()) + " individuals and " + 
+    //            to_string(marker->count_extract()) + " SNPs to be included from [" + bed_file + "]");
     //clock_t begin = clock();
     FILE *pFile;
     pFile = fopen(bed_file.c_str(), "rb");
@@ -189,6 +195,8 @@ void Geno::read_bed(){
 
     int cur_block = 0;
     int last_num_marker = marker->count_extract() % Constants::NUM_MARKER_READ;
+
+    LOGGER.ts("read_geno");
 
     while(!isEOF){
         while(true){
@@ -241,7 +249,7 @@ void Geno::read_bed(){
 }
 
 void Geno::freq(uint8_t *buf, int num_marker) {
-    if(AFA1.size() == marker->count_extract()) return;
+    if(num_marker_freq >= marker->count_extract()) return;
     //pheno->mask_geno_keep(buf, num_marker);
     int cur_num_marker_read = num_marker;
     static bool isLastTrunkSingle = (num_byte_per_marker % 2 != 0);
@@ -249,6 +257,7 @@ void Geno::freq(uint8_t *buf, int num_marker) {
     uint16_t *p_buf;
     uint16_t *trunk_buf;      
     uint32_t curA1A1, curA1A2, curA2A2;
+    int raw_index_marker;
     for(int cur_marker_index = 0; cur_marker_index < cur_num_marker_read; ++cur_marker_index){
         //It will cause problems when memory in critical stage.
         //However, other part of this program will also goes wrong in this situation.
@@ -275,14 +284,19 @@ void Geno::freq(uint8_t *buf, int num_marker) {
         curA1A2 += g_table.get(last_trunk, 1);
         curA2A2 += g_table.get(last_trunk, 2);
 
-        countA1A1.push_back(curA1A1);
-        countA1A2.push_back(curA1A2);
-        countA2A2.push_back(curA2A2);
-        AFA1.push_back((2.0 * curA1A1 + curA1A2) / (2.0 * (curA1A1 + curA1A2 + curA2A2)));
+        raw_index_marker = num_marker_freq + cur_marker_index;
+        
+
+        countA1A1[raw_index_marker] = curA1A1;
+        countA1A2[raw_index_marker] = curA1A2;
+        countA2A2[raw_index_marker] = curA2A2;
+        AFA1[raw_index_marker] = (2.0 * curA1A1 + curA1A2) / (2.0 * (curA1A1 + curA1A2 + curA2A2));
     }
+    num_marker_freq += num_marker;
 }
 
 void Geno::loop_block(vector<function<void (uint8_t *buf, int num_marker)>> callbacks) {
+    num_finished_markers = 0;
     thread read_thread([this](){this->read_bed();});
     read_thread.detach();
 
@@ -290,16 +304,21 @@ void Geno::loop_block(vector<function<void (uint8_t *buf, int num_marker)>> call
     bool isEOF = false;
     int cur_num_marker_read;
 
+    LOGGER.ts("LOOP_GENO_TOT");
+    LOGGER.ts("LOOP_GENO_PRE");
+
     for(int cur_block = 0; cur_block < num_blocks; ++cur_block){
         while(true){
             std::tie(r_buf, isEOF) = asyncBuffer->start_read();
             if(!r_buf){
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                //LOGGER.i(0, "Buffer NULL: " + to_string(LOGGER.tp("LOOP_GENO_PRE")));
                 //LOGGER.d(0, "wait for buffer to read");
             }else{
                 break;
             }
         }
+
         LOGGER.d(0, "Process block " + std::to_string(cur_block));
         if(isEOF && cur_block != (num_blocks - 1)){
             LOGGER.e(0, "can't read to the end of file [" + bed_file + "].");
@@ -318,7 +337,24 @@ void Geno::loop_block(vector<function<void (uint8_t *buf, int num_marker)>> call
         asyncBuffer->end_read();
 
         num_finished_markers += cur_num_marker_read;
+        if(cur_block % 100 == 0){
+            float time_p = LOGGER.tp("LOOP_GENO_PRE");
+            if(time_p > 300){
+                LOGGER.ts("LOOP_GENO_PRE");
+                float elapse_time = LOGGER.tp("LOOP_GENO_TOT");
+                float finished_percent = (float) cur_block / num_blocks;
+                float remain_time = (1.0 / finished_percent - 1) * elapse_time / 60;
+
+                std::ostringstream ss;
+                ss << std::fixed << std::setprecision(1) << finished_percent * 100 << "% Estimated time remaining " << remain_time << " min"; 
+                
+                LOGGER.i(1, ss.str());
+            }
+        }
     }
+    std::ostringstream ss;
+    ss << std::fixed << std::setprecision(1) << "100% Finished in " << LOGGER.tp("LOOP_GENO_TOT") / 60 << " min";
+    LOGGER.i(1, ss.str());
 }
 
 void Geno::makeMarkerX(uint8_t *buf, int cur_marker, double *w_buf, bool center, bool std){
@@ -448,7 +484,8 @@ void Geno::processMain() {
             Pheno pheno;
             Marker marker;
             Geno geno(&pheno, &marker);
-            if(geno.AFA1.size() == 0){
+            if(geno.num_marker_freq == 0 ){
+                LOGGER.i(0, "Computing allele frequencies...");
                 callBacks.push_back(bind(&Geno::freq, &geno, _1, _2));
                 geno.loop_block(callBacks);
             }

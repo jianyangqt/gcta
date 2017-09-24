@@ -38,7 +38,7 @@ public:
     uint8_t get_mask(uint32_t ori_index);
     uint32_t count_raw();
     static void set_keep(vector<string>& indi_marks, vector<string>& marks, vector<uint32_t>& keeps, bool isKeep);
-    static void reinit_rm(vector<uint32_t> keeps, vector<uint32_t>& rms, int total_sample_number);
+    static void reinit_rm(vector<uint32_t>& keeps, vector<uint32_t>& rms, int total_sample_number);
     uint32_t count_keep();
     void mask_geno_keep(uint8_t *const geno_1block, int num_blocks);
     vector<string> get_id(int from_index, int to_index);
