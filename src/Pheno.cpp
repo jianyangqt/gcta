@@ -292,6 +292,78 @@ void Pheno::reinit_rm(vector<uint32_t> &keeps, vector<uint32_t> &rms, int total_
     }
 }
 
+
+void Pheno::init_bmask_block(){
+    int max_block = (index_keep[index_keep.size()-1] + 31) / 32;
+    block_num = max_block;
+    int max_index = max_block * 32 - 1;
+
+    int start_rm_index;
+    if(index_rm.size() == 0){
+        start_rm_index = index_keep[index_keep.size()-1] + 1;
+    }else{
+        start_rm_index = index_rm[index_rm.size() - 1] + 1;
+    }
+
+    for(int rm_index = start_rm_index; rm_index <= max_index; rm_index++){
+        index_rm.push_back(rm_index);
+    }
+
+    int cur_block = 0;
+    auto last_it_keep = index_keep.begin();
+    auto last_it_rm = index_rm.begin();
+    while(cur_block < max_block){
+        uint32_t start_val = cur_block * 32;
+        uint32_t end_val = start_val + 31;
+        auto it_keep = std::upper_bound(last_it_keep, index_keep.end(), end_val); 
+        bool keep_found = true;
+        uint32_t cur_index = *(it_keep - 1);
+        if(cur_index >= start_val && cur_index <= end_val){
+            keep_block_index.push_back(cur_block);
+            uint64_t mask_item = 0xFFFFFFFFFFFFFFFF;
+            uint64_t mask_add_item = 0;
+            auto begin_it_rm = std::upper_bound(last_it_rm, index_rm.end(), start_val);
+            auto end_it_rm = std::upper_bound(begin_it_rm, index_rm.end(), end_val);
+            if((*begin_it_rm) >= start_val && (*end_it_rm) <= end_val){
+                for(auto it = begin_it_rm; it <= end_it_rm; it++){
+                    uint32_t cur_offset = (*it) - start_val;
+                    int cur_byte = cur_offset / 4;
+                    uint8_t *mask_pos = (uint8_t *) ((&mask_item) + cur_byte);
+                    uint8_t *mask_add_pos = (uint8_t *)((&mask_add_item) + cur_byte);
+                    int cur_bitpos = cur_offset % 4;
+                    uint8_t mask_piece;
+                    uint8_t mask_add_piece;
+                    switch(cur_bitpos){
+                        case 0:
+                            mask_piece = 0b11111100;
+                            mask_add_piece = 0b00000001;
+                            break;
+                        case 1:
+                            mask_piece = 0b11110011;
+                            mask_add_piece = 0b00000100;
+                            break;
+                        case 2:
+                            mask_piece = 0b11001111;
+                            mask_add_piece = 0b00010000;
+                            break;
+                        case 3:
+                            mask_piece = 0b00111111;
+                            mask_add_piece = 0b01000000;
+                    }
+                    (*mask_pos) &= mask_piece;
+                    (*mask_add_pos) += mask_add_piece;
+                }
+            }
+            mask_items.push_back(mask_item);
+            mask_add_items.push_back(mask_add_item);
+            last_it_rm = end_it_rm;
+        }
+        last_it_keep = it_keep;
+        cur_block++;
+    }
+}
+
+
 void Pheno::init_mask_block(){
     mask_block.clear();
     mask_add_block.clear();

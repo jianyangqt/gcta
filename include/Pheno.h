@@ -74,8 +74,14 @@ private:
     void read_fam(string fam_file);
     void update_pheno(vector<string>& indi_marks, vector<double>& phenos);
     void init_mask_block();
-
+    void init_bmask_block();
+    int block_num;
+    vector<uint32_t> keep_block_index;
+    vector<uint64_t> mask_items;
+    vector<uint64_t> mask_add_items;
+ 
     static map<string, string> options;
+    friend class Geno;
 
 };
 

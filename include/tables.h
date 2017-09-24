@@ -19,11 +19,15 @@
 #define GENO_TABLE_COUNT 65536
 #include <stdint.h>
 #include <cstddef>
+#include <vector>
+
+using std::vector;
 
 class GBitCountTable{
     public:
         GBitCountTable();
         uint16_t get(const uint16_t& index, int col);
+        void set_count(vector<uint16_t> &indices, uint32_t &A1A1, uint32_t &A1A2, uint32_t &A2A2);
         
     private:
         uint16_t geno_count8[256][4];

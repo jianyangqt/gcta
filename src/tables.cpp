@@ -24,6 +24,14 @@ uint16_t GBitCountTable::get(const uint16_t& index, int col){
     return geno_count_table[index][col];
 }
 
+void GBitCountTable::set_count(vector<uint16_t> &indices, uint32_t &A1A1, uint32_t &A1A2, uint32_t &A2A2){
+    for(auto &index : indices){
+        A1A1 += geno_count_table[index][0];
+        A1A2 += geno_count_table[index][1];
+        A2A2 += geno_count_table[index][2];
+    }
+}
+
 void GBitCountTable::count_geno_init(uint16_t geno8[][4], size_t length){
     uint16_t mask = 0b11;
     for(uint16_t index = 0; index < length; index++){

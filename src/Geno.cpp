@@ -247,6 +247,31 @@ void Geno::read_bed(){
     }
     fclose(pFile);
 }
+/*
+void Geno::freq(uint8_t *buf, int num_marker){
+    if(num_marker_freq >= marker->count_extract()) return;
+    for(int cur_marker_index = 0; cur_marker_index < num_marker; ++cur_marker_index){
+        uint32_t curA1A1 = 0, curA1A2 = 0, curA2A2 = 0;
+        uint64_t *pbuf = (uint64_t *) (buf + cur_marker_index * num_byte_per_marker);
+        for(auto &index : pheno->keep_block_index){
+            uint64_t geno_temp = *(pbuf + index);
+            if(pheno->mask_add_items[index]){
+                geno_temp = (geno_temp & pheno->mask_items[index]) + pheno->mask_add_items[index];
+            }
+            vector<uint16_t> genos = {(uint16_t)(geno_temp), (uint16_t)(geno_temp >> 16), 
+                                       (uint16_t)(geno_temp >> 32), (uint16_t)(geno_temp >> 48)};
+            g_table.set_count(genos, curA1A1, curA1A2, curA2A2); 
+
+            int raw_index_marker = num_marker_freq + cur_marker_index;
+            countA1A1[raw_index_marker] = curA1A1;
+            countA1A2[raw_index_marker] = curA1A2;
+            countA2A2[raw_index_marker] = curA2A2;
+            AFA1[raw_index_marker] = (2.0 * curA1A1 + curA1A2) / (2.0 * (curA1A1 + curA1A2 + curA2A2));
+        }
+    }
+    num_marker_freq += num_marker;
+}
+*/
 
 void Geno::freq(uint8_t *buf, int num_marker) {
     if(num_marker_freq >= marker->count_extract()) return;
@@ -318,6 +343,7 @@ void Geno::loop_block(vector<function<void (uint8_t *buf, int num_marker)>> call
                 break;
             }
         }
+        //LOGGER.i(0, "time get buffer: " + to_string(LOGGER.tp("LOOP_GENO_PRE")));
 
         LOGGER.d(0, "Process block " + std::to_string(cur_block));
         if(isEOF && cur_block != (num_blocks - 1)){
@@ -331,7 +357,9 @@ void Geno::loop_block(vector<function<void (uint8_t *buf, int num_marker)>> call
         }
 
         for(auto callback : callbacks){
+         //   LOGGER.i(0, "time1: " + to_string(LOGGER.tp("LOOP_GENO_PRE")));
             callback(r_buf, cur_num_marker_read);
+          //  LOGGER.i(0, "time2: " + to_string(LOGGER.tp("LOOP_GENO_PRE")));
         }
 
         asyncBuffer->end_read();
