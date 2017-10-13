@@ -131,6 +131,7 @@ void GRM::prune_fam(float thresh, bool isSparse){
     vector<int> rm_grm_ID1, rm_grm_ID2;
     float *out_grm_buf = new float[num_byte_buffer];
     float *cur_grm_buf;
+    int new_id1 = 0;
     for(int part_index = 0; part_index != index_grm_pairs.size(); part_index++){
         if(fread(grm_buf, sizeof(float), byte_part_grms[part_index], grmFile) != byte_part_grms[part_index]){
             LOGGER.e(0, "Read GRM failed between line " + to_string(index_grm_pairs[part_index].first + 1) + " and "
@@ -141,13 +142,13 @@ void GRM::prune_fam(float thresh, bool isSparse){
         }
         cur_grm_pos0 = grm_buf;
         cur_grm_buf = out_grm_buf;
-        int new_id1 = 0, new_id2 = 0;
 
         for(int id1 = index_grm_pairs[part_index].first; id1 != index_grm_pairs[part_index].second + 1; id1++){
             if (keeps_ori.find(id1) == keeps_ori.end()) {
                 cur_grm_pos0 += id1 + 1;
                 continue;
             }
+            int new_id2 = 0;
             for(int id2 : index_keep){
                 if(id2 > id1) break;
                 cur_grm = *(cur_grm_pos0 + id2);
