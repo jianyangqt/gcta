@@ -141,6 +141,7 @@ void GRM::prune_fam(float thresh, bool isSparse){
         }
         cur_grm_pos0 = grm_buf;
         cur_grm_buf = out_grm_buf;
+        int new_id1 = 0, new_id2 = 0;
 
         for(int id1 = index_grm_pairs[part_index].first; id1 != index_grm_pairs[part_index].second + 1; id1++){
             if (keeps_ori.find(id1) == keeps_ori.end()) {
@@ -151,15 +152,16 @@ void GRM::prune_fam(float thresh, bool isSparse){
                 if(id2 > id1) break;
                 cur_grm = *(cur_grm_pos0 + id2);
                 if(cur_grm > thresh){
-                    rm_grm_ID1.push_back(id1);
-                    rm_grm_ID2.push_back(id2);
+                    rm_grm_ID1.push_back(new_id1);
+                    rm_grm_ID2.push_back(new_id2);
                     rm_grm.push_back(cur_grm);
                     *(cur_grm_buf++) = cur_grm;
                 }else{
                     *(cur_grm_buf++) = 0.0;
                 }
-
+                new_id2++;
             }
+            new_id1++;
             cur_grm_pos0 += id1 + 1;
         }
         if(!isSparse){
