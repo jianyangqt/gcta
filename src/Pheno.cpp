@@ -68,22 +68,39 @@ Pheno::Pheno() {
         
     }
 
+    reinit();
+}
+
+void Pheno::filter_keep_index(vector<uint32_t>& k_index){
+    if(k_index.size() == index_keep.size()){return;}
+    vector<uint32_t> index_keep2(k_index.size(), 0);
+    std::transform(k_index.begin(), k_index.end(), index_keep2.begin(), 
+            [this](size_t pos){return this->index_keep[pos];});
+    index_keep = index_keep2;
+
+    reinit();
+}
+
+void Pheno::reinit(){
     reinit_rm(index_keep, index_rm, num_ind);
     num_keep = index_keep.size();
     num_rm = index_rm.size();
-
     init_mask_block();
 }
 
+
 // TODO filter the non-number strings other than nan
-vector<string> Pheno::read_sublist(string sublist_file, vector<vector<double>> *phenos) {
+vector<string> Pheno::read_sublist(string sublist_file, vector<vector<double>> *phenos, vector<int> *keep_row_p) {
     vector<string> subject_list;
     std::ifstream sublist(sublist_file.c_str());
+    vector<int> keep_row;
+    string err_file = "the subject list file [" + sublist_file + "]";
 
     string line;
     int line_number = 0;
     int last_length = 0;
     bool init_pheno = true;
+    int large_elements = 0;
     while(std::getline(sublist, line)){
         line_number++;
         std::istringstream line_buf(line);
@@ -91,28 +108,39 @@ vector<string> Pheno::read_sublist(string sublist_file, vector<vector<double>> *
         vector<string> line_elements(begin, end);
         int num_elements = line_elements.size();
         if(num_elements < 2){
-            LOGGER.e(0, "the subject list file [" + sublist_file + "], line " + to_string(line_number) +
+            LOGGER.e(0, err_file + ", line " + to_string(line_number) +
                         " has elements less than 2");
         }
         if(phenos && init_pheno){
-            phenos->resize(num_elements - 2);
+            if(keep_row_p){
+                keep_row = *keep_row_p;
+                phenos->resize(keep_row.size());
+            }else{
+                phenos->resize(num_elements - 2);
+                keep_row.resize(phenos->size());
+                std::iota(keep_row.begin(), keep_row.end(), 0);
+            }
+            large_elements = keep_row[keep_row.size() - 1] + 1 + 2;
+            if(large_elements > num_elements){
+                LOGGER.e(0, err_file + " has not enough column to read");
+            }
             init_pheno = false;
         }
 
         if(line_number > 1 && num_elements != last_length){
-            string errmsg = "the subject list file [" + sublist_file + "], line " + to_string(line_number) +
+            string errmsg = err_file + ", line " + to_string(line_number) +
                         " has different elements";
-            if(phenos){
-                LOGGER.e(0, errmsg);
-            }else{
-                LOGGER.w(0, errmsg);
-            }
+            LOGGER.w(0, errmsg);
         }
 
         subject_list.push_back(line_elements[0] + "\t" + line_elements[1]);
         if(phenos){
-            for(int index = 2; index != num_elements; index++){
-                (*phenos)[index - 2].push_back(strtod(line_elements[index].c_str(), NULL));
+            if(large_elements > num_elements){
+                LOGGER.e(0, err_file + ", line " + to_string(line_number) +
+                        " has not enough elements");
+            }
+            for(int index = 0; index != keep_row.size(); index++){
+                (*phenos)[index].push_back(strtod(line_elements[index+2].c_str(), NULL));
             }
         }
 
@@ -170,7 +198,8 @@ vector<string> Pheno::get_id(int from_index, int to_index){
     out_id.reserve(num_keep);
     for(int index = from_index; index <= to_index; index++){
         raw_index = index_keep[index];
-        out_id.push_back(fid[raw_index] + "\t" + pid[raw_index]);
+        //out_id.push_back(fid[raw_index] + "\t" + pid[raw_index]);
+        out_id.push_back(mark[raw_index]);
     }
     return out_id;
 }

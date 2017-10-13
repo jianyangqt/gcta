@@ -47,7 +47,7 @@ public:
     void calculate_fam(uint8_t *buf, int num_marker);
     void output(string filename);
 
-    static void readFAM(string filename, SpMat& fam, vector<string> &ids);
+    static void readFAM(string filename, SpMat& fam, const vector<string> &ids, vector<uint32_t> &remain_index);
     static double HEreg(vector<double> &Zij, vector<double> &Aij);
     static void conditionCovarReg(VectorXd &pheno, MatrixXd &covar);
     

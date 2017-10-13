@@ -54,21 +54,74 @@ FastFAM::FastFAM(Geno *geno){
     if(ids.size() != num_indi){
         LOGGER.e(0, "Phenotype is not equal, this shall be a flag bug");
     }
-    phenoVec = Map<VectorXd> (phenos.data(), num_indi);
 
-    double phenoVec_mean = phenoVec.mean();
-    phenoVec -= VectorXd::Ones(phenoVec.size()) * phenoVec_mean;
+    // read covar
+    vector<uint32_t> remain_index, remain_index_covar;
+    vector<vector<double>> v_covar;
+    bool has_qcovar = false;
     if(options.find("concovar") != options.end()){
-        MatrixXd concovar;
-        conditionCovarReg(phenoVec, concovar);
+        has_qcovar = true;
+        LOGGER.i(0, "Reading covariance...");
+        vector<string> v_covar_id = Pheno::read_sublist(options["concovar"], &v_covar); 
+        vector_commonIndex(ids, v_covar_id, remain_index, remain_index_covar);
+        LOGGER.i(0, "After merging, " + to_string(remain_index.size()) + " subjects remained");
+    }else{
+        remain_index.resize(ids.size());
+        std::iota(remain_index.begin(), remain_index.end(), 0);
+    }
+
+    vector<string> remain_ids(remain_index.size(), 0);
+    std::transform(remain_index.begin(), remain_index.end(), remain_ids.begin(), [&ids](size_t pos){return ids[pos];});
+
+    // read fam
+    string ffam_file = options["grmsparse_file"];
+    vector<uint32_t> remain_index_fam;
+    SpMat fam;
+    readFAM(ffam_file, fam, remain_ids, remain_index_fam);
+
+    //reorder phenotype, covar
+    vector<double> remain_phenos(remain_index_fam.size());
+    for(int i = 0; i != remain_index_fam.size(); i++){
+        remain_phenos[i] = phenos[remain_index[remain_index_fam[i]]];
+    }
+
+    vector<double> remain_covar;
+    if(has_qcovar){
+        vector<uint32_t> remain_index_covar_fam(remain_index_fam.size(), 0);
+        std:transform(remain_index_fam.begin(), remain_index_fam.end(), remain_index_covar_fam.begin(), 
+            [&remain_index, &remain_index_covar](size_t pos){
+                ptrdiff_t vector_pos = std::find(remain_index.begin(), remain_index.end(), pos) - remain_index.begin();
+                return remain_index_covar[vector_pos];
+            });
+
+        remain_covar.resize(remain_index_fam.size() * v_covar.size());
+
+        for(int j = 0; j != v_covar.size(); j++){
+            for(int i = 0; i != remain_index_fam.size(); i++){
+                remain_covar[j * v_covar.size() + i] = v_covar[j][remain_index_covar_fam[i]];
+            }
+        }
     }
 
 
-    SpMat fam;
+    // standerdize the phenotype, and condition the covar
+    VectorXd phenoVec = Map<VectorXd> (remain_phenos.data(), remain_phenos.size());
+    // Center
+    double phenoVec_mean = phenoVec.mean();
+    phenoVec -= VectorXd::Ones(phenoVec.size()) * phenoVec_mean;
 
-    vector<string> grm_id;
-    string ffam_file = options["grmsparse_file"];
-    readFAM(ffam_file, fam, ids);
+    // condition the covar
+    if(has_qcovar){
+        MatrixXd concovar = Map<Matrix<double, Dynamic, Dynamic, ColMajor>>(remain_covar.data(), remain_phenos.size(), v_covar.size());
+        conditionCovarReg(phenoVec, concovar);
+    }
+    //std phenotype
+    double pheno_sd = sqrt(phenoVec.array().square().sum() / (phenoVec.size() - 1));
+    phenoVec /= pheno_sd;
+
+    for(int i = 0; i < 5; i++){
+        LOGGER.i(0, to_string(phenoVec[i]));
+    }
 
     vector<double> Aij;
     vector<double> Zij;
@@ -93,7 +146,11 @@ FastFAM::FastFAM(Geno *geno){
 }
 
 void FastFAM::conditionCovarReg(VectorXd &pheno, MatrixXd &covar){
-
+    MatrixXd t_covar = covar.transpose();
+    VectorXd beta = (t_covar * covar).ldlt().solve(t_covar * pheno);
+    pheno -= covar * beta;
+    double pheno_mean = pheno.mean();
+    pheno -= (VectorXd::Ones(pheno.size())) * pheno_mean;
 }
 
 double FastFAM::HEreg(vector<double> &Zij, vector<double> &Aij){
@@ -114,12 +171,23 @@ double FastFAM::HEreg(vector<double> &Zij, vector<double> &Aij){
 }
     
 
-void FastFAM::readFAM(string filename, SpMat& fam, vector<string> &ids){
+void FastFAM::readFAM(string filename, SpMat& fam, const vector<string> &ids, vector<uint32_t> &remain_index){
     uint32_t num_indi = ids.size();
-    std::vector<string> sublist = Pheno::read_sublist(filename + ".grm.id");
-    if(sublist != ids){
-        LOGGER.e(0, "Sparse GRM has some difference to the kept samples in genotype, you can prune the GRM again with --keep");
-    }
+    vector<string> sublist = Pheno::read_sublist(filename + ".grm.id");
+    vector<uint32_t> fam_index;
+    vector_commonIndex(sublist, ids, fam_index, remain_index);
+    LOGGER.i(0, "After merging, " + to_string(sublist.size()) + " subjects remained");
+
+    //Fix index order to outside, that fix the phenotype, covar order
+    //We should avoid reorder the GRM sparese, this costs much time. 
+    vector<size_t> index_list_order = sort_indexes(fam_index);
+    vector<uint32_t> ordered_fam_index(fam_index.size(),0);
+    vector<uint32_t> ordered_remain_index(fam_index.size(), 0);
+    std::transform(index_list_order.begin(), index_list_order.end(), ordered_fam_index.begin(), [&fam_index](size_t pos){
+            return fam_index[pos];});
+    std::transform(index_list_order.begin(), index_list_order.end(), ordered_remain_index.begin(), [&remain_index](size_t pos){
+            return remain_index[pos];});
+    remain_index = ordered_remain_index;
 
     std::ifstream pair_list((filename + ".grm.sp").c_str());
     if(!pair_list){
@@ -136,6 +204,11 @@ void FastFAM::readFAM(string filename, SpMat& fam, vector<string> &ids){
 
     vector<uint32_t> num_elements(num_indi, 0);
 
+    map<uint32_t, uint32_t> map_index;
+    for(uint32_t index = 0; index != ordered_fam_index.size(); index++){
+        map_index[ordered_fam_index[index]] = index;
+    }
+
     uint32_t tmp_id1 = 0, tmp_id2 = 0;
     double tmp_grm = 0.0;
 
@@ -147,23 +220,29 @@ void FastFAM::readFAM(string filename, SpMat& fam, vector<string> &ids){
 
         tmp_id1 = (std::stoi(line_elements[0]));
         tmp_id2 = (std::stoi(line_elements[1]));
-        tmp_grm = std::stod(line_elements[2]);
-        id1.push_back(tmp_id1);
-        id2.push_back(tmp_id2);
-        num_elements[tmp_id2] += 1;
-        grm.push_back(tmp_grm);
-        if(tmp_id1 != tmp_id2){
-            id1.push_back(tmp_id2);
-            id2.push_back(tmp_id1);
-            num_elements[tmp_id1] += 1;
+        if(map_index.find(tmp_id1) != map_index.end() &&
+                map_index.find(tmp_id2) != map_index.end()){
+            tmp_id1 = map_index[tmp_id1];
+            tmp_id2 = map_index[tmp_id2];
+
+            tmp_grm = std::stod(line_elements[2]);
+            id1.push_back(tmp_id1);
+            id2.push_back(tmp_id2);
+            num_elements[tmp_id2] += 1;
             grm.push_back(tmp_grm);
+            if(tmp_id1 != tmp_id2){
+                id1.push_back(tmp_id2);
+                id2.push_back(tmp_id1);
+                num_elements[tmp_id1] += 1;
+                grm.push_back(tmp_grm);
+            }
         }
     }
     pair_list.close();
 
     auto sorted_index = sort_indexes(id2, id1);
 
-    fam.resize(num_indi, num_indi);
+    fam.resize(ordered_fam_index.size(), ordered_fam_index.size());
     fam.reserve(num_elements);
 
     for(auto index : sorted_index){

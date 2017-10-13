@@ -69,4 +69,42 @@ std::vector<size_t> sort_indexes(const std::vector<T> &v1, const std::vector<T> 
     return index;
 }
 
+template <typename T, typename P>
+void vector_commonIndex(const std::vector<T>& v1, const std::vector<T>& v2, std::vector<P>& k1, std::vector<P>& k2){
+	k1.clear();
+	k2.clear();
+	if(v1 == v2){
+		k1.resize(v1.size());
+		std::iota(k1.begin(), k1.end(), 0);
+		
+		k2.resize(v2.size());
+		std::iota(k2.begin(), k2.begin(), 0);
+		return;
+	}
+        std::vector<size_t> v1_index = sort_indexes(v1);
+        std::vector<size_t> v2_index = sort_indexes(v2);
+	
+        std::vector<T> sorted_v1(v1.size(), 0);
+        std::vector<T> sorted_v2(v2.size(), 0);
+	std::transform(v1_index.begin(), v1_index.end(), sorted_v1.begin(), [&v1](size_t pos){return v1[pos];});
+	std::transform(v2_index.begin(), v2_index.end(), sorted_v2.begin(), [&v2](size_t pos){return v2[pos];});
+	
+	auto v1_begin = sorted_v1.begin();
+	
+	for(uint32_t v2_ind = 0; v2_ind != v2.size(); v2_ind++){
+		T v2_temp = sorted_v2[v2_ind];
+		auto v1_iter = std::lower_bound(v1_begin, sorted_v1.end(), v2_temp);
+		
+		if( v1_iter != sorted_v1.end() && !(v2_temp < *v1_iter)){
+			k1.push_back(v1_index[v1_iter - sorted_v1.begin()]);
+			k2.push_back(v2_index[v2_ind]);
+			v1_begin = v1_iter;
+		}
+	}
+        // order sometimes matters	
+	//std::sort(k1.begin(), k1.end());
+	//std::sort(k2.begin(), k2.end());
+}
+
+
 #endif

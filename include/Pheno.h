@@ -45,10 +45,11 @@ public:
     uint8_t extract_genobit(uint8_t * const buf, int index_in_keep);
     vector<uint32_t>& get_index_keep();
     void get_pheno(vector<string>& ids, vector<double>& pheno);
+    void filter_keep_index(vector<uint32_t>& k_index);
 
     static int registerOption(map<string, vector<string>>& options);
     static void processMain();
-    static vector<string> read_sublist(string sublist_file, vector<vector<double>> *phenos = NULL);
+    static vector<string> read_sublist(string sublist_file, vector<vector<double>> *phenos = NULL, vector<int> *keep_row = NULL);
     static void addOneFileOption(string key_store, string append_string, string key_name,
                                  map<string, vector<string>> options_in, map<string, string>& options);
 
@@ -75,6 +76,7 @@ private:
     void update_pheno(vector<string>& indi_marks, vector<double>& phenos);
     void init_mask_block();
     void init_bmask_block();
+    void reinit();
     int block_num;
     vector<uint32_t> keep_block_index;
     vector<uint64_t> mask_items;
