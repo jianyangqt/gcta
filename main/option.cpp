@@ -1177,6 +1177,7 @@ void option(int option_num, char* option_str[])
             }
             if (!update_refA_file.empty()) pter_gcta->update_ref_A(update_refA_file);
             if (LD) pter_gcta->read_LD_target_SNPs(LD_file);
+            if(mtcojo_flag) pter_gcta->read_mtcojofile(mtcojolist_file, clump_thresh1, gwas_thresh);
             pter_gcta->read_bedfile(bfile + ".bed");
             if (!update_impRsq_file.empty()) pter_gcta->update_impRsq(update_impRsq_file);
             if (!update_freq_file.empty()) pter_gcta->update_freq(update_freq_file);

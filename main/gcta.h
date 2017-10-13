@@ -170,9 +170,9 @@ public:
     
     // mtCOJO
     void mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, double clump_thresh1, double clump_thresh2, int clump_wind_size, double clump_r2_thresh, double gwas_thresh, double heidi_thresh, int nsnp_heidi, int nsnp_gsmr, bool heidi_flag);
-    void read_mtcojofile(string mtcojolist_file, string &target_pheno, vector<string> &covar_pheno, int &ncovar, vector<string> &snplist, vector<vector<string>> &snp_a1, vector<vector<string>> &snp_a2, vector<vector<double>> &snp_freq,  vector<vector<double>> &snp_b, vector<vector<double>> &snp_se, vector<vector<double>> &snp_pval, vector<vector<double>> &snp_n, vector<double> &popu_prev, vector<double> &smpl_prev);
-    vector<string> clumping_meta(vector<string> snplist, vector<int> include_snp, vector<double> snp_pval, double pval_thresh1, double pval_thresh2, int wind_size, double r2_thresh);
-    vector<double> gsmr_meta(vector<string> snplist, vector<int> include_snp, map<string,int> snp_sumdata_map, vector<double> bzx, vector<double> bzx_se, vector<double> bzx_pval, vector<double> bzy, vector<double> bzy_se, double pval_thresh1, double pval_thresh2, int wind_size, double r2_thresh, double gwas_thresh, double heidi_thresh, int nsnp_gsmr, int nsnp_heidi, bool flag_heidi) ;
+    void read_mtcojofile(string mtcojolist_file, double clump_thresh1, double gwas_thresh);
+    vector<string> clumping_meta(eigenVector snp_pval, double pval_thresh1, double pval_thresh2, int wind_size, double r2_thresh);
+    vector<double> gsmr_meta(eigenVector bzx, eigenVector bzx_se, eigenVector bzx_pval, eigenVector bzy, eigenVector bzy_se, double pval_thresh1, double pval_thresh2, int wind_size, double r2_thresh, double gwas_thresh, double heidi_thresh, int nsnp_gsmr, int nsnp_heidi, bool flag_heidi) ;
 
 
     /////////////////////////
@@ -563,6 +563,22 @@ private:
     eigenVector _D_N;
     eigenSparseMat _Z_N;
     eigenSparseMat _Z;
+    
+    // mtCOJO analysis
+    string _target_pheno_name="";
+    vector<string> _meta_snp_name;
+    vector<int> _meta_remain_snp;
+    map<string,int> _meta_snp_name_map;
+    vector<string> _covar_pheno_name;
+    vector<string> _meta_snp_a1;
+    vector<string> _meta_snp_a2;
+    eigenVector _meta_snp_freq;
+    eigenMatrix _meta_snp_b;
+    eigenMatrix _meta_snp_se;
+    eigenMatrix _meta_snp_pval;
+    eigenMatrix _meta_snp_n_o;
+    vector<double> _meta_popu_prev;
+    vector<double> _meta_smpl_prev;
     
     // gene-trait association
     map<string, int> _probe_name_map;
