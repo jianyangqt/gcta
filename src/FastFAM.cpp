@@ -70,7 +70,7 @@ FastFAM::FastFAM(Geno *geno){
         std::iota(remain_index.begin(), remain_index.end(), 0);
     }
 
-    vector<string> remain_ids(remain_index.size(), 0);
+    vector<string> remain_ids(remain_index.size());
     std::transform(remain_index.begin(), remain_index.end(), remain_ids.begin(), [&ids](size_t pos){return ids[pos];});
 
     // read fam
@@ -105,7 +105,7 @@ FastFAM::FastFAM(Geno *geno){
 
 
     // standerdize the phenotype, and condition the covar
-    VectorXd phenoVec = Map<VectorXd> (remain_phenos.data(), remain_phenos.size());
+    phenoVec = Map<VectorXd> (remain_phenos.data(), remain_phenos.size());
     // Center
     double phenoVec_mean = phenoVec.mean();
     phenoVec -= VectorXd::Ones(phenoVec.size()) * phenoVec_mean;
@@ -181,7 +181,7 @@ void FastFAM::readFAM(string filename, SpMat& fam, const vector<string> &ids, ve
     //Fix index order to outside, that fix the phenotype, covar order
     //We should avoid reorder the GRM sparese, this costs much time. 
     vector<size_t> index_list_order = sort_indexes(fam_index);
-    vector<uint32_t> ordered_fam_index(fam_index.size(),0);
+    vector<uint32_t> ordered_fam_index(fam_index.size(), 0);
     vector<uint32_t> ordered_remain_index(fam_index.size(), 0);
     std::transform(index_list_order.begin(), index_list_order.end(), ordered_fam_index.begin(), [&fam_index](size_t pos){
             return fam_index[pos];});
@@ -367,7 +367,7 @@ int FastFAM::registerOption(map<string, vector<string>>& options_in){
         options_in.erase(curFlag);
     }
 
-    curFlag = "--concovar";
+    curFlag = "--qcovar";
     if(options_in.find(curFlag) != options_in.end()){
         if(options_in[curFlag].size() == 1){
             options["concovar"] = options_in[curFlag][0];

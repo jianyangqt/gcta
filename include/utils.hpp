@@ -78,14 +78,14 @@ void vector_commonIndex(const std::vector<T>& v1, const std::vector<T>& v2, std:
 		std::iota(k1.begin(), k1.end(), 0);
 		
 		k2.resize(v2.size());
-		std::iota(k2.begin(), k2.begin(), 0);
+		std::iota(k2.begin(), k2.end(), 0);
 		return;
 	}
         std::vector<size_t> v1_index = sort_indexes(v1);
         std::vector<size_t> v2_index = sort_indexes(v2);
 	
-        std::vector<T> sorted_v1(v1.size(), 0);
-        std::vector<T> sorted_v2(v2.size(), 0);
+        std::vector<T> sorted_v1(v1.size());
+        std::vector<T> sorted_v2(v2.size());
 	std::transform(v1_index.begin(), v1_index.end(), sorted_v1.begin(), [&v1](size_t pos){return v1[pos];});
 	std::transform(v2_index.begin(), v2_index.end(), sorted_v2.begin(), [&v2](size_t pos){return v2[pos];});
 	
