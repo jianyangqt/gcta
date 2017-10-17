@@ -983,13 +983,27 @@ void option(int option_num, char* option_str[])
             ref_ld_flag = true;
             ref_ld_dirt = argv[++i];
             chbuf = ref_ld_dirt.back();
-            if(chbuf!=ref_ld_dirt.at(0)) ref_ld_dirt = ref_ld_dirt + ref_ld_dirt.at(0);
+
+#ifdef _WIN32
+	    if(chbuf != '\\') ref_ld_dirt = ref_ld_dirt + '\\';
+#elif defined __linux__ || defined __APPLE__
+	    if(chbuf != '/') ref_ld_dirt = ref_ld_dirt + '/';
+#else
+#error Only Windows, Mac and Linux are supported.
+#endif
             cout << "--ref-ld-chr " << ref_ld_dirt << endl;
         } else if (strcmp(argv[i], "--w-ld-chr") == 0) {
             w_ld_flag = true;
             w_ld_dirt = argv[++i];
             chbuf = w_ld_dirt.back();
-            if(chbuf!=w_ld_dirt.at(0)) w_ld_dirt = w_ld_dirt + w_ld_dirt.at(0);
+#ifdef _WIN32
+            if(chbuf != '\\') w_ld_dirt = w_ld_dirt + '\\';
+#elif defined __linux__ || defined __APPLE__
+            if(chbuf != '/') w_ld_dirt = w_ld_dirt + '/';
+#else
+#error Only Windows, Mac and Linux are supported.
+#endif
+
             cout << "--w-ld-chr " << w_ld_dirt << endl;
         } else if (strcmp(argv[i], "--gwas-thresh") == 0) {
             gwas_thresh = atof(argv[++i]);
