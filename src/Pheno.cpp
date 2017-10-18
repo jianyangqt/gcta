@@ -93,6 +93,9 @@ void Pheno::reinit(){
 vector<string> Pheno::read_sublist(string sublist_file, vector<vector<double>> *phenos, vector<int> *keep_row_p) {
     vector<string> subject_list;
     std::ifstream sublist(sublist_file.c_str());
+    if(!sublist.good()){
+        LOGGER.e(0, "cann't read [" + sublist_file + "]");
+    }
     vector<int> keep_row;
     string err_file = "the subject list file [" + sublist_file + "]";
 

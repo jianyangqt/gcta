@@ -79,26 +79,29 @@ FastFAM::FastFAM(Geno *geno){
     SpMat fam;
     readFAM(ffam_file, fam, remain_ids, remain_index_fam);
 
+    int n_remain_index_fam = remain_index_fam.size();
+
     //reorder phenotype, covar
-    vector<double> remain_phenos(remain_index_fam.size());
-    for(int i = 0; i != remain_index_fam.size(); i++){
+    vector<double> remain_phenos(n_remain_index_fam);
+    for(int i = 0; i != n_remain_index_fam; i++){
         remain_phenos[i] = phenos[remain_index[remain_index_fam[i]]];
     }
 
     vector<double> remain_covar;
     if(has_qcovar){
-        vector<uint32_t> remain_index_covar_fam(remain_index_fam.size(), 0);
+        vector<uint32_t> remain_index_covar_fam(n_remain_index_fam, 0);
         std:transform(remain_index_fam.begin(), remain_index_fam.end(), remain_index_covar_fam.begin(), 
             [&remain_index, &remain_index_covar](size_t pos){
                 ptrdiff_t vector_pos = std::find(remain_index.begin(), remain_index.end(), pos) - remain_index.begin();
                 return remain_index_covar[vector_pos];
             });
 
-        remain_covar.resize(remain_index_fam.size() * v_covar.size());
+        remain_covar.resize(n_remain_index_fam * v_covar.size());
 
         for(int j = 0; j != v_covar.size(); j++){
-            for(int i = 0; i != remain_index_fam.size(); i++){
-                remain_covar[j * v_covar.size() + i] = v_covar[j][remain_index_covar_fam[i]];
+            int base_index = j * n_remain_index_fam;
+            for(int i = 0; i != n_remain_index_fam; i++){
+                remain_covar[base_index + i] = v_covar[j][remain_index_covar_fam[i]];
             }
         }
     }
@@ -132,7 +135,7 @@ FastFAM::FastFAM(Geno *geno){
             for(SpMat::InnerIterator it(fam, k); it; ++it){
                 if(it.row() < it.col()){
                     Aij.push_back(it.value());
-                    Zij.push_back(phenos[it.row()] * phenos[it.col()]);
+                    Zij.push_back(phenoVec[it.row()] * phenoVec[it.col()]);
                 }
             }
         }
