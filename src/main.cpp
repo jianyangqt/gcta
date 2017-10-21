@@ -181,6 +181,10 @@ int main(int argc, char *argv[]){
         processMains[mains[0]]();
     }else{
         try{
+            if(options.find("--mtcojo") != options.end()){
+                LOGGER.open(options["out"][0] + ".log");
+                out_ver(true);
+            }
             option(argc, argv);
         }catch (const string &err_msg) {
             LOGGER.e(0, err_msg);         

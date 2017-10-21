@@ -18,6 +18,7 @@
 
 #include <stdlib.h>
 #include "gcta.h"
+#include "Logger.h"
 
 void option(int option_num, char* option_str[]);
 
@@ -141,6 +142,13 @@ void option(int option_num, char* option_str[])
     int make_erm_mtd = 1;
     double ecojo_p = 5e-6, ecojo_collinear = 0.9, ecojo_lambda = -1;
     bool efile_flag=false, eR_file_flag = false, ecojo_slct_flag = false, ecojo_blup_flag = false, make_erm_flag = false;
+
+    // mtCOJO
+    char chbuf = '\0';
+    string mtcojolist_file="", ref_ld_dirt="", w_ld_dirt="";
+    int nsnp_heidi=5, nsnp_gsmr=5;
+    double gwas_thresh=5e-8, heidi_thresh=0.01, clump_thresh1=5e-8, clump_thresh2=5e-8, clump_wind_size=10000, clump_r2_thresh=0.05;
+    bool heidi_flag=true, mtcojo_flag=false, heidi_thresh_flag=true, nsnp_heidi_flag=true, ref_ld_flag=false, w_ld_flag=false;
 
     int argc = option_num;
     vector<char *> argv(option_num + 2);
@@ -965,8 +973,91 @@ void option(int option_num, char* option_str[])
             thread_flag = true;
             cout << "--make-erm-alg " << make_erm_mtd << endl;
             if (make_erm_mtd < 1 || make_erm_mtd > 3) throw ("\nError: --make-erm-alg should be 1, 2 or 3.\n");
-        } 
-        else if (strcmp(argv[i], "gcta") == 0) break;
+        } else if (strcmp(argv[i], "--mtcojo") == 0) {
+            mtcojo_flag = true;
+            thread_flag = true;
+            mtcojolist_file = argv[++i];
+            cout << "--mtcojo " << mtcojolist_file << endl;
+            CommFunc::FileExist(mtcojolist_file);
+        } else if (strcmp(argv[i], "--ref-ld-chr") == 0) {
+            ref_ld_flag = true;
+            ref_ld_dirt = argv[++i];
+            chbuf = ref_ld_dirt.back();
+
+#ifdef _WIN32
+	    if(chbuf != '\\') ref_ld_dirt = ref_ld_dirt + '\\';
+#elif defined __linux__ || defined __APPLE__
+	    if(chbuf != '/') ref_ld_dirt = ref_ld_dirt + '/';
+#else
+#error Only Windows, Mac and Linux are supported.
+#endif
+            cout << "--ref-ld-chr " << ref_ld_dirt << endl;
+        } else if (strcmp(argv[i], "--w-ld-chr") == 0) {
+            w_ld_flag = true;
+            w_ld_dirt = argv[++i];
+            chbuf = w_ld_dirt.back();
+#ifdef _WIN32
+            if(chbuf != '\\') w_ld_dirt = w_ld_dirt + '\\';
+#elif defined __linux__ || defined __APPLE__
+            if(chbuf != '/') w_ld_dirt = w_ld_dirt + '/';
+#else
+#error Only Windows, Mac and Linux are supported.
+#endif
+
+            cout << "--w-ld-chr " << w_ld_dirt << endl;
+        } else if (strcmp(argv[i], "--gwas-thresh") == 0) {
+            gwas_thresh = atof(argv[++i]);
+            if(gwas_thresh <0 | gwas_thresh >1)
+                LOGGER.e(0, "--gwas-thresh, Invalid p-value threshold for GWAS summary data.");
+            cout<<"--gwas-thresh "<<gwas_thresh<<endl;
+        } else if (strcmp(argv[i], "--heidi") == 0) {
+            int heidi_buf = atoi(argv[++i]);
+            if(heidi_buf==0) {
+                heidi_flag = false;
+            } if(heidi_buf==1) {
+                heidi_flag = true;
+            } else {
+                LOGGER.e(0, "--heidi, Invalid option for HEIDI test.");
+            }
+            cout<<"--heidi "<<heidi_flag<<endl;
+        } else if (strcmp(argv[i], "--heidi-thresh") == 0) {
+            heidi_thresh_flag = true;
+            heidi_thresh = atof(argv[++i]);
+            if(heidi_thresh <0 | heidi_thresh >1)
+                LOGGER.e(0, "--heidi-thresh, Invalid p-value threshold for HEIDI test.");
+            cout<<"--heidi-thresh "<<heidi_thresh<<endl;
+        } else if (strcmp(argv[i], "--heidi-snp") == 0) {
+            nsnp_heidi_flag = true;
+            nsnp_heidi = atoi(argv[++i]);
+            if(nsnp_heidi < 0 | nsnp_heidi > 1e6)
+                LOGGER.e(0, "--heidi-snp, Invalid SNP number threshold for HEIDI test.");
+            cout<<"--heidi-snp "<<nsnp_heidi<<endl;
+        } else if (strcmp(argv[i], "--gsmr-snp") == 0) {
+            nsnp_gsmr = atoi(argv[++i]);
+            if(nsnp_gsmr < 0 | nsnp_gsmr > 1e6)
+                LOGGER.e(0, "--heidi-snp, Invalid SNP number threshold for GSMR.");
+            cout<<"--gsmr-snp "<<nsnp_gsmr<<endl;
+        } else if (strcmp(argv[i], "--clump-p1") == 0) {
+            clump_thresh1 = atof(argv[++i]);
+            if(clump_thresh1 <0 | clump_thresh1 >1)
+                LOGGER.e(0, "--clump-p1, Invalid p-value threshold for index SNPs.");
+            cout<<"--clump-p1 "<<clump_thresh1<<endl;
+        } else if (strcmp(argv[i], "--clump-p2") == 0) {
+            clump_thresh2 = atof(argv[++i]);
+            if(clump_thresh2 <0 | clump_thresh2 >1)
+                LOGGER.e(0, "--clump-p2, Invalid p-value threshold for clumped SNPs.");
+            cout<<"--clump-p2 "<<endl;
+        } else if (strcmp(argv[i], "--clump-kb") == 0) {
+            clump_wind_size = atof(argv[++i]);
+            if(clump_wind_size <0 | clump_wind_size >1e6)
+                LOGGER.e(0, "--clump-kb, Invalid window size for clumping analysis.");
+            cout<<"--clump-kb   "<<clump_wind_size<<endl;
+        } else if (strcmp(argv[i], "--clump-r2") == 0) {
+            clump_r2_thresh = atof(argv[++i]);
+            if(clump_r2_thresh <0 | clump_r2_thresh >1)
+                LOGGER.e(0, "--clump-r2, Invalid LD r2 threshold for clumping analysis.");
+            cout<<"--clump-r2 "<<clump_r2_thresh<<endl;
+        } else if (strcmp(argv[i], "gcta") == 0) break;
         else {
             stringstream errmsg;
             errmsg << "\nError: invalid option \"" << argv[i] << "\".\n";
@@ -1018,6 +1109,7 @@ void option(int option_num, char* option_str[])
         if (reml_lrt_flag) cout << "Warning: the option --reml-lrt option is disabled in this analysis." << endl; 
     }
     if(bivar_reml_flag && prevalence_flag) throw("Error: --prevalence option is not compatible with --reml-bivar option. Please check the --reml-bivar-prevalence option!");
+    if(!heidi_flag && (heidi_thresh_flag || nsnp_heidi_flag))                 LOGGER.i(0, "The HEIDI-outlier test will be not perfomed, although parameters of the HEIDI-outlier test have been assigned. ");
 
     // OpenMP
     stringstream ss;
@@ -1099,6 +1191,7 @@ void option(int option_num, char* option_str[])
             }
             if (!update_refA_file.empty()) pter_gcta->update_ref_A(update_refA_file);
             if (LD) pter_gcta->read_LD_target_SNPs(LD_file);
+            if(mtcojo_flag) pter_gcta->read_mtcojofile(mtcojolist_file, clump_thresh1, gwas_thresh);
             pter_gcta->read_bedfile(bfile + ".bed");
             if (!update_impRsq_file.empty()) pter_gcta->update_impRsq(update_impRsq_file);
             if (!update_freq_file.empty()) pter_gcta->update_freq(update_freq_file);
@@ -1124,6 +1217,8 @@ void option(int option_num, char* option_str[])
             else if (massoc_slct_flag | massoc_joint_flag) pter_gcta->run_massoc_slct(massoc_file, massoc_wind, massoc_p, massoc_collinear, massoc_top_SNPs, massoc_joint_flag, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag, massoc_mld_slct_alg);
             else if (!massoc_cond_snplist.empty()) pter_gcta->run_massoc_cond(massoc_file, massoc_cond_snplist, massoc_wind, massoc_collinear, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag);
             else if (massoc_sblup_flag) pter_gcta->run_massoc_sblup(massoc_file, massoc_wind, massoc_sblup_fac);
+            else if (mtcojo_flag)
+                pter_gcta->mtcojo(mtcojolist_file, ref_ld_dirt, w_ld_dirt, clump_thresh1, clump_thresh2, clump_wind_size, clump_r2_thresh, gwas_thresh, heidi_thresh, nsnp_heidi, nsnp_gsmr, heidi_flag);
             else if (simu_qt_flag || simu_cc) pter_gcta->GWAS_simu(bfile, simu_rep, simu_causal, simu_case_num, simu_control_num, simu_h2, simu_K, simu_seed, simu_output_causal, simu_emb_flag, simu_eff_mod);
             else if (make_bed_flag) pter_gcta->save_plink();
             else if (fst_flag) pter_gcta->Fst(subpopu_file);
