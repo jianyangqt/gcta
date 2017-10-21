@@ -17,7 +17,7 @@ T o_digital_number(T m) {
 }
 
 double quantile(const Eigen::Ref<const Eigen::VectorXd> &vals, double prob) {
-    if (prob < 0 or prob > 1) LOGGER.e(0, "Requested quantile probability is invalid");
+    if (prob < 0 || prob > 1) LOGGER.e(0, "Requested quantile probability is invalid");
     if (vals.size() == 0) return std::numeric_limits<double>::quiet_NaN();
     double index = prob * (vals.size()-1);
     unsigned below = std::floor(index), above = std::ceil(index);
