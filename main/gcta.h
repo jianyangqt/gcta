@@ -577,6 +577,7 @@ private:
     eigenMatrix _meta_snp_se;
     eigenMatrix _meta_snp_pval;
     eigenMatrix _meta_snp_n_o;
+    eigenVector _meta_vp_trait;
     vector<double> _meta_popu_prev;
     vector<double> _meta_smpl_prev;
     

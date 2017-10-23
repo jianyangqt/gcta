@@ -173,7 +173,7 @@ vector<string> read_snp_metafile(string metafile) {
     return(snplist);
 }
 
-void read_multi_metafile(string metafile, map<string, int> id_map,
+double read_multi_metafile(string metafile, map<string, int> id_map,
                          vector<string> &snp_a1, vector<string> &snp_a2,
                          eigenVector &snp_freq, eigenVector &snp_b,
                          eigenVector &snp_se, eigenVector &snp_pval,
@@ -186,7 +186,11 @@ void read_multi_metafile(string metafile, map<string, int> id_map,
     int line_number=0, snp_indx=0;
     map<string, int>::iterator iter;
     // Read the summary data
+    double pval_thresh = 0.5, h_buf = 0.0, vp_buf = 0.0, median_vp = 0.0;
+    bool missing_flag = false;
+    vector<double> vec_vp_buf;
     while(std::getline(meta_raw, strbuf)) {
+        missing_flag = false;
         line_number++;
         std::istringstream linebuf(strbuf);
         std::istream_iterator<string> begin(linebuf), end;
@@ -203,21 +207,29 @@ void read_multi_metafile(string metafile, map<string, int> id_map,
         StrFunc::to_upper(snp_a1[snp_indx]); StrFunc::to_upper(snp_a2[snp_indx]);
         valbuf =line_elements[3];
         if(valbuf!="." && valbuf!="NA" && valbuf!="NAN") snp_freq(snp_indx) = atof(valbuf.c_str());
-        else snp_freq(snp_indx) = abnormal;
+        else { snp_freq(snp_indx) = abnormal; missing_flag=true; }
         valbuf = line_elements[4];
         if(valbuf!="." && valbuf!="NA" && valbuf!="NAN") snp_b(snp_indx) = atof(valbuf.c_str());
-        else snp_b(snp_indx) = abnormal;
+        else { snp_b(snp_indx) = abnormal; missing_flag=true; }
         valbuf = line_elements[5];
         if(valbuf!="." && valbuf!="NA" && valbuf!="NAN") snp_se(snp_indx) = atof(valbuf.c_str());
-        else snp_se(snp_indx) = abnormal;
+        else { snp_se(snp_indx) = abnormal; missing_flag=true; }
         valbuf = line_elements[6];
         if(valbuf!="." && valbuf!="NA" && valbuf!="NAN") snp_pval(snp_indx) = atof(valbuf.c_str());
-        else snp_pval(snp_indx) = abnormal;
+        else { snp_pval(snp_indx) = abnormal; missing_flag=true; }
         valbuf = line_elements[7];
         if(valbuf!="." && valbuf!="NA" && valbuf!="NAN") snp_n(snp_indx) = atof(valbuf.c_str());
-        else snp_n(snp_indx) = abnormal;
+        else { snp_n(snp_indx) = abnormal; missing_flag=true; }
+        
+        if(!missing_flag & snp_pval(snp_indx) >= pval_thresh) {
+            h_buf = 2 * snp_freq(snp_indx) * ( 1- snp_freq(snp_indx) );
+            vp_buf = h_buf * snp_n(snp_indx) * snp_se(snp_indx) * snp_se(snp_indx);
+            vec_vp_buf.push_back(vp_buf);
+        }
     }
     meta_raw.close();
+    median_vp = CommFunc::median(vec_vp_buf);
+    return(median_vp);
 }
 
 vector<string> remove_bad_snps(vector<string> snp_name, vector<int> snp_remain, vector<vector<string>> &snp_a1, vector<vector<string>> &snp_a2, eigenMatrix &snp_freq,  eigenMatrix &snp_b, eigenMatrix snp_se, eigenMatrix snp_pval, eigenMatrix snp_n, map<string,int> plink_snp_name_map, vector<string> snp_ref_a1, vector<string> snp_ref_a2, string target_pheno, vector<string> covar_pheno, int ncovar, string outfile_name) {
@@ -392,8 +404,11 @@ void gcta::read_mtcojofile(string mtcojolist_file, double clump_thresh1, double 
     
     eigenVector snp_freq_buf(nsnp), snp_b_buf(nsnp), snp_se_buf(nsnp), snp_pval_buf(nsnp), snp_n_buf(nsnp);
 
+    _meta_vp_trait.resize(ncovar+1);
     // Target trait
-    read_multi_metafile(target_pheno_file, _meta_snp_name_map,  snp_a1[0], snp_a2[0], snp_freq_buf, snp_b_buf, snp_se_buf, snp_pval_buf, snp_n_buf);
+    _meta_vp_trait(0) = read_multi_metafile(target_pheno_file, _meta_snp_name_map,  snp_a1[0], snp_a2[0], snp_freq_buf, snp_b_buf, snp_se_buf, snp_pval_buf, snp_n_buf);
+    
+    if(_meta_vp_trait(0) < 0) LOGGER.e(0, "Negative phenotypic variance of the target trait, " + _covar_pheno_name[0] + ".");
     
     snp_freq.col(0) = snp_freq_buf;
     _meta_snp_b.col(0) = snp_b_buf;
@@ -403,7 +418,9 @@ void gcta::read_mtcojofile(string mtcojolist_file, double clump_thresh1, double 
     
     // Covariates
     for(i=0; i<ncovar; i++) {
-        read_multi_metafile(covar_pheno_file[i], _meta_snp_name_map,  snp_a1[i+1], snp_a2[i+1], snp_freq_buf, snp_b_buf, snp_se_buf, snp_pval_buf, snp_n_buf);
+        _meta_vp_trait(i+1) = read_multi_metafile(covar_pheno_file[i], _meta_snp_name_map,  snp_a1[i+1], snp_a2[i+1], snp_freq_buf, snp_b_buf, snp_se_buf, snp_pval_buf, snp_n_buf);
+        
+        if(_meta_vp_trait(i+1) < 0) LOGGER.e(0, "Negative phenotypic variance of the " + to_string(i+1) +"th covariate, " + _covar_pheno_name[i+1] + ".");
         
         snp_freq.col(i+1) = snp_freq_buf;
         _meta_snp_b.col(i+1) = snp_b_buf;
@@ -1018,13 +1035,16 @@ void mtcojo_ldsc(eigenMatrix snp_b, eigenMatrix snp_se, eigenMatrix snp_n, int n
         ldsc_intercept(i,i) = rst_ldsc[0];
 
         if(rst_ldsc[1]>0) {
-            if(popu_prev[i] > 0 ) {
+            ldsc_slope_o(i) = rst_ldsc[1];
+            ldsc_slope(i,i) = rst_ldsc[1];
+/*            if(popu_prev[i] > 0 ) {
                 ldsc_slope_o(i) = rst_ldsc[1];
                 ldsc_slope(i,i) = transform_hsq_L(smpl_prev[i], popu_prev[i], rst_ldsc[1]);
             } else {
                 ldsc_slope_o(i) = rst_ldsc[1];
                 ldsc_slope(i,i) = rst_ldsc[1];
             }
+*/
         } else {
             if(i==0) {
                 LOGGER.e(0, "The analysis stopped, because of negative heritability estimate of the target trait. Exiting ...");
@@ -1062,7 +1082,7 @@ eigenMatrix mtcojo_cond_single_covar(eigenVector bzy, eigenVector bzy_se,  eigen
     return mtcojo_est;
 }
 
-eigenMatrix mtcojo_cond_multiple_covars(eigenVector bzy, eigenVector bzy_se,  eigenMatrix bzx, eigenMatrix bzx_se, eigenVector bxy, eigenMatrix ldsc_intercept, eigenMatrix ldsc_slope, int nsnp, int ncovar) {
+eigenMatrix mtcojo_cond_multiple_covars(eigenVector bzy, eigenVector bzy_se,  eigenMatrix bzx, eigenMatrix bzx_se, eigenVector bxy, eigenMatrix ldsc_intercept, eigenMatrix ldsc_slope, eigenVector vp_trait, int nsnp, int ncovar) {
     int i=0, j=0;
     eigenMatrix mtcojo_est(nsnp, 3);
     
@@ -1071,7 +1091,7 @@ eigenMatrix mtcojo_cond_multiple_covars(eigenVector bzy, eigenVector bzy_se,  ei
     MatrixXd d_mat = MatrixXd::Zero(ncovar,ncovar), r_mat = MatrixXd::Identity(ncovar, ncovar);
     
     for(i=0; i<ncovar; i++) {
-        d_mat(i,i) = sqrt(ldsc_slope(i+1, i+1));
+        d_mat(i,i) = sqrt(ldsc_slope(i+1, i+1)*vp_trait(i+1));
         for(j=1; j<ncovar; j++) {
             if(i==j) continue;
             r_mat(i,j) = r_mat(j,i) = ldsc_slope(i+1, j+1);
@@ -1161,7 +1181,7 @@ void gcta::mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, 
     if(ncovar==1) {
         mtcojo_est = mtcojo_cond_single_covar(snp_bzy, snp_bzy_se, snp_bzx, snp_bzx_se, bxy_est[0], ldsc_intercept, ldsc_slope, nsnp);
     } else {
-        mtcojo_est = mtcojo_cond_multiple_covars(snp_bzy, snp_bzy_se, snp_bzx, snp_bzx_se, bxy_est, ldsc_intercept, ldsc_slope, nsnp, ncovar);
+        mtcojo_est = mtcojo_cond_multiple_covars(snp_bzy, snp_bzy_se, snp_bzx, snp_bzx_se, bxy_est, ldsc_intercept, ldsc_slope, _meta_vp_trait, nsnp, ncovar);
     }
    LOGGER.i(0, "mtCOJO analysis completed ...");
     
