@@ -973,11 +973,11 @@ void option(int option_num, char* option_str[])
             thread_flag = true;
             cout << "--make-erm-alg " << make_erm_mtd << endl;
             if (make_erm_mtd < 1 || make_erm_mtd > 3) throw ("\nError: --make-erm-alg should be 1, 2 or 3.\n");
-        } else if (strcmp(argv[i], "--mtcojo") == 0) {
+        } else if (strcmp(argv[i], "--mtcojo-file") == 0) {
             mtcojo_flag = true;
             thread_flag = true;
             mtcojolist_file = argv[++i];
-            cout << "--mtcojo " << mtcojolist_file << endl;
+            cout << "--mtcojo-file " << mtcojolist_file << endl;
             CommFunc::FileExist(mtcojolist_file);
         } else if (strcmp(argv[i], "--ref-ld-chr") == 0) {
             ref_ld_flag = true;
