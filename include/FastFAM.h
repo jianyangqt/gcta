@@ -19,12 +19,17 @@
 #ifndef GCTA2_FASTFAM_H
 #define GCTA2_FASTFAM_H
 
+#ifndef EIGEN_USE_MKL_ALL
+#define EIGEN_USE_MKL_ALL
+#endif
+
 #include "Logger.h"
 #include "Geno.h"
 #include "Eigen/Dense"
 #include "Eigen/Sparse"
 #include <vector>
 #include <mutex>
+#include <omp.h>
 
 using Eigen::Map;
 using Eigen::MatrixXd;

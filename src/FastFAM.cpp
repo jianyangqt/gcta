@@ -32,6 +32,7 @@ map<string, double> FastFAM::options_d;
 vector<string> FastFAM::processFunctions;
 
 FastFAM::FastFAM(Geno *geno){
+    omp_set_num_threads(THREADS.getThreadCount());
     this->geno = geno;
     num_indi = geno->pheno->count_keep();
     num_marker = geno->marker->count_extract();
@@ -51,6 +52,7 @@ FastFAM::FastFAM(Geno *geno){
 
     vector<string> ids;
     geno->pheno->get_pheno(ids, phenos);
+    LOGGER.i(0, "After removing NAs in phenotype, there are " + to_string(ids.size()) + " subjects remained");
     if(ids.size() != num_indi){
         LOGGER.e(0, "Phenotype is not equal, this shall be a flag bug");
     }
@@ -279,6 +281,7 @@ void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
 void FastFAM::calculate_fam(uint8_t *buf, int num_marker){
     // Memory fam_size * 2 * 4 + (N * 8 * 2 ) * thread_num + M * 3 * 8  B
     int num_thread = THREADS.getThreadCount() + 1; 
+    omp_set_num_threads(1);
 
     int num_marker_part = (num_marker + num_thread - 1) / num_thread;
     for(int index = 0; index != num_thread - 1; index++){
