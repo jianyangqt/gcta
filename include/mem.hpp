@@ -26,4 +26,11 @@
 #define posix_mem_free free
 #endif
 
+// These functions are only for test purpose, don't forget to remove calls
+int getVMemKB();
+int getMemKB();
+
+
 #endif //GCTA2_MEM_HPP
+
+
