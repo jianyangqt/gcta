@@ -32,7 +32,7 @@ map<string, double> FastFAM::options_d;
 vector<string> FastFAM::processFunctions;
 
 FastFAM::FastFAM(Geno *geno){
-    omp_set_num_threads(THREADS.getThreadCount());
+    Eigen::setNbThreads(THREADS.getThreadCount() + 1);
     this->geno = geno;
     num_indi = geno->pheno->count_keep();
     num_marker = geno->marker->count_extract();
@@ -92,37 +92,43 @@ FastFAM::FastFAM(Geno *geno){
     vector<double> remain_covar;
     if(has_qcovar){
         vector<uint32_t> remain_index_covar_fam(n_remain_index_fam, 0);
-        std:transform(remain_index_fam.begin(), remain_index_fam.end(), remain_index_covar_fam.begin(), 
+        int n_v_covar = v_covar.size();
+        std::transform(remain_index_fam.begin(), remain_index_fam.end(), remain_index_covar_fam.begin(), 
             [&remain_index, &remain_index_covar](size_t pos){
                 ptrdiff_t vector_pos = std::find(remain_index.begin(), remain_index.end(), pos) - remain_index.begin();
                 return remain_index_covar[vector_pos];
             });
 
-        remain_covar.resize(n_remain_index_fam * v_covar.size());
+        remain_covar.resize(n_remain_index_fam * (n_v_covar + 1));
 
-        for(int j = 0; j != v_covar.size(); j++){
-            int base_index = j * n_remain_index_fam;
+        for(int j = 0; j != n_v_covar; j++){
+            int base_index = (j + 1) * n_remain_index_fam;
             for(int i = 0; i != n_remain_index_fam; i++){
                 remain_covar[base_index + i] = v_covar[j][remain_index_covar_fam[i]];
             }
         }
-    }
 
+        for(int i = 0; i != n_remain_index_fam; i++){
+            remain_covar[i] = 1.0;
+        }
+    }
 
     // standerdize the phenotype, and condition the covar
     phenoVec = Map<VectorXd> (remain_phenos.data(), remain_phenos.size());
+    // condition the covar
+    if(has_qcovar){
+        MatrixXd concovar = Map<Matrix<double, Dynamic, Dynamic, ColMajor>>(remain_covar.data(), remain_phenos.size(), v_covar.size() + 1);
+        conditionCovarReg(phenoVec, concovar);
+    }
+
     // Center
     double phenoVec_mean = phenoVec.mean();
     phenoVec -= VectorXd::Ones(phenoVec.size()) * phenoVec_mean;
 
-    // condition the covar
-    if(has_qcovar){
-        MatrixXd concovar = Map<Matrix<double, Dynamic, Dynamic, ColMajor>>(remain_covar.data(), remain_phenos.size(), v_covar.size());
-        conditionCovarReg(phenoVec, concovar);
-    }
-    //std phenotype
-    double pheno_sd = sqrt(phenoVec.array().square().sum() / (phenoVec.size() - 1));
-    phenoVec /= pheno_sd;
+    double Vpheno = phenoVec.array().square().sum() / (phenoVec.size() - 1);
+    //phenoVec /= pheno_sd;
+    
+    LOGGER.i(0, "DEBUG: conditioned Pheno (first 5)");
 
     for(int i = 0; i < 5; i++){
         LOGGER.i(0, to_string(phenoVec[i]));
@@ -132,7 +138,7 @@ FastFAM::FastFAM(Geno *geno){
     vector<double> Zij;
  
     if(flag_est_GE){
-        LOGGER.i(0, "Estimate VG with HE regression");
+        LOGGER.i(0, "Estimate VG by HE regression");
         for(int k = 0; k < fam.outerSize(); ++k){
             for(SpMat::InnerIterator it(fam, k); it; ++it){
                 if(it.row() < it.col()){
@@ -143,8 +149,8 @@ FastFAM::FastFAM(Geno *geno){
         }
 
         VG = HEreg(Zij, Aij);
-        VR = 1.0 - VG;
-        LOGGER.i(2, "VG=" + to_string(VG) + ", VE=" + to_string(VR));
+        VR = Vpheno - VG;
+        LOGGER.i(2, "Vg=" + to_string(VG) + ", Ve=" + to_string(VR));
     }
 
     inverseFAM(fam, VG, VR);
@@ -153,9 +159,12 @@ FastFAM::FastFAM(Geno *geno){
 void FastFAM::conditionCovarReg(VectorXd &pheno, MatrixXd &covar){
     MatrixXd t_covar = covar.transpose();
     VectorXd beta = (t_covar * covar).ldlt().solve(t_covar * pheno);
+    std::cout << "DEBUG: betas" << std::endl;
+    std::cout << beta << std::endl;
+    //VectorXd beta = covar.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(pheno);
     pheno -= covar * beta;
-    double pheno_mean = pheno.mean();
-    pheno -= (VectorXd::Ones(pheno.size())) * pheno_mean;
+    //double pheno_mean = pheno.mean();
+    //pheno -= (VectorXd::Ones(pheno.size())) * pheno_mean;
 }
 
 double FastFAM::HEreg(vector<double> &Zij, vector<double> &Aij){
@@ -172,7 +181,24 @@ double FastFAM::HEreg(vector<double> &Zij, vector<double> &Aij){
         LOGGER.e(0, "can't solve the regression");
     }
     double AZ = (AVec.transpose() * ZVec)(0, 0);
-    return (1.0 / A2v) * AZ;
+    double hsq = (1.0 / A2v) * AZ;
+
+    VectorXd RZVec = ZVec - AVec * hsq;
+
+    double delta = RZVec.array().square().sum() / (RZVec.size() - 2);
+    double se = sqrt(delta / A2v);
+
+    double z = hsq / se;
+
+    double p = StatFunc::pchisq(z * z, 1);
+
+    LOGGER.i(2, "hsq: " + to_string(hsq) + ", se: " + to_string(se) +  ", P: " + to_string(p));
+
+    if(p > 0.05){
+        LOGGER.e(0, "the number of relatives is not large enough to run fastFAM");
+    }
+
+    return hsq;
 }
     
 
@@ -259,6 +285,9 @@ void FastFAM::readFAM(string filename, SpMat& fam, const vector<string> &ids, ve
 }
 
 void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
+    LOGGER.i(0, "Inversing the FAM, this may take long time");
+    LOGGER.i(0, "Inverse Threads " + to_string(Eigen::nbThreads()));
+    LOGGER.ts("INVERSE_FAM");
     SpMat eye(fam.rows(), fam.cols());
     eye.setIdentity();
 
@@ -273,15 +302,14 @@ void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
         LOGGER.e(0, "can't inverse the FAM");
     }
 
-    LOGGER.i(0, "Inversing the FAM, this may take long time");
     V_inverse = solver.solve(eye);
+    LOGGER.i(0, "FAM inversed in " + to_string(LOGGER.tp("INVERSE_FAM")) + " seconds");
 }
 
 
 void FastFAM::calculate_fam(uint8_t *buf, int num_marker){
     // Memory fam_size * 2 * 4 + (N * 8 * 2 ) * thread_num + M * 3 * 8  B
     int num_thread = THREADS.getThreadCount() + 1; 
-    omp_set_num_threads(1);
 
     int num_marker_part = (num_marker + num_thread - 1) / num_thread;
     for(int index = 0; index != num_thread - 1; index++){
@@ -395,6 +423,7 @@ void FastFAM::processMain(){
             FastFAM ffam(&geno);
 
             LOGGER.i(0, "Running fastFAM...");
+            Eigen::setNbThreads(1);
             callBacks.push_back(bind(&Geno::freq, &geno, _1, _2));
             callBacks.push_back(bind(&FastFAM::calculate_fam, &ffam, _1, _2));
             geno.loop_block(callBacks);
