@@ -146,7 +146,7 @@ void option(int option_num, char* option_str[])
     // mtCOJO
     char chbuf = '\0';
     string mtcojolist_file="", ref_ld_dirt="", w_ld_dirt="";
-    int nsnp_heidi=5, nsnp_gsmr=5;
+    int nsnp_heidi=10, nsnp_gsmr=10;
     double gwas_thresh=5e-8, heidi_thresh=0.01, clump_thresh1=5e-8, clump_thresh2=5e-8, clump_wind_size=10000, clump_r2_thresh=0.05;
     bool heidi_flag=true, mtcojo_flag=false, heidi_thresh_flag=true, nsnp_heidi_flag=true, ref_ld_flag=false, w_ld_flag=false;
 
