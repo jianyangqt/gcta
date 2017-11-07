@@ -232,8 +232,10 @@ void Pheno::get_pheno(vector<string>& ids, vector<double>& pheno){
     pheno.clear();
     pheno.reserve(index_keep.size());
     for(auto& index : index_keep){
-        ids.push_back(mark[index]);
-        pheno.push_back(this->pheno[index]);
+        if(std::isfinite(this->pheno[index])){
+            ids.push_back(mark[index]);
+            pheno.push_back(this->pheno[index]);
+        }
     }
 }
 

@@ -11,6 +11,7 @@
  */
 
 #include "gcta.h"
+#include "mem.hpp"
 
 void gcta::set_reml_force_inv()
 {
@@ -1273,6 +1274,7 @@ void gcta::calcu_Hi(eigenMatrix &P, eigenMatrix &Hi)
 {
     int i = 0, j = 0, k = 0, l = 0;
     double d_buf = 0.0;
+    cout << "Before calcu_Hi: " << getVMemKB() << " " << getMemKB(); 
 
     // Calculate PA
     vector<eigenMatrix> PA(_r_indx.size());
@@ -1308,6 +1310,7 @@ void gcta::calcu_Hi(eigenMatrix &P, eigenMatrix &Hi)
         else throw ("Error: the information matrix is not invertible.");
     }
     delete[] d_bufs;
+    cout << "After calcu_Hi: " << getVMemKB() << " " << getMemKB(); 
 }
 
 // use Fisher-scoring to estimate variance component
@@ -1389,6 +1392,7 @@ void gcta::em_reml(eigenMatrix &P, eigenVector &Py, eigenVector &prev_varcmp, ei
     int i = 0;
 
     // Calculate trace(PA)
+    cout << "Before em_reml: " << getVMemKB() << " " << getMemKB(); 
     eigenVector tr_PA;
     calcu_tr_PA(P, tr_PA);  // extremely slow
     //cout << "calcu_tr_PA returned" << endl;
@@ -1396,13 +1400,14 @@ void gcta::em_reml(eigenMatrix &P, eigenVector &Py, eigenVector &prev_varcmp, ei
     Py = P*_y;
     eigenVector R(_r_indx.size());
     #pragma omp parallel for private(i)
-    for (int i = 0; i < _r_indx.size(); i++) {
+    for (i = 0; i < _r_indx.size(); i++) {
         //cout << "EM reml " << i << endl;
         if (_bivar_reml || _within_family) R(i) = (Py.transpose()*(_Asp[_r_indx[i]]) * Py)(0, 0);
         else R(i) = (Py.transpose()*(_A[_r_indx[i]]) * Py)(0, 0);
         // Calculate Variance component;
         varcmp(i) = prev_varcmp(i) - prev_varcmp(i) * prev_varcmp(i) * (tr_PA(i) -  R(i)) / _n;
     }
+    cout << "After em_reml: " << getVMemKB() << " " << getMemKB(); 
 
     // Calculate variance component
     //for (i = 0; i < _r_indx.size(); i++) varcmp(i) = (prev_varcmp(i) * _n - prev_varcmp(i) * prev_varcmp(i) * tr_PA(i) + prev_varcmp(i) * prev_varcmp(i) * R(i)) / _n;
@@ -1416,6 +1421,8 @@ void gcta::calcu_tr_PA(eigenMatrix &P, eigenVector &tr_PA) {
     int i = 0, l = 0;
     double d_buf = 0.0;
     int k = 0;
+
+    cout << "Before calcu_tr_PA: " << getVMemKB() << " " << getMemKB(); 
 
     // Calculate trace(PA)
     tr_PA.resize(_r_indx.size());
@@ -1456,6 +1463,8 @@ void gcta::calcu_tr_PA(eigenMatrix &P, eigenVector &tr_PA) {
         }
     }
     delete[] d_bufs;
+
+    cout << "After calcu_tr_PA: " << getVMemKB() << " " << getMemKB(); 
 }
 
 // blue estimate of SNP effect
