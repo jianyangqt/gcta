@@ -151,6 +151,7 @@ FastFAM::FastFAM(Geno *geno){
         VG = HEreg(Zij, Aij);
         VR = Vpheno - VG;
         LOGGER.i(2, "Vg=" + to_string(VG) + ", Ve=" + to_string(VR));
+        LOGGER.i(2, "hsq=" + to_string(VG/Vpheno));
     }
 
     inverseFAM(fam, VG, VR);
@@ -192,7 +193,7 @@ double FastFAM::HEreg(vector<double> &Zij, vector<double> &Aij){
 
     double p = StatFunc::pchisq(z * z, 1);
 
-    LOGGER.i(2, "hsq: " + to_string(hsq) + ", se: " + to_string(se) +  ", P: " + to_string(p));
+    LOGGER.i(2, "beta: " + to_string(hsq) + ", se: " + to_string(se) +  ", P: " + to_string(p));
 
     if(p > 0.05){
         LOGGER.e(0, "the number of relatives is not large enough to run fastFAM");
