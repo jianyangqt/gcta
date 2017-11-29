@@ -726,22 +726,28 @@ void gcta::run_massoc_sblup(string metafile, int wind_size, double lambda)
 bool gcta::massoc_sblup(double lambda, eigenVector &bJ)
 {
     int i = 0, j = 0, k = 0, n = _keep.size(), m = _include.size();
-    double prod = 0.0;
-    eigenVector D(_include.size());
-    // change here
-    eigenVector invsqrtvar(_include.size());
-    eigenSparseMat B(_include.size(), _include.size());
+    //eigenVector D(_include.size());
+    //eigenVector invsqrtvar(_include.size());
+    eigenVector Xty(_include.size());
+    for(int i = 0; i < _include.size(); i++){
+        //D[i] = _MSX[i] * _N_o[i];
+        //invsqrtvar[i] = 1/sqrt(_MSX[i]);
+        Xty[i] = sqrt(_MSX[i]) * _N_o[i] * _beta[i];
+    }
+    //eigenVector Xty = invsqrtvar.array() * D.array() * _beta.array();
 
+
+    /*
     vector<int> nz_i(m), nz_j(m);
     for (i = 0; i < _include.size(); i++){
         nz_i[i]=0;
         nz_j[i]=0;
     }
+    */
     cout << "Calculating the LD correlation matrix of all the " << _include.size() << " SNPs..." << endl;
+    eigenSparseMat B(_include.size(), _include.size());
     for (i = 0; i < _include.size(); i++) {
-        D[i] = _MSX[i] * _N_o[i];
         // change here
-        invsqrtvar[i] = 1/sqrt(_MSX[i]);
         B.startVec(i);
         // change here
         //B.insertBack(i, i) = D[i] + lambda;
@@ -754,16 +760,20 @@ bool gcta::massoc_sblup(double lambda, eigenVector &bJ)
     }
     B.finalize();
 
-    eigenVector x_i(_keep.size()), x_j(_keep.size());
+    cout << "debug: LD start" << endl;
+    //#pragma omp parallel for private(i)
     for (i = 0; i < _include.size(); i++) {
         // change here: get standardized genotypes
+        eigenVector x_i(_keep.size()), x_j(_keep.size());
         makex_eigenVector_std(i, x_i, false, sqrt(_MSX_B[i]));
         for (j = i + 1; j < _include.size(); j++) {
             if (_chr[_include[i]] == _chr[_include[j]] && abs(_bp[_include[i]] - _bp[_include[j]]) < _jma_wind_size) {
                 // change here: get standardized genotypes
                 makex_eigenVector_std(j, x_j, false, sqrt(_MSX_B[j]));
-                prod = x_i.dot(x_j) / (double)n;
-                B.coeffRef(j, i) = prod * min(_Nd[i], _Nd[j]) * sqrt(_MSX[i] * _MSX[j] / (_MSX_B[i] * _MSX_B[j]));
+                double prod = x_i.dot(x_j) / (double)n;
+                double temp = prod * min(_Nd[i], _Nd[j]) * sqrt(_MSX[i] * _MSX[j] / (_MSX_B[i] * _MSX_B[j]));
+                B.coeffRef(j, i) = temp;
+
             }
         }
         if((i + 1) % 1000 == 0 || (i + 1) == _include.size()) cout << i + 1 << " of " << _include.size() << " SNPs.\r";
@@ -772,7 +782,6 @@ bool gcta::massoc_sblup(double lambda, eigenVector &bJ)
   
     cout << "Estimating the joint effects of all SNPs ..." << endl;
     // change here
-    eigenVector Xty = invsqrtvar.array() * D.array() * _beta.array();
     //eigenVector Xty = D.array() * _beta.array();
     SimplicialLDLT<eigenSparseMat> solver;
     solver.compute(B);
