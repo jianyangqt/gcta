@@ -167,7 +167,7 @@ void gcta::read_fixed_snp(string snplistfile, string msg, vector<int> &pgiven, v
     else throw ("Error: none of the given SNPs can be matched to the genotype and summary data.");
 }
 
-void gcta::run_massoc_slct(string metafile, int wind_size, double p_cutoff, double collinear, int top_SNPs, bool joint_only, bool GC, double GC_val, bool actual_geno, int mld_slct_alg)
+void gcta::run_massoc_slct(string metafile, int wind_size, double p_cutoff, double collinear, uint64_t top_SNPs, bool joint_only, bool GC, double GC_val, bool actual_geno, int mld_slct_alg)
 {
     _jma_actual_geno = actual_geno;
     _jma_wind_size = wind_size;
@@ -176,7 +176,7 @@ void gcta::run_massoc_slct(string metafile, int wind_size, double p_cutoff, doub
     _jma_snpnum_backward = 0;
     _jma_snpnum_collienar = 0;
     init_massoc(metafile, GC, GC_val);
-    if (top_SNPs < 0) top_SNPs = 1e30;
+    if (top_SNPs < 0) top_SNPs = 1e10;
     else {
         _jma_p_cutoff = 0.5;
         cout << "The threshold p-value has been set to 0.5 because of the --massoc-top-SNPs option." << endl;
@@ -304,7 +304,7 @@ void gcta::massoc_cond_output(vector<int> &remain, eigenVector &bC, eigenVector 
     ofile.close();
 }
 
-void gcta::stepwise_slct(vector<int> &slct, vector<int> &remain, eigenVector &bC, eigenVector &bC_se, eigenVector &pC, int mld_slct_alg, int top_SNPs)
+void gcta::stepwise_slct(vector<int> &slct, vector<int> &remain, eigenVector &bC, eigenVector &bC_se, eigenVector &pC, int mld_slct_alg, uint64_t top_SNPs)
 {
     int i = 0, i_buf = 0;
     vector<double> p_buf;
@@ -729,11 +729,19 @@ bool gcta::massoc_sblup(double lambda, eigenVector &bJ)
     //eigenVector D(_include.size());
     //eigenVector invsqrtvar(_include.size());
     eigenVector Xty(_include.size());
+    uint64_t num_err_snp = 0;
     for(int i = 0; i < _include.size(); i++){
         //D[i] = _MSX[i] * _N_o[i];
         //invsqrtvar[i] = 1/sqrt(_MSX[i]);
         Xty[i] = sqrt(_MSX[i]) * _N_o[i] * _beta[i];
+        if(_MSX_B[i] < 1e-10){
+            num_err_snp++;
+        }
     }
+    if(num_err_snp > 0){
+        throw("there are " + to_string(num_err_snp) + " SNPs with MAF=0.");
+    }
+
     //eigenVector Xty = invsqrtvar.array() * D.array() * _beta.array();
 
 
@@ -746,39 +754,44 @@ bool gcta::massoc_sblup(double lambda, eigenVector &bJ)
     */
     cout << "Calculating the LD correlation matrix of all the " << _include.size() << " SNPs..." << endl;
     eigenSparseMat B(_include.size(), _include.size());
+    vector<int> n_elements(_include.size());
+
     for (i = 0; i < _include.size(); i++) {
-        // change here
-        B.startVec(i);
-        // change here
-        //B.insertBack(i, i) = D[i] + lambda;
-        B.insertBack(i, i) = _N_o[i] + lambda;
+        int count = 1; 
         for (j = i + 1; j < _include.size(); j++) {
             if (_chr[_include[i]] == _chr[_include[j]] && abs(_bp[_include[i]] - _bp[_include[j]]) < _jma_wind_size) {
-                B.insertBack(j, i) = 1.0;
+                count++;
             }
         }
+        n_elements[i] = count;
     }
-    B.finalize();
+    B.reserve(n_elements);
 
-    cout << "debug: LD start" << endl;
-    //#pragma omp parallel for private(i)
+    //ofstream out_debug(_out + ".debug");
     for (i = 0; i < _include.size(); i++) {
         // change here: get standardized genotypes
-        eigenVector x_i(_keep.size()), x_j(_keep.size());
+        eigenVector x_i(_keep.size());
         makex_eigenVector_std(i, x_i, false, sqrt(_MSX_B[i]));
+        B.insertBackUncompressed(i, i) =  _N_o[i] + lambda;
+       // out_debug << i << "\t" << i << "\t" << _N_o[i] + lambda << endl;
+        #pragma omp parallel for ordered schedule(static) private(j)
         for (j = i + 1; j < _include.size(); j++) {
             if (_chr[_include[i]] == _chr[_include[j]] && abs(_bp[_include[i]] - _bp[_include[j]]) < _jma_wind_size) {
+                eigenVector x_j(_keep.size());
                 // change here: get standardized genotypes
                 makex_eigenVector_std(j, x_j, false, sqrt(_MSX_B[j]));
                 double prod = x_i.dot(x_j) / (double)n;
                 double temp = prod * min(_Nd[i], _Nd[j]) * sqrt(_MSX[i] * _MSX[j] / (_MSX_B[i] * _MSX_B[j]));
-                B.coeffRef(j, i) = temp;
-
+                #pragma omp ordered
+                {
+                    B.insertBackUncompressed(j, i) =  temp;
+                }
+                //out_debug << j << "\t" << i << "\t" << _snp_name[_include[j]] << "\t" << _snp_name[_include[i]] << "\t" << temp << endl;
             }
         }
         if((i + 1) % 1000 == 0 || (i + 1) == _include.size()) cout << i + 1 << " of " << _include.size() << " SNPs.\r";
     }
-
+    //out_debug.close();
   
     cout << "Estimating the joint effects of all SNPs ..." << endl;
     // change here

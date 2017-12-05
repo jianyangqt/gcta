@@ -328,6 +328,7 @@ void FastFAM::calculate_fam(uint8_t *buf, int num_marker){
 }
 
 void FastFAM::reg_thread(uint8_t *buf, int from_marker, int to_marker){
+    Eigen::setNbThreads(1);
     double *w_buf = new double[num_indi];
     Map< VectorXd > xMat(w_buf, num_indi);
     MatrixXd XMat_V;

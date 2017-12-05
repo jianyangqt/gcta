@@ -139,7 +139,7 @@ public:
     void GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, int control_num, double hsq, double K, int seed, bool output_causal, bool simu_emb_flag, int eff_mod=0);
     //void simu_geno_unlinked(int N, int M, double maf);
 
-    void run_massoc_slct(string metafile, int wind_size, double p_cutoff, double collinear, int top_SNPs, bool joint_only, bool GC, double GC_val, bool actual_geno, int mld_slct_alg);
+    void run_massoc_slct(string metafile, int wind_size, double p_cutoff, double collinear, uint64_t top_SNPs, bool joint_only, bool GC, double GC_val, bool actual_geno, int mld_slct_alg);
     void run_massoc_cond(string metafile, string snplistfile, int wind_size, double collinear, bool GC, double GC_val, bool actual_geno);
     void run_massoc_sblup(string metafile, int wind_size, double lambda);
 
@@ -319,7 +319,7 @@ private:
     void get_x_vec(float *x, int indx);
     void get_x_mat(float *x, vector<int> &indx);
     void vec_t_mat(float *vec, int nrow, float *mat, int ncol, eigenVector &out); // 1 x n vector multiplied by m x n matrix
-    void stepwise_slct(vector<int> &slct, vector<int> &remain, eigenVector &bC, eigenVector &bC_se, eigenVector &pC, int mld_slct_alg, int top_SNPs);
+    void stepwise_slct(vector<int> &slct, vector<int> &remain, eigenVector &bC, eigenVector &bC_se, eigenVector &pC, int mld_slct_alg, uint64_t top_SNPs);
     bool slct_entry(vector<int> &slct, vector<int> &remain, eigenVector &bC, eigenVector &bC_se, eigenVector &pC);
     void slct_stay(vector<int> &slct, eigenVector &bJ, eigenVector &bJ_se, eigenVector &pJ);
     double massoc_calcu_Ve(const vector<int> &slct, eigenVector &bJ, eigenVector &b);
