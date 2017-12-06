@@ -25,6 +25,7 @@
 #include "utils.hpp"
 #include "Logger.h"
 #include "ThreadPool.h"
+#include "omp.h"
 
 
 map<string, string> FastFAM::options;
@@ -32,7 +33,7 @@ map<string, double> FastFAM::options_d;
 vector<string> FastFAM::processFunctions;
 
 FastFAM::FastFAM(Geno *geno){
-    Eigen::setNbThreads(THREADS.getThreadCount() + 1);
+    //Eigen::setNbThreads(THREADS.getThreadCount() + 1);
     this->geno = geno;
     num_indi = geno->pheno->count_keep();
     num_marker = geno->marker->count_extract();
@@ -297,6 +298,7 @@ void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
     fam += eye * VR;
 
     Eigen::SimplicialLDLT<SpMat> solver;
+    //Eigen::LeastSquaresConjugateGradient<SpMat> solver;
     solver.compute(fam);
 
     if(solver.info() != Eigen::Success){
@@ -304,23 +306,56 @@ void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
     }
 
     V_inverse = solver.solve(eye);
+
     LOGGER.i(0, "FAM inversed in " + to_string(LOGGER.tp("INVERSE_FAM")) + " seconds");
 }
 
 
 void FastFAM::calculate_fam(uint8_t *buf, int num_marker){
     // Memory fam_size * 2 * 4 + (N * 8 * 2 ) * thread_num + M * 3 * 8  B
-    int num_thread = THREADS.getThreadCount() + 1; 
+    //int num_thread = THREADS.getThreadCount() + 1; 
+    #pragma omp parallel for
+    for(int cur_marker = 0; cur_marker < num_marker; cur_marker++){
+        double *w_buf = new double[num_indi];
+        Map< VectorXd > xMat(w_buf, num_indi);
+        MatrixXd XMat_V;
 
+        geno->makeMarkerX(buf, cur_marker, w_buf, true, false);
+        // Xt * V-1
+        MatrixXd xMat_V = xMat.transpose() * V_inverse;
+        // 
+        double xMat_V_x = 1.0 / (xMat_V * xMat)(0, 0);
+        double xMat_V_p = (xMat_V * phenoVec)(0, 0);
+
+        double temp_beta =  xMat_V_x * xMat_V_p;
+        double temp_se = sqrt(xMat_V_x);
+        double temp_z = temp_beta / temp_se;
+
+        uint32_t cur_raw_marker = num_finished_marker + cur_marker;
+
+        beta[cur_raw_marker] = temp_beta; //* geno->RDev[cur_raw_marker]; 
+        se[cur_raw_marker] = temp_se;
+        #pragma omp critical
+        {
+            p[cur_raw_marker] = StatFunc::pchisq(temp_z * temp_z, 1); 
+        } 
+        delete[] w_buf;
+    }
+/*
+    int num_thread = omp_get_max_threads();
     int num_marker_part = (num_marker + num_thread - 1) / num_thread;
-    for(int index = 0; index != num_thread - 1; index++){
-        THREADS.AddJob(std::bind(&FastFAM::reg_thread, this, buf, index * num_marker_part, (index + 1) * num_marker_part));
+    #pragma omp parallel for
+    for(int index = 0; index <= num_thread; index++){
+        if(index != num_thread){
+            reg_thread(buf, index * num_marker_part, (index + 1) * num_marker);
+        }else{
+            reg_thread(buf, (num_thread - 1) * num_marker_part, num_marker);
+        }
+        //THREADS.AddJob(std::bind(&FastFAM::reg_thread, this, buf, index * num_marker_part, (index + 1) * num_marker_part));
     }
 
-    reg_thread(buf, (num_thread - 1) * num_marker_part, num_marker);
-
-    THREADS.WaitAll();
-
+    //THREADS.WaitAll();
+*/
     num_finished_marker += num_marker;
     if(num_finished_marker % 30000 == 0){
         LOGGER.i(2, to_string(num_finished_marker) + " markers finished"); 
@@ -328,7 +363,7 @@ void FastFAM::calculate_fam(uint8_t *buf, int num_marker){
 }
 
 void FastFAM::reg_thread(uint8_t *buf, int from_marker, int to_marker){
-    Eigen::setNbThreads(1);
+    //Eigen::setNbThreads(1);
     double *w_buf = new double[num_indi];
     Map< VectorXd > xMat(w_buf, num_indi);
     MatrixXd XMat_V;
@@ -417,6 +452,7 @@ int FastFAM::registerOption(map<string, vector<string>>& options_in){
 
 void FastFAM::processMain(){
     vector<function<void (uint8_t *, int)>> callBacks;
+    //THREADS.JoinAll();
     for(auto &process_function : processFunctions){
         if(process_function == "fast_fam"){
             Pheno pheno;
@@ -425,7 +461,7 @@ void FastFAM::processMain(){
             FastFAM ffam(&geno);
 
             LOGGER.i(0, "Running fastFAM...");
-            Eigen::setNbThreads(1);
+            //Eigen::setNbThreads(1);
             callBacks.push_back(bind(&Geno::freq, &geno, _1, _2));
             callBacks.push_back(bind(&FastFAM::calculate_fam, &ffam, _1, _2));
             geno.loop_block(callBacks);
