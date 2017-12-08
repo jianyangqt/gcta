@@ -27,6 +27,15 @@
 #include "Logger.h"
 #include <iostream>
 
+#ifdef _WIN32
+#include <io.h>
+#include <stdio.h>
+#define ISATTY(x) _isatty(_fileno(x))
+#else 
+#include <unistd.h>
+#define ISATTY(x) isatty(fileno(x))
+#endif
+
 using std::cout;
 
 std::mutex Logger::log_mutex;
@@ -45,7 +54,14 @@ Logger::Type Logger::m_stat = Logger::INFO;
 std::ofstream Logger::m_logFile;
 string Logger::m_FileName = "";
 
-Logger::Logger(){}
+Logger::Logger(){
+    if(!ISATTY(stdout)){
+        Logger::style_map =  {{Logger::INFO, ""}, {Logger::PROMPT, ""},
+                              {Logger::PROGRESS, "\n"}, {Logger::WARN, ""},
+                              {Logger::ERROR, ""}, {Logger::DEBUG, ""}};
+    }
+
+}
 
 Logger* Logger::GetLogger(){
     if(m_pThis == NULL) {
