@@ -16,7 +16,7 @@
    If not, see <http://www.gnu.org/licenses/>.
 */
 #include "FastFAM.h"
-#include "main/StatFunc.h"
+#include "StatLib.h"
 #include <cmath>
 #include <algorithm>
 #include <Eigen/SparseCholesky>
@@ -27,6 +27,10 @@
 #include "ThreadPool.h"
 #include "omp.h"
 
+#include <iostream>
+
+using std::to_string;
+using Eigen::Matrix;
 
 map<string, string> FastFAM::options;
 map<string, double> FastFAM::options_d;
@@ -118,7 +122,7 @@ FastFAM::FastFAM(Geno *geno){
     phenoVec = Map<VectorXd> (remain_phenos.data(), remain_phenos.size());
     // condition the covar
     if(has_qcovar){
-        MatrixXd concovar = Map<Matrix<double, Dynamic, Dynamic, ColMajor>>(remain_covar.data(), remain_phenos.size(), v_covar.size() + 1);
+        MatrixXd concovar = Map<Matrix<double, Dynamic, Dynamic, Eigen::ColMajor>>(remain_covar.data(), remain_phenos.size(), v_covar.size() + 1);
         conditionCovarReg(phenoVec, concovar);
     }
 
@@ -192,7 +196,7 @@ double FastFAM::HEreg(vector<double> &Zij, vector<double> &Aij){
 
     double z = hsq / se;
 
-    double p = StatFunc::pchisq(z * z, 1);
+    double p = StatLib::pchisq(z * z, 1);
 
     LOGGER.i(2, "beta: " + to_string(hsq) + ", se: " + to_string(se) +  ", P: " + to_string(p));
 
@@ -314,7 +318,7 @@ void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
 void FastFAM::calculate_fam(uint8_t *buf, int num_marker){
     // Memory fam_size * 2 * 4 + (N * 8 * 2 ) * thread_num + M * 3 * 8  B
     //int num_thread = THREADS.getThreadCount() + 1; 
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(dynamic)
     for(int cur_marker = 0; cur_marker < num_marker; cur_marker++){
         double *w_buf = new double[num_indi];
         Map< VectorXd > xMat(w_buf, num_indi);
@@ -335,10 +339,7 @@ void FastFAM::calculate_fam(uint8_t *buf, int num_marker){
 
         beta[cur_raw_marker] = temp_beta; //* geno->RDev[cur_raw_marker]; 
         se[cur_raw_marker] = temp_se;
-        #pragma omp critical
-        {
-            p[cur_raw_marker] = StatFunc::pchisq(temp_z * temp_z, 1); 
-        } 
+        p[cur_raw_marker] = StatLib::pchisq(temp_z * temp_z, 1); 
         delete[] w_buf;
     }
 /*
@@ -385,7 +386,7 @@ void FastFAM::reg_thread(uint8_t *buf, int from_marker, int to_marker){
         se[cur_raw_marker] = temp_se;
         {
             std::lock_guard<std::mutex> lock(chisq_lock);
-            p[cur_raw_marker] = StatFunc::pchisq(temp_z * temp_z, 1); 
+            p[cur_raw_marker] = StatLib::pchisq(temp_z * temp_z, 1); 
         } 
     }
     delete[] w_buf;
