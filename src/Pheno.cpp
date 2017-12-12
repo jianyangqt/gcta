@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <numeric>
 #include <cmath>
+#include "utils.hpp"
 
 using std::to_string;
 
@@ -296,8 +297,23 @@ void Pheno::set_keep(vector<string>& indi_marks, vector<string>& marks, vector<u
 }
 
 void Pheno::update_pheno(vector<string>& indi_marks, vector<double>& phenos){
-    std::sort(indi_marks.begin(), indi_marks.end());
+    vector<uint32_t> pheno_index, update_index;
+    vector_commonIndex(mark, indi_marks, pheno_index, update_index);
+
     vector<uint32_t> pIN;
+
+    for(int i = 0; i < pheno_index.size(); i++){
+        double temp_update_pheno = phenos[update_index[i]];
+        int raw_index = pheno_index[i];
+        if(std::binary_search(index_keep.begin(), index_keep.end(), raw_index) &&
+                (!std::isnan(temp_update_pheno))){
+            pIN.push_back(raw_index);
+            pheno[raw_index] = temp_update_pheno;
+        }
+    }
+    std::sort(pIN.begin(), pIN.end());
+    index_keep = pIN;
+/*
     for(auto& index : index_keep){
         auto lower = std::lower_bound(indi_marks.begin(), indi_marks.end(), mark[index]);
         int lower_index = lower - indi_marks.begin();
@@ -308,7 +324,7 @@ void Pheno::update_pheno(vector<string>& indi_marks, vector<double>& phenos){
     }
 
     index_keep = pIN;
-
+    */
     LOGGER.i(0, "After updating phenotypes, " + to_string(index_keep.size()) + " subjects remained.");
 }
 
