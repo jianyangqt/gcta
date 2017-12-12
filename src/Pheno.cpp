@@ -25,6 +25,7 @@
 #include <numeric>
 #include <cmath>
 #include "utils.hpp"
+#include <cstring>
 
 using std::to_string;
 
@@ -144,7 +145,14 @@ vector<string> Pheno::read_sublist(string sublist_file, vector<vector<double>> *
                         " has not enough elements");
             }
             for(int index = 0; index != keep_row.size(); index++){
-                (*phenos)[index].push_back(strtod(line_elements[index+2].c_str(), NULL));
+                const char *temp_str = line_elements[index+2].c_str();
+                char* pEnd;
+                double temp_double = strtod(temp_str, &pEnd);
+                if(strlen(temp_str) != pEnd - temp_str){ 
+                    temp_double = strtod("nan", NULL);
+                }
+                (*phenos)[index].push_back(temp_double);
+                
             }
         }
 
