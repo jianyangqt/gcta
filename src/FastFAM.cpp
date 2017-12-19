@@ -213,7 +213,7 @@ void FastFAM::readFAM(string filename, SpMat& fam, const vector<string> &ids, ve
     vector<string> sublist = Pheno::read_sublist(filename + ".grm.id");
     vector<uint32_t> fam_index;
     vector_commonIndex(sublist, ids, fam_index, remain_index);
-    LOGGER.i(0, "After merging, " + to_string(sublist.size()) + " subjects remained");
+    LOGGER.i(0, "After merging, " + to_string(fam_index.size()) + " subjects remained");
 
     //Fix index order to outside, that fix the phenotype, covar order
     //We should avoid reorder the GRM sparese, this costs much time. 

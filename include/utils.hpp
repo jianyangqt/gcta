@@ -96,7 +96,7 @@ void vector_commonIndex(const std::vector<T>& v1, const std::vector<T>& v2, std:
 		auto v1_iter = std::lower_bound(v1_begin, sorted_v1.end(), v2_temp);
 		
 		if( v1_iter != sorted_v1.end() && !(v2_temp < *v1_iter)){
-			k1.push_back(v1_index[v1_iter - v1_begin]);
+			k1.push_back(v1_index[v1_iter - sorted_v1.begin()]);
 			k2.push_back(v2_index[v2_ind]);
 			v1_begin = v1_iter;
 		}
