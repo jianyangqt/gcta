@@ -902,8 +902,12 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
             LOGGER.e(0, "can't handle multiple GRM files");
         }
         options_in.erase("--grm");
-        if(options["grm_file"] == options["out"]){
-            LOGGER.e(0, "not allowed to have the same file name for the input and output");
+        if(options_in.find("--grm-cutoff") != options_in.end() || 
+                options_in.find("--grm-singleton") != options_in.end() ||
+                options_in.find("--make-bK") != options_in.end()){
+            if(options["grm_file"] == options["out"]){
+                LOGGER.e(0, "not allowed to have the same file name for the input and output");
+            }
         }
     }
 
