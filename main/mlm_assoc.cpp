@@ -31,6 +31,9 @@ void gcta::mlma(string grm_file, bool m_grm_flag, string subtract_grm_file, stri
     vector< vector<string> > phen_buf, qcovar, covar; // save individuals by column
     vector<string> grm_files;
     
+    if(phen_file.empty()){
+        throw("Error: no file name in --pheno.");
+    }
     read_phen(phen_file, phen_ID, phen_buf, mphen);
     update_id_map_kp(phen_ID, _id_map, _keep);
     if(qcovar_flag){
@@ -41,6 +44,11 @@ void gcta::mlma(string grm_file, bool m_grm_flag, string subtract_grm_file, stri
         covar_num=read_covar(covar_file, covar_ID, covar, false);
         update_id_map_kp(covar_ID, _id_map, _keep);
     }
+    // grm operations will overwrite the _keep
+    if(_keep.size() < 1){
+        throw("Error: no individual is in common in the input files.");
+    }
+
     if(subtract_grm_flag){
         grm_files.push_back(grm_file);
         grm_files.push_back(subtract_grm_file);
@@ -355,6 +363,10 @@ void gcta::mlma_loco(string phen_file, string qcovar_file, string covar_file, in
     int qcovar_num=0, covar_num=0;
     vector<string> phen_ID, qcovar_ID, covar_ID, grm_id;
     vector< vector<string> > phen_buf, qcovar, covar; // save individuals by column
+
+    if(phen_file.empty()){
+        throw("Error: no file name in --pheno.");
+    }
     
     read_phen(phen_file, phen_ID, phen_buf, mphen);
     update_id_map_kp(phen_ID, _id_map, _keep);
