@@ -52,10 +52,10 @@ void out_ver(bool flag_outFile){
     log(0, "*******************************************************************");
     log(0, "* Genome-wide Complex Trait Analysis (GCTA)");
     log(0, "* version 1.91.2 beta");
-    log(0, "* (C) 2010-2017, The University of Queensland");
+    log(0, "* (C) 2010-2018, The University of Queensland");
     log(0, "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>");
     log(0, "*******************************************************************");
-    log(0, "Analysis started: " + getLocalTime());
+    log(0, "Analysis started at " + getLocalTime() + ".");
     log(0, "Hostname: " + getHostName());
     log(0, "");
 }
@@ -176,7 +176,7 @@ int main(int argc, char *argv[]){
 
         if(mains.size() > 1) LOGGER.e(0, "multiple main functions are invalid currently");
         if(is_threaded) {
-            LOGGER.i(0, "The program will be running on " + std::to_string(thread_num) + " threads");
+            LOGGER.i(0, "The program will be running on " + std::to_string(thread_num) + " threads.");
         }
         ThreadPool *threadPool = ThreadPool::GetPool(thread_num - 1);
         //avoid auto parallel
@@ -207,5 +207,5 @@ int main(int argc, char *argv[]){
     float seconds = duration - 3600 * hours - 60 * mins;
     time_str = time_str + ((time_str == "") ? to_string(seconds) : to_string((int)seconds)) + " second(s)"; 
 
-    LOGGER.i(0, "Computational time: " + time_str);
+    LOGGER.i(0, "Computational time: " + time_str + ".");
 }

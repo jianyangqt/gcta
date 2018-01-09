@@ -117,7 +117,7 @@ void Marker::read_bim(string bim_file) {
     }
     num_marker = name.size();
     num_extract = index_extract.size();
-    LOGGER.i(0, to_string(num_marker) + " SNPs to be included from [" + bim_file + "].");
+    LOGGER.i(0, to_string(num_marker) + " SNPs to be included from BIM file.");
     if(num_marker != num_extract){
         LOGGER.i(0, to_string(num_extract) + " SNPs remained after filtered by valid chromosome");
     }

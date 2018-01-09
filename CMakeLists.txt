@@ -18,6 +18,12 @@ IF(NOT EIGEN3_INCLUDE_DIR)
 ENDIF()
 INCLUDE_DIRECTORIES("${EIGEN3_INCLUDE_DIR}")
 
+SET(BOOST_LIB "$ENV{BOOST_LIB}")
+IF(NOT BOOST_LIB)
+    MESSAGE(FATAL_ERROR "Specify environment variable BOOST_LIB to the location of BOOST library")
+ENDIF()
+INCLUDE_DIRECTORIES("${BOOST_LIB}")
+
 SET(MKLROOT "$ENV{MKLROOT}")
 IF(NOT MKLROOT)
     MESSAGE(FATAL_ERROR "Specify environment variable MKLROOT to the location of Intel MKL package")
@@ -95,8 +101,8 @@ endif()
 #target_link_libraries(gcta64 ${libs_list} mainV1)
 
 # Testing has some problems currently
-#enable_testing()
-#ADD_SUBDIRECTORY(test)
+enable_testing()
+ADD_SUBDIRECTORY(test)
 
 IF(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json")
   EXECUTE_PROCESS( COMMAND ${CMAKE_COMMAND} -E copy_if_different

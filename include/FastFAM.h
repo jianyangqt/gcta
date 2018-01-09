@@ -50,6 +50,7 @@ public:
     }
 
     void calculate_fam(uint8_t *buf, int num_marker);
+    void calculate_gwa(uint8_t *buf, int num_marker);
     void output(string filename);
 
     static void readFAM(string filename, SpMat& fam, const vector<string> &ids, vector<uint32_t> &remain_index);

@@ -26,6 +26,7 @@
 #include "Logger.h"
 #include "ThreadPool.h"
 #include "omp.h"
+#include <boost/algorithm/string/join.hpp>
 
 #include <iostream>
 
@@ -57,7 +58,6 @@ FastFAM::FastFAM(Geno *geno){
 
     vector<string> ids;
     geno->pheno->get_pheno(ids, phenos);
-    LOGGER.i(0, "After removing NAs in phenotype, there are " + to_string(ids.size()) + " subjects remained");
     if(ids.size() != num_indi){
         LOGGER.e(0, "Phenotype is not equal, this shall be a flag bug");
     }
@@ -68,10 +68,10 @@ FastFAM::FastFAM(Geno *geno){
     bool has_qcovar = false;
     if(options.find("concovar") != options.end()){
         has_qcovar = true;
-        LOGGER.i(0, "Reading covariance...");
+        LOGGER.i(0, "Reading covariance data from [" + options["concovar"] + "]...");
         vector<string> v_covar_id = Pheno::read_sublist(options["concovar"], &v_covar); 
         vector_commonIndex(ids, v_covar_id, remain_index, remain_index_covar);
-        LOGGER.i(0, "After merging, " + to_string(remain_index.size()) + " subjects remained");
+        LOGGER.i(0, to_string(remain_index.size()) + " overlapped individuals with non-missing data to be included from the covariance file.");
     }else{
         remain_index.resize(ids.size());
         std::iota(remain_index.begin(), remain_index.end(), 0);
@@ -81,10 +81,24 @@ FastFAM::FastFAM(Geno *geno){
     std::transform(remain_index.begin(), remain_index.end(), remain_ids.begin(), [&ids](size_t pos){return ids[pos];});
 
     // read fam
-    string ffam_file = options["grmsparse_file"];
+    string ffam_file = "";
+    bool fam_flag = true;
+    if(options.find("grmsparse_file") != options.end()){
+        ffam_file = options["grmsparse_file"];
+    }else{
+        fam_flag = false;
+    }
+
+    // index in ids when merge to spare fam
     vector<uint32_t> remain_index_fam;
     SpMat fam;
-    readFAM(ffam_file, fam, remain_ids, remain_index_fam);
+
+    if(fam_flag){
+        readFAM(ffam_file, fam, remain_ids, remain_index_fam);
+    }else{
+        remain_index_fam.resize(remain_ids.size());
+        std::iota(remain_index_fam.begin(), remain_index_fam.end(), 0);
+    }
 
     int n_remain_index_fam = remain_index_fam.size();
 
@@ -93,6 +107,7 @@ FastFAM::FastFAM(Geno *geno){
     for(int i = 0; i != n_remain_index_fam; i++){
         remain_phenos[i] = phenos[remain_index[remain_index_fam[i]]];
     }
+    LOGGER.i(0, "After matching all the files, " + to_string(remain_phenos.size()) + " individuals to be included in the analysis.");
 
     vector<double> remain_covar;
     if(has_qcovar){
@@ -130,36 +145,38 @@ FastFAM::FastFAM(Geno *geno){
     double phenoVec_mean = phenoVec.mean();
     phenoVec -= VectorXd::Ones(phenoVec.size()) * phenoVec_mean;
 
-    double Vpheno = phenoVec.array().square().sum() / (phenoVec.size() - 1);
-    //phenoVec /= pheno_sd;
-    
-    LOGGER.i(0, "DEBUG: conditioned Pheno (first 5)");
+    if(fam_flag){
+        double Vpheno = phenoVec.array().square().sum() / (phenoVec.size() - 1);
+        //phenoVec /= pheno_sd;
 
-    for(int i = 0; i < 5; i++){
-        LOGGER.i(0, to_string(phenoVec[i]));
-    }
+        LOGGER.i(0, "DEBUG: conditioned Pheno (first 5)");
 
-    vector<double> Aij;
-    vector<double> Zij;
- 
-    if(flag_est_GE){
-        LOGGER.i(0, "Estimate VG by HE regression");
-        for(int k = 0; k < fam.outerSize(); ++k){
-            for(SpMat::InnerIterator it(fam, k); it; ++it){
-                if(it.row() < it.col()){
-                    Aij.push_back(it.value());
-                    Zij.push_back(phenoVec[it.row()] * phenoVec[it.col()]);
-                }
-            }
+        for(int i = 0; i < 5; i++){
+            LOGGER.i(0, to_string(phenoVec[i]));
         }
 
-        VG = HEreg(Zij, Aij);
-        VR = Vpheno - VG;
-        LOGGER.i(2, "Vg=" + to_string(VG) + ", Ve=" + to_string(VR));
-        LOGGER.i(2, "hsq=" + to_string(VG/Vpheno));
-    }
+        vector<double> Aij;
+        vector<double> Zij;
 
-    inverseFAM(fam, VG, VR);
+        if(flag_est_GE){
+            LOGGER.i(0, "Estimating the genetic variance (Vg) by HE regression");
+            for(int k = 0; k < fam.outerSize(); ++k){
+                for(SpMat::InnerIterator it(fam, k); it; ++it){
+                    if(it.row() < it.col()){
+                        Aij.push_back(it.value());
+                        Zij.push_back(phenoVec[it.row()] * phenoVec[it.col()]);
+                    }
+                }
+            }
+
+            VG = HEreg(Zij, Aij);
+            VR = Vpheno - VG;
+            LOGGER.i(2, "Ve = " + to_string(VR));
+            LOGGER.i(2, "Heritablity = " + to_string(VG/Vpheno));
+        }
+
+        inverseFAM(fam, VG, VR);
+    }
 }
 
 void FastFAM::conditionCovarReg(VectorXd &pheno, MatrixXd &covar){
@@ -196,12 +213,14 @@ double FastFAM::HEreg(vector<double> &Zij, vector<double> &Aij){
 
     double z = hsq / se;
 
-    double p = StatLib::pchisq(z * z, 1);
+    double p = StatLib::pchisqd1(z * z);
 
-    LOGGER.i(2, "beta: " + to_string(hsq) + ", se: " + to_string(se) +  ", P: " + to_string(p));
+    LOGGER.i(2, "Vg = " + to_string(hsq) + ", se = " + to_string(se) +  ", P = " + to_string(p));
 
     if(p > 0.05){
-        LOGGER.e(0, "the number of relatives is not large enough to run fastFAM");
+        LOGGER.e(0, "The estimate of Vg is not statistically significant. "
+                "This is likely because the number of relatives is not large enough. "
+                "We do not recommend to run fastFAM in this case.");
     }
 
     return hsq;
@@ -209,11 +228,12 @@ double FastFAM::HEreg(vector<double> &Zij, vector<double> &Aij){
     
 
 void FastFAM::readFAM(string filename, SpMat& fam, const vector<string> &ids, vector<uint32_t> &remain_index){
+    LOGGER.i(0, "Reading the sparse GRM file from [" + filename + "]...");
     uint32_t num_indi = ids.size();
     vector<string> sublist = Pheno::read_sublist(filename + ".grm.id");
     vector<uint32_t> fam_index;
     vector_commonIndex(sublist, ids, fam_index, remain_index);
-    LOGGER.i(0, "After merging, " + to_string(fam_index.size()) + " subjects remained");
+    LOGGER.i(0, "DEBUG: " + to_string(fam_index.size()) + " subjects remained");
 
     //Fix index order to outside, that fix the phenotype, covar order
     //We should avoid reorder the GRM sparese, this costs much time. 
@@ -291,8 +311,8 @@ void FastFAM::readFAM(string filename, SpMat& fam, const vector<string> &ids, ve
 }
 
 void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
-    LOGGER.i(0, "Inversing the FAM, this may take long time");
-    LOGGER.i(0, "Inverse Threads " + to_string(Eigen::nbThreads()));
+    LOGGER.i(0, "Inverting the variance-covarinace matrix (This may take a long time).");
+    LOGGER.i(0, "DEUBG: Inverse Threads " + to_string(Eigen::nbThreads()));
     LOGGER.ts("INVERSE_FAM");
     SpMat eye(fam.rows(), fam.cols());
     eye.setIdentity();
@@ -311,7 +331,40 @@ void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
 
     V_inverse = solver.solve(eye);
 
-    LOGGER.i(0, "FAM inversed in " + to_string(LOGGER.tp("INVERSE_FAM")) + " seconds");
+    LOGGER.i(0, "Inverted in " + to_string(LOGGER.tp("INVERSE_FAM")) + " seconds");
+}
+
+void FastFAM::calculate_gwa(uint8_t *buf, int num_marker){
+    #pragma omp parallel for schedule(dynamic)
+    for(int cur_marker = 0; cur_marker < num_marker; cur_marker++){
+        double *w_buf = new double[num_indi];
+        Map< VectorXd > xMat(w_buf, num_indi);
+        MatrixXd XMat_V;
+
+        geno->makeMarkerX(buf, cur_marker, w_buf, true, false);
+
+        MatrixXd tMat_V = xMat.transpose();
+
+        double xMat_V_x = 1.0 / (tMat_V * xMat)(0, 0);
+        double xMat_V_p = (tMat_V * phenoVec)(0, 0);
+
+        double temp_beta =  xMat_V_x * xMat_V_p;
+        double temp_se = sqrt(xMat_V_x);
+        double temp_z = temp_beta / temp_se;
+
+        uint32_t cur_raw_marker = num_finished_marker + cur_marker;
+
+        beta[cur_raw_marker] = temp_beta; //* geno->RDev[cur_raw_marker]; 
+        se[cur_raw_marker] = temp_se;
+        p[cur_raw_marker] = StatLib::pchisqd1(temp_z * temp_z); 
+        delete[] w_buf;
+    }
+
+    num_finished_marker += num_marker;
+    if(num_finished_marker % 30000 == 0){
+        LOGGER.i(2, to_string(num_finished_marker) + " markers finished"); 
+    }
+
 }
 
 
@@ -339,7 +392,7 @@ void FastFAM::calculate_fam(uint8_t *buf, int num_marker){
 
         beta[cur_raw_marker] = temp_beta; //* geno->RDev[cur_raw_marker]; 
         se[cur_raw_marker] = temp_se;
-        p[cur_raw_marker] = StatLib::pchisq(temp_z * temp_z, 1); 
+        p[cur_raw_marker] = StatLib::pchisqd1(temp_z * temp_z); 
         delete[] w_buf;
     }
 /*
@@ -386,7 +439,7 @@ void FastFAM::reg_thread(uint8_t *buf, int from_marker, int to_marker){
         se[cur_raw_marker] = temp_se;
         {
             std::lock_guard<std::mutex> lock(chisq_lock);
-            p[cur_raw_marker] = StatLib::pchisq(temp_z * temp_z, 1); 
+            p[cur_raw_marker] = StatLib::pchisqd1(temp_z * temp_z); 
         } 
     }
     delete[] w_buf;
@@ -394,21 +447,22 @@ void FastFAM::reg_thread(uint8_t *buf, int from_marker, int to_marker){
 
 
 void FastFAM::output(string filename){
-    //TODO get the real effect
     std::ofstream out(filename.c_str());
     vector<string> header{"CHR", "SNP", "POS", "A1", "A2", "AF1", "beta", "se", "p"};
-    std::copy(header.begin(), header.end(), std::ostream_iterator<string>(out, "\t"));
-    out << std::endl;
+    //std::copy(header.begin(), header.end(), std::ostream_iterator<string>(out, "\t"));
+    string header_string = boost::algorithm::join(header, "\t");
+    out << header_string << std::endl;
     for(int index = 0; index != num_marker; index++){
         out << geno->marker->get_marker(geno->marker->getExtractIndex(index)) << "\t" <<
             geno->AFA1[index] << "\t" << beta[index] << "\t" << se[index] << "\t" << p[index] << std::endl;
     }
     out.close();
-    LOGGER.i(0, "Success:", "saved result to [" + filename +"]");
+    LOGGER.i(0, "The association results have been saved to [" + filename +"].");
 }
 
 int FastFAM::registerOption(map<string, vector<string>>& options_in){
     int returnValue = 0;
+    //DEBUG: change to .fastFAM
     options["out"] = options_in["out"][0] + ".fastFAM.assoc";
 
     string curFlag = "--fastFAM";
@@ -464,7 +518,11 @@ void FastFAM::processMain(){
             LOGGER.i(0, "Running fastFAM...");
             //Eigen::setNbThreads(1);
             callBacks.push_back(bind(&Geno::freq, &geno, _1, _2));
-            callBacks.push_back(bind(&FastFAM::calculate_fam, &ffam, _1, _2));
+            if(options.find("grmsparse_file") != options.end()){
+                callBacks.push_back(bind(&FastFAM::calculate_fam, &ffam, _1, _2));
+            }else{
+                callBacks.push_back(bind(&FastFAM::calculate_gwa, &ffam, _1, _2));
+            }
             geno.loop_block(callBacks);
 
             ffam.output(options["out"]);
