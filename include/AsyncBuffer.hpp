@@ -16,9 +16,11 @@
 #ifndef GCTA2_ASYNCBUFFER_H
 #define GCTA2_ASYNCBUFFER_H
 #include <mutex>
+#include <condition_variable>
 #include <tuple>
 using std::mutex;
 using std::lock_guard;
+using std::condition_variable;
 using std::tuple;
 using std::tie;
 
@@ -48,7 +50,6 @@ public:
 
 
     T* start_write(){
-        //std::lock_guard<std::mutex> lock(buf_mutex);
         uint8_t curBufferWrite = m_stat.nextBufferWrite;
         if(m_stat.accessed[curBufferWrite] &&
                 m_stat.write_count[curBufferWrite] == 0 &&
@@ -58,7 +59,10 @@ public:
             m_stat.accessed[curBufferWrite] = false;
             return buffer[curBufferWrite];
         }else{
-            return NULL;
+            std::unique_lock<std::mutex> lock(rmut);
+            wcv.wait(lock);
+            return start_write();
+            //return NULL;
         }
     }
 
@@ -71,38 +75,45 @@ public:
     }
 
     void end_write(){
-        //std::lock_guard<std::mutex> lock(buf_mutex);
+        //std::unique_lock<std::mutex> lock(wmut);
         uint8_t curBufferWrite = m_stat.nextBufferWrite;
         m_stat.write_count[curBufferWrite] -= 1;
         if(!m_stat.eof[curBufferWrite]){
             m_stat.nextBufferWrite = (curBufferWrite + 1) % 3;
         }
+        //lock.unlock();
+        rcv.notify_one();
     }
 
     tuple<T*, bool> start_read(){
-        //std::lock_guard<std::mutex> lock(buf_mutex);
         uint8_t curBufferRead = m_stat.nextBufferRead;
         if(m_stat.write_count[curBufferRead] == 0 && !m_stat.accessed[curBufferRead]){
             m_stat.read_count[curBufferRead] += 1;
             return tuple<T*, bool>{buffer[curBufferRead], m_stat.eof[curBufferRead]};
         }else{
-            return tuple<T*, bool>{NULL, m_stat.eof[curBufferRead]};
+            std::unique_lock<std::mutex> lock(rmut);
+            rcv.wait(lock);
+            return start_read();
+            //return tuple<T*, bool>{NULL, m_stat.eof[curBufferRead]};
         }
     }
 
     void end_read(){
-        //std::lock_guard<std::mutex> lock(buf_mutex);
+        //std::unique_lock<std::mutex> lock(rmut);
         uint8_t curBufferRead = m_stat.nextBufferRead;
         m_stat.read_count[curBufferRead] -= 1;
         if((m_stat.read_count[curBufferRead] == 0) && (!m_stat.eof[curBufferRead])){
             m_stat.nextBufferRead = (curBufferRead + 1) % 3;
             m_stat.accessed[curBufferRead] = true;
         }
+        //lock.unlock();
+        wcv.notify_one();
     }
 
 private:
-    //mutex buf_mutex;
+    mutex rmut;
     BufferStat m_stat;
+    condition_variable rcv, wcv;
     T* buffer[3];
 };
 #endif //GCTA2_ASYNCBUFFER_H

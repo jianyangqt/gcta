@@ -43,6 +43,7 @@ public:
     void loop_block(vector<function<void (uint8_t *buf, int num_marker)>> callbacks
                     = vector<function<void (uint8_t *buf, int num_marker)>>());
     void freq(uint8_t *buf, int num_marker);
+    void freq2(uint8_t *buf, int num_marker);
     bool check_bed();
     void out_freq(string filename);
     void makeMarkerX(uint8_t *buf, int cur_marker, double *w_buf, bool center, bool std);

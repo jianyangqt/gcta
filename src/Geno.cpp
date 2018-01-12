@@ -28,6 +28,7 @@
 #include <cmath>
 #include <sstream>
 #include <iomanip>
+#include "utils.hpp"
 
 using std::thread;
 using std::to_string;
@@ -199,14 +200,8 @@ void Geno::read_bed(){
     LOGGER.ts("read_geno");
 
     while(!isEOF){
-        while(true){
-            w_buf = asyncBuffer->start_write();
-            if(!w_buf){
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            }else{
-                break;
-            }
-        }
+        w_buf = asyncBuffer->start_write();
+        
         LOGGER.d(0, "read start");
         int num_marker = 0;
         size_t read_count = 0;
@@ -246,6 +241,7 @@ void Geno::read_bed(){
         cur_block++;
     }
     fclose(pFile);
+    LOGGER.i(0, "Read bed time: " + to_string(LOGGER.tp("read_geno")));
 }
 /*
 void Geno::freq(uint8_t *buf, int num_marker){
@@ -320,6 +316,54 @@ void Geno::freq(uint8_t *buf, int num_marker) {
     num_marker_freq += num_marker;
 }
 
+void Geno::freq2(uint8_t *buf, int num_marker) {
+    const static uint64_t MASK = 6148914691236517205UL; 
+    const static uint64_t FF = UINT64_MAX;
+    static int pheno_count = pheno->count_keep();
+    static int num_trunk = num_byte_per_marker / 8;
+    static int remain_trunk = num_byte_per_marker % 8;
+    static uint64_t last_mask = (FF >> remain_trunk) << remain_trunk ;
+
+    if(num_marker_freq >= marker->count_extract()) return;
+
+    int cur_num_marker_read = num_marker;
+
+    for(int cur_marker_index = 0; cur_marker_index < cur_num_marker_read; ++cur_marker_index){
+        uint32_t curA1A1, curA1A2, curA2A2;
+        uint32_t even_ct = 0, odd_ct = 0, both_ct = 0;
+        uint64_t *p_buf = (uint64_t *) (buf + cur_marker_index * num_byte_per_marker);
+        int index = 0;
+        for(; index < num_trunk ; index++){
+            uint64_t g_buf = p_buf[index];
+            uint64_t g_buf_h = MASK & (g_buf >> 1);
+            odd_ct += popcount(g_buf & MASK);
+            even_ct += popcount(g_buf_h);
+            both_ct += popcount(g_buf & g_buf_h);
+        }
+        if(remain_trunk){
+            uint64_t g_buf = p_buf[index + 1];
+            g_buf &= last_mask;
+            uint64_t g_buf_h = MASK & (g_buf >> 1);
+            odd_ct += popcount(g_buf & MASK);
+            even_ct += popcount(g_buf_h);
+            both_ct += popcount(g_buf & g_buf_h);
+        }
+
+        curA1A1 = pheno_count + both_ct - even_ct - odd_ct;
+        curA1A2 = even_ct - both_ct;
+        curA2A2 = both_ct;
+
+        int raw_index_marker = num_marker_freq + cur_marker_index;
+
+        countA1A1[raw_index_marker] = curA1A1;
+        countA1A2[raw_index_marker] = curA1A2;
+        countA2A2[raw_index_marker] = curA2A2;
+        AFA1[raw_index_marker] = (2.0 * curA1A1 + curA1A2) / (2.0 * (curA1A1 + curA1A2 + curA2A2));
+    }
+    num_marker_freq += num_marker;
+}
+
+
 void Geno::loop_block(vector<function<void (uint8_t *buf, int num_marker)>> callbacks) {
     num_finished_markers = 0;
     thread read_thread([this](){this->read_bed();});
@@ -333,16 +377,7 @@ void Geno::loop_block(vector<function<void (uint8_t *buf, int num_marker)>> call
     LOGGER.ts("LOOP_GENO_PRE");
 
     for(int cur_block = 0; cur_block < num_blocks; ++cur_block){
-        while(true){
-            std::tie(r_buf, isEOF) = asyncBuffer->start_read();
-            if(!r_buf){
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                //LOGGER.i(0, "Buffer NULL: " + to_string(LOGGER.tp("LOOP_GENO_PRE")));
-                //LOGGER.d(0, "wait for buffer to read");
-            }else{
-                break;
-            }
-        }
+        std::tie(r_buf, isEOF) = asyncBuffer->start_read();
         //LOGGER.i(0, "time get buffer: " + to_string(LOGGER.tp("LOOP_GENO_PRE")));
 
         LOGGER.d(0, "Process block " + std::to_string(cur_block));
@@ -413,9 +448,11 @@ void Geno::makeMarkerX(uint8_t *buf, int cur_marker, double *w_buf, bool center,
         }
     }
 
-    for(uint32_t index = 0; index != pheno->count_keep(); index++){
-        //TODO every time copy, rewrite;
-        uint32_t raw_index = (pheno->get_index_keep())[index];
+    uint32_t n_keep = pheno->count_keep();
+    vector<uint32_t>& index_keep = pheno->get_index_keep();
+
+    for(uint32_t index = 0; index != n_keep; index++){
+        uint32_t raw_index = index_keep[index];
         w_buf[index] = g_lookup[*(cur_buf + (raw_index / 4))][raw_index % 4]; 
     }
 }
@@ -514,7 +551,7 @@ void Geno::processMain() {
             Geno geno(&pheno, &marker);
             if(geno.num_marker_freq == 0 ){
                 LOGGER.i(0, "Computing allele frequencies...");
-                callBacks.push_back(bind(&Geno::freq, &geno, _1, _2));
+                callBacks.push_back(bind(&Geno::freq2, &geno, _1, _2));
                 geno.loop_block(callBacks);
             }
             geno.out_freq(options["out"]);
