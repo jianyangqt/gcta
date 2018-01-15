@@ -236,10 +236,9 @@ void FastFAM::readFAM(string filename, SpMat& fam, const vector<string> &ids, ve
     LOGGER.i(0, "DEBUG: " + to_string(fam_index.size()) + " subjects remained");
 
     //Fix index order to outside, that fix the phenotype, covar order
-    //We should avoid reorder the GRM sparese, this costs much time. 
-    vector<size_t> index_list_order = sort_indexes(fam_index);
-    vector<uint32_t> ordered_fam_index(fam_index.size(), 0);
-    vector<uint32_t> ordered_remain_index(fam_index.size(), 0);
+    vector<size_t> index_list_order = sort_indexes(remain_index);
+    vector<uint32_t> ordered_fam_index(remain_index.size(), 0);
+    vector<uint32_t> ordered_remain_index(remain_index.size(), 0);
     std::transform(index_list_order.begin(), index_list_order.end(), ordered_fam_index.begin(), [&fam_index](size_t pos){
             return fam_index[pos];});
     std::transform(index_list_order.begin(), index_list_order.end(), ordered_remain_index.begin(), [&remain_index](size_t pos){
@@ -266,8 +265,6 @@ void FastFAM::readFAM(string filename, SpMat& fam, const vector<string> &ids, ve
         map_index[ordered_fam_index[index]] = index;
     }
 
-    uint32_t tmp_id1 = 0, tmp_id2 = 0;
-    double tmp_grm = 0.0;
 
     while(std::getline(pair_list, line)){
         line_number++;
@@ -275,14 +272,14 @@ void FastFAM::readFAM(string filename, SpMat& fam, const vector<string> &ids, ve
         std::istream_iterator<string> begin(line_buf), end;
         vector<string> line_elements(begin, end);
 
-        tmp_id1 = (std::stoi(line_elements[0]));
-        tmp_id2 = (std::stoi(line_elements[1]));
+        uint32_t tmp_id1 = (std::stoi(line_elements[0]));
+        uint32_t tmp_id2 = (std::stoi(line_elements[1]));
         if(map_index.find(tmp_id1) != map_index.end() &&
                 map_index.find(tmp_id2) != map_index.end()){
             tmp_id1 = map_index[tmp_id1];
             tmp_id2 = map_index[tmp_id2];
 
-            tmp_grm = std::stod(line_elements[2]);
+            double tmp_grm = std::stod(line_elements[2]);
             id1.push_back(tmp_id1);
             id2.push_back(tmp_id2);
             num_elements[tmp_id2] += 1;
@@ -321,8 +318,8 @@ void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
     fam *= VG;
     fam += eye * VR;
 
-    Eigen::SimplicialLDLT<SpMat> solver;
-    //Eigen::LeastSquaresConjugateGradient<SpMat> solver;
+    //Eigen::SimplicialLDLT<SpMat> solver;
+    Eigen::LeastSquaresConjugateGradient<SpMat> solver;
     solver.compute(fam);
 
     if(solver.info() != Eigen::Success){
