@@ -318,11 +318,10 @@ void Geno::freq(uint8_t *buf, int num_marker) {
 
 void Geno::freq2(uint8_t *buf, int num_marker) {
     const static uint64_t MASK = 6148914691236517205UL; 
-    const static uint64_t FF = UINT64_MAX;
     static int pheno_count = pheno->count_keep();
     static int num_trunk = num_byte_per_marker / 8;
-    static int remain_trunk = num_byte_per_marker % 8;
-    static uint64_t last_mask = (FF >> remain_trunk) << remain_trunk ;
+    static int remain_bit = (num_byte_per_marker % 8) * 8;
+    static int move_bit = 64 - remain_bit;
 
     if(num_marker_freq >= marker->count_extract()) return;
 
@@ -340,9 +339,9 @@ void Geno::freq2(uint8_t *buf, int num_marker) {
             even_ct += popcount(g_buf_h);
             both_ct += popcount(g_buf & g_buf_h);
         }
-        if(remain_trunk){
-            uint64_t g_buf = p_buf[index + 1];
-            g_buf &= last_mask;
+        if(remain_bit){
+            uint64_t g_buf = p_buf[index];
+            g_buf = (g_buf << move_bit) >> move_bit;
             uint64_t g_buf_h = MASK & (g_buf >> 1);
             odd_ct += popcount(g_buf & MASK);
             even_ct += popcount(g_buf_h);
