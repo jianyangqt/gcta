@@ -59,7 +59,7 @@ public:
             m_stat.accessed[curBufferWrite] = false;
             return buffer[curBufferWrite];
         }else{
-            std::unique_lock<std::mutex> lock(rmut);
+            std::unique_lock<std::mutex> lock(wmut);
             wcv.wait(lock);
             return start_write();
             //return NULL;
@@ -111,7 +111,7 @@ public:
     }
 
 private:
-    mutex rmut;
+    mutex rmut, wmut;
     BufferStat m_stat;
     condition_variable rcv, wcv;
     T* buffer[3];
