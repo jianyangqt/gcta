@@ -318,8 +318,8 @@ void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
     fam *= VG;
     fam += eye * VR;
 
-    //Eigen::SimplicialLDLT<SpMat> solver;
-    Eigen::LeastSquaresConjugateGradient<SpMat> solver;
+    Eigen::SimplicialLDLT<SpMat> solver;
+    //Eigen::LeastSquaresConjugateGradient<SpMat> solver;
     solver.compute(fam);
 
     if(solver.info() != Eigen::Success){
