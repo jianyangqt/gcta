@@ -464,12 +464,11 @@ void Pheno::mask_geno_keep(uint8_t *const geno_1block, int num_blocks) {
     if(mask_block.size() == 0){
         return;
     }
-    uint8_t *cur_pos = NULL, *mask_pos = NULL;
-    int start_byte;
-    for(int cur_block = 0; cur_block != num_blocks; cur_block++){
-        cur_pos =  geno_1block + cur_block * num_bytes;
+    #pragma omp parallel for schedule(dynamic) 
+    for(int cur_block = 0; cur_block < num_blocks; cur_block++){
+        uint8_t *cur_pos =  geno_1block + cur_block * num_bytes;
         for(const auto &item : mask_block){
-            mask_pos = cur_pos + item.first;
+            uint8_t *mask_pos = cur_pos + item.first;
             *mask_pos = ((*mask_pos) & item.second) + mask_add_block[item.first];
         }
     }

@@ -29,6 +29,8 @@
 #include <sstream>
 #include <iomanip>
 #include "utils.hpp"
+#include "omp.h"
+#include "ThreadPool.h"
 
 using std::thread;
 using std::to_string;
@@ -176,10 +178,12 @@ bool Geno::check_bed(){
 }
 
 void Geno::read_bed(){
+    
     LOGGER.i(0, "Reading PLINK BED file from [" + bed_file + "] in SNP-major format...");
     //LOGGER.i(0, "Genotype data for " + to_string(pheno->count_keep()) + " individuals and " + 
     //            to_string(marker->count_extract()) + " SNPs to be included from [" + bed_file + "]");
     //clock_t begin = clock();
+    omp_set_num_threads(THREADS.getThreadCount()+1);
     FILE *pFile;
     pFile = fopen(bed_file.c_str(), "rb");
     if(pFile == NULL){
@@ -440,6 +444,7 @@ void Geno::makeMarkerX(uint8_t *buf, int cur_marker, double *w_buf, bool center,
     g1_lookup[2] = (1.0 - center_value) * rdev;
     g1_lookup[3] = (0.0 - center_value) * rdev;
 
+    
     double g_lookup[256][4];
     for(uint16_t i = 0; i <= 255; i++){
         for(uint16_t j = 0; j < 4; j++){
@@ -450,7 +455,7 @@ void Geno::makeMarkerX(uint8_t *buf, int cur_marker, double *w_buf, bool center,
     uint32_t n_keep = pheno->count_keep();
     vector<uint32_t>& index_keep = pheno->get_index_keep();
 
-    for(uint32_t index = 0; index != n_keep; index++){
+    for(uint32_t index = 0; index < n_keep; index++){
         uint32_t raw_index = index_keep[index];
         w_buf[index] = g_lookup[*(cur_buf + (raw_index / 4))][raw_index % 4]; 
     }
