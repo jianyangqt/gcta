@@ -331,7 +331,7 @@ void Geno::freq2(uint8_t *buf, int num_marker) {
 
     int cur_num_marker_read = num_marker;
     
-    #pragma omp parallel for schedule(dynamic) 
+    //#pragma omp parallel for schedule(dynamic) 
     for(int cur_marker_index = 0; cur_marker_index < cur_num_marker_read; ++cur_marker_index){
         uint32_t curA1A1, curA1A2, curA2A2;
         uint32_t even_ct = 0, odd_ct = 0, both_ct = 0;
