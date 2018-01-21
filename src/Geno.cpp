@@ -183,7 +183,7 @@ void Geno::read_bed(){
     //LOGGER.i(0, "Genotype data for " + to_string(pheno->count_keep()) + " individuals and " + 
     //            to_string(marker->count_extract()) + " SNPs to be included from [" + bed_file + "]");
     //clock_t begin = clock();
-    omp_set_num_threads(THREADS.getThreadCount()+1);
+    //omp_set_num_threads(THREADS.getThreadCount()+1);
     FILE *pFile;
     pFile = fopen(bed_file.c_str(), "rb");
     if(pFile == NULL){
@@ -238,7 +238,6 @@ void Geno::read_bed(){
             }
         }while(num_marker != cur_num_block);
 
-        pheno->mask_geno_keep(iw_buf, num_marker);
         asyncBuffer->end_write();
         LOGGER.d(2, "read block success");
         //std::cout << "   read bed" << "@T: " << 1.0 * (clock() - begin) / CLOCKS_PER_SEC << std::endl;
@@ -321,6 +320,7 @@ void Geno::freq(uint8_t *buf, int num_marker) {
 }
 
 void Geno::freq2(uint8_t *buf, int num_marker) {
+    pheno->mask_geno_keep(buf, num_marker);
     const static uint64_t MASK = 6148914691236517205UL; 
     static int pheno_count = pheno->count_keep();
     static int num_trunk = num_byte_per_marker / 8;
@@ -330,7 +330,8 @@ void Geno::freq2(uint8_t *buf, int num_marker) {
     if(num_marker_freq >= marker->count_extract()) return;
 
     int cur_num_marker_read = num_marker;
-
+    
+    #pragma omp parallel for schedule(dynamic) 
     for(int cur_marker_index = 0; cur_marker_index < cur_num_marker_read; ++cur_marker_index){
         uint32_t curA1A1, curA1A2, curA2A2;
         uint32_t even_ct = 0, odd_ct = 0, both_ct = 0;
