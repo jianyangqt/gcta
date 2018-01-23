@@ -49,8 +49,8 @@ public:
         delete[] p;
     }
 
-    void calculate_fam(uint8_t *buf, int num_marker);
-    void calculate_gwa(uint8_t *buf, int num_marker);
+    void calculate_fam(uint64_t *buf, int num_marker);
+    void calculate_gwa(uint64_t *buf, int num_marker);
     void output(string filename);
 
     static void readFAM(string filename, SpMat& fam, const vector<string> &ids, vector<uint32_t> &remain_index);
@@ -82,7 +82,7 @@ private:
     static map<string, double> options_d;
     static vector<string> processFunctions;
 
-    void reg_thread(uint8_t *buf, int from_marker, int to_marker);
+    //void reg_thread(uint8_t *buf, int from_marker, int to_marker);
 
 };
 

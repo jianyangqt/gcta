@@ -331,7 +331,7 @@ void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
     LOGGER.i(0, "Inverted in " + to_string(LOGGER.tp("INVERSE_FAM")) + " seconds");
 }
 
-void FastFAM::calculate_gwa(uint8_t *buf, int num_marker){
+void FastFAM::calculate_gwa(uint64_t *buf, int num_marker){
     #pragma omp parallel for schedule(dynamic)
     for(int cur_marker = 0; cur_marker < num_marker; cur_marker++){
         double *w_buf = new double[num_indi];
@@ -365,7 +365,7 @@ void FastFAM::calculate_gwa(uint8_t *buf, int num_marker){
 }
 
 
-void FastFAM::calculate_fam(uint8_t *buf, int num_marker){
+void FastFAM::calculate_fam(uint64_t *buf, int num_marker){
     // Memory fam_size * 2 * 4 + (N * 8 * 2 ) * thread_num + M * 3 * 8  B
     //int num_thread = THREADS.getThreadCount() + 1; 
     #pragma omp parallel for schedule(dynamic)
@@ -412,7 +412,7 @@ void FastFAM::calculate_fam(uint8_t *buf, int num_marker){
         LOGGER.i(2, to_string(num_finished_marker) + " markers finished"); 
     }
 }
-
+/*
 void FastFAM::reg_thread(uint8_t *buf, int from_marker, int to_marker){
     //Eigen::setNbThreads(1);
     double *w_buf = new double[num_indi];
@@ -441,6 +441,7 @@ void FastFAM::reg_thread(uint8_t *buf, int from_marker, int to_marker){
     }
     delete[] w_buf;
 }
+*/
 
 
 void FastFAM::output(string filename){
@@ -503,7 +504,7 @@ int FastFAM::registerOption(map<string, vector<string>>& options_in){
 }
 
 void FastFAM::processMain(){
-    vector<function<void (uint8_t *, int)>> callBacks;
+    vector<function<void (uint64_t *, int)>> callBacks;
     //THREADS.JoinAll();
     for(auto &process_function : processFunctions){
         if(process_function == "fast_fam"){
@@ -514,13 +515,13 @@ void FastFAM::processMain(){
 
             LOGGER.i(0, "Running fastFAM...");
             //Eigen::setNbThreads(1);
-            callBacks.push_back(bind(&Geno::freq, &geno, _1, _2));
+            callBacks.push_back(bind(&Geno::freq64, &geno, _1, _2));
             if(options.find("grmsparse_file") != options.end()){
                 callBacks.push_back(bind(&FastFAM::calculate_fam, &ffam, _1, _2));
             }else{
                 callBacks.push_back(bind(&FastFAM::calculate_gwa, &ffam, _1, _2));
             }
-            geno.loop_block(callBacks);
+            geno.loop_64block(callBacks);
 
             ffam.output(options["out"]);
         }
