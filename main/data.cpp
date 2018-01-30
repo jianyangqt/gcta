@@ -10,7 +10,12 @@
  * details
  */
 
+#include <sstream>
+#include <iterator>
+#include <set>
 #include "gcta.h"
+#include "Logger.h"
+#include "StrFunc.h"
 
 gcta::gcta(int autosome_num, double rm_ld_cutoff, string out)
 {
@@ -356,6 +361,345 @@ void gcta::update_fam(vector<int> &rindi) {
         _keep[i] = i;
         _id_map.insert(pair<string, int>(_fid[i] + ":" + _pid[i], i));
     }
+}
+
+// Read the multiple bfiles
+vector<string>  gcta::read_bfile_list(string bfile_list)
+{
+    ifstream bin_list(bfile_list.c_str());
+    if (!bin_list)
+        LOGGER.e(0, "Can not open the file [" + bfile_list + "] to read.");
+    
+    string strbuf = "";
+    vector<string> multi_bfiles;
+    
+    while(std::getline(bin_list, strbuf))
+    {
+        if(strbuf != "")
+            multi_bfiles.push_back(strbuf);
+    }
+    bin_list.close();
+
+    LOGGER.i(0, "There are " + to_string(multi_bfiles.size()) + " PLINK genotype files specified in [" + bfile_list + "].");
+    return(multi_bfiles);
+}
+
+void read_single_famfile(string famfile, vector<string> &fid, vector<string> &pid, vector<string> &fa_id, vector<string> &mo_id, vector<int> &sex, vector<double> &pheno, bool msg_flag) {
+    ifstream Fam(famfile.c_str());
+    if(!Fam) LOGGER.e(0, "Can not open the file [" + famfile + "] to read.");
+    if(msg_flag) LOGGER.i(0, "Reading PLINK FAM file from [" + famfile + "].");
+
+    int i = 0;
+    string str_buf;
+    fid.clear(); pid.clear(); fa_id.clear(); mo_id.clear(); sex.clear(); pheno.clear();
+    while (Fam) {
+        Fam >> str_buf;
+        if (Fam.eof()) break;
+        fid.push_back(str_buf);
+        Fam >> str_buf;
+        pid.push_back(str_buf);
+        Fam >> str_buf;
+        fa_id.push_back(str_buf);
+        Fam >> str_buf;
+        mo_id.push_back(str_buf);
+        Fam >> str_buf;
+        sex.push_back(atoi(str_buf.c_str()));
+        Fam >> str_buf;
+        pheno.push_back(atoi(str_buf.c_str()));
+    }
+    Fam.clear();
+    Fam.close();
+    
+    if(msg_flag) {
+        int indi_num = fid.size();
+        LOGGER.i(0, to_string(indi_num) + " individuals to be included from [" + famfile + "].");
+    }
+}
+
+void gcta::read_multi_famfiles(vector<string> multi_bfiles)
+{
+    LOGGER.i(0, "\nReading the PLINK FAM files ....");
+
+    int i=0, nindi_buf = 0, nbfiles = multi_bfiles.size();
+    string famfile = "";
+    vector<string> tfid, tpid, tfa_id, tmo_id;
+    vector<int> tsex;
+    vector<double> tpheno;
+
+    _fid.clear(); _pid.clear(); _fa_id.clear(); _mo_id.clear(); _sex.clear(); _pheno.clear();
+    for( i=0; i<nbfiles; i++ ) {
+        famfile = multi_bfiles[i]+".fam";
+        // Read the fam file
+        read_single_famfile(famfile, tfid, tpid, tfa_id, tmo_id, tsex, tpheno, false); 
+        // Individual ID
+        update_keep(tfid, tpid, tfa_id, tmo_id, tsex, tpheno, famfile);
+    }
+
+    // Sample size
+    _indi_num = _fid.size();
+
+    LOGGER.i(0, to_string(_indi_num) + " individuals have been included from the PLINK FAM files.");
+}
+
+void gcta::update_keep(vector<string> fid_buf, vector<string> pid_buf, vector<string> fa_id_buf, vector<string> mo_id_buf, vector<int> sex_buf, vector<double> pheno_buf, string famfile) {
+    int i = 0, indx = 0, nindi_buf = fid_buf.size();
+    string indi_str = "", strbuf = "";
+    std::set<int> dup_ids;
+
+    // Initial sample size
+    if(_fid.size() == 0) {
+        // Empty vector
+        // Initialize variables
+        _fid = fid_buf;
+        _pid = pid_buf;
+        _fa_id = fa_id_buf;
+        _mo_id = mo_id_buf;
+        _sex = sex_buf;
+        _pheno = pheno_buf;
+        // Initialize the id map per chr
+        int size=0;
+        _keep.clear(); _id_map.clear();
+        for(i = 0; i < nindi_buf; i++) {
+            _keep.push_back(i);
+            // id map
+            _id_map.insert(pair<string,int>(_fid[i] + ":" + _pid[i], i));
+            if (size == _id_map.size()) LOGGER.e(0, "Duplicate individual ID found: " + _fid[i] + " " + _pid[i] + ".");
+            size = _id_map.size();
+        }
+    } else {
+        // Add new individuals
+        for(i=0; i<nindi_buf; i++) {
+            // Search conflicted information of individuals 
+            indi_str = fid_buf[i] + ":" + pid_buf[i];
+            map<string,int>::iterator iter = _id_map.find(indi_str);
+
+            if(iter!=_id_map.end()) {
+                // already existed
+                indx = iter->second;
+                if(fa_id_buf[i] != _fa_id[indx]) LOGGER.e(0, "Inconsistent paternal ID found, " + fid_buf[i] + " " + pid_buf[i] + ", from [" + famfile + "].");
+                if(mo_id_buf[i] != _mo_id[indx]) LOGGER.e(0, "Inconsistent maternal ID found, " + fid_buf[i] + " " + pid_buf[i] + ", from [" + famfile + "].");
+                if(sex_buf[i] != _sex[indx]) LOGGER.e(0, "Inconsistent gender found, " + fid_buf[i] + " " + pid_buf[i] + ", from [" + famfile + "].");
+                if(pheno_buf[i] != _pheno[indx]) LOGGER.e(0, "Inconsistent phenotype found, " + fid_buf[i] + " " + pid_buf[i] + ", from [" + famfile + "].");
+                if(i!=indx) LOGGER.e(0, "Inconsistent orders of individuals found from [" + famfile + "]. Please make sure that the orders of individuals are the same across the fam files.");
+            } else {
+                // not existed
+                LOGGER.e(0, "Unexpected individual ID found, " + fid_buf[i] + " " + pid_buf[i] + ", from [" + famfile + "].");
+            }   
+        }
+    }
+}
+
+// Read .bim files
+string duplicated_snp_name(string tsnp_name, int tchr, int tbp, string ta1, string ta2) {
+    string strbuf = tsnp_name;
+    stringstream ss;
+    ss << "chr" << tchr+1 << ":" << tbp << ":" << ta1 << ta2;
+    tsnp_name = ss.str();
+    LOGGER.w(0, "Duplicated SNP ID " + strbuf + " has been changed to " + tsnp_name + ".");
+    return(tsnp_name);
+}
+
+void gcta::update_include(vector<int> chr_buf, vector<string> snpid_buf, vector<double> gd_buf, vector<int> bp_buf, vector<string> a1_buf, vector<string> a2_buf, int file_indx) {
+    int i = 0, nsnp_buf = chr_buf.size();
+
+    for(i=0; i<nsnp_buf; i++) {
+        // Duplicated SNPs
+        if(_snp_name_per_chr.find(snpid_buf[i]) != _snp_name_per_chr.end()) {
+            snpid_buf[i] = duplicated_snp_name(snpid_buf[i], chr_buf[i], bp_buf[i], a1_buf[i], a2_buf[i]);
+        }
+        // SNP name map per chr
+        _snp_name_per_chr.insert(pair<string,string>(snpid_buf[i], to_string(file_indx)+":"+to_string(i)));
+    }
+
+    // Add the new SNP
+    _chr.insert(_chr.end(), chr_buf.begin(), chr_buf.end());
+    _snp_name.insert(_snp_name.end(), snpid_buf.begin(), snpid_buf.end());
+    _genet_dst.insert(_genet_dst.end(), gd_buf.begin(), gd_buf.end());
+    _bp.insert(_bp.end(), bp_buf.begin(), bp_buf.end());
+    _allele1.insert(_allele1.end(), a1_buf.begin(), a1_buf.end());
+    _allele2.insert(_allele2.end(), a2_buf.begin(), a2_buf.end());
+}
+
+void read_single_bimfile(string bimfile, vector<int> &chr, vector<string> &snp_name, vector<double> &genet_dst, vector<int> &bp, vector<string> &allele1, vector<string> &allele2, bool msg_flag) {
+    // Read bim file: recombination rate is defined between SNP i and SNP i-1
+    int ibuf = 0;
+    string cbuf = "0";
+    double dbuf = 0.0;
+    string str_buf;
+    ifstream Bim(bimfile.c_str());
+    if(!Bim) LOGGER.e(0, "Can not open the file [" + bimfile + "] to read.");
+    if(msg_flag) LOGGER.i(0, "Reading PLINK BIM file from [" + bimfile + "].");
+
+    chr.clear(); snp_name.clear(); genet_dst.clear(); bp.clear(); allele1.clear(); allele2.clear();
+    while (Bim) {
+        Bim >> ibuf;
+        if (Bim.eof()) break;
+        chr.push_back(ibuf);
+        Bim >> str_buf;
+        snp_name.push_back(str_buf);
+        Bim >> dbuf;
+        genet_dst.push_back(dbuf);
+        Bim >> ibuf;
+        bp.push_back(ibuf);
+        Bim >> cbuf;
+        StrFunc::to_upper(cbuf);
+        allele1.push_back(cbuf);
+        Bim >> cbuf;
+        StrFunc::to_upper(cbuf);
+        allele2.push_back(cbuf);
+    }
+    Bim.close();
+
+    if(msg_flag) {
+        int snp_num = chr.size();
+        LOGGER.i(0, to_string(snp_num) + " SNPs to be included from [" + bimfile + "].");
+    }
+}
+
+void gcta::read_multi_bimfiles(vector<string> multi_bfiles)
+{
+    LOGGER.i(0, "Reading the PLINK BIM files ...");
+
+    int i=0, nbfiles = multi_bfiles.size();
+    string bimfile = "";
+    vector<string> tsnp_name, tallele1, tallele2;
+    vector<int> tchr, tbp;
+    vector<double> tgenet_dst;
+
+    _snp_name_per_chr.clear();
+    for( i=0; i<nbfiles; i++ ) {
+        bimfile = multi_bfiles[i]+".bim";
+        read_single_bimfile(bimfile, tchr, tsnp_name, tgenet_dst, tbp, tallele1, tallele2, false);
+        update_include(tchr, tsnp_name, tgenet_dst, tbp, tallele1, tallele2, i);
+    }
+
+    // Initialize the variables
+    _snp_num = _snp_name.size();
+    _include.clear(); _include.resize(_snp_num);
+    for(i=0; i<_snp_num; i++) {
+        _snp_name_map.insert(pair<string,int>(_snp_name[i], i));
+        _include[i] = i;
+    }
+    _ref_A = _allele1; _other_A = _allele2;
+
+    LOGGER.i(0, to_string(_snp_num) + " SNPs to be included from PLINK BIM files.");
+}
+
+// Read multiple .bed files
+void update_id_chr_map(map<string, string> &chr_map, map<string, int> id_map) {
+    int i = 0;
+    map<string, string> chr_map_buf(chr_map);
+    map<string, int>::iterator iter1;
+    map<string, string>::iterator iter2;
+
+    for(iter1=id_map.begin(); iter1!=id_map.end(); iter1++) chr_map_buf.erase(iter1->first);
+    for(iter2=chr_map_buf.begin(); iter2!=chr_map_buf.end(); iter2++) chr_map.erase(iter2->first);
+}
+
+void retrieve_snp(map<string,string> snp_chr_map, map<string,int> snp_id_map, vector<vector<pair<int,int>>> &rsnp, int nbfiles) {
+    int i = 0, j=0, snp_indx = 0;
+    string snp_indx_str = "";
+    vector<string> vs_buf;
+    map<string,string>::iterator iter1;
+    map<string,int>::iterator iter2;
+
+    rsnp.clear(); rsnp.resize(nbfiles);
+
+    for(iter1=snp_chr_map.begin(), iter2=snp_id_map.begin(); iter1 != snp_chr_map.end(); iter1++, iter2++) {
+        vs_buf.clear();
+        snp_indx_str = iter1->second;
+        StrFunc::split_string(snp_indx_str, vs_buf, ":");
+        snp_indx = iter2->second;
+        rsnp[atoi(vs_buf[0].c_str())].push_back(make_pair(atoi(vs_buf[1].c_str()), snp_indx));
+    }
+
+    for(i=0; i<nbfiles; i++) stable_sort(rsnp[i].begin(), rsnp[i].end());
+}
+
+void read_single_bedfile(string bedfile, vector<pair<int,int>> rsnp, vector<int> rindi, vector<vector<bool>> &snp1, vector<vector<bool>> &snp2, bool msg_flag)
+{
+    int i = 0, j = 0, k = 0, t1 = 0, t2= 0, nsnp_chr = rsnp.size(), nindi_chr = rindi.size();
+
+    // Read bed file
+    char ch[1];
+    bitset<8> b;
+    fstream BIT(bedfile.c_str(), ios::in | ios::binary);
+    if(!BIT) LOGGER.e(0, "Can not open the file [" + bedfile + "] to read.");
+    if(msg_flag) LOGGER.i(0, "Reading PLINK BED file from [" + bedfile + "] in SNP-major format ...");
+
+    // skip the first three bytes
+    for (i = 0; i < 3; i++) BIT.read(ch, 1); 
+    int snp_indx = 0, indi_indx = 0;
+    // Read genotype in SNP-major mode, 00: homozygote AA; 11: homozygote BB; 01: hetezygote; 10: missing
+    for(j = 0, t1 = 0, snp_indx = 0; t1 < nsnp_chr; j++) { 
+        if(j!=rsnp[t1].first) {
+            for (i = 0; i < nindi_chr; i += 4) BIT.read(ch, 1);
+            continue;
+        }
+        snp_indx = rsnp[t1].second;
+        for (i = 0, indi_indx = 0; i < nindi_chr;) {
+            BIT.read(ch, 1);
+            if (!BIT) LOGGER.e(0, "Problem with the BED file ... has the FAM/BIM file been changed?");
+            b = ch[0];
+            k = 0;
+            while (k < 7 && i < nindi_chr) { // change code: 11 for AA; 00 for BB;
+                if (!rindi[i]) k += 2;
+                else {
+                    snp2[snp_indx][indi_indx] = (!b[k++]);
+                    snp1[snp_indx][indi_indx] = (!b[k++]);
+                    indi_indx++;
+                }
+                i++;
+            }
+        }
+        t1++;
+    }
+    BIT.clear();
+    BIT.close();
+
+    if(msg_flag) LOGGER.i(0, "Genotype data for " + to_string(nindi_chr) + " individuals and " + to_string(nsnp_chr) + " SNPs to be included from [" + bedfile + "].");
+}
+
+void gcta::read_multi_bedfiles(vector<string> multi_bfiles) {
+    int i=0, nbfiles = multi_bfiles.size();
+    string bedfile = "";
+    vector<vector<pair<int, int>>> rsnp;
+    vector<int> rindi_flag, rsnp_flag;
+
+    if (_include.size() == 0) LOGGER.e(0, "No SNP is retained for analysis.");
+    if (_keep.size() == 0) LOGGER.e(0, "No individual is retained for analysis.");
+
+    LOGGER.i(0, "Reading PLINK BED files ...");
+    // Initialize the matrix
+    _snp_1.clear(); _snp_2.clear();
+    _snp_1.resize(_include.size()); _snp_2.resize(_include.size());
+    for (i = 0; i < _include.size(); i++) {
+        _snp_1[i].reserve(_keep.size());
+        _snp_2[i].reserve(_keep.size());
+    }
+
+    // Update the map to retrieve individuals and SNPs
+    update_id_chr_map(_snp_name_per_chr, _snp_name_map);
+
+    // Reset variables
+    get_rindi(rindi_flag);
+    get_rsnp(rsnp_flag);
+    update_fam(rindi_flag); 
+    update_bim(rsnp_flag);
+    
+    retrieve_snp(_snp_name_per_chr, _snp_name_map, rsnp, nbfiles);
+
+    // Read the coded genotypes
+    for( i=0; i<nbfiles; i++) {        
+        if(rsnp[i].size()==0) { 
+            LOGGER.i(0, "Skip reading " + multi_bfiles[i] + ".bed, no SNPs retained on this chromosome.");
+            continue;
+        }
+        bedfile = multi_bfiles[i] + ".bed";
+        read_single_bedfile(bedfile, rsnp[i], rindi_flag, _snp_1, _snp_2, false);
+    }
+
+    LOGGER.i(0, "Genotype data for " + to_string(_keep.size()) + " individuals and " + to_string(_include.size()) + " SNPs have been included.");
 }
 
 void gcta::read_imp_info_mach_gz(string zinfofile)

@@ -64,12 +64,13 @@ void option(int option_num, char* option_str[])
     double GC_cutoff = 0.7;
 
     // data management
-    string bfile = "", bfile2 = "", update_sex_file = "", update_freq_file = "", update_refA_file = "", kp_indi_file = "", rm_indi_file = "", extract_snp_file = "", exclude_snp_file = "", extract_snp_name = "", exclude_snp_name = "", out = "gcta";
-    bool SNP_major = false, bfile_flag = false, make_bed_flag = false, dose_mach_flag = false, dose_mach_gz_flag = false, dose_beagle_flag = false, bfile2_flag = false, out_freq_flag = false, out_ssq_flag = false;
+    string bfile = "", bfile2 = "", bfile_list = "", update_sex_file = "", update_freq_file = "", update_refA_file = "", kp_indi_file = "", rm_indi_file = "", extract_snp_file = "", exclude_snp_file = "", extract_snp_name = "", exclude_snp_name = "", out = "gcta";
+    bool SNP_major = false, make_bed_flag = false, dose_mach_flag = false, dose_mach_gz_flag = false, dose_beagle_flag = false, bfile2_flag = false, out_freq_flag = false, out_ssq_flag = false;
     bool ref_A = false, recode = false, recode_nomiss = false, recode_std = false, save_ram = false, autosome_flag = false;
-    int autosome_num = 22, extract_chr_start = 0, extract_chr_end = 0, extract_region_chr = 0, extract_region_bp = 0, extract_region_wind = 0, exclude_region_chr = 0, exclude_region_bp = 0, exclude_region_wind = 0;
+    int bfile_flag = 0, autosome_num = 22, extract_chr_start = 0, extract_chr_end = 0, extract_region_chr = 0, extract_region_bp = 0, extract_region_wind = 0, exclude_region_chr = 0, exclude_region_bp = 0, exclude_region_wind = 0;
     string dose_file = "", dose_info_file = "", update_impRsq_file = "";
     double maf = 0.0, max_maf = 0.0, dose_Rsq_cutoff = 0.0;
+    vector<string> multi_bfiles;
 
     // GRM
     bool ibc = false, ibc_all = false, grm_flag = false, grm_bin_flag = true, m_grm_flag = false, m_grm_bin_flag = true, make_grm_flag = false, make_grm_inbred_flag = false, dominance_flag = false, make_grm_xchar_flag = false, grm_out_bin_flag = true, make_grm_f3_flag = false;
@@ -147,9 +148,14 @@ void option(int option_num, char* option_str[])
     char chbuf = '\0';
     string mtcojolist_file="", ref_ld_dirt="", w_ld_dirt="";
     int nsnp_heidi=10, nsnp_gsmr=10;
-    double gwas_thresh=5e-8, heidi_thresh=0.01, clump_thresh1=5e-8, clump_thresh2=5e-8, clump_wind_size=10000, clump_r2_thresh=0.05;
+    double gwas_thresh=5e-8, heidi_thresh=0.01, ld_fdr_thresh=0.05, clump_thresh1=5e-8, clump_thresh2=5e-8, clump_wind_size=10000, clump_r2_thresh=0.05;
     bool heidi_flag=true, mtcojo_flag=false, heidi_thresh_flag=true, nsnp_heidi_flag=true, ref_ld_flag=false, w_ld_flag=false;
 
+    // GSMR
+    bool gsmr_flag = false;
+    int gsmr_alg_flag = 0;
+    string expo_file_list = "", outcome_file_list = "";
+    
     int argc = option_num;
     vector<char *> argv(option_num + 2);
     for (i = 0; i < option_num; i++) argv[i] = option_str[i];
@@ -174,9 +180,13 @@ void option(int option_num, char* option_str[])
             if (GC_cutoff < 0.0 || GC_cutoff > 1.0) throw ("\nError: --gencall should be within the range from 0 to 1.\n");
         }            // data management
         else if (strcmp(argv[i], "--bfile") == 0) {
-            bfile_flag = true;
+            bfile_flag = 1;
             bfile = argv[++i];
             cout << "--bfile " << argv[i] << endl;
+        } else if (strcmp(argv[i], "--mbfile") == 0) {
+            bfile_flag = 2;
+            bfile_list = argv[++i];
+            cout << "--mbfile " << argv[i] << endl;
         } else if (strcmp(argv[i], "--make-bed") == 0) {
             make_bed_flag = true;
             cout << "--make-bed " << endl;
@@ -973,9 +983,31 @@ void option(int option_num, char* option_str[])
             thread_flag = true;
             cout << "--make-erm-alg " << make_erm_mtd << endl;
             if (make_erm_mtd < 1 || make_erm_mtd > 3) throw ("\nError: --make-erm-alg should be 1, 2 or 3.\n");
+        } else if (strcmp(argv[i], "--gsmr-file") == 0 ) {
+            gsmr_flag = true;
+
+            vector<string> gsmr_file_list;
+            while (1) {
+                i++;
+                if (strcmp(argv[i], "gcta") == 0 || strncmp(argv[i], "--", 2) == 0) break;
+                gsmr_file_list.push_back(argv[i]);
+            }
+            i--;
+            if (gsmr_file_list.size() < 1 || gsmr_file_list.size() > 2) 
+                LOGGER.e(0, "--gsmr-file Please specify the GWAS summary data for the exposure(s) and the outcome(s).");
+
+            expo_file_list = gsmr_file_list[0];
+            outcome_file_list = gsmr_file_list[1];
+            cout << "--gsmr-file " << expo_file_list << " " << outcome_file_list << endl;
+            CommFunc::FileExist(expo_file_list);
+            CommFunc::FileExist(outcome_file_list);
+        } else if (strcmp(argv[i], "--gsmr-alg") == 0) {
+            gsmr_alg_flag = atoi(argv[++i]);
+            if(gsmr_alg_flag < 0 || gsmr_alg_flag > 2) 
+                LOGGER.e(0, "--gsmr-alg should be 0 (forward-GSMR), 1 (reverse-GSMR) or 2 (bi-GSMR).");
+            cout << "--gsmr-alg " << gsmr_alg_flag << endl;
         } else if (strcmp(argv[i], "--mtcojo-file") == 0) {
             mtcojo_flag = true;
-            thread_flag = true;
             mtcojolist_file = argv[++i];
             cout << "--mtcojo-file " << mtcojolist_file << endl;
             CommFunc::FileExist(mtcojolist_file);
@@ -1007,7 +1039,7 @@ void option(int option_num, char* option_str[])
             cout << "--w-ld-chr " << w_ld_dirt << endl;
         } else if (strcmp(argv[i], "--gwas-thresh") == 0) {
             gwas_thresh = atof(argv[++i]);
-            if(gwas_thresh <0 | gwas_thresh >1)
+            if(gwas_thresh <0 || gwas_thresh >1)
                 LOGGER.e(0, "--gwas-thresh, Invalid p-value threshold for GWAS summary data.");
             cout<<"--gwas-thresh "<<gwas_thresh<<endl;
         } else if (strcmp(argv[i], "--heidi") == 0) {
@@ -1023,38 +1055,43 @@ void option(int option_num, char* option_str[])
         } else if (strcmp(argv[i], "--heidi-thresh") == 0) {
             heidi_thresh_flag = true;
             heidi_thresh = atof(argv[++i]);
-            if(heidi_thresh <0 | heidi_thresh >1)
+            if(heidi_thresh <0 || heidi_thresh >1)
                 LOGGER.e(0, "--heidi-thresh, Invalid p-value threshold for HEIDI test.");
             cout<<"--heidi-thresh "<<heidi_thresh<<endl;
         } else if (strcmp(argv[i], "--heidi-snp") == 0) {
             nsnp_heidi_flag = true;
             nsnp_heidi = atoi(argv[++i]);
-            if(nsnp_heidi < 0 | nsnp_heidi > 1e6)
+            if(nsnp_heidi < 0 || nsnp_heidi > 1e6)
                 LOGGER.e(0, "--heidi-snp, Invalid SNP number threshold for HEIDI test.");
             cout<<"--heidi-snp "<<nsnp_heidi<<endl;
         } else if (strcmp(argv[i], "--gsmr-snp") == 0) {
             nsnp_gsmr = atoi(argv[++i]);
-            if(nsnp_gsmr < 0 | nsnp_gsmr > 1e6)
+            if(nsnp_gsmr < 0 || nsnp_gsmr > 1e6)
                 LOGGER.e(0, "--heidi-snp, Invalid SNP number threshold for GSMR.");
             cout<<"--gsmr-snp "<<nsnp_gsmr<<endl;
+        } else if (strcmp(argv[i], "--gsmr-ld-fdr") == 0) {
+            ld_fdr_thresh = atoi(argv[++i]);
+            if(ld_fdr_thresh < 0 || ld_fdr_thresh > 1)
+                LOGGER.e(0, "--gsmr-ld-fdr, Invalid FDR threshold for LD correlation matrix.");
+            cout<<"--gsmr-ld-fdr "<<ld_fdr_thresh<<endl;
         } else if (strcmp(argv[i], "--clump-p1") == 0) {
             clump_thresh1 = atof(argv[++i]);
-            if(clump_thresh1 <0 | clump_thresh1 >1)
+            if(clump_thresh1 <0 || clump_thresh1 >1)
                 LOGGER.e(0, "--clump-p1, Invalid p-value threshold for index SNPs.");
             cout<<"--clump-p1 "<<clump_thresh1<<endl;
         } else if (strcmp(argv[i], "--clump-p2") == 0) {
             clump_thresh2 = atof(argv[++i]);
-            if(clump_thresh2 <0 | clump_thresh2 >1)
+            if(clump_thresh2 <0 || clump_thresh2 >1)
                 LOGGER.e(0, "--clump-p2, Invalid p-value threshold for clumped SNPs.");
             cout<<"--clump-p2 "<<endl;
         } else if (strcmp(argv[i], "--clump-kb") == 0) {
             clump_wind_size = atof(argv[++i]);
-            if(clump_wind_size <0 | clump_wind_size >1e6)
+            if(clump_wind_size <0 || clump_wind_size >1e6)
                 LOGGER.e(0, "--clump-kb, Invalid window size for clumping analysis.");
             cout<<"--clump-kb   "<<clump_wind_size<<endl;
         } else if (strcmp(argv[i], "--clump-r2") == 0) {
             clump_r2_thresh = atof(argv[++i]);
-            if(clump_r2_thresh <0 | clump_r2_thresh >1)
+            if(clump_r2_thresh <0 || clump_r2_thresh >1)
                 LOGGER.e(0, "--clump-r2, Invalid LD r2 threshold for clumping analysis.");
             cout<<"--clump-r2 "<<clump_r2_thresh<<endl;
         } else if (strcmp(argv[i], "gcta") == 0) break;
@@ -1170,12 +1207,17 @@ void option(int option_num, char* option_str[])
                 cout << "There are two datasets specified (in PLINK binary PED format).\nReading dataset 1 ..." << endl;
                 if (update_freq_file.empty()) throw ("Error: since there are two dataset, you should update the allele frequencies that are calculated in the combined dataset.");
             }
-            pter_gcta->read_famfile(bfile + ".fam");
+            // Read the list, if there are multiple bfiles
+            if(bfile_flag==2) multi_bfiles = pter_gcta->read_bfile_list(bfile_list);
+            // Start to read the genotypes
+            if(bfile_flag==1) pter_gcta->read_famfile(bfile + ".fam");
+            else pter_gcta->read_multi_famfiles(multi_bfiles);
             if (!kp_indi_file.empty()) pter_gcta->keep_indi(kp_indi_file);
             if (!rm_indi_file.empty()) pter_gcta->remove_indi(rm_indi_file);
             if (!update_sex_file.empty()) pter_gcta->update_sex(update_sex_file);
             if (!blup_indi_file.empty()) pter_gcta->read_indi_blup(blup_indi_file);
-            pter_gcta->read_bimfile(bfile + ".bim");
+            if(bfile_flag==1) pter_gcta->read_bimfile(bfile + ".bim");
+            else pter_gcta->read_multi_bimfiles(multi_bfiles);
             if (!extract_snp_file.empty()) pter_gcta->extract_snp(extract_snp_file);
             if (extract_chr_start > 0) pter_gcta->extract_chr(extract_chr_start, extract_chr_end);
             if(extract_region_chr>0) pter_gcta->extract_region_bp(extract_region_chr, extract_region_bp, extract_region_wind);
@@ -1191,8 +1233,10 @@ void option(int option_num, char* option_str[])
             }
             if (!update_refA_file.empty()) pter_gcta->update_ref_A(update_refA_file);
             if (LD) pter_gcta->read_LD_target_SNPs(LD_file);
-            if(mtcojo_flag) pter_gcta->read_mtcojofile(mtcojolist_file, clump_thresh1, gwas_thresh);
-            pter_gcta->read_bedfile(bfile + ".bed");
+            if(gsmr_flag) pter_gcta->read_gsmrfile(expo_file_list, outcome_file_list, clump_thresh1, gwas_thresh);
+            if(mtcojo_flag) pter_gcta->read_mtcojofile(mtcojolist_file, clump_thresh1, gwas_thresh, nsnp_gsmr);
+            if(bfile_flag==1) pter_gcta->read_bedfile(bfile + ".bed");
+            else pter_gcta->read_multi_bedfiles(multi_bfiles);
             if (!update_impRsq_file.empty()) pter_gcta->update_impRsq(update_impRsq_file);
             if (!update_freq_file.empty()) pter_gcta->update_freq(update_freq_file);
             if (dose_Rsq_cutoff > 0.0) pter_gcta->filter_impRsq(dose_Rsq_cutoff);
@@ -1217,8 +1261,8 @@ void option(int option_num, char* option_str[])
             else if (massoc_slct_flag | massoc_joint_flag) pter_gcta->run_massoc_slct(massoc_file, massoc_wind, massoc_p, massoc_collinear, massoc_top_SNPs, massoc_joint_flag, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag, massoc_mld_slct_alg);
             else if (!massoc_cond_snplist.empty()) pter_gcta->run_massoc_cond(massoc_file, massoc_cond_snplist, massoc_wind, massoc_collinear, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag);
             else if (massoc_sblup_flag) pter_gcta->run_massoc_sblup(massoc_file, massoc_wind, massoc_sblup_fac);
-            else if (mtcojo_flag)
-                pter_gcta->mtcojo(mtcojolist_file, ref_ld_dirt, w_ld_dirt, clump_thresh1, clump_thresh2, clump_wind_size, clump_r2_thresh, gwas_thresh, heidi_thresh, nsnp_heidi, nsnp_gsmr, heidi_flag);
+            else if (gsmr_flag) pter_gcta->gsmr(gsmr_alg_flag,  clump_thresh1, clump_thresh2, clump_wind_size, clump_r2_thresh, gwas_thresh, heidi_thresh, ld_fdr_thresh, nsnp_heidi, nsnp_gsmr, heidi_flag);
+            else if (mtcojo_flag) pter_gcta->mtcojo(mtcojolist_file, ref_ld_dirt, w_ld_dirt, clump_thresh1, clump_thresh2, clump_wind_size, clump_r2_thresh, gwas_thresh, heidi_thresh, ld_fdr_thresh, nsnp_heidi, nsnp_gsmr, heidi_flag);
             else if (simu_qt_flag || simu_cc) pter_gcta->GWAS_simu(bfile, simu_rep, simu_causal, simu_case_num, simu_control_num, simu_h2, simu_K, simu_seed, simu_output_causal, simu_emb_flag, simu_eff_mod);
             else if (make_bed_flag) pter_gcta->save_plink();
             else if (fst_flag) pter_gcta->Fst(subpopu_file);

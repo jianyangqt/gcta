@@ -70,6 +70,10 @@ public:
     void read_famfile(string famfile);
     void read_bimfile(string bimfile);
     void read_bedfile(string bedfile);
+    vector<string> read_bfile_list(string bfile_list);
+    void read_multi_famfiles(vector<string> multi_bfiles);
+    void read_multi_bimfiles(vector<string> multi_bfiles);
+    void read_multi_bedfiles(vector<string> multi_bfiles);
     void read_imp_info_mach_gz(string zinfofile);
     void read_imp_info_mach(string infofile);
     void read_imp_dose_mach_gz(string zdosefile, string kp_indi_file, string rm_indi_file, string blup_indi_file);
@@ -168,12 +172,17 @@ public:
     void sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, bool sbat_write_snpset);
     void sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, bool sbat_write_snpset);
     
+    // GSMR
+    void read_gsmrfile(string expo_file_list, string outcome_file_list, double clump_thresh1, double gwas_thresh);
+    void gsmr(int gsmr_alg_flag, double clump_thresh1, double clump_thresh2, double clump_wind_size, double clump_r2_thresh, double gwas_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_heidi, int nsnp_gsmr, bool heidi_flag);
+    vector<vector<double>> forward_gsmr(double clump_thresh1, double clump_thresh2, double clump_wind_size, double clump_r2_thresh, double gwas_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_heidi, int nsnp_gsmr, bool heidi_flag);
+    vector<vector<double>> reverse_gsmr(double clump_thresh1, double clump_thresh2, double clump_wind_size, double clump_r2_thresh, double gwas_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_heidi, int nsnp_gsmr, bool heidi_flag);
     // mtCOJO
-    void mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, double clump_thresh1, double clump_thresh2, int clump_wind_size, double clump_r2_thresh, double gwas_thresh, double heidi_thresh, int nsnp_heidi, int nsnp_gsmr, bool heidi_flag);
-    void read_mtcojofile(string mtcojolist_file, double clump_thresh1, double gwas_thresh);
-    vector<string> clumping_meta(eigenVector snp_pval, double pval_thresh1, double pval_thresh2, int wind_size, double r2_thresh);
-    vector<double> gsmr_meta(eigenVector bzx, eigenVector bzx_se, eigenVector bzx_pval, eigenVector bzy, eigenVector bzy_se, double pval_thresh1, double pval_thresh2, int wind_size, double r2_thresh, double gwas_thresh, double heidi_thresh, int nsnp_gsmr, int nsnp_heidi, bool flag_heidi) ;
-
+    void mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, double clump_thresh1, double clump_thresh2, int clump_wind_size, double clump_r2_thresh, double gwas_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_heidi, int nsnp_gsmr, bool heidi_flag);
+    void read_mtcojofile(string mtcojolist_file, double clump_thresh1, double gwas_thresh, int nsnp_gsmr);
+    double read_single_metafile(string metafile, map<string, int> id_map, vector<string> &snp_a1, vector<string> &snp_a2, 
+                                eigenVector &snp_freq, eigenVector &snp_b, eigenVector &snp_se, eigenVector &snp_pval, eigenVector &snp_n, vector<bool> &snpflag);
+    vector<string> read_snp_metafile(string metafile, double thresh);
 
     /////////////////////////
     // gene expresion data
@@ -201,6 +210,9 @@ private:
     void update_bim(vector<int> &rsnp);
     void update_fam(vector<int> &rindi);
 
+    void update_include(vector<int> chr_buf, vector<string> snpid_buf, vector<double> gd_buf, vector<int> bp_buf, vector<string> a1_buf, vector<string> a2_buf, int file_indx);
+    void update_keep(vector<string> fid_buf, vector<string> pid_buf, vector<string> fa_id_buf, vector<string> mo_id_buf, vector<int> sex_buf, vector<double> pheno_buf, string famfile);
+    
     void update_id_map_kp(const vector<string> &id_list, map<string, int> &id_map, vector<int> &keep);
     void update_id_map_rm(const vector<string> &id_list, map<string, int> &id_map, vector<int> &keep);
     void read_snplist(string snplistfile, vector<string> &snplist, string msg = "SNPs");
@@ -416,6 +428,17 @@ private:
     void ecojo_inv_R();
     void ecojo_blup(double lambda);   
 
+    // mtCOJO and GSMR
+    void init_meta_snp_map(vector<string> snplist);
+    void init_gwas_variable(vector<vector<string>> &snp_a1, vector<vector<string>> &snp_a2, eigenMatrix &snp_freq, eigenMatrix &snp_b, eigenMatrix &snp_se, eigenMatrix &snp_pval, eigenMatrix &n, int npheno, int nsnp);
+    void update_meta_snp_map(vector<string> snplist, map<string, int> &snp_id_map, vector<string> &snp_id, vector<int> &snp_indx);
+    void update_meta_snp(map<string,int> &snp_name_map, vector<string> &snp_name, vector<int> &snp_remain);
+    vector<string> remove_bad_snps(vector<string> snp_name, vector<int> snp_remain, vector<vector<bool>> snp_flag, vector<vector<string>> &snp_a1, vector<vector<string>> &snp_a2, eigenMatrix &snp_freq,  eigenMatrix &snp_b, eigenMatrix snp_se, eigenMatrix snp_pval, eigenMatrix snp_n, map<string,int> plink_snp_name_map, vector<string> snp_ref_a1, vector<string> snp_ref_a2, vector<string> target_pheno, int ntarget, vector<string> covar_pheno, int ncovar, string outfile_name);
+    vector<string> filter_meta_snp_pval(vector<string> snp_name, vector<int> remain_snp_indx,  eigenMatrix snp_pval, int start_indx, int end_indx, double pval_thresh);
+    vector<double> gsmr_meta(eigenVector bzx, eigenVector bzx_se, eigenVector bzx_pval, eigenVector bzy, eigenVector bzy_se, vector<bool> snp_flag, double pval_thresh1, double pval_thresh2, int wind_size, double r2_thresh, double gwas_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, int nsnp_heidi, bool heidi_flag);
+    vector<string> clumping_meta(eigenVector snp_pval, vector<bool> snp_flag, double pval_thresh1, double pval_thresh2, int wind_size, double r2_thresh);
+    void update_mtcojo_snp_rm(vector<string> adjsnps, map<string,int> &snp_id_map, vector<int> &remain_snp_indx);
+
     // inline functions
     template<typename ElemType>
     void makex(int j, vector<ElemType> &x, bool minus_2p = false) {
@@ -437,6 +460,7 @@ private:
     vector<int> _chr;
     vector<string> _snp_name;
     map<string, int> _snp_name_map;
+    map<string, string> _snp_name_per_chr;
     vector<double> _genet_dst;
     vector<int> _bp;
     vector<string> _allele1;
@@ -563,6 +587,12 @@ private:
     eigenVector _D_N;
     eigenSparseMat _Z_N;
     eigenSparseMat _Z;
+    
+    // GSMR analysis
+    int _expo_num;
+    int _outcome_num;
+    vector<string> _gwas_trait_name;
+    vector<vector<bool>> _snp_val_flag;
     
     // mtCOJO analysis
     string _target_pheno_name="";

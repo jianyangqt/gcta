@@ -88,6 +88,7 @@ namespace StatFunc
     double CalcuPi0(vector<double> &P_Value, vector<double> &Lambda);
     void spline(vector<double> &x, vector<double> &y, const double yp1, const double ypn, vector<double> &y2);
     void splint(vector<double> &xa, vector<double> &ya, vector<double> &y2a, const double x, double &y);
+    vector<double> ControlFDR_BH(const vector<double> p_value);
 
     // normal distribution
     double erf(double x);

@@ -567,6 +567,38 @@ double StatFunc::erf(double x) {
     return (1 - pow(tmp, -16));
 }
 
+/*
+n <- length(p)
+lp <- length(p)
+i <- lp:1L
+o <- order(p, decreasing = TRUE)
+ro <- order(o) #This is the index of the initial p-values, highest to lowest
+pmin(1, cummin(n/i * p[o]))[ro]
+*/
+
+vector<double> StatFunc::ControlFDR_BH(const vector<double> p_value) {
+    int i = 0, n = p_value.size();
+
+    double c = 0.0, min_val = 1.0;
+    vector<double> fdr(n);
+    vector<pair<double, int>> pval_buf(n);
+    vector<pair<int, int>> indx_buf(n);
+
+    for( i = 0; i < n; i++ ) pval_buf[i] = make_pair(p_value[i], i);
+    stable_sort(pval_buf.begin(), pval_buf.end(), [](const pair<double,int> a, const pair<double,int> b) {return a.first > b.first; });
+
+    for( i = 0; i < n; i++ ) indx_buf[i] = make_pair(pval_buf[i].second, i);
+    stable_sort(indx_buf.begin(), indx_buf.end());
+
+    for( i = 0; i < n; i++ ) {
+        c = (double) n / (double) (n-i) * pval_buf[i].first;
+        if(c < min_val) min_val = c;
+        fdr[indx_buf[i].second] = CommFunc::Min(1.0, min_val);
+    }
+
+    return (fdr);
+}
+
 // Default: upper-tail
 double StatFunc::pnorm(double x) {
     double z = 0.0;
