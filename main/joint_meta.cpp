@@ -179,7 +179,7 @@ void gcta::run_massoc_slct(string metafile, int wind_size, double p_cutoff, doub
     if (top_SNPs < 0) top_SNPs = 1e10;
     else {
         _jma_p_cutoff = 0.5;
-        cout << "The threshold p-value has been set to 0.5 because of the --massoc-top-SNPs option." << endl;
+        cout << "The threshold p-value has been set to 0.5 because of the --cojo-top-SNPs option." << endl;
     }
     int i = 0, j = 0;
     vector<int> slct, remain;
@@ -357,7 +357,7 @@ bool gcta::slct_entry(vector<int> &slct, vector<int> &remain, eigenVector &bC, e
 
 void gcta::slct_stay(vector<int> &slct, eigenVector &bJ, eigenVector &bJ_se, eigenVector &pJ) {
     if (_B_N.cols() < 1) {
-        if (!init_B(slct)) throw ("Error: there is a collinearity problem of the given list of SNPs.\nYou can try the option --massoc-slct to get rid of one of each pair of highly correlated SNPs.");
+        if (!init_B(slct)) throw ("Error: there is a collinearity problem of the given list of SNPs.\nYou can try the option --cojo-slct to get rid of one of each pair of highly correlated SNPs.");
     }
 
     vector<double> pJ_buf;
@@ -395,7 +395,7 @@ double gcta::massoc_calcu_Ve(const vector<int> &slct, eigenVector &bJ, eigenVect
 
 void gcta::massoc_joint(const vector<int> &indx, eigenVector &bJ, eigenVector &bJ_se, eigenVector &pJ) {
     if (_B_N.cols() < 1) {
-        if (!init_B(indx)) throw ("Error: there is a collinearity problem of the given list of SNPs.\nYou can try the option --massoc-slct to get rid of one of each pair of highly correlated SNPs.");
+        if (!init_B(indx)) throw ("Error: there is a collinearity problem of the given list of SNPs.\nYou can try the option --cojo-slct to get rid of one of each pair of highly correlated SNPs.");
     }
 
     int i = 0, n = indx.size();
@@ -425,7 +425,7 @@ void gcta::massoc_joint(const vector<int> &indx, eigenVector &bJ, eigenVector &b
 
 void gcta::massoc_cond(const vector<int> &slct, const vector<int> &remain, eigenVector &bC, eigenVector &bC_se, eigenVector &pC) {
     if (_B_N.cols() < 1) {
-        if (!init_B(slct)) throw ("Error: there is a collinearity problem of the given list of SNPs.\nYou can try the option --massoc-slct to get rid of one of each pair of highly correlated SNPs.");
+        if (!init_B(slct)) throw ("Error: there is a collinearity problem of the given list of SNPs.\nYou can try the option --cojo-slct to get rid of one of each pair of highly correlated SNPs.");
     }
     if (_Z_N.cols() < 1) init_Z(slct);
 
