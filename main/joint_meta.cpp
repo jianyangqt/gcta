@@ -167,7 +167,7 @@ void gcta::read_fixed_snp(string snplistfile, string msg, vector<int> &pgiven, v
     else throw ("Error: none of the given SNPs can be matched to the genotype and summary data.");
 }
 
-void gcta::run_massoc_slct(string metafile, int wind_size, double p_cutoff, double collinear, uint64_t top_SNPs, bool joint_only, bool GC, double GC_val, bool actual_geno, int mld_slct_alg)
+void gcta::run_massoc_slct(string metafile, int wind_size, double p_cutoff, double collinear, int64_t top_SNPs, bool joint_only, bool GC, double GC_val, bool actual_geno, int mld_slct_alg)
 {
     _jma_actual_geno = actual_geno;
     _jma_wind_size = wind_size;
