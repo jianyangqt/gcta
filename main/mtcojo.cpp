@@ -355,7 +355,7 @@ vector<string> gcta::remove_bad_snps(vector<string> snp_name, vector<int> snp_re
             allelebuf.push_back(snp_a1[j][snp_remain[i]]);
             allelebuf.push_back(snp_a2[j][snp_remain[i]]);
             // Removing SNPs with missing value
-            if( isnan(snp_b(snp_remain[snp_remain[i]],j)) || isnan(snp_se(snp_remain[i],j)) || isnan(snp_pval(snp_remain[i],j)) || isnan(snp_n(snp_remain[i],j)) ) {
+            if( std::isnan(snp_b(snp_remain[snp_remain[i]],j)) || std::isnan(snp_se(snp_remain[i],j)) || std::isnan(snp_pval(snp_remain[i],j)) || std::isnan(snp_n(snp_remain[i],j)) ) {
                 iterFlag=false; break;
             }
             // Removing SNPs with extremely small SE
@@ -1395,7 +1395,7 @@ void gcta::mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, 
         LOGGER.i(0, "\nGSMR analysis for covariate #" + to_string(i) + " ...");
         for(j=0; j<nsnp_init; j++) snp_pair_flag[j] = (int)((_snp_val_flag[0][j]+_snp_val_flag[i][j])/2);
         gsmr_rst =  gsmr_meta(_meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), _meta_snp_b.col(0), _meta_snp_se.col(0),  snp_pair_flag, clump_thresh1, clump_thresh2, clump_wind_size, clump_r2_thresh, gwas_thresh, heidi_thresh, ld_fdr_thresh, nsnp_heidi, nsnp_gsmr, heidi_flag);
-        if(isnan(gsmr_rst[3])) 
+        if(std::isnan(gsmr_rst[3])) 
             LOGGER.e(0, "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required for the GSMR analysis.");
         bxy_est(i-1) = gsmr_rst[0];
         LOGGER.i(0, "bxy " + to_string(gsmr_rst[0]) + " " + to_string(gsmr_rst[1]));
