@@ -18,6 +18,12 @@ IF(NOT EIGEN3_INCLUDE_DIR)
 ENDIF()
 INCLUDE_DIRECTORIES("${EIGEN3_INCLUDE_DIR}")
 
+SET(BOOST_LIB "$ENV{BOOST_LIB}")
+IF(NOT BOOST_LIB)
+    MESSAGE(FATAL_ERROR "Specify environment variable BOOST_LIB to the location of BOOST library")
+ENDIF()
+INCLUDE_DIRECTORIES("${BOOST_LIB}")
+
 SET(MKLROOT "$ENV{MKLROOT}")
 IF(NOT MKLROOT)
     MESSAGE(FATAL_ERROR "Specify environment variable MKLROOT to the location of Intel MKL package")
@@ -51,8 +57,8 @@ if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     message(WARNING "GCTA has an known issue compile with Clang, we are checking the code")
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64 -msse4.2 -pthread -DMKL_LP64 -fvisibility=hidden -fvisibility-inlines-hidden -mpopcnt")
-    set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} -O3 -flto -DNDEBUG")
-    set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g")
+    set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG") #-flto 
+    set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g3")
     add_compile_options(-fopenmp)
     set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
@@ -95,8 +101,8 @@ endif()
 #target_link_libraries(gcta64 ${libs_list} mainV1)
 
 # Testing has some problems currently
-#enable_testing()
-#ADD_SUBDIRECTORY(test)
+enable_testing()
+ADD_SUBDIRECTORY(test)
 
 IF(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json")
   EXECUTE_PROCESS( COMMAND ${CMAKE_COMMAND} -E copy_if_different

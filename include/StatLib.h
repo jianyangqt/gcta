@@ -17,7 +17,6 @@
 #ifndef STAT_LIB_H
 #define STAT_LIB_H
 namespace StatLib{
-    double pchisq(double x, double df);
-
+    double pchisqd1(double x);
 }
 #endif //STAT_LIB_H

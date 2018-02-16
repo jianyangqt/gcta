@@ -14,6 +14,7 @@ Please report bugs to: Jian Yang <jian.yang@uq.edu.au>
 2. Intel MKL 2017 or above
 3. EIGEN >= 3.3.3 
 4. CMake >= 3.1
+5. BOOST >= 1.4
 ### Linux
 1. Kernel version >= 2.6.8
 2. GCC version >= 4.9 with C++ 11 support, Or Intel compiler version >= 15.0
@@ -32,6 +33,7 @@ Please report bugs to: Jian Yang <jian.yang@uq.edu.au>
 ### Linux & Mac
 1. clone the repository or download the code
 2. revise environment variable  MKLROOT and EIGEN3\_INCLUDE\_DIR to your own location of MKL and EIGEN3
+3. revise environment varialbe BOOST\_LIB to your own location of BOOST 
 
 > Note: you can either export MKLROOT="LOCATION\_MKL" before compile, or put these variables permanently to shell profiles (.bashrc, .profile)
 

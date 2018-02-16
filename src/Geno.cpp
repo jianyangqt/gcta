@@ -28,6 +28,19 @@
 #include <cmath>
 #include <sstream>
 #include <iomanip>
+#include "utils.hpp"
+#include "omp.h"
+#include "ThreadPool.h"
+
+#ifdef _WIN64
+  #define CTZLU __builtin_ctzll
+  #define CLZLU __builtin_clzll
+#else
+  #define CTZLU __builtin_ctzl
+  #define CLZLU __builtin_clzl
+#endif
+typedef uint32_t halfword_t;
+const uintptr_t k1LU = (uintptr_t)1;
 
 using std::thread;
 using std::to_string;
@@ -45,14 +58,33 @@ Geno::Geno(Pheno* pheno, Marker* marker) {
 
     this->pheno = pheno;
     this->marker = marker;
-    num_byte_per_marker = (pheno->count_raw() + 3) / 4;
+    num_raw_sample = pheno->count_raw();
+    num_byte_per_marker = (num_raw_sample + 3) / 4;
     num_byte_buffer = num_byte_per_marker * Constants::NUM_MARKER_READ;
-    last_byte_NA_sample = (4 - (pheno->count_raw() % 4)) % 4;
+    last_byte_NA_sample = (4 - (num_raw_sample % 4)) % 4;
+
+    num_keep_sample = pheno->count_keep();
+    num_item_1geno = (num_keep_sample + 31) / 32;
+    num_item_geno_buffer = num_item_1geno * Constants::NUM_MARKER_READ;
+
+    vector<uint32_t>& index_keep = pheno->get_index_keep();
+    keep_mask = new uint64_t[(num_raw_sample + 63)/64]();
+    for(auto keep_item : index_keep){
+        uint32_t cur_qword = keep_item / 64;
+        uint32_t cur_offset = keep_item % 64;
+        keep_mask[cur_qword] |= k1LU << cur_offset;
+    }
+
     check_bed();
 
     init_AF();
     init_AsyncBuffer();
     filter_MAF();
+}
+
+Geno::~Geno(){
+    delete asyncBuffer;
+    delete[] keep_mask;
 }
 
 void Geno::filter_MAF(){
@@ -119,9 +151,6 @@ void Geno::init_AsyncBuffer(){
     asyncBuffer = new AsyncBuffer<uint8_t>(num_byte_buffer);
 }
 
-Geno::~Geno(){
-    delete asyncBuffer;
-}
 
 void Geno::out_freq(string filename){
     string name_frq = filename + ".frq";
@@ -175,10 +204,12 @@ bool Geno::check_bed(){
 }
 
 void Geno::read_bed(){
+    
     LOGGER.i(0, "Reading PLINK BED file from [" + bed_file + "] in SNP-major format...");
     //LOGGER.i(0, "Genotype data for " + to_string(pheno->count_keep()) + " individuals and " + 
     //            to_string(marker->count_extract()) + " SNPs to be included from [" + bed_file + "]");
     //clock_t begin = clock();
+    //omp_set_num_threads(THREADS.getThreadCount()+1);
     FILE *pFile;
     pFile = fopen(bed_file.c_str(), "rb");
     if(pFile == NULL){
@@ -199,14 +230,8 @@ void Geno::read_bed(){
     LOGGER.ts("read_geno");
 
     while(!isEOF){
-        while(true){
-            w_buf = asyncBuffer->start_write();
-            if(!w_buf){
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            }else{
-                break;
-            }
-        }
+        w_buf = asyncBuffer->start_write();
+        
         LOGGER.d(0, "read start");
         int num_marker = 0;
         size_t read_count = 0;
@@ -239,13 +264,13 @@ void Geno::read_bed(){
             }
         }while(num_marker != cur_num_block);
 
-        pheno->mask_geno_keep(iw_buf, num_marker);
         asyncBuffer->end_write();
         LOGGER.d(2, "read block success");
         //std::cout << "   read bed" << "@T: " << 1.0 * (clock() - begin) / CLOCKS_PER_SEC << std::endl;
         cur_block++;
     }
     fclose(pFile);
+    LOGGER.i(0, "Read bed time: " + to_string(LOGGER.tp("read_geno")));
 }
 /*
 void Geno::freq(uint8_t *buf, int num_marker){
@@ -320,6 +345,88 @@ void Geno::freq(uint8_t *buf, int num_marker) {
     num_marker_freq += num_marker;
 }
 
+void Geno::freq2(uint8_t *buf, int num_marker) {
+    //pheno->mask_geno_keep(buf, num_marker);
+    const static uint64_t MASK = 6148914691236517205UL; 
+    static int pheno_count = pheno->count_keep();
+    static int num_trunk = num_byte_per_marker / 8;
+    static int remain_bit = (num_byte_per_marker % 8) * 8;
+    static int move_bit = 64 - remain_bit;
+
+    if(num_marker_freq >= marker->count_extract()) return;
+
+    int cur_num_marker_read = num_marker;
+    
+    #pragma omp parallel for schedule(dynamic) 
+    for(int cur_marker_index = 0; cur_marker_index < cur_num_marker_read; ++cur_marker_index){
+        uint32_t curA1A1, curA1A2, curA2A2;
+        uint32_t even_ct = 0, odd_ct = 0, both_ct = 0;
+        uint64_t *p_buf = (uint64_t *) (buf + cur_marker_index * num_byte_per_marker);
+        int index = 0;
+        for(; index < num_trunk ; index++){
+            uint64_t g_buf = p_buf[index];
+            uint64_t g_buf_h = MASK & (g_buf >> 1);
+            odd_ct += popcount(g_buf & MASK);
+            even_ct += popcount(g_buf_h);
+            both_ct += popcount(g_buf & g_buf_h);
+        }
+        if(remain_bit){
+            uint64_t g_buf = p_buf[index];
+            g_buf = (g_buf << move_bit) >> move_bit;
+            uint64_t g_buf_h = MASK & (g_buf >> 1);
+            odd_ct += popcount(g_buf & MASK);
+            even_ct += popcount(g_buf_h);
+            both_ct += popcount(g_buf & g_buf_h);
+        }
+
+        curA1A1 = pheno_count + both_ct - even_ct - odd_ct;
+        curA1A2 = even_ct - both_ct;
+        curA2A2 = both_ct;
+
+        int raw_index_marker = num_marker_freq + cur_marker_index;
+
+        countA1A1[raw_index_marker] = curA1A1;
+        countA1A2[raw_index_marker] = curA1A2;
+        countA2A2[raw_index_marker] = curA2A2;
+        AFA1[raw_index_marker] = (2.0 * curA1A1 + curA1A2) / (2.0 * (curA1A1 + curA1A2 + curA2A2));
+    }
+    num_marker_freq += num_marker;
+}
+
+void Geno::freq64(uint64_t *buf, int num_marker) {
+    //pheno->mask_geno_keep(buf, num_marker);
+    const static uint64_t MASK = 6148914691236517205UL; 
+    if(num_marker_freq >= marker->count_extract()) return;
+
+    int cur_num_marker_read = num_marker;
+    
+    #pragma omp parallel for schedule(dynamic) 
+    for(int cur_marker_index = 0; cur_marker_index < cur_num_marker_read; ++cur_marker_index){
+        uint32_t curA1A1, curA1A2, curA2A2;
+        uint32_t even_ct = 0, odd_ct = 0, both_ct = 0;
+        uint64_t *p_buf = buf + cur_marker_index * num_item_1geno;
+        for(int index = 0; index < num_item_1geno ; index++){
+            uint64_t g_buf = p_buf[index];
+            uint64_t g_buf_h = MASK & (g_buf >> 1);
+            odd_ct += popcount(g_buf & MASK);
+            even_ct += popcount(g_buf_h);
+            both_ct += popcount(g_buf & g_buf_h);
+        }
+
+        curA1A1 = num_keep_sample + both_ct - even_ct - odd_ct;
+        curA1A2 = even_ct - both_ct;
+        curA2A2 = both_ct;
+
+        int raw_index_marker = num_marker_freq + cur_marker_index;
+
+        countA1A1[raw_index_marker] = curA1A1;
+        countA1A2[raw_index_marker] = curA1A2;
+        countA2A2[raw_index_marker] = curA2A2;
+        AFA1[raw_index_marker] = (2.0 * curA1A1 + curA1A2) / (2.0 * (curA1A1 + curA1A2 + curA2A2));
+    }
+    num_marker_freq += num_marker;
+}
+
 void Geno::loop_block(vector<function<void (uint8_t *buf, int num_marker)>> callbacks) {
     num_finished_markers = 0;
     thread read_thread([this](){this->read_bed();});
@@ -333,16 +440,7 @@ void Geno::loop_block(vector<function<void (uint8_t *buf, int num_marker)>> call
     LOGGER.ts("LOOP_GENO_PRE");
 
     for(int cur_block = 0; cur_block < num_blocks; ++cur_block){
-        while(true){
-            std::tie(r_buf, isEOF) = asyncBuffer->start_read();
-            if(!r_buf){
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                //LOGGER.i(0, "Buffer NULL: " + to_string(LOGGER.tp("LOOP_GENO_PRE")));
-                //LOGGER.d(0, "wait for buffer to read");
-            }else{
-                break;
-            }
-        }
+        std::tie(r_buf, isEOF) = asyncBuffer->start_read();
         //LOGGER.i(0, "time get buffer: " + to_string(LOGGER.tp("LOOP_GENO_PRE")));
 
         LOGGER.d(0, "Process block " + std::to_string(cur_block));
@@ -385,9 +483,195 @@ void Geno::loop_block(vector<function<void (uint8_t *buf, int num_marker)>> call
     LOGGER.i(1, ss.str());
 }
 
-void Geno::makeMarkerX(uint8_t *buf, int cur_marker, double *w_buf, bool center, bool std){
+// extracted from plink2.0
+
+void copy_quaterarr_nonempty_subset(const uintptr_t* __restrict raw_quaterarr, const uintptr_t* __restrict subset_mask, uint32_t raw_quaterarr_entry_ct, uint32_t subset_entry_ct, uintptr_t* __restrict output_quaterarr) {
+    // in plink 2.0, we probably want (0-based) bit raw_quaterarr_entry_ct of
+    // subset_mask to be always allocated and unset.  This removes a few special
+    // cases re: iterating past the end of arrays.
+    static const uint32_t kBitsPerWordD2 = 32;
+
+    uintptr_t cur_output_word = 0;
+
+    uintptr_t* output_quaterarr_iter = output_quaterarr;
+
+    uintptr_t* output_quaterarr_last = &(output_quaterarr[subset_entry_ct / kBitsPerWordD2]);
+    const uint32_t word_write_halfshift_end = subset_entry_ct % kBitsPerWordD2;
+    uint32_t word_write_halfshift = 0;
+    // if <= 2/3-filled, use sparse copy algorithm
+    // (tried copy_bitarr_subset() approach, that actually worsened things)
+    if (subset_entry_ct * (3 * k1LU) <= raw_quaterarr_entry_ct * (2 * k1LU)) {
+        uint32_t subset_mask_widx = 0;
+        while (1) {
+            const uintptr_t cur_include_word = subset_mask[subset_mask_widx];
+            if (cur_include_word) {
+                uint32_t wordhalf_idx = 0;
+                uint32_t cur_include_halfword = (halfword_t)cur_include_word;
+                while (1) {
+                    if (cur_include_halfword) {
+                        uintptr_t raw_quaterarr_word = raw_quaterarr[subset_mask_widx * 2 + wordhalf_idx];
+                        do {
+                            uint32_t rqa_idx_lowbits = __builtin_ctz(cur_include_halfword);
+                            cur_output_word |= ((raw_quaterarr_word >> (rqa_idx_lowbits * 2)) & 3) << (word_write_halfshift * 2);
+                            if (++word_write_halfshift == kBitsPerWordD2) {
+                                *output_quaterarr_iter++ = cur_output_word;
+                                word_write_halfshift = 0;
+                                cur_output_word = 0;
+                            }
+                            cur_include_halfword &= cur_include_halfword - 1;
+                        } while (cur_include_halfword);
+                    }
+                    if (wordhalf_idx) {
+                        break;
+                    }
+                    ++wordhalf_idx;
+                    cur_include_halfword = cur_include_word >> kBitsPerWordD2;
+                }
+                if (output_quaterarr_iter == output_quaterarr_last) {
+                    if (word_write_halfshift == word_write_halfshift_end) {
+                        if (word_write_halfshift_end) {
+                            *output_quaterarr_last = cur_output_word;
+                        }
+                        return;
+                    }
+                }
+            }
+            ++subset_mask_widx;
+        }
+    }
+    // blocked copy
+    const uintptr_t* raw_quaterarr_iter = raw_quaterarr;
+    while (1) {
+        const uintptr_t cur_include_word = *subset_mask++;
+        uint32_t wordhalf_idx = 0;
+        uintptr_t cur_include_halfword = (halfword_t)cur_include_word;
+        while (1) {
+            uintptr_t raw_quaterarr_word = *raw_quaterarr_iter++;
+            while (cur_include_halfword) {
+                uint32_t rqa_idx_lowbits = CTZLU(cur_include_halfword); // tailing zero
+                uintptr_t halfword_invshifted = (~cur_include_halfword) >> rqa_idx_lowbits;
+                uintptr_t raw_quaterarr_curblock_unmasked = raw_quaterarr_word >> (rqa_idx_lowbits * 2); // remove mask bit tailing zero, not to keep
+                uint32_t rqa_block_len = CTZLU(halfword_invshifted);  // find another keep
+                uint32_t block_len_limit = kBitsPerWordD2 - word_write_halfshift;
+                cur_output_word |= raw_quaterarr_curblock_unmasked << (2 * word_write_halfshift); // avoid overwrite current saved bits
+                if (rqa_block_len < block_len_limit) { //2  16
+                    word_write_halfshift += rqa_block_len; // 0 2
+                    cur_output_word &= (k1LU << (word_write_halfshift * 2)) - k1LU; // mask high end, and keep low needed bits
+                } else {
+                    // no need to mask, extra bits vanish off the high end
+                    *output_quaterarr_iter++ = cur_output_word;
+                    word_write_halfshift = rqa_block_len - block_len_limit;
+                    if (word_write_halfshift) {
+                        cur_output_word = (raw_quaterarr_curblock_unmasked >> (2 * block_len_limit)) & ((k1LU << (2 * word_write_halfshift)) - k1LU);
+                    } else {
+                        // avoid potential right-shift-[word length]
+                        cur_output_word = 0;
+                    }
+                }
+                cur_include_halfword &= (~(k1LU << (rqa_block_len + rqa_idx_lowbits))) + k1LU;
+            }
+            if (wordhalf_idx) {
+                break;
+            }
+            ++wordhalf_idx;
+            cur_include_halfword = cur_include_word >> kBitsPerWordD2;
+        }
+        if (output_quaterarr_iter == output_quaterarr_last) {
+            if (word_write_halfshift == word_write_halfshift_end) {
+                if (word_write_halfshift_end) {
+                    *output_quaterarr_last = cur_output_word;
+                }
+                return;
+            }
+        }
+    }
+}
+
+void Geno::move_geno(uint8_t *buf, uint64_t *keep_list, uint32_t num_raw_sample, uint32_t num_keep_sample, uint32_t num_marker, uint64_t *geno_buf){
+    uint32_t num_byte_keep_geno = (num_keep_sample + 3) / 4;
+    uint32_t num_byte_per_marker = (num_raw_sample + 3) / 4;
+    uint32_t num_qword_per_marker = (num_byte_keep_geno + 7) / 8;
+
+    static int remain_bit = (num_byte_per_marker % 8) * 8;
+    static int move_bit = 64 - remain_bit;
+    static uint64_t MASK = (UINT64_MAX << move_bit) >> move_bit;
+
+    #pragma omp parallel for schedule(dynamic) 
+    for(uint32_t index = 0; index < num_marker; index++){
+        uint64_t *pbuf = (uint64_t *) (buf + index * num_byte_per_marker);
+        uint64_t *gbuf = geno_buf + index * num_qword_per_marker; 
+        copy_quaterarr_nonempty_subset(pbuf, keep_list, num_raw_sample, num_keep_sample, gbuf);
+    }
+}
+
+void Geno::loop_64block(vector<function<void (uint64_t *buf, int num_marker)>> callbacks) {
+    num_finished_markers = 0;
+    thread read_thread([this](){this->read_bed();});
+    read_thread.detach();
+
+    uint8_t *r_buf = NULL;
+    bool isEOF = false;
+    int cur_num_marker_read;
+
+    LOGGER.ts("LOOP_GENO_TOT");
+    LOGGER.ts("LOOP_GENO_PRE");
+
+    for(int cur_block = 0; cur_block < num_blocks; ++cur_block){
+        std::tie(r_buf, isEOF) = asyncBuffer->start_read();
+        //LOGGER.i(0, "time get buffer: " + to_string(LOGGER.tp("LOOP_GENO_PRE")));
+
+        LOGGER.d(0, "Process block " + std::to_string(cur_block));
+        if(isEOF && cur_block != (num_blocks - 1)){
+            LOGGER.e(0, "can't read to the end of file [" + bed_file + "].");
+        }
+        //correct the marker read;
+        if(cur_block == (num_blocks - 1)){
+            cur_num_marker_read = marker->count_extract() - Constants::NUM_MARKER_READ * cur_block;
+        }else{
+            cur_num_marker_read = Constants::NUM_MARKER_READ;
+        }
+
+        uint64_t *geno_buf = new uint64_t[num_item_geno_buffer];
+        move_geno(r_buf, keep_mask, num_raw_sample, num_keep_sample, cur_num_marker_read, geno_buf);
+        asyncBuffer->end_read();
+
+        for(auto callback : callbacks){
+         //   LOGGER.i(0, "time1: " + to_string(LOGGER.tp("LOOP_GENO_PRE")));
+            callback(geno_buf, cur_num_marker_read);
+          //  LOGGER.i(0, "time2: " + to_string(LOGGER.tp("LOOP_GENO_PRE")));
+        }
+
+        delete[] geno_buf;
+
+        num_finished_markers += cur_num_marker_read;
+        if(cur_block % 100 == 0){
+            float time_p = LOGGER.tp("LOOP_GENO_PRE");
+            if(time_p > 300){
+                LOGGER.ts("LOOP_GENO_PRE");
+                float elapse_time = LOGGER.tp("LOOP_GENO_TOT");
+                float finished_percent = (float) cur_block / num_blocks;
+                float remain_time = (1.0 / finished_percent - 1) * elapse_time / 60;
+
+                std::ostringstream ss;
+                ss << std::fixed << std::setprecision(1) << finished_percent * 100 << "% Estimated time remaining " << remain_time << " min"; 
+                
+                LOGGER.i(1, ss.str());
+            }
+        }
+    }
+    std::ostringstream ss;
+    ss << std::fixed << std::setprecision(1) << "100% Finished in " << LOGGER.tp("LOOP_GENO_TOT") / 60 << " min";
+    LOGGER.i(1, ss.str());
+}
+
+
+void Geno::makeMarkerX(uint64_t *buf, int cur_marker, double *w_buf, bool center, bool std){
+    static uint32_t last_sample = num_keep_sample % 32;
+    static uint32_t last_8block = last_sample / 4;
+    static uint32_t last_2block = last_sample % 4; 
+
     uint32_t cur_raw_marker = num_finished_markers + cur_marker;
-    uint8_t *cur_buf = buf + cur_marker * num_byte_per_marker;
+    uint64_t *cur_buf = buf + cur_marker * num_item_1geno;
     double af = AFA1[cur_raw_marker];
     double mu = 2.0 * af;
     double center_value = 0.0;
@@ -406,6 +690,7 @@ void Geno::makeMarkerX(uint8_t *buf, int cur_marker, double *w_buf, bool center,
     g1_lookup[2] = (1.0 - center_value) * rdev;
     g1_lookup[3] = (0.0 - center_value) * rdev;
 
+    
     double g_lookup[256][4];
     for(uint16_t i = 0; i <= 255; i++){
         for(uint16_t j = 0; j < 4; j++){
@@ -413,11 +698,39 @@ void Geno::makeMarkerX(uint8_t *buf, int cur_marker, double *w_buf, bool center,
         }
     }
 
-    for(uint32_t index = 0; index != pheno->count_keep(); index++){
-        //TODO every time copy, rewrite;
-        uint32_t raw_index = (pheno->get_index_keep())[index];
-        w_buf[index] = g_lookup[*(cur_buf + (raw_index / 4))][raw_index % 4]; 
+    int sub_index = 0;
+    uint32_t index = 0;
+    for(; index < num_item_1geno - 1; index++){
+        uint64_t geno = cur_buf[index];
+        int move_bit = 0;
+        for(int ri = 0; ri < 8; ri++){
+            uint8_t geno_temp = (uint8_t) (geno >> move_bit);
+            w_buf[sub_index] = g_lookup[geno_temp][0]; 
+            w_buf[sub_index + 1] = g_lookup[geno_temp][1]; 
+            w_buf[sub_index + 2] = g_lookup[geno_temp][2]; 
+            w_buf[sub_index + 3] = g_lookup[geno_temp][3]; 
+            move_bit += 8;
+            sub_index += 4;
+        }
     }
+    //last geno
+    uint64_t geno = cur_buf[index];
+    int move_bit = 0;
+    for(int ri = 0; ri < last_8block; ri++){
+        uint8_t geno_temp = (uint8_t) (geno >> move_bit);
+        w_buf[sub_index] = g_lookup[geno_temp][0]; 
+        w_buf[sub_index + 1] = g_lookup[geno_temp][1]; 
+        w_buf[sub_index + 2] = g_lookup[geno_temp][2]; 
+        w_buf[sub_index + 3] = g_lookup[geno_temp][3]; 
+        move_bit += 8;
+        sub_index += 4;
+    }
+    //last 4
+    uint8_t geno_temp = (uint8_t) (geno >> move_bit);
+    for(int ri = 0; ri < last_2block; ri++){
+        w_buf[sub_index + ri] = g_lookup[geno_temp][ri];
+    }
+
 }
 
 void Geno::addOneFileOption(string key_store, string append_string, string key_name,
@@ -506,7 +819,8 @@ int Geno::registerOption(map<string, vector<string>>& options_in) {
 }
 
 void Geno::processMain() {
-    vector<function<void (uint8_t *, int)>> callBacks;
+    //vector<function<void (uint8_t *, int)>> callBacks;
+    vector<function<void (uint64_t *, int)>> callBacks;
     for(auto &process_function : processFunctions){
         if(process_function == "freq"){
             Pheno pheno;
@@ -514,8 +828,8 @@ void Geno::processMain() {
             Geno geno(&pheno, &marker);
             if(geno.num_marker_freq == 0 ){
                 LOGGER.i(0, "Computing allele frequencies...");
-                callBacks.push_back(bind(&Geno::freq, &geno, _1, _2));
-                geno.loop_block(callBacks);
+                callBacks.push_back(bind(&Geno::freq64, &geno, _1, _2));
+                geno.loop_64block(callBacks);
             }
             geno.out_freq(options["out"]);
             callBacks.clear();

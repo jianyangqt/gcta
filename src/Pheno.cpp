@@ -50,6 +50,7 @@ Pheno::Pheno() {
 
     if(options.find("qpheno_file") != options.end()){
         vector<vector<double>> phenos;
+        LOGGER.i(0, "Reading phenotype data from [" + options["qpheno_file"] + "]...");
         vector<string> pheno_subjects = read_sublist(options["qpheno_file"], &phenos);
         int cur_pheno = 1;
         if(options.find("mpheno") != options.end()){
@@ -159,7 +160,6 @@ vector<string> Pheno::read_sublist(string sublist_file, vector<vector<double>> *
         last_length = num_elements;
     }
     sublist.close();
-    LOGGER.i(0, "Get " + to_string(line_number) + " subjects from [" + sublist_file + "]");
     return subject_list;
 }
 
@@ -200,7 +200,7 @@ void Pheno::read_fam(string fam_file) {
     num_ind = fid.size();
     num_bytes = (num_ind + 3) / 4;
     num_keep = index_keep.size();
-    LOGGER.i(0, to_string(num_ind) + " individuals to be included from [" + fam_file + "].");
+    LOGGER.i(0, to_string(num_ind) + " individuals to be included from FAM file.");
     fam.close();
 }
 
@@ -301,7 +301,7 @@ void Pheno::set_keep(vector<string>& indi_marks, vector<string>& marks, vector<u
         keeps.erase(std::remove_if(keeps.begin(), keeps.end(), diff), keeps.end());
     }
 
-    LOGGER.i(0, string("After ") + (isKeep?"keeping":"removing") +  " subjects, " + to_string(keeps.size()) + " subjects remained.");
+    LOGGER.i(0, string("After ") + (isKeep?"keeping":"removing") +  " individuals, " + to_string(keeps.size()) + " subjects remained.");
 }
 
 void Pheno::update_pheno(vector<string>& indi_marks, vector<double>& phenos){
@@ -333,7 +333,7 @@ void Pheno::update_pheno(vector<string>& indi_marks, vector<double>& phenos){
 
     index_keep = pIN;
     */
-    LOGGER.i(0, "After updating phenotypes, " + to_string(index_keep.size()) + " subjects remained.");
+    LOGGER.i(0, to_string(index_keep.size()) + " overlapped individuals with non-missing data to be included from the phenotype file.");
 }
 
 
@@ -464,12 +464,11 @@ void Pheno::mask_geno_keep(uint8_t *const geno_1block, int num_blocks) {
     if(mask_block.size() == 0){
         return;
     }
-    uint8_t *cur_pos = NULL, *mask_pos = NULL;
-    int start_byte;
-    for(int cur_block = 0; cur_block != num_blocks; cur_block++){
-        cur_pos =  geno_1block + cur_block * num_bytes;
+    #pragma omp parallel for schedule(dynamic) 
+    for(int cur_block = 0; cur_block < num_blocks; cur_block++){
+        uint8_t *cur_pos =  geno_1block + cur_block * num_bytes;
         for(const auto &item : mask_block){
-            mask_pos = cur_pos + item.first;
+            uint8_t *mask_pos = cur_pos + item.first;
             *mask_pos = ((*mask_pos) & item.second) + mask_add_block[item.first];
         }
     }

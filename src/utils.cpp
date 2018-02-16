@@ -37,7 +37,7 @@ std::string getHostName(){
 std::string getLocalTime(){
     auto now = std::chrono::system_clock::now();
     auto now_c = std::chrono::system_clock::to_time_t(now);
-    auto tm = std::put_time(std::localtime(&now_c), "%c %Z");
+    auto tm = std::put_time(std::localtime(&now_c), "%T %Z on %a %b %d %Y");
     std::ostringstream oss;
     oss << tm;
     return oss.str();

@@ -42,10 +42,16 @@ public:
     ~Geno();
     void loop_block(vector<function<void (uint8_t *buf, int num_marker)>> callbacks
                     = vector<function<void (uint8_t *buf, int num_marker)>>());
+    void loop_64block(vector<function<void (uint64_t *buf, int num_marker)>> callbacks
+                    = vector<function<void (uint64_t *buf, int num_marker)>>());
     void freq(uint8_t *buf, int num_marker);
+    void freq2(uint8_t *buf, int num_marker);
+    void freq64(uint64_t *buf, int num_marker);
     bool check_bed();
     void out_freq(string filename);
-    void makeMarkerX(uint8_t *buf, int cur_marker, double *w_buf, bool center, bool std);
+    void makeMarkerX(uint64_t *buf, int cur_marker, double *w_buf, bool center, bool std);
+    static void move_geno(uint8_t *buf, uint64_t *keep_list, uint32_t num_raw_sample, 
+            uint32_t num_keep_sample, uint32_t num_marker, uint64_t *geno_buf);
     static int registerOption(map<string, vector<string>>& options_in);
     static void processMain();
 
@@ -79,6 +85,11 @@ private:
     void init_AF();
     void init_AsyncBuffer();
     void filter_MAF();
+    uint64_t num_item_1geno;
+    uint64_t num_raw_sample;
+    uint64_t num_keep_sample;
+    uint64_t num_item_geno_buffer;
+    uint64_t *keep_mask;
 
     friend class GRM;
     friend class FastFAM;

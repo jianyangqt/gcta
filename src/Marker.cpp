@@ -21,6 +21,7 @@
 #include <iterator>
 #include <algorithm>
 #include <numeric>
+#include <boost/algorithm/string.hpp>
 
 using std::to_string;
 
@@ -79,9 +80,11 @@ void Marker::read_bim(string bim_file) {
     uint8_t chr_item;
     while(std::getline(bim, line)){
         line_number++;
-        std::istringstream line_buf(line);
-        std::istream_iterator<string> begin(line_buf), end;
-        vector<string> line_elements(begin, end);
+        //std::istringstream line_buf(line);
+        //std::istream_iterator<string> begin(line_buf), end;
+        vector<string> line_elements;
+        //vector<string> line_elements(begin, end);
+        boost::split(line_elements, line, boost::is_any_of("\t "));
         if(line_elements.size() < Constants::NUM_BIM_COL) {
             LOGGER.e(0, "the bim file [" + bim_file + "], line " + to_string(line_number)
                    + " has elements less than " + to_string(Constants::NUM_BIM_COL));
@@ -117,7 +120,7 @@ void Marker::read_bim(string bim_file) {
     }
     num_marker = name.size();
     num_extract = index_extract.size();
-    LOGGER.i(0, to_string(num_marker) + " SNPs to be included from [" + bim_file + "].");
+    LOGGER.i(0, to_string(num_marker) + " SNPs to be included from BIM file.");
     if(num_marker != num_extract){
         LOGGER.i(0, to_string(num_extract) + " SNPs remained after filtered by valid chromosome");
     }
@@ -216,9 +219,10 @@ vector<string> Marker::read_snplist(string snplist_file) {
     int last_length = 0;
     while(std::getline(if_snplist, line)){
         line_number++;
-        std::istringstream line_buf(line);
-        std::istream_iterator<string> begin(line_buf), end;
-        vector<string> line_elements(begin, end);
+        //std::istringstream line_buf(line);
+        //std::istream_iterator<string> begin(line_buf), end;
+        vector<string> line_elements;
+        boost::split(line_elements, line, boost::is_any_of("\t "));
         if(line_elements.size() < 1){
             LOGGER.e(0, "the SNP list file [" + snplist_file + "], line " + to_string(line_number) +
                         " has elements less than 1");
