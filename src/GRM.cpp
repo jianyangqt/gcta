@@ -542,12 +542,12 @@ void GRM::output_id() {
 
 }
 
-void GRM::calculate_GRM(uint8_t *buf, int num_marker) {
+void GRM::calculate_GRM(uint64_t *buf, int num_marker) {
     //LOGGER.i(0, "GRM: ", "logged " + to_string(num_marker));
-    clock_t begin;// = t_begin();
 
     //prepare the 7 freq arrays in current range;
-    for (int index_marker = 0; index_marker != num_marker; index_marker++) {
+    #pragma omp parallel for schedule(dynamic)
+    for (int index_marker = 0; index_marker < num_marker; index_marker++) {
         double af = geno->AFA1[finished_marker + index_marker];
         double mu = af * 2.0;
         double dev = mu * (1.0 - af);
@@ -562,21 +562,20 @@ void GRM::calculate_GRM(uint8_t *buf, int num_marker) {
     }
 
     //init the remained arrays to 0;
-    for(int index_marker = num_marker; index_marker != Constants::NUM_MARKER_READ; index_marker++){
+    #pragma omp parallel for schedule(dynamic)
+    for(int index_marker = num_marker; index_marker < Constants::NUM_MARKER_READ; index_marker++){
         for(int i = 0; i != 8; i++){
             GRM_table[index_marker][i] = 0.0;
         }
     }
-    //t_print(begin, "  FREQ init");
-
-    //begin = t_begin();
 
     int num_block = (num_marker + num_marker_block - 1) / num_marker_block;
 
     int length = elements.size();
 
     //init GRM lookup table
-    for(int cur_block = 0; cur_block != num_block; cur_block++) {
+    #pragma omp parallel for schedule(dynamic)
+    for(int cur_block = 0; cur_block < num_block; cur_block++) {
         int cur_block_base = cur_block * num_marker_block;
         for (int e1 = 0; e1 != length; e1++) {
             for (int e2 = 0; e2 != length; e2++) {
@@ -600,71 +599,148 @@ void GRM::calculate_GRM(uint8_t *buf, int num_marker) {
 
     }
 
-    //t_print(begin, "  FREQ LOOKUPtable");
-
-   // begin = t_begin();
 
     memset(this->geno_buf, 0, num_byte_geno);
     memset(this->mask_buf, 0, num_byte_geno);
     memset(this->cmask_buf, 0, num_byte_cmask);
 
-    int num_process_block = (num_marker + num_marker_process_block - 1) / num_marker_process_block;
-    this->cur_num_block = num_process_block;
-    int num_marker_in_process_block;
+    int num_process_block = (num_marker + num_marker_block - 1) / num_marker_block;
+    this->cur_num_block = (num_marker + num_marker_process_block - 1) / num_marker_process_block;
+    num_process_block = cur_num_block;
+    static int keep_sample_size = index_keep.size();
 
-    uint8_t *cur_buf;
-    uint16_t *cur_geno;
-    uint16_t temp_geno;
-    uint16_t *cur_mask;
-    uint32_t raw_index;
-    uint16_t * p_geno;
-    uint16_t * p_mask;
-    int cur_block, cur_block_pos, indi_block;
-    int base_marker_index, base_buf_pos;
-    for(int index_process_block = 0; index_process_block != num_process_block; index_process_block++){
-        base_marker_index = index_process_block * num_marker_process_block;
-        cur_buf = buf + base_marker_index * geno->num_byte_per_marker;
-        base_buf_pos = num_block_handle * index_process_block * index_keep.size();
-        cur_geno = this->geno_buf + base_buf_pos;
-        cur_mask = this->mask_buf + base_buf_pos;
-        num_marker_in_process_block = index_process_block == num_process_block - 1 ?
+    static int geno_num64 = geno->num_item_1geno;
+    static int needs_block_geno64 = (part_keep_indices.second + 31) / 32;
+    static int super_block_size = num_block_handle * keep_sample_size;
+    static int super_N_size = num_cmask_block / num_marker_block;
+/*
+    //#pragma omp parallel for schedule(dynamic)
+    for(int index_process_block = 0; index_process_block < num_process_block; index_process_block++){
+        int super_block_num = index_process_block / num_block_handle * super_block_size;
+        int super_block_item = index_process_block % num_block_handle;
+        int super_block_start = super_block_num + super_block_item;
+        int super_N_start = index_process_block / super_N_size * keep_sample_size;
+        int super_N_move = index_process_block * num_marker_block % num_cmask_block;
+
+        int base_marker_index = index_process_block * num_marker_block;
+        int num_marker_in_process_block = index_process_block == num_process_block - 1 ?
+                                      (num_marker - base_marker_index): num_marker_block;
+        uint64_t * gbuf = buf + base_marker_index * geno_num64; 
+        uint32_t base_sample = 0;
+        for(int geno64_block = 0; geno64_block < needs_block_geno64; geno64_block++){
+            int num_sample_geno = geno64_block == geno_num64 - 1 ?
+                                  (keep_sample_size - 32 * geno64_block) : 32;
+
+            uint64_t genot[num_marker_in_process_block];
+            for(int index = 0; index < num_marker_in_process_block; index++){
+                genot[index] = gbuf[geno64_block + index * geno_num64];
+            }
+
+            for(int index_sample = 0; index_sample < num_sample_geno; index_sample++){
+                uint32_t real_index_sample = base_sample + index_sample;
+                //if(real_index_sample > part_keep_indices.second)break;
+               // uint32_t base_geno_buf = real_index_sample * num_process_block + index_process_block;
+                uint32_t base_geno_buf = super_block_start + real_index_sample * num_block_handle;
+                for(int index = 0; index < num_marker_in_process_block; index++){
+                    uint16_t temp_geno = (uint16_t) (genot[index] >> (index_sample * 2)) & 3LU;
+                    int move_bit = index * 3;
+                    uint16_t t2_geno = temp_geno << move_bit;
+                    //#pragma omp atomic
+                    geno_buf[base_geno_buf] |= t2_geno;
+                    if(temp_geno == 1){
+                     //   #pragma omp critical
+                        {
+                            mask_buf[base_geno_buf] |= (7LU << move_bit);
+                            sub_miss[real_index_sample]++;
+                            cmask_buf[super_N_start + real_index_sample] |= (1LLU << (super_N_move + index));
+                        }
+                    }
+                }
+                for(int index = num_marker_in_process_block; index < num_marker_block; index++){
+                    int move_bit = index * 3;
+                    uint16_t m2_mask = (7LU << move_bit);
+                    //#pragma omp atomic
+                    mask_buf[base_geno_buf] |= m2_mask;
+                }
+            }
+
+            base_sample += 32;
+
+        }
+
+    }
+    */
+
+#ifndef NDEBUG
+    if(finished_marker == 0 ){
+        FILE *test = fopen("test_b0.bin", "wb");
+        fwrite(geno_buf, 1, num_byte_geno, test);
+        FILE *test_cmask = fopen("cmask_b0.bin", "wb");
+        fwrite(cmask_buf, 1, num_byte_cmask, test_cmask);
+        fclose(test);
+        fclose(test_cmask);
+    }
+#endif
+        
+    static int geno_num8 = geno_num64 * 8;
+
+    #pragma omp parallel for schedule(dynamic)
+    for(int index_process_block = 0; index_process_block < num_process_block; index_process_block++){
+        int base_marker_index = index_process_block * num_marker_process_block;
+        uint8_t *cur_buf = (uint8_t*) (buf + base_marker_index * geno_num64);
+        int base_buf_pos = num_block_handle * index_process_block * keep_sample_size;
+        uint16_t *cur_geno = this->geno_buf + base_buf_pos;
+        uint16_t *cur_mask = this->mask_buf + base_buf_pos;
+        int num_marker_in_process_block = index_process_block == num_process_block - 1 ?
                                       (num_marker - base_marker_index): num_marker_process_block;
         // recode genotype
-        for(int index_indi = 0; index_indi != part_keep_indices.second + 1; index_indi += 1) {
-            raw_index = index_keep[index_indi];
-            indi_block = index_indi * num_block_handle;
+        for(int index_indi = 0; index_indi < part_keep_indices.second + 1; index_indi += 1) {
+            uint32_t raw_index = index_indi;
+            int indi_block = index_indi * num_block_handle;
 
-            p_geno = cur_geno + indi_block;
-            p_mask = cur_mask + indi_block;
+            uint16_t *p_geno = cur_geno + indi_block;
+            uint16_t *p_mask = cur_mask + indi_block;
 
             for (int marker_index = 0; marker_index != num_marker_in_process_block; marker_index++) {
-                cur_block = marker_index / num_marker_block;
-                cur_block_pos = (marker_index % num_marker_block) * 3;
-                temp_geno = (*(cur_buf + marker_index * geno->num_byte_per_marker + raw_index / 4)
+                int cur_block = marker_index / num_marker_block;
+                int cur_block_pos = (marker_index % num_marker_block) * 3;
+                uint16_t temp_geno = (*(cur_buf  + marker_index * geno_num8 + raw_index / 4)
                         >> ((raw_index % 4) * 2)) & 3LU;
-                *(p_geno + cur_block) |= (temp_geno << cur_block_pos);
+                uint16_t t2_geno = (temp_geno << cur_block_pos);
+                #pragma omp atomic
+                *(p_geno + cur_block) |= t2_geno;
                 if (temp_geno == 1) {
+                    #pragma omp atomic
                     *(p_mask + cur_block) |= (7LU << cur_block_pos);
+                    #pragma omp atomic
                     sub_miss[index_indi] += 1;
                     //cmask
-                    cmask_buf[index_indi + ((base_marker_index + marker_index) / num_cmask_block)*index_keep.size()] |=
+                    #pragma omp atomic
+                    cmask_buf[index_indi + ((base_marker_index + marker_index) / num_cmask_block)*keep_sample_size] |=
                             (1LLU << ((base_marker_index + marker_index) % num_cmask_block));
                 }
             }
 
             for (int marker_index = num_marker_in_process_block;
                  marker_index != num_marker_process_block; marker_index++) {
-                cur_block = marker_index / num_marker_block;
-                cur_block_pos = (marker_index % num_marker_block) * 3;
+                int cur_block = marker_index / num_marker_block;
+                int cur_block_pos = (marker_index % num_marker_block) * 3;
+                #pragma omp atomic
                 *(p_mask + cur_block) |= (7LU << cur_block_pos);
 
             }
         }
     }
- //   t_print(begin, "  init finished");
 
+    #pragma omp parallel for
+    for(int index = 0; index < index_grm_pairs.size(); index++){
+        auto index_pair = index_grm_pairs[index];
+        grm_thread(index_pair.first, index_pair.second);
+        N_thread(index_pair.first, index_pair.second);
+    }
+
+/*
     //submit thread
-    //begin = t_begin();
     int pair_size = index_grm_pairs.size();
     for(int index = 0; index != pair_size - 1; index++){
         THREADS.AddJob(std::bind(&GRM::grm_thread, this, index_grm_pairs[index].first, index_grm_pairs[index].second));
@@ -679,6 +755,7 @@ void GRM::calculate_GRM(uint8_t *buf, int num_marker) {
     N_thread(last_pair.first, last_pair.second);
 
     THREADS.WaitAll();
+    */
 
     finished_marker += num_marker;
     //std::stringstream out_message;
@@ -1034,7 +1111,7 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
 }
 
 void GRM::processMain() {
-    vector<function<void (uint8_t *, int)>> callBacks;
+    vector<function<void (uint64_t *, int)>> callBacks;
     for(auto &process_function : processFunctions){
         if(process_function == "make_grm"){
             LOGGER.i(0, "Note: GRM is computed using the SNPs on the autosome.");
@@ -1042,9 +1119,9 @@ void GRM::processMain() {
             Marker marker;
             Geno geno(&pheno, &marker);
             GRM grm(&geno);
-            callBacks.push_back(bind(&Geno::freq, &geno, _1, _2));
+            callBacks.push_back(bind(&Geno::freq64, &geno, _1, _2));
             callBacks.push_back(bind(&GRM::calculate_GRM, &grm, _1, _2));
-            geno.loop_block(callBacks);
+            geno.loop_64block(callBacks);
             grm.deduce_GRM();
             return;
         }

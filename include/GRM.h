@@ -44,7 +44,7 @@ public:
         posix_mem_free(cmask_buf);
     };
 
-    void calculate_GRM(uint8_t *buf, int num_marker);
+    void calculate_GRM(uint64_t *buf, int num_marker);
     void grm_thread(int grm_index_from, int grm_index_to);
     void N_thread(int grm_index_from, int grm_index_to);
     void deduce_GRM();

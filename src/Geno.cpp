@@ -31,6 +31,7 @@
 #include "utils.hpp"
 #include "omp.h"
 #include "ThreadPool.h"
+#include <cstring>
 
 #ifdef _WIN64
   #define CTZLU __builtin_ctzll
@@ -485,17 +486,21 @@ void Geno::loop_block(vector<function<void (uint8_t *buf, int num_marker)>> call
 
 // extracted from plink2.0
 
-void copy_quaterarr_nonempty_subset(const uintptr_t* __restrict raw_quaterarr, const uintptr_t* __restrict subset_mask, uint32_t raw_quaterarr_entry_ct, uint32_t subset_entry_ct, uintptr_t* __restrict output_quaterarr) {
+void copy_quaterarr_nonempty_subset(uint64_t* raw_quaterarr[], const uint64_t* subset_mask, uint32_t raw_quaterarr_entry_ct, uint32_t subset_entry_ct, uint64_t* output_quaterarr[], const int num_marker) {
     // in plink 2.0, we probably want (0-based) bit raw_quaterarr_entry_ct of
     // subset_mask to be always allocated and unset.  This removes a few special
     // cases re: iterating past the end of arrays.
     static const uint32_t kBitsPerWordD2 = 32;
 
-    uintptr_t cur_output_word = 0;
+    uint64_t cur_output_word[num_marker];
+    memset(cur_output_word, 0, num_marker * 8);
 
-    uintptr_t* output_quaterarr_iter = output_quaterarr;
-
-    uintptr_t* output_quaterarr_last = &(output_quaterarr[subset_entry_ct / kBitsPerWordD2]);
+    uint64_t* output_quaterarr_iter[num_marker];
+    uint64_t* output_quaterarr_last[num_marker];
+    for(int i = 0; i != num_marker; i++){
+        output_quaterarr_iter[i] = output_quaterarr[i];
+        output_quaterarr_last[i] = &(output_quaterarr[i][subset_entry_ct / kBitsPerWordD2]);
+    }
     const uint32_t word_write_halfshift_end = subset_entry_ct % kBitsPerWordD2;
     uint32_t word_write_halfshift = 0;
     // if <= 2/3-filled, use sparse copy algorithm
@@ -503,20 +508,31 @@ void copy_quaterarr_nonempty_subset(const uintptr_t* __restrict raw_quaterarr, c
     if (subset_entry_ct * (3 * k1LU) <= raw_quaterarr_entry_ct * (2 * k1LU)) {
         uint32_t subset_mask_widx = 0;
         while (1) {
-            const uintptr_t cur_include_word = subset_mask[subset_mask_widx];
+            const uint64_t cur_include_word = subset_mask[subset_mask_widx];
             if (cur_include_word) {
                 uint32_t wordhalf_idx = 0;
                 uint32_t cur_include_halfword = (halfword_t)cur_include_word;
                 while (1) {
                     if (cur_include_halfword) {
-                        uintptr_t raw_quaterarr_word = raw_quaterarr[subset_mask_widx * 2 + wordhalf_idx];
+                        uint64_t raw_quaterarr_word[num_marker];
+                        uint32_t temp_index = subset_mask_widx * 2 + wordhalf_idx;
+                        for(int i = 0; i != num_marker; i++){
+                            raw_quaterarr_word[i] = raw_quaterarr[i][temp_index];
+                        }
                         do {
                             uint32_t rqa_idx_lowbits = __builtin_ctz(cur_include_halfword);
-                            cur_output_word |= ((raw_quaterarr_word >> (rqa_idx_lowbits * 2)) & 3) << (word_write_halfshift * 2);
+                            uint32_t lshift = word_write_halfshift * 2; 
+                            uint32_t rshift = rqa_idx_lowbits * 2;
+                            for(int i = 0; i != num_marker; i++){
+                                cur_output_word[i] |= ((raw_quaterarr_word[i] >> rshift) & 3) << lshift;
+                            }
                             if (++word_write_halfshift == kBitsPerWordD2) {
-                                *output_quaterarr_iter++ = cur_output_word;
+                                for(int i = 0; i != num_marker; i++){
+                                    *(output_quaterarr_iter[i])++ = cur_output_word[i];
+                                }
                                 word_write_halfshift = 0;
-                                cur_output_word = 0;
+                                //cur_output_word = 0;
+                                memset(cur_output_word, 0, num_marker * 8);
                             }
                             cur_include_halfword &= cur_include_halfword - 1;
                         } while (cur_include_halfword);
@@ -527,10 +543,12 @@ void copy_quaterarr_nonempty_subset(const uintptr_t* __restrict raw_quaterarr, c
                     ++wordhalf_idx;
                     cur_include_halfword = cur_include_word >> kBitsPerWordD2;
                 }
-                if (output_quaterarr_iter == output_quaterarr_last) {
+                if (output_quaterarr_iter[0] == output_quaterarr_last[0]) {
                     if (word_write_halfshift == word_write_halfshift_end) {
                         if (word_write_halfshift_end) {
-                            *output_quaterarr_last = cur_output_word;
+                            for(int i = 0; i != num_marker; i++){
+                                *(output_quaterarr_last[i]) = cur_output_word[i];
+                            }
                         }
                         return;
                     }
@@ -539,33 +557,59 @@ void copy_quaterarr_nonempty_subset(const uintptr_t* __restrict raw_quaterarr, c
             ++subset_mask_widx;
         }
     }
-    // blocked copy
-    const uintptr_t* raw_quaterarr_iter = raw_quaterarr;
+
+    const uint64_t* raw_quaterarr_iter[num_marker];
+    for(int i = 0; i != num_marker; i++){
+        raw_quaterarr_iter[i] = raw_quaterarr[i];
+    }
+    //const uint64_t* raw_quaterarr_iter = raw_quaterarr;
     while (1) {
-        const uintptr_t cur_include_word = *subset_mask++;
+        const uint64_t cur_include_word = *subset_mask++;
         uint32_t wordhalf_idx = 0;
-        uintptr_t cur_include_halfword = (halfword_t)cur_include_word;
+        uint64_t cur_include_halfword = (halfword_t)cur_include_word;
         while (1) {
-            uintptr_t raw_quaterarr_word = *raw_quaterarr_iter++;
+           // uintptr_t raw_quaterarr_word = *raw_quaterarr_iter++;
+            uint64_t raw_quaterarr_word[num_marker];
+            for(int i = 0; i != num_marker; i++){
+                raw_quaterarr_word[i] = *(raw_quaterarr_iter[i]++);
+            }
             while (cur_include_halfword) {
                 uint32_t rqa_idx_lowbits = CTZLU(cur_include_halfword); // tailing zero
-                uintptr_t halfword_invshifted = (~cur_include_halfword) >> rqa_idx_lowbits;
-                uintptr_t raw_quaterarr_curblock_unmasked = raw_quaterarr_word >> (rqa_idx_lowbits * 2); // remove mask bit tailing zero, not to keep
+                uint64_t halfword_invshifted = (~cur_include_halfword) >> rqa_idx_lowbits;
+                uint64_t raw_quaterarr_curblock_unmasked[num_marker];
+                int m_bit = rqa_idx_lowbits * 2;
+                for(int i = 0; i != num_marker; i++){
+                    raw_quaterarr_curblock_unmasked[i] = raw_quaterarr_word[i] >> m_bit; 
+                }
+                //uintptr_t raw_quaterarr_curblock_unmasked = raw_quaterarr_word >> (rqa_idx_lowbits * 2); // remove mask bit tailing zero, not to keep
                 uint32_t rqa_block_len = CTZLU(halfword_invshifted);  // find another keep
                 uint32_t block_len_limit = kBitsPerWordD2 - word_write_halfshift;
-                cur_output_word |= raw_quaterarr_curblock_unmasked << (2 * word_write_halfshift); // avoid overwrite current saved bits
+                m_bit = 2 * word_write_halfshift;
+                for(int i = 0; i != num_marker; i++){
+                    cur_output_word[i] |= raw_quaterarr_curblock_unmasked[i] << m_bit; // avoid overwrite current saved bits
+                }
                 if (rqa_block_len < block_len_limit) { //2  16
                     word_write_halfshift += rqa_block_len; // 0 2
-                    cur_output_word &= (k1LU << (word_write_halfshift * 2)) - k1LU; // mask high end, and keep low needed bits
+                    m_bit = 2 * word_write_halfshift;
+                    uint64_t temp_mask = (k1LU << m_bit) - k1LU;
+                    for(int i = 0; i != num_marker; i++){
+                        cur_output_word[i] &= temp_mask; // mask high end, and keep low needed bits
+                    }
                 } else {
                     // no need to mask, extra bits vanish off the high end
-                    *output_quaterarr_iter++ = cur_output_word;
+                    for(int i = 0; i != num_marker; i++){
+                        *(output_quaterarr_iter[i]++) = cur_output_word[i];
+                    }
                     word_write_halfshift = rqa_block_len - block_len_limit;
                     if (word_write_halfshift) {
-                        cur_output_word = (raw_quaterarr_curblock_unmasked >> (2 * block_len_limit)) & ((k1LU << (2 * word_write_halfshift)) - k1LU);
+                        uint64_t t_mask = ((k1LU << (2 * word_write_halfshift)) - k1LU), mi_bit = 2 * block_len_limit;
+                        for(int i = 0; i != num_marker; i++){
+                            cur_output_word[i] = (raw_quaterarr_curblock_unmasked[i] >> mi_bit) & t_mask;
+                        }
                     } else {
                         // avoid potential right-shift-[word length]
-                        cur_output_word = 0;
+                        //cur_output_word = 0;
+                        memset(cur_output_word, 0, num_marker * 8);
                     }
                 }
                 cur_include_halfword &= (~(k1LU << (rqa_block_len + rqa_idx_lowbits))) + k1LU;
@@ -576,10 +620,12 @@ void copy_quaterarr_nonempty_subset(const uintptr_t* __restrict raw_quaterarr, c
             ++wordhalf_idx;
             cur_include_halfword = cur_include_word >> kBitsPerWordD2;
         }
-        if (output_quaterarr_iter == output_quaterarr_last) {
+        if (output_quaterarr_iter[0] == output_quaterarr_last[0]) {
             if (word_write_halfshift == word_write_halfshift_end) {
                 if (word_write_halfshift_end) {
-                    *output_quaterarr_last = cur_output_word;
+                    for(int i = 0; i != num_marker; i++){
+                        *(output_quaterarr_last[i]) = cur_output_word[i];
+                    }
                 }
                 return;
             }
@@ -588,6 +634,15 @@ void copy_quaterarr_nonempty_subset(const uintptr_t* __restrict raw_quaterarr, c
 }
 
 void Geno::move_geno(uint8_t *buf, uint64_t *keep_list, uint32_t num_raw_sample, uint32_t num_keep_sample, uint32_t num_marker, uint64_t *geno_buf){
+    /*
+    if(num_raw_sample == num_keep_sample){
+        for(int index = 0; index < num_marker; index++){
+            memcpy(
+
+        }
+    }
+    */
+
     uint32_t num_byte_keep_geno = (num_keep_sample + 3) / 4;
     uint32_t num_byte_per_marker = (num_raw_sample + 3) / 4;
     uint32_t num_qword_per_marker = (num_byte_keep_geno + 7) / 8;
@@ -596,11 +651,16 @@ void Geno::move_geno(uint8_t *buf, uint64_t *keep_list, uint32_t num_raw_sample,
     static int move_bit = 64 - remain_bit;
     static uint64_t MASK = (UINT64_MAX << move_bit) >> move_bit;
 
+    const int move_markers = 1;
+
     #pragma omp parallel for schedule(dynamic) 
-    for(uint32_t index = 0; index < num_marker; index++){
-        uint64_t *pbuf = (uint64_t *) (buf + index * num_byte_per_marker);
-        uint64_t *gbuf = geno_buf + index * num_qword_per_marker; 
-        copy_quaterarr_nonempty_subset(pbuf, keep_list, num_raw_sample, num_keep_sample, gbuf);
+    for(uint32_t index = 0; index < num_marker; index += move_markers){
+        uint64_t *pbuf[move_markers], *gbuf[move_markers];
+        for(uint32_t i = 0; i < move_markers; i++){
+            pbuf[i] = (uint64_t *) (buf + (index + i) * num_byte_per_marker);
+            gbuf[i] = geno_buf + (index + i) * num_qword_per_marker; 
+        }
+        copy_quaterarr_nonempty_subset(pbuf, keep_list, num_raw_sample, num_keep_sample, gbuf, move_markers);
     }
 }
 

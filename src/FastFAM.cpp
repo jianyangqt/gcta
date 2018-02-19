@@ -20,6 +20,8 @@
 #include <cmath>
 #include <algorithm>
 #include <Eigen/SparseCholesky>
+#include <Eigen/PardisoSupport>
+#include<Eigen/IterativeLinearSolvers>
 #include <sstream>
 #include <iterator>
 #include "utils.hpp"
@@ -312,21 +314,35 @@ void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
     LOGGER.i(0, "DEUBG: Inverse Threads " + to_string(Eigen::nbThreads()));
     LOGGER.ts("INVERSE_FAM");
     SpMat eye(fam.rows(), fam.cols());
+    LOGGER.i(0, "FAM " + to_string(fam.rows()) + " * " + to_string(fam.cols()));
     eye.setIdentity();
 
     // V
     fam *= VG;
     fam += eye * VR;
 
-    Eigen::SimplicialLDLT<SpMat> solver;
+    //Eigen::SimplicialLDLT<SpMat> solver;
+
+    //Eigen::SimplicialLLT<SpMat> solver;
+    //Eigen::PardisoLLT<SpMat> solver;
     //Eigen::LeastSquaresConjugateGradient<SpMat> solver;
+    //Eigen::ConjugateGradient<SpMat, Eigen::Lower|Eigen::Upper> solver;
+    Eigen::ConjugateGradient<SpMat> solver;
+
+    //solver.setTolerance(1e-3);
+    ///solver.setMaxIterations(10);;
+
     solver.compute(fam);
 
     if(solver.info() != Eigen::Success){
         LOGGER.e(0, "can't inverse the FAM");
     }
 
+
+    //V_inverse = solver.solve(eye);
     V_inverse = solver.solve(eye);
+    //LOGGER.i(0, "# iteations: " + to_string(solver.iterations()));
+    //LOGGER.i(0, "# error: " + to_string(solver.error()));
 
     LOGGER.i(0, "Inverted in " + to_string(LOGGER.tp("INVERSE_FAM")) + " seconds");
 }
