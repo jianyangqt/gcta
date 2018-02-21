@@ -1111,8 +1111,7 @@ bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, i
                     cout<<"Warning: the variance-covaraince matrix V is non-positive definite." << endl;
                     _V_inv_mtd = 1;
                     cout << "\nSwitching to the \"bending\" approach to invert V. This method hasn't been tested. The results might not be reliable!" << endl;
-                }
-                /*else {
+                }else {
                     if(_reml_no_converge){
                         cout<<"Warning: the variance-covaraince matrix is invertible. A small positive value is added to the diagonals. The results might not be reliable!"<<endl;
                         double d_buf = Vi.diagonal().mean() * 0.01;
@@ -1120,7 +1119,7 @@ bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, i
                         if(!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) return false;  
                     } 
                     else throw("Error: the variance-covaraince matrix V is not positive definite.");
-                }*/
+                }
             }
         }
         if (_V_inv_mtd == 1) bend_V(Vi);

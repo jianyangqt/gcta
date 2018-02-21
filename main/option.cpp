@@ -385,7 +385,7 @@ void option(int option_num, char* option_str[])
             grm_out_bin_flag = true;
             thread_flag = true;
             cout << "--make-grm-f3" << endl;
-        } else if (strcmp(argv[i], "--make-grm-d") == 0 || strcmp(argv[i], "--make-grm-d-bin") == 0) {
+        } else if (strcmp(argv[i], "--make-grm-d-v1") == 0 || strcmp(argv[i], "--make-grm-d-bin") == 0) {
             make_grm_flag = true;
             dominance_flag = true;
             thread_flag = true;

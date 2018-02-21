@@ -362,9 +362,12 @@ bool gcta::comput_inverse_logdet_LDLT_mkl(eigenMatrix &Vi, double &logdet)
     dpotrf(&uplo, &int_n, Vi_mkl, &int_n, &info);
     //cout << "Finished decompose" << endl;
     //spotrf( &uplo, &n, Vi_mkl, &n, &info );
-    if (info < 0) throw ("Error: Cholesky decomposition failed. Invalid values found in the matrix.\n");
-    else if (info > 0) return false;
-    else {
+    if (info < 0){
+        throw ("Error: Cholesky decomposition failed. Invalid values found in the matrix.\n");
+    }else if (info > 0){
+        delete[] Vi_mkl;
+        return false;
+    }else {
         logdet = 0.0;
         for (i = 0; i < n; i++) {
             double d_buf = Vi_mkl[i * n + i];
@@ -376,9 +379,12 @@ bool gcta::comput_inverse_logdet_LDLT_mkl(eigenMatrix &Vi, double &logdet)
         dpotri(&uplo, &int_n, Vi_mkl, &int_n, &info);
         //cout << "Inverse finished" << endl;
         //spotri( &uplo, &n, Vi_mkl, &n, &info );
-        if (info < 0) throw ("Error: invalid values found in the varaince-covaraince (V) matrix.\n");
-        else if (info > 0) return false;
-        else {
+        if (info < 0){
+            throw ("Error: invalid values found in the varaince-covaraince (V) matrix.\n");
+        }else if (info > 0){
+            delete[] Vi_mkl;
+            return false;
+        }else {
             # pragma omp parallel for private(j)
             for (j = 0; j < n; j++) {
                 for (i = 0; i <= j; i++) Vi(i, j) = Vi(j, i) = Vi_mkl[i * n + j];
@@ -415,6 +421,8 @@ bool gcta::comput_inverse_logdet_LU_mkl(eigenMatrix &Vi, double &logdet)
     if (INFO < 0) throw ("Error: LU decomposition failed. Invalid values found in the matrix.\n");
     else if (INFO > 0) {
         delete[] Vi_mkl;
+        delete[] IPIV;
+        delete[] WORK;
         return false;
     } else {
         logdet = 0.0;
@@ -425,9 +433,14 @@ bool gcta::comput_inverse_logdet_LU_mkl(eigenMatrix &Vi, double &logdet)
 
         // Calcualte V inverse
         dgetri(&N, Vi_mkl, &N, IPIV, WORK, &LWORK, &INFO);
-        if (INFO < 0) throw ("Error: invalid values found in the varaince-covaraince (V) matrix.\n");
-        else if (INFO > 0) return false;
-        else {
+        if (INFO < 0){
+            throw ("Error: invalid values found in the varaince-covaraince (V) matrix.\n");
+        }else if (INFO > 0){
+            delete[] Vi_mkl;
+            delete[] IPIV;
+            delete[] WORK;
+            return false;
+        }else {
             #pragma omp parallel for private(j)
             for (j = 0; j < n; j++) {
                 for (i = 0; i <= j; i++) Vi(i, j) = Vi(j, i) = Vi_mkl[i * n + j];
@@ -462,10 +475,13 @@ bool gcta::comput_inverse_logdet_LU_mkl_array(int n, float *Vi, double &logdet) 
     dgetrf(&N, &N, Vi_mkl, &N, IPIV, &INFO);
     if (INFO < 0) throw ("Error: LU decomposition failed. Invalid values found in the matrix.\n");
     else if (INFO > 0) {
+        // free memory
         delete[] Vi_mkl;
+        delete[] IPIV;
+        delete[] WORK;
+
         return (false); //Vi.diagonal()=Vi.diagonal().array()+Vi.diagonal().mean()*1e-3;
-    } 
-    else {
+    }else {
         logdet = 0.0;
         for (i = 0; i < n; i++) {
             double d_buf = Vi_mkl[i * n + i];
@@ -475,8 +491,13 @@ bool gcta::comput_inverse_logdet_LU_mkl_array(int n, float *Vi, double &logdet) 
         // Calcualte V inverse
         dgetri(&N, Vi_mkl, &N, IPIV, WORK, &LWORK, &INFO);
         if (INFO < 0) throw ("Error: invalid values found in the varaince-covaraince (V) matrix.\n");
-        else if (INFO > 0) return (false); // Vi.diagonal()=Vi.diagonal().array()+Vi.diagonal().mean()*1e-3;
-        else {
+        else if (INFO > 0) {
+            // free memory
+            delete[] Vi_mkl;
+            delete[] IPIV;
+            delete[] WORK;
+            return (false); // Vi.diagonal()=Vi.diagonal().array()+Vi.diagonal().mean()*1e-3;
+        }else {
             #pragma omp parallel for private(j)
             for (j = 0; j < n; j++) {
                 for (i = 0; i < n; i++) Vi[i * n + j] = Vi_mkl[i * n + j];
