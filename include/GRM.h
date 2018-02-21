@@ -114,6 +114,8 @@ private:
 
     void outBinFile(FILE *sFile, FILE *dFile);
 
+    bool isDominance = false;
+
     //Just for testing
 #ifndef NDEBUG
     FILE * o_geno0;

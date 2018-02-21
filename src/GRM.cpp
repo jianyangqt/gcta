@@ -513,12 +513,21 @@ GRM::GRM(Geno *geno) {
         index_grm_pairs.push_back(std::make_pair(thread_parts[index - 1] + 1, thread_parts[index]));
     }
 
+    if(options_b.find("isDominance") != options_b.end()){
+        isDominance = options_b["isDominance"];
+    }
+
     //t_print(begin, "  INIT finished");
-    LOGGER.i(0, "Computing the genetic relationship matrix (GRM) ...");
+    string com_string = string("Computing the ") + (isDominance ? "dominance " : "") + "genetic relationship matrix (GRM) ...";
+    LOGGER.i(0, com_string);
     LOGGER.i(0, "Subset " + to_string(part) + "/" + to_string(num_parts) + ", no. subject " + to_string(part_keep_indices.first + 1) + "-" + to_string(part_keep_indices.second + 1));
     LOGGER.i(1, to_string(num_individual) + " samples, " + to_string(geno->marker->count_extract()) + " markers, " + to_string(num_grm) + " GRM elements");
 
     o_name = options["out"];
+
+    if(isDominance){
+        o_name += ".d";
+    }
 
     output_id();
 
@@ -544,22 +553,45 @@ void GRM::output_id() {
 
 void GRM::calculate_GRM(uint64_t *buf, int num_marker) {
     //LOGGER.i(0, "GRM: ", "logged " + to_string(num_marker));
-
     //prepare the 7 freq arrays in current range;
-    #pragma omp parallel for schedule(dynamic)
-    for (int index_marker = 0; index_marker < num_marker; index_marker++) {
-        double af = geno->AFA1[finished_marker + index_marker];
-        double mu = af * 2.0;
-        double dev = mu * (1.0 - af);
-        double rdev = (dev < 1.0e-50) ? 0 : (1.0 / dev);
-        GRM_table[index_marker][0] = (2.0 - mu) * (2.0 - mu) * rdev;  // 00 00
-        GRM_table[index_marker][2] = (2.0 - mu) * (1.0 - mu) * rdev;  // 00 10
-        GRM_table[index_marker][3] = (2.0 - mu) * (0.0 - mu) * rdev;  // 00 11
-        GRM_table[index_marker][4] = (1.0 - mu) * (1.0 - mu) * rdev;  // 10 10
-        GRM_table[index_marker][5] = (0.0 - mu) * (1.0 - mu) * rdev;  // 11 10
-        GRM_table[index_marker][6] = (0.0 - mu) * (0.0 - mu) * rdev;  // 11 11
-        GRM_table[index_marker][7] = 0.0;                             // 01 01
+    if(!isDominance){
+        #pragma omp parallel for schedule(dynamic)
+        for (int index_marker = 0; index_marker < num_marker; index_marker++) {
+            double af = geno->AFA1[finished_marker + index_marker];
+            double mu = af * 2.0;
+            double dev = mu * (1.0 - af);
+            double rdev = (dev < 1.0e-50) ? 0 : (1.0 / dev);
+            GRM_table[index_marker][0] = (2.0 - mu) * (2.0 - mu) * rdev;  // 00 00
+            GRM_table[index_marker][2] = (2.0 - mu) * (1.0 - mu) * rdev;  // 00 10
+            GRM_table[index_marker][3] = (2.0 - mu) * (0.0 - mu) * rdev;  // 00 11
+            GRM_table[index_marker][4] = (1.0 - mu) * (1.0 - mu) * rdev;  // 10 10
+            GRM_table[index_marker][5] = (0.0 - mu) * (1.0 - mu) * rdev;  // 11 10
+            GRM_table[index_marker][6] = (0.0 - mu) * (0.0 - mu) * rdev;  // 11 11
+            GRM_table[index_marker][7] = 0.0;                             // 01 01
+        }
+    }else{
+        #pragma omp parallel for schedule(dynamic)
+        for (int index_marker = 0; index_marker < num_marker; index_marker++) {
+            double af = geno->AFA1[finished_marker + index_marker];
+            double mu = af * 2.0;
+            double dev = mu * (1.0 - af);
+            double rdev = (dev < 1.0e-50) ? 0 : (1.0 / dev);
+            double rdev2 = rdev * rdev; 
+            double psq = 0.5 * mu * mu;
+            double A00 = 2.0 * mu - 2 - psq;
+            double A10 = mu - psq;
+            double A11 = 0.0 - psq;
+
+            GRM_table[index_marker][0] = A00 * A00 * rdev2;  // 00 00
+            GRM_table[index_marker][2] = A00 * A10 * rdev2;  // 00 10
+            GRM_table[index_marker][3] = A00 * A11 * rdev2;  // 00 11
+            GRM_table[index_marker][4] = A10 * A10 * rdev2;  // 10 10
+            GRM_table[index_marker][5] = A11 * A10 * rdev2;  // 11 10
+            GRM_table[index_marker][6] = A11 * A11 * rdev2;  // 11 11
+            GRM_table[index_marker][7] = 0.0;                // 01 01
+        }
     }
+ 
 
     //init the remained arrays to 0;
     #pragma omp parallel for schedule(dynamic)
@@ -995,19 +1027,36 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
     int cur_part = 1;
 
     string part_grm = "--make-grm-part";
-    if(options_in.find(part_grm) != options_in.end()){
-        if(options_in[part_grm].size() == 2){
+    string part_grm_d = "--make-grm-d-part";
+    bool bool_part_grm = options_in.find(part_grm) != options_in.end();
+    bool bool_part_grm_d = options_in.find(part_grm_d) != options_in.end();
+    string part_grm_symbol = "";
+    bool isDominance = false;
+    if(bool_part_grm){
+        part_grm_symbol = part_grm;
+        isDominance = false;
+    }
+    if(bool_part_grm_d){
+        part_grm_symbol = part_grm_d;
+        isDominance = true;
+    }
+    if(bool_part_grm && bool_part_grm_d){
+        LOGGER.e(0, "can't specify --make-grm-part and --make-grm-d-part together");
+    }
+
+    if(bool_part_grm || bool_part_grm_d){
+        if(options_in[part_grm_symbol].size() == 2){
             try{
-                num_parts = std::stoi(options_in[part_grm][0]);
-                cur_part = std::stoi(options_in[part_grm][1]);
+                num_parts = std::stoi(options_in[part_grm_symbol][0]);
+                cur_part = std::stoi(options_in[part_grm_symbol][1]);
             }catch(std::invalid_argument&){
-                LOGGER.e(0, part_grm + " can only deal with integer value");
+                LOGGER.e(0, part_grm_symbol + " can only deal with integer value");
             }
             if(num_parts <= 0 || cur_part <=0){
-                LOGGER.e(0, part_grm + "arguments should >= 1");
+                LOGGER.e(0, part_grm_symbol + "arguments should >= 1");
             }
             if(num_parts < cur_part){
-                LOGGER.e(0, part_grm + "1st parameter (number of parts) can't less than 2nd parameter");
+                LOGGER.e(0, part_grm_symbol + "1st parameter (number of parts) can't less than 2nd parameter");
             }
 
             std::string s_parts = std::to_string(num_parts);
@@ -1015,14 +1064,14 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
             options["out"] = options["out"] + ".part_" + s_parts + "_" + std::string(s_parts.length() - c_parts.length(), '0') + c_parts;
             options_in["out"][0] = options["out"];
             processFunctions.push_back("make_grm");
-            options_in.erase(part_grm);
+            options_in.erase(part_grm_symbol);
             std::map<string, vector<string>> t_option;
             t_option["--autosome"] = {};
             Marker::registerOption(t_option);
  
             return_value++;
         }else{
-            LOGGER.e(0, part_grm + " takes two arguments, total parts and part to calculate currently");
+            LOGGER.e(0, part_grm_symbol + " takes two arguments, total parts and part to calculate currently");
         }
     }
 
@@ -1032,8 +1081,22 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
     if(options_in.find("--grm-singleton") != options_in.end()){
         options_in["--make-grm"] = {};
     }
+    
+    string op_grm_d = "--make-grm-d";
+    if(options_in.find(op_grm_d) != options_in.end()){
+        isDominance = true;
+        processFunctions.push_back("make_grm");
+        options_in.erase(op_grm_d);
+
+        std::map<string, vector<string>> t_option;
+        t_option["--autosome"] = {};
+        Marker::registerOption(t_option);
+
+        return_value++;
+    }
 
     if(options_in.find("--make-grm") != options_in.end()){
+        isDominance = false;
         if(options.find("grm_file") == options.end()){
             processFunctions.push_back("make_grm");
             options_in.erase("--make-grm");
@@ -1105,6 +1168,7 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
         }
     }
 
+    options_b["isDominance"] = isDominance;
 
     return return_value;
 

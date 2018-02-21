@@ -67,7 +67,7 @@ int main(int argc, char *argv[]){
         "--chr", "--autosome-num", "--autosome", "--extract", "--exclude", "--maf", "--max-maf", 
         "--freq", "--out", "--make-grm", "--make-grm-part", "--thread-num", "--grm",
         "--grm-cutoff", "--grm-singleton", "--cutoff-detail", "--make-bK-sparse", "--make-bK", "--pheno",
-        "--mpheno", "--ge", "--fastFAM", "--grm-sparse", "--qcovar"};
+        "--mpheno", "--ge", "--fastFAM", "--grm-sparse", "--qcovar", "--make-grm-d", "--make-grm-d-part"};
     map<string, vector<string>> options;
     vector<string> keys;
     string last_key = "";
