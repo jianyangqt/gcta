@@ -91,9 +91,9 @@ Geno::~Geno(){
 void Geno::filter_MAF(){
     if((options_d["min_maf"] != 0.0) || (options_d["max_maf"] != 0.5)){
         LOGGER.i(0, "Computing allele frequencies...");
-        vector<function<void (uint8_t *, int)>> callBacks;
-        callBacks.push_back(bind(&Geno::freq, this, _1, _2));
-        loop_block(callBacks);
+        vector<function<void (uint64_t *, int)>> callBacks;
+        callBacks.push_back(bind(&Geno::freq64, this, _1, _2));
+        loop_64block(callBacks);
         // We adopt the EPSILON from plink, because the double value may have some precision issue;
         double min_maf = options_d["min_maf"] * (1 - Constants::SMALL_EPSILON);
         double max_maf = options_d["max_maf"] * (1 + Constants::SMALL_EPSILON);
@@ -271,7 +271,7 @@ void Geno::read_bed(){
         cur_block++;
     }
     fclose(pFile);
-    LOGGER.i(0, "Read bed time: " + to_string(LOGGER.tp("read_geno")));
+    //LOGGER.i(0, "Read bed time: " + to_string(LOGGER.tp("read_geno")));
 }
 /*
 void Geno::freq(uint8_t *buf, int num_marker){
@@ -651,7 +651,7 @@ void Geno::move_geno(uint8_t *buf, uint64_t *keep_list, uint32_t num_raw_sample,
     static int move_bit = 64 - remain_bit;
     static uint64_t MASK = (UINT64_MAX << move_bit) >> move_bit;
 
-    const int move_markers = 1;
+    const int move_markers = 5;
 
     #pragma omp parallel for schedule(dynamic) 
     for(uint32_t index = 0; index < num_marker; index += move_markers){
