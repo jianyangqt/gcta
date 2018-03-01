@@ -21,7 +21,7 @@
 #include <algorithm>
 #include <Eigen/SparseCholesky>
 #include <Eigen/PardisoSupport>
-#include<Eigen/IterativeLinearSolvers>
+#include <Eigen/IterativeLinearSolvers>
 #include <sstream>
 #include <iterator>
 #include "utils.hpp"
@@ -29,6 +29,8 @@
 #include "ThreadPool.h"
 #include "omp.h"
 #include <boost/algorithm/string/join.hpp>
+#include <boost/algorithm/string.hpp>
+#include <iomanip>
 
 #include <iostream>
 
@@ -157,27 +159,65 @@ FastFAM::FastFAM(Geno *geno){
             LOGGER.i(0, to_string(phenoVec[i]));
         }
 
-        vector<double> Aij;
-        vector<double> Zij;
+        if(options.find("inv_file") == options.end()){
+            vector<double> Aij;
+            vector<double> Zij;
 
-        if(flag_est_GE){
-            LOGGER.i(0, "Estimating the genetic variance (Vg) by HE regression");
-            for(int k = 0; k < fam.outerSize(); ++k){
-                for(SpMat::InnerIterator it(fam, k); it; ++it){
-                    if(it.row() < it.col()){
-                        Aij.push_back(it.value());
-                        Zij.push_back(phenoVec[it.row()] * phenoVec[it.col()]);
+            if(flag_est_GE){
+                LOGGER.i(0, "Estimating the genetic variance (Vg) by HE regression");
+                for(int k = 0; k < fam.outerSize(); ++k){
+                    for(SpMat::InnerIterator it(fam, k); it; ++it){
+                        if(it.row() < it.col()){
+                            Aij.push_back(it.value());
+                            Zij.push_back(phenoVec[it.row()] * phenoVec[it.col()]);
+                        }
                     }
                 }
+
+                VG = HEreg(Zij, Aij);
+                VR = Vpheno - VG;
+                LOGGER.i(2, "Ve = " + to_string(VR));
+                LOGGER.i(2, "Heritablity = " + to_string(VG/Vpheno));
             }
 
-            VG = HEreg(Zij, Aij);
-            VR = Vpheno - VG;
-            LOGGER.i(2, "Ve = " + to_string(VR));
-            LOGGER.i(2, "Heritablity = " + to_string(VG/Vpheno));
-        }
+            inverseFAM(fam, VG, VR);
+            if(options.find("save_inv") != options.end()){
+                LOGGER.i(0, "Saving inverse of V for further analysis, use --load-inv for further analysis");
+                std::ofstream inv_id((options["out"]+".grm.id").c_str());
 
-        inverseFAM(fam, VG, VR);
+                std::ofstream inv_out((options["out"]+".grm.inv").c_str());
+                inv_out << std::setprecision( std::numeric_limits<double>::digits10+2); 
+                for(int k = 0; k < V_inverse.outerSize(); ++k){
+                    for(SpMat::InnerIterator it(V_inverse, k); it; ++it){
+                        inv_out << it.row() << "\t" << it.col() << "\t" << it.value() << std::endl;
+                    }
+                }
+                inv_out.close();
+                LOGGER.i(0, "The inverse has been saved to [" + options["out"] + ".grm.inv]");
+            }
+        }else{
+            V_inverse.resize(phenoVec.size(), phenoVec.size());
+            string in_name = options["inv_file"] + ".grm.inv";
+            LOGGER.i(0, "Loading inverse of V from " + in_name);
+            LOGGER.ts("LOAD_INV");
+            std::ifstream in_file(in_name.c_str());
+            if(!in_file){
+                LOGGER.e(0, "can't open the file");
+            }
+            string line;
+            while(getline(in_file, line)){
+                vector<string> line_elements;
+                boost::split(line_elements, line, boost::is_any_of("\t "));
+                if(line_elements.size() != 3){
+                    LOGGER.e(0, "the inversed file seems to be incorrect");
+                }
+                V_inverse.insertBackUncompressed(stoi(line_elements[0]), stoi(line_elements[1])) 
+                    = stod(line_elements[2]);
+            }
+            V_inverse.finalize();
+            V_inverse.makeCompressed();
+            LOGGER.i(0, "Inverse of V loaded in " + to_string(LOGGER.tp("LOAD_INV")) + " seconds");
+        }
     }
 }
 
@@ -311,6 +351,7 @@ void FastFAM::readFAM(string filename, SpMat& fam, const vector<string> &ids, ve
 
 void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
     LOGGER.i(0, "Inverting the variance-covarinace matrix (This may take a long time).");
+    LOGGER.i(0, string("Inverse method: ") + options["inv_method"]);
     LOGGER.i(0, "DEUBG: Inverse Threads " + to_string(Eigen::nbThreads()));
     LOGGER.ts("INVERSE_FAM");
     SpMat eye(fam.rows(), fam.cols());
@@ -321,27 +362,58 @@ void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
     fam *= VG;
     fam += eye * VR;
 
-    //Eigen::SimplicialLDLT<SpMat> solver;
+    // inverse
+    if(options["inv_method"] == "ldlt"){
+        Eigen::SimplicialLDLT<SpMat> solver;
+        solver.compute(fam);
+        if(solver.info() != Eigen::Success){
+            LOGGER.e(0, "can't inverse the FAM");
+        }
+        V_inverse = solver.solve(eye);
+    }else if(options["inv_method"] == "cg"){
+        Eigen::ConjugateGradient<SpMat> solver;
+        solver.compute(fam);
+        if(solver.info() != Eigen::Success){
+            LOGGER.e(0, "can't inverse the FAM");
+        }
+        V_inverse = solver.solve(eye);
+    }else if(options["inv_method"] == "llt"){
+        Eigen::SimplicialLLT<SpMat> solver;
+        solver.compute(fam);
+        if(solver.info() != Eigen::Success){
+            LOGGER.e(0, "can't inverse the FAM");
+        }
+        V_inverse = solver.solve(eye);
+    }else if(options["inv_method"] == "pardiso"){
+        Eigen::PardisoLLT<SpMat> solver;
+        solver.compute(fam);
+        if(solver.info() != Eigen::Success){
+            LOGGER.e(0, "can't inverse the FAM");
+        }
+        V_inverse = solver.solve(eye);
+    }else if(options["inv_method"] == "tcg"){
+        Eigen::ConjugateGradient<SpMat, Eigen::Lower|Eigen::Upper> solver;
+        solver.compute(fam);
+        if(solver.info() != Eigen::Success){
+            LOGGER.e(0, "can't inverse the FAM");
+        }
+        V_inverse = solver.solve(eye);
+    }else if(options["inv_method"] == "lscg"){
+        Eigen::LeastSquaresConjugateGradient<SpMat> solver;
+        solver.compute(fam);
+        if(solver.info() != Eigen::Success){
+            LOGGER.e(0, "can't inverse the FAM");
+        }
+        V_inverse = solver.solve(eye);
+    }else{
+        LOGGER.e(0, "Unknown inverse methods");
+    }
 
-    //Eigen::SimplicialLLT<SpMat> solver;
-    //Eigen::PardisoLLT<SpMat> solver;
-    //Eigen::LeastSquaresConjugateGradient<SpMat> solver;
-    //Eigen::ConjugateGradient<SpMat, Eigen::Lower|Eigen::Upper> solver;
-    Eigen::ConjugateGradient<SpMat> solver;
 
     //solver.setTolerance(1e-3);
     ///solver.setMaxIterations(10);;
 
-    solver.compute(fam);
-
-    if(solver.info() != Eigen::Success){
-        LOGGER.e(0, "can't inverse the FAM");
-    }
-
-
-    //V_inverse = solver.solve(eye);
-    V_inverse = solver.solve(eye);
-    //LOGGER.i(0, "# iteations: " + to_string(solver.iterations()));
+   //LOGGER.i(0, "# iteations: " + to_string(solver.iterations()));
     //LOGGER.i(0, "# error: " + to_string(solver.error()));
 
     LOGGER.i(0, "Inverted in " + to_string(LOGGER.tp("INVERSE_FAM")) + " seconds");
@@ -516,6 +588,31 @@ int FastFAM::registerOption(map<string, vector<string>>& options_in){
         }
     }
 
+    options["inv_method"] = "ldlt";
+    vector<string> flags = {"--cg", "--ldlt", "--llt", "--pardiso", "--tcg", "--lscg"};
+    for(auto curFlag : flags){
+        if(options_in.find(curFlag) != options_in.end()){
+            boost::erase_all(curFlag, "--");
+            options["inv_method"] = curFlag;
+            options_in.erase(curFlag);
+        }
+    }
+
+    curFlag = "--save-inv";
+    if(options_in.find(curFlag) != options_in.end()){
+        options["save_inv"] = "yes";
+        options_in.erase(curFlag);
+    }
+
+    curFlag = "--load-inv";
+    if(options_in.find(curFlag) != options_in.end()){
+        if(options_in[curFlag].size() == 1){
+            options["inv_file"] = options_in[curFlag][0];
+        }else{
+            LOGGER.e(0, "can't load multiple --load-inv files");
+        }
+    }
+
     return returnValue;
 }
 
@@ -529,6 +626,10 @@ void FastFAM::processMain(){
             Geno geno(&pheno, &marker);
             FastFAM ffam(&geno);
 
+            if(options.find("save_inv") != options.end()){
+                LOGGER.i(0, "Using --load-inv to load the inversed file for fastFAM");
+                return;
+            }
             LOGGER.i(0, "Running fastFAM...");
             //Eigen::setNbThreads(1);
             callBacks.push_back(bind(&Geno::freq64, &geno, _1, _2));
