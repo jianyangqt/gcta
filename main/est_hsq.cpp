@@ -272,14 +272,14 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
         else kp = _keep;
         (_A[0]) = eigenMatrix::Zero(_n, _n);
 
-        #pragma omp parallel for private(j)
+        //pragma omp parallel for private(j)
         for (i = 0; i < _n; i++) {
             for (j = 0; j <= i; j++) (_A[0])(j, i) = (_A[0])(i, j) = _grm(kp[i], kp[j]);
         }
         if (_reml_diag_one) {
             double diag_mean = (_A[0]).diagonal().mean();
             cout << "Mean of diagonal elements of the GRM = " << diag_mean << endl;
-            #pragma omp parallel for private(j)
+            //pragma omp parallel for private(j)
             for (i = 0; i < _n; i++) {
                 for (j = 0; j <= i; j++) {
                     (_A[0])(i, j) /= (_A[0])(i, i);
@@ -306,7 +306,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
             StrFunc::match(uni_id, grm_id, kp);
             (_A[pos]) = eigenMatrix::Zero(_n, _n);
 
-            #pragma omp parallel for private(j)
+            //pragma omp parallel for private(j)
             for (j = 0; j < _n; j++) {
                 for (k = 0; k <= j; k++) {
                     if (kp[j] >= kp[k]) (_A[pos])(k, j) = (_A[pos])(j, k) = _grm(kp[j], kp[k]);
@@ -317,7 +317,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
             if (_reml_diag_one) {
                 double diag_mean = (_A[pos]).diagonal().mean();
                 cout << "Mean of diagonal elements of the GRM = " << diag_mean << endl;
-                #pragma omp parallel for private(j)
+                //pragma omp parallel for private(j)
                 for (j = 0; j < _n; j++) {
                     //(_A[pos])(j,j)=diag_mean;
                     for (k = 0; k <= j; k++) {
@@ -895,7 +895,8 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         }
     }*/
 
-    char *mtd_str[3] = {"AI-REML", "Fisher-scoring REML", "EM-REML"};
+    //char *mtd_str[3] = {"AI-REML", "Fisher-scoring REML", "EM-REML"};
+    vector<string> mtd_str = {"AI-REML", "Fisher-scoring REML", "EM-REML"};
     int i = 0, constrain_num = 0, iter = 0, reml_mtd_tmp = _reml_mtd;
     double logdet = 0.0, logdet_Xt_Vi_X = 0.0, prev_lgL = -1e20, lgL = -1e20, dlogL = 1000.0;
     eigenVector prev_prev_varcmp(varcmp), prev_varcmp(varcmp), varcomp_init(varcmp);
@@ -1283,6 +1284,7 @@ void gcta::calcu_Hi(eigenMatrix &P, eigenMatrix &Hi)
         else (PA[i]) = P * (_A[_r_indx[i]]);
     }
 
+
     // Calculate Hi
     //double d_bufs[_n];
     double *d_bufs = new double[_n];
@@ -1397,6 +1399,7 @@ void gcta::em_reml(eigenMatrix &P, eigenVector &Py, eigenVector &prev_varcmp, ei
     // Calculate R
     Py = P*_y;
     eigenVector R(_r_indx.size());
+
     #pragma omp parallel for private(i)
     for (i = 0; i < _r_indx.size(); i++) {
         //cout << "EM reml " << i << endl;
@@ -1405,6 +1408,7 @@ void gcta::em_reml(eigenMatrix &P, eigenVector &Py, eigenVector &prev_varcmp, ei
         // Calculate Variance component;
         varcmp(i) = prev_varcmp(i) - prev_varcmp(i) * prev_varcmp(i) * (tr_PA(i) -  R(i)) / _n;
     }
+
 
     // Calculate variance component
     //for (i = 0; i < _r_indx.size(); i++) varcmp(i) = (prev_varcmp(i) * _n - prev_varcmp(i) * prev_varcmp(i) * tr_PA(i) + prev_varcmp(i) * prev_varcmp(i) * R(i)) / _n;

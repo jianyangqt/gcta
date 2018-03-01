@@ -384,13 +384,15 @@ void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
             LOGGER.e(0, "can't inverse the FAM");
         }
         V_inverse = solver.solve(eye);
-    }else if(options["inv_method"] == "pardiso"){
+    }else if(options["inv_method"] == "pardiso1"){
+        /*
         Eigen::PardisoLLT<SpMat> solver;
         solver.compute(fam);
         if(solver.info() != Eigen::Success){
             LOGGER.e(0, "can't inverse the FAM");
         }
         V_inverse = solver.solve(eye);
+        */
     }else if(options["inv_method"] == "tcg"){
         Eigen::ConjugateGradient<SpMat, Eigen::Lower|Eigen::Upper> solver;
         solver.compute(fam);
