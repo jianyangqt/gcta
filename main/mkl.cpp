@@ -344,13 +344,13 @@ void gcta::output_grm_mkl(float* A, bool output_grm_bin)
 bool gcta::comput_inverse_logdet_LDLT_mkl(eigenMatrix &Vi, double &logdet)
 {
     //cout << "LDLT" << endl;
-    unsigned long i = 0, j = 0, n = Vi.cols();
+    uint64_t n = Vi.cols();
     double* Vi_mkl = new double[n * n];
     //float* Vi_mkl=new float[n*n];
 
-    # pragma omp parallel for private(j)
-    for (j = 0; j < n; j++) {
-        for (i = 0; i < n; i++) {
+    #pragma omp parallel for
+    for (uint64_t j = 0; j < n; j++) {
+        for (uint64_t i = 0; i < n; i++) {
             Vi_mkl[i * n + j] = Vi(i, j);
         }
     }
@@ -369,7 +369,7 @@ bool gcta::comput_inverse_logdet_LDLT_mkl(eigenMatrix &Vi, double &logdet)
         return false;
     }else {
         logdet = 0.0;
-        for (i = 0; i < n; i++) {
+        for (uint64_t i = 0; i < n; i++) {
             double d_buf = Vi_mkl[i * n + i];
             logdet += log(d_buf * d_buf);
         }
@@ -385,9 +385,9 @@ bool gcta::comput_inverse_logdet_LDLT_mkl(eigenMatrix &Vi, double &logdet)
             delete[] Vi_mkl;
             return false;
         }else {
-            # pragma omp parallel for private(j)
-            for (j = 0; j < n; j++) {
-                for (i = 0; i <= j; i++) Vi(i, j) = Vi(j, i) = Vi_mkl[i * n + j];
+            #pragma omp parallel for
+            for (uint64_t j = 0; j < n; j++) {
+                for (uint64_t i = 0; i <= j; i++) Vi(i, j) = Vi(j, i) = Vi_mkl[i * n + j];
             }
             //cout << "IDLT finished" << endl;
         }

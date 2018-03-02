@@ -174,7 +174,6 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
     _reml_mtd = reml_mtd;
     _reml_max_iter = MaxIter;
     _reml_diag_one = reml_diag_one;
-    int i = 0, j = 0, k = 0;
     bool grm_flag = (!grm_file.empty());
     bool qcovar_flag = (!qcovar_file.empty());
     bool covar_flag = (!covar_file.empty());
@@ -195,7 +194,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
     } 
     else if (m_grm_flag) {
         read_grm_filenames(grm_file, grm_files, false);
-        for (i = 0; i < grm_files.size(); i++) {
+        for (int i = 0; i < grm_files.size(); i++) {
             read_grm(grm_files[i], grm_id, false, true, !(adj_grm_fac > -1.0));
             update_id_map_kp(grm_id, _id_map, _keep);
         }
@@ -233,7 +232,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
     vector<string> uni_id;
     map<string, int> uni_id_map;
     map<string, int>::iterator iter;
-    for (i = 0; i < _keep.size(); i++) {
+    for (int i = 0; i < _keep.size(); i++) {
         uni_id.push_back(_fid[_keep[i]] + ":" + _pid[_keep[i]]);
         uni_id_map.insert(pair<string, int>(_fid[_keep[i]] + ":" + _pid[_keep[i]], i));
     }
@@ -242,7 +241,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
 
     // construct model terms
     _y.setZero(_n);
-    for (i = 0; i < phen_ID.size(); i++) {
+    for (int i = 0; i < phen_ID.size(); i++) {
         iter = uni_id_map.find(phen_ID[i]);
         if (iter == uni_id_map.end()) continue;
         _y[iter->second] = atof(phen_buf[i][mphen - 1].c_str());
@@ -265,23 +264,24 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
     _r_indx.clear();
     vector<int> kp;
     if (grm_flag) {
-        for (i = 0; i < 1 + qE_fac_num + E_fac_num + 1; i++) _r_indx.push_back(i);
+        for (int i = 0; i < 1 + qE_fac_num + E_fac_num + 1; i++) _r_indx.push_back(i);
         if (!no_lrt) drop_comp(drop);
         _A.resize(_r_indx.size());
         if (mlmassoc) StrFunc::match(uni_id, grm_id, kp);
         else kp = _keep;
         (_A[0]) = eigenMatrix::Zero(_n, _n);
 
-        //pragma omp parallel for private(j)
-        for (i = 0; i < _n; i++) {
-            for (j = 0; j <= i; j++) (_A[0])(j, i) = (_A[0])(i, j) = _grm(kp[i], kp[j]);
+        #pragma omp parallel for
+        for (int i = 0; i < _n; i++) {
+            for (int j = 0; j <= i; j++) (_A[0])(j, i) = (_A[0])(i, j) = _grm(kp[i], kp[j]);
         }
         if (_reml_diag_one) {
             double diag_mean = (_A[0]).diagonal().mean();
             cout << "Mean of diagonal elements of the GRM = " << diag_mean << endl;
             //pragma omp parallel for private(j)
-            for (i = 0; i < _n; i++) {
-                for (j = 0; j <= i; j++) {
+            #pragma omp parallel for
+            for (int i = 0; i < _n; i++) {
+                for (int j = 0; j <= i; j++) {
                     (_A[0])(i, j) /= (_A[0])(i, i);
                     (_A[0])(j, i) = (_A[0])(i, j);
                 }
@@ -292,13 +292,13 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
         _grm.resize(0, 0);
     } else if (m_grm_flag) {
         if (!sex_file.empty()) update_sex(sex_file);
-        for (i = 0; i < (1 + qE_fac_num + E_fac_num) * grm_files.size() + 1; i++) _r_indx.push_back(i);
+        for (int i = 0; i < (1 + qE_fac_num + E_fac_num) * grm_files.size() + 1; i++) _r_indx.push_back(i);
         if (!no_lrt) drop_comp(drop);
         _A.resize(_r_indx.size());
         string prev_file = grm_files[0];
         vector<string> prev_grm_id(grm_id);
         cout << "There are " << grm_files.size() << " GRM file names specified in the file [" + grm_file + "]." << endl;
-        for (i = 0; i < grm_files.size(); i++, pos++) {
+        for (int i = 0; i < grm_files.size(); i++, pos++) {
             cout << "Reading the GRM from the " << i + 1 << "th file ..." << endl;
             read_grm(grm_files[i], grm_id, true, false, !(adj_grm_fac > -1.0));
             if (adj_grm_fac>-1.0) adj_grm(adj_grm_fac);
@@ -306,9 +306,9 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
             StrFunc::match(uni_id, grm_id, kp);
             (_A[pos]) = eigenMatrix::Zero(_n, _n);
 
-            //pragma omp parallel for private(j)
-            for (j = 0; j < _n; j++) {
-                for (k = 0; k <= j; k++) {
+            #pragma omp parallel for
+            for (int j = 0; j < _n; j++) {
+                for (int k = 0; k <= j; k++) {
                     if (kp[j] >= kp[k]) (_A[pos])(k, j) = (_A[pos])(j, k) = _grm(kp[j], kp[k]);
                     else (_A[pos])(k, j) = (_A[pos])(j, k) = _grm(kp[k], kp[j]);
                 }
@@ -317,10 +317,10 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
             if (_reml_diag_one) {
                 double diag_mean = (_A[pos]).diagonal().mean();
                 cout << "Mean of diagonal elements of the GRM = " << diag_mean << endl;
-                //pragma omp parallel for private(j)
-                for (j = 0; j < _n; j++) {
+                #pragma omp parallel for
+                for (int j = 0; j < _n; j++) {
                     //(_A[pos])(j,j)=diag_mean;
-                    for (k = 0; k <= j; k++) {
+                    for (int k = 0; k <= j; k++) {
                         (_A[pos])(j, k) /= (_A[pos])(j, j);
                         (_A[pos])(k, j) = (_A[pos])(j, k);
                     }
@@ -344,26 +344,26 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
     eigenMatrix qE_float, mbuf;
     if (qGE_flag) {
         qE_float.resize(_n, qE_fac_num);
-        for (i = 0; i < qGE_ID.size(); i++) {
+        for (int i = 0; i < qGE_ID.size(); i++) {
             iter = uni_id_map.find(qGE_ID[i]);
             if (iter == uni_id_map.end()) continue;
-            for (j = 0; j < qE_fac_num; j++) qE_float(iter->second, j) = atof(qGE[i][j].c_str());
+            for (int j = 0; j < qE_fac_num; j++) qE_float(iter->second, j) = atof(qGE[i][j].c_str());
         }
-        for (j = 0; j < qE_fac_num; j++) {
+        for (int j = 0; j < qE_fac_num; j++) {
             mbuf = ((qE_float.block(0, j, _n, 1))*(qE_float.block(0, j, _n, 1)).transpose());
-            for (i = 0; i < grm_files.size(); i++, pos++) (_A[pos]) = (_A[i]).array() * mbuf.array();
+            for (int i = 0; i < grm_files.size(); i++, pos++) (_A[pos]) = (_A[i]).array() * mbuf.array();
         }
     }
     if (GE_flag) {
         vector< vector<string> > E_str(E_fac_num);
-        for (i = 0; i < E_fac_num; i++) E_str[i].resize(_n);
-        for (i = 0; i < GE_ID.size(); i++) {
+        for (int i = 0; i < E_fac_num; i++) E_str[i].resize(_n);
+        for (int i = 0; i < GE_ID.size(); i++) {
             iter = uni_id_map.find(GE_ID[i]);
             if (iter != uni_id_map.end()) {
-                for (j = 0; j < E_fac_num; j++) E_str[j][iter->second] = GE[i][j];
+                for (int j = 0; j < E_fac_num; j++) E_str[j][iter->second] = GE[i][j];
             }
         }
-        for (j = 0; j < E_fac_num; j++) {
+        for (int j = 0; j < E_fac_num; j++) {
             stringstream errmsg;
             errmsg << "Error: too many classes for the " << j + 1 << "th environmental factor. \nPlease make sure you input a discrete variable as the environmental factor.";
             string errmsg1 = errmsg.str();
@@ -372,7 +372,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
             string errmsg2 = errmsg.str();
             coeff_mat(E_str[j], E_float[j], errmsg1, errmsg2);
             mbuf = ((E_float[j])*(E_float[j]).transpose());
-            for (i = 0; i < grm_files.size(); i++, pos++) (_A[pos]) = (_A[i]).array() * mbuf.array();
+            for (int i = 0; i < grm_files.size(); i++, pos++) (_A[pos]) = (_A[i]).array() * mbuf.array();
         }
     }
 
@@ -380,15 +380,15 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
     construct_X(_n, uni_id_map, qcovar_flag, qcovar_num, qcovar_ID, qcovar, covar_flag, covar_num, covar_ID, covar, E_float, qE_float);
 
     // names of variance component
-    for (i = 0; i < grm_files.size(); i++) {
+    for (int i = 0; i < grm_files.size(); i++) {
         stringstream strstrm;
         if (grm_files.size() == 1) strstrm << "";
         else strstrm << i + 1;
         _var_name.push_back("V(G" + strstrm.str() + ")");
         _hsq_name.push_back("V(G" + strstrm.str() + ")/Vp");
     }
-    for (j = 0; j < qE_fac_num; j++) {
-        for (i = 0; i < grm_files.size(); i++) {
+    for (int j = 0; j < qE_fac_num; j++) {
+        for (int i = 0; i < grm_files.size(); i++) {
             stringstream strstrm1, strstrm2;
             if (grm_files.size() == 1) strstrm1 << "";
             else strstrm1 << i + 1;
@@ -398,8 +398,8 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
             _hsq_name.push_back("V(G" + strstrm1.str() + "xqE" + strstrm2.str() + ")" + "/Vp");
         }
     }
-    for (j = 0; j < E_fac_num; j++) {
-        for (i = 0; i < grm_files.size(); i++) {
+    for (int j = 0; j < E_fac_num; j++) {
+        for (int i = 0; i < grm_files.size(); i++) {
             stringstream strstrm1, strstrm2;
             if (grm_files.size() == 1) strstrm1 << "";
             else strstrm1 << i + 1;
@@ -1095,17 +1095,18 @@ bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, i
     } 
     else {
         for (i = 0; i < _r_indx.size(); i++) Vi += (_A[_r_indx[i]]) * prev_varcmp[i];
-       /* 
+        /*
         for(int i = 0; i < _r_indx.size(); i++){ 
             double cur_varcmp = prev_varcmp[i];
-            #pragma omp parallel for private(k)
-            for(k = 0; k < _A[_r_indx[i]].outerSize(); ++k){
+            #pragma omp parallel for
+            for(int k = 0; k < _A[_r_indx[i]].; ++k){
                 for(eigenSparseMat::InnerIterator it(_A[_r_indx[i]], k); it; ++it){
                     Vi(it.row(),it.col()) += it.value() * cur_varcmp;
                 }
             }
         }   
         */
+
         if (_V_inv_mtd == 0) {
             if (!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) {
                 if(_reml_force_inv) {
@@ -1272,13 +1273,12 @@ double gcta::calcu_P(eigenMatrix &Vi, eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i,
 // input P, calculate PA and Hi
 void gcta::calcu_Hi(eigenMatrix &P, eigenMatrix &Hi)
 {
-    int i = 0, j = 0, k = 0, l = 0;
     double d_buf = 0.0;
     //cout << "Before calcu_Hi: " << getVMemKB() << " " << getMemKB() << ", "; 
 
     // Calculate PA
     vector<eigenMatrix> PA(_r_indx.size());
-    for (i = 0; i < _r_indx.size(); i++) {
+    for (int i = 0; i < _r_indx.size(); i++) {
         (PA[i]).resize(_n, _n);
         if (_bivar_reml || _within_family) (PA[i]) = P * (_Asp[_r_indx[i]]);
         else (PA[i]) = P * (_A[_r_indx[i]]);
@@ -1288,15 +1288,15 @@ void gcta::calcu_Hi(eigenMatrix &P, eigenMatrix &Hi)
     // Calculate Hi
     //double d_bufs[_n];
     double *d_bufs = new double[_n];
-    for (i = 0; i < _r_indx.size(); i++) {
-        for (j = 0; j <= i; j++) {
+    for (int i = 0; i < _r_indx.size(); i++) {
+        for (int j = 0; j <= i; j++) {
             memset(d_bufs, 0, _n * sizeof(double));
             d_buf = 0.0;
-            #pragma omp parallel for private(k)
-            for (k = 0; k < _n; k++) {
-                for (l = 0; l < _n; l++) d_bufs[k] += (PA[i])(k, l)*(PA[j])(l, k);
+            #pragma omp parallel for 
+            for (int k = 0; k < _n; k++) {
+                for (int l = 0; l < _n; l++) d_bufs[k] += (PA[i])(k, l)*(PA[j])(l, k);
             }
-            for(k = 0; k < _n; k++){
+            for(int k = 0; k < _n; k++){
                 d_buf += d_bufs[k];
             }
             Hi(i, j) = Hi(j, i) = d_buf;
@@ -1340,13 +1340,12 @@ void gcta::reml_equation(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigen
 
 void gcta::ai_reml(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector &prev_varcmp, eigenVector &varcmp, double dlogL)
 {
-    int i = 0, j = 0;
-
     Py = P*_y;
-    eigenVector cvec(_n);
+    //eigenVector cvec(_n);
     eigenMatrix APy(_n, _r_indx.size());
     //cout << "AI reml 1 start" << endl;
-    for (i = 0; i < _r_indx.size(); i++) {
+    #pragma omp parallel for
+    for (int i = 0; i < _r_indx.size(); i++) {
         if (_bivar_reml || _within_family) (APy.col(i)) = (_Asp[_r_indx[i]]) * Py;
         else (APy.col(i)) = (_A[_r_indx[i]]) * Py;
     }
@@ -1354,12 +1353,12 @@ void gcta::ai_reml(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector
     //cout << "AI reml 2 start" << endl;
     // Calculate Hi
     eigenVector R(_r_indx.size());
-//pragma omp parallel for private(i)
-    for (i = 0; i < _r_indx.size(); i++) {
+    #pragma omp parallel for
+    for (int i = 0; i < _r_indx.size(); i++) {
         R(i) = (Py.transpose()*(APy.col(i)))(0, 0);
-        cvec = P * (APy.col(i));
+        eigenVector cvec = P * (APy.col(i));
         Hi(i, i) = ((APy.col(i)).transpose() * cvec)(0, 0);
-        for (j = 0; j < i; j++) Hi(j, i) = Hi(i, j) = ((APy.col(j)).transpose() * cvec)(0, 0);
+        for (int j = 0; j < i; j++) Hi(j, i) = Hi(i, j) = ((APy.col(j)).transpose() * cvec)(0, 0);
     }
     //cout << "AI reml 2 end" << endl;
     Hi = 0.5 * Hi;
@@ -1389,8 +1388,6 @@ void gcta::ai_reml(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector
 
 void gcta::em_reml(eigenMatrix &P, eigenVector &Py, eigenVector &prev_varcmp, eigenVector &varcmp)
 {
-    int i = 0;
-
     // Calculate trace(PA)
     //cout << "Before em_reml: " << getVMemKB() << " " << getMemKB() << ", "; 
     eigenVector tr_PA;
@@ -1400,8 +1397,8 @@ void gcta::em_reml(eigenMatrix &P, eigenVector &Py, eigenVector &prev_varcmp, ei
     Py = P*_y;
     eigenVector R(_r_indx.size());
 
-    #pragma omp parallel for private(i)
-    for (i = 0; i < _r_indx.size(); i++) {
+    #pragma omp parallel for
+    for (int i = 0; i < _r_indx.size(); i++) {
         //cout << "EM reml " << i << endl;
         if (_bivar_reml || _within_family) R(i) = (Py.transpose()*(_Asp[_r_indx[i]]) * Py)(0, 0);
         else R(i) = (Py.transpose()*(_A[_r_indx[i]]) * Py)(0, 0);
@@ -1419,17 +1416,13 @@ void gcta::em_reml(eigenMatrix &P, eigenVector &Py, eigenVector &prev_varcmp, ei
 
 // input P, calculate tr(PA)
 void gcta::calcu_tr_PA(eigenMatrix &P, eigenVector &tr_PA) {
-    int i = 0, l = 0;
-    double d_buf = 0.0;
-    int k = 0;
-
     //cout << "Before calcu_tr_PA: " << getVMemKB() << " " << getMemKB() << ", "; 
 
     // Calculate trace(PA)
     tr_PA.resize(_r_indx.size());
     //double d_bufs[_n];
     double *d_bufs = new double[_n];
-    for (i = 0; i < _r_indx.size(); i++) {
+    for (int i = 0; i < _r_indx.size(); i++) {
         //cout << "calcu_tr_PA " << i << endl;
         if (_bivar_reml || _within_family){
             //eigenMatrix temp = P * (_Asp[_r_indx[i]]);
@@ -1438,8 +1431,8 @@ void gcta::calcu_tr_PA(eigenMatrix &P, eigenVector &tr_PA) {
             int cur_r_indx_size = _Asp[_r_indx[i]].outerSize();
             VectorXd v(cur_r_indx_size);
             v.setZero(cur_r_indx_size);
-            #pragma omp parallel for private(k)
-            for( k=0; k < cur_r_indx_size; ++k){
+            #pragma omp parallel for
+            for(int k = 0; k < cur_r_indx_size; ++k){
                 for(eigenSparseMat::InnerIterator it(_Asp[_r_indx[i]], k); it; ++it){
                     v(k) += P(it.col(),it.row()) * it.value();
                 }
@@ -1451,13 +1444,13 @@ void gcta::calcu_tr_PA(eigenMatrix &P, eigenVector &tr_PA) {
             //temp.resize(0,0);
         }
         else {
-            d_buf = 0.0;
+            double d_buf = 0.0;
             memset(d_bufs, 0, _n * sizeof(double));
-            #pragma omp parallel for private(k)
-            for (k = 0; k < _n; k++) {
-                for (l = 0; l < _n; l++) d_bufs[k] += P(k, l)*(_A[_r_indx[i]])(k, l);
+            #pragma omp parallel for
+            for (int k = 0; k < _n; k++) {
+                for (int l = 0; l < _n; l++) d_bufs[k] += P(k, l)*(_A[_r_indx[i]])(k, l);
             }
-            for(k = 0; k < _n; k++){
+            for(int k = 0; k < _n; k++){
                 d_buf += d_bufs[k];
             }
             tr_PA(i) = d_buf;
