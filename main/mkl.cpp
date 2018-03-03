@@ -16,7 +16,7 @@ void gcta::make_XMat_mkl(float *X, bool grm_d_flag)
 {
     if (_mu.empty()) calcu_mu();
 
-    cout << "Recoding genotypes (individual major mode) ..." << endl;
+    LOGGER << "Recoding genotypes (individual major mode) ..." << endl;
     unsigned long i = 0, j = 0, k = 0, n = _keep.size(), m = _include.size();
 
     if (!grm_d_flag) {
@@ -187,8 +187,8 @@ void gcta::make_grm_mkl(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool o
         else std_XMat_mkl(_geno_mkl, sd_SNP, grm_xchr_flag, false, false);
     }
 
-    if (!mlmassoc) cout << "\nCalculating the" << ((grm_d_flag) ? " dominance" : "") << " genetic relationship matrix (GRM)" << (grm_xchr_flag ? " for the X chromosome" : "") << (_dosage_flag ? " using imputed dosage data" : "") << " ... (Note: default speed-optimized mode, may use huge RAM)" << endl;
-    else cout << "\nCalculating the genetic relationship matrix (GRM) ... " << endl;
+    if (!mlmassoc) LOGGER << "\nCalculating the" << ((grm_d_flag) ? " dominance" : "") << " genetic relationship matrix (GRM)" << (grm_xchr_flag ? " for the X chromosome" : "") << (_dosage_flag ? " using imputed dosage data" : "") << " ... (Note: default speed-optimized mode, may use huge RAM)" << endl;
+    else LOGGER << "\nCalculating the genetic relationship matrix (GRM) ... " << endl;
 
     // count the number of missing genotypes
     vector< vector<int> > miss_pos(n);
@@ -297,45 +297,45 @@ void gcta::output_grm_mkl(float* A, bool output_grm_bin)
         // Save matrix A in binary file
         grm_file = _out + ".grm.bin";
         fstream A_Bin(grm_file.c_str(), ios::out | ios::binary);
-        if (!A_Bin) throw ("Error: can not open the file [" + grm_file + "] to write.");
+        if (!A_Bin) LOGGER.e(0, "can not open the file [" + grm_file + "] to write.");
         int size = sizeof (float);
         for (i = 0; i < n; i++) {
             for (j = 0; j <= i; j++) A_Bin.write((char*) &(A[i * n + j]), size);
         }
         A_Bin.close();
-        cout << "GRM of " << n << " individuals has been saved in the file [" + grm_file + "] (in binary format)." << endl;
+        LOGGER << "GRM of " << n << " individuals has been saved in the file [" + grm_file + "] (in binary format)." << endl;
 
         string grm_N_file = _out + ".grm.N.bin";
         fstream N_Bin(grm_N_file.c_str(), ios::out | ios::binary);
-        if (!N_Bin) throw ("Error: can not open the file [" + grm_N_file + "] to write.");
+        if (!N_Bin) LOGGER.e(0, "can not open the file [" + grm_N_file + "] to write.");
         size = sizeof (float);
         for (i = 0; i < n; i++) {
             for (j = 0; j <= i; j++) N_Bin.write((char*) &(_grm_N(i,j)), size);
         }
         N_Bin.close();
-        cout << "Number of SNPs to calcuate the genetic relationship between each pair of individuals has been saved in the file [" + grm_N_file + "] (in binary format)." << endl;
+        LOGGER << "Number of SNPs to calcuate the genetic relationship between each pair of individuals has been saved in the file [" + grm_N_file + "] (in binary format)." << endl;
     } else {
         // Save A matrix in txt format
         grm_file = _out + ".grm.gz";
         gzofstream zoutf;
         zoutf.open(grm_file.c_str());
-        if (!zoutf.is_open()) throw ("Error: can not open the file [" + grm_file + "] to write.");
-        cout << "Saving the genetic relationship matrix to the file [" + grm_file + "] (in compressed text format)." << endl;
+        if (!zoutf.is_open()) LOGGER.e(0, "can not open the file [" + grm_file + "] to write.");
+        LOGGER << "Saving the genetic relationship matrix to the file [" + grm_file + "] (in compressed text format)." << endl;
         zoutf.setf(ios::scientific);
         zoutf.precision(6);
         for (i = 0; i < n; i++) {
             for (j = 0; j <= i; j++) zoutf << i + 1 << '\t' << j + 1 << '\t' << _grm_N(i,j) << '\t' << A[i * n + j] << endl;
         }
         zoutf.close();
-        cout << "The genetic relationship matrix has been saved in the file [" + grm_file + "] (in compressed text format)." << endl;
+        LOGGER << "The genetic relationship matrix has been saved in the file [" + grm_file + "] (in compressed text format)." << endl;
     }
 
     string famfile = _out + ".grm.id";
     ofstream Fam(famfile.c_str());
-    if (!Fam) throw ("Error: can not open the file [" + famfile + "] to write.");
+    if (!Fam) LOGGER.e(0, "can not open the file [" + famfile + "] to write.");
     for (i = 0; i < n; i++) Fam << _fid[_keep[i]] + "\t" + _pid[_keep[i]] << endl;
     Fam.close();
-    cout << "IDs for the GRM file [" + grm_file + "] have been saved in the file [" + famfile + "]." << endl;
+    LOGGER << "IDs for the GRM file [" + grm_file + "] have been saved in the file [" + famfile + "]." << endl;
 }
 
 ///////////
@@ -343,7 +343,7 @@ void gcta::output_grm_mkl(float* A, bool output_grm_bin)
 
 bool gcta::comput_inverse_logdet_LDLT_mkl(eigenMatrix &Vi, double &logdet)
 {
-    //cout << "LDLT" << endl;
+    //LOGGER << "LDLT" << endl;
     uint64_t n = Vi.cols();
     double* Vi_mkl = new double[n * n];
     //float* Vi_mkl=new float[n*n];
@@ -354,16 +354,16 @@ bool gcta::comput_inverse_logdet_LDLT_mkl(eigenMatrix &Vi, double &logdet)
             Vi_mkl[i * n + j] = Vi(i, j);
         }
     }
-    //cout << "Finished copy" << endl;
+    //LOGGER << "Finished copy" << endl;
 
     // MKL's Cholesky decomposition
     int info = 0, int_n = (int) n;
     char uplo = 'L';
     dpotrf(&uplo, &int_n, Vi_mkl, &int_n, &info);
-    //cout << "Finished decompose" << endl;
+    //LOGGER << "Finished decompose" << endl;
     //spotrf( &uplo, &n, Vi_mkl, &n, &info );
     if (info < 0){
-        throw ("Error: Cholesky decomposition failed. Invalid values found in the matrix.\n");
+        LOGGER.e(0, "Cholesky decomposition failed. Invalid values found in the matrix.\n");
     }else if (info > 0){
         delete[] Vi_mkl;
         return false;
@@ -374,13 +374,13 @@ bool gcta::comput_inverse_logdet_LDLT_mkl(eigenMatrix &Vi, double &logdet)
             logdet += log(d_buf * d_buf);
         }
 
-        //cout << "start inverse" << endl;
+        //LOGGER << "start inverse" << endl;
         // Calcualte V inverse
         dpotri(&uplo, &int_n, Vi_mkl, &int_n, &info);
-        //cout << "Inverse finished" << endl;
+        //LOGGER << "Inverse finished" << endl;
         //spotri( &uplo, &n, Vi_mkl, &n, &info );
         if (info < 0){
-            throw ("Error: invalid values found in the varaince-covaraince (V) matrix.\n");
+            LOGGER.e(0, "invalid values found in the varaince-covaraince (V) matrix.\n");
         }else if (info > 0){
             delete[] Vi_mkl;
             return false;
@@ -389,7 +389,7 @@ bool gcta::comput_inverse_logdet_LDLT_mkl(eigenMatrix &Vi, double &logdet)
             for (uint64_t j = 0; j < n; j++) {
                 for (uint64_t i = 0; i <= j; i++) Vi(i, j) = Vi(j, i) = Vi_mkl[i * n + j];
             }
-            //cout << "IDLT finished" << endl;
+            //LOGGER << "IDLT finished" << endl;
         }
     }
 
@@ -402,12 +402,12 @@ bool gcta::comput_inverse_logdet_LDLT_mkl(eigenMatrix &Vi, double &logdet)
 
 bool gcta::comput_inverse_logdet_LU_mkl(eigenMatrix &Vi, double &logdet)
 {
-    unsigned long i = 0, j = 0, n = Vi.cols();
+    unsigned long n = Vi.cols();
     double* Vi_mkl = new double[n * n];
 
-    #pragma omp parallel for private(j)
-    for (i = 0; i < n; i++) {
-        for (j = 0; j < n; j++) {
+    #pragma omp parallel for
+    for (uint64_t i = 0; i < n; i++) {
+        for (uint64_t j = 0; j < n; j++) {
             Vi_mkl[i * n + j] = Vi(i, j);
         }
     }
@@ -418,7 +418,7 @@ bool gcta::comput_inverse_logdet_LU_mkl(eigenMatrix &Vi, double &logdet)
     double *WORK = new double[n * n];
     int INFO;
     dgetrf(&N, &N, Vi_mkl, &N, IPIV, &INFO);
-    if (INFO < 0) throw ("Error: LU decomposition failed. Invalid values found in the matrix.\n");
+    if (INFO < 0) LOGGER.e(0, "LU decomposition failed. Invalid values found in the matrix.\n");
     else if (INFO > 0) {
         delete[] Vi_mkl;
         delete[] IPIV;
@@ -426,7 +426,7 @@ bool gcta::comput_inverse_logdet_LU_mkl(eigenMatrix &Vi, double &logdet)
         return false;
     } else {
         logdet = 0.0;
-        for (i = 0; i < n; i++) {
+        for (uint64_t i = 0; i < n; i++) {
             double d_buf = Vi_mkl[i * n + i];
             logdet += log(fabs(d_buf));
         }
@@ -434,16 +434,16 @@ bool gcta::comput_inverse_logdet_LU_mkl(eigenMatrix &Vi, double &logdet)
         // Calcualte V inverse
         dgetri(&N, Vi_mkl, &N, IPIV, WORK, &LWORK, &INFO);
         if (INFO < 0){
-            throw ("Error: invalid values found in the varaince-covaraince (V) matrix.\n");
+            LOGGER.e(0, "invalid values found in the varaince-covaraince (V) matrix.\n");
         }else if (INFO > 0){
             delete[] Vi_mkl;
             delete[] IPIV;
             delete[] WORK;
             return false;
         }else {
-            #pragma omp parallel for private(j)
-            for (j = 0; j < n; j++) {
-                for (i = 0; i <= j; i++) Vi(i, j) = Vi(j, i) = Vi_mkl[i * n + j];
+            #pragma omp parallel for
+            for (uint64_t j = 0; j < n; j++) {
+                for (uint64_t i = 0; i <= j; i++) Vi(i, j) = Vi(j, i) = Vi_mkl[i * n + j];
             }
         }
     }
@@ -457,12 +457,11 @@ bool gcta::comput_inverse_logdet_LU_mkl(eigenMatrix &Vi, double &logdet)
 }
 
 bool gcta::comput_inverse_logdet_LU_mkl_array(int n, float *Vi, double &logdet) {
-    unsigned long i = 0, j = 0;
     double* Vi_mkl = new double[n * n];
 
-    #pragma omp parallel for private(j)
-    for (i = 0; i < n; i++) {
-        for (j = 0; j < n; j++) {
+    #pragma omp parallel for
+    for (uint64_t i = 0; i < n; i++) {
+        for (uint64_t j = 0; j < n; j++) {
             Vi_mkl[i * n + j] = Vi[i * n + j];
         }
     }
@@ -473,7 +472,7 @@ bool gcta::comput_inverse_logdet_LU_mkl_array(int n, float *Vi, double &logdet) 
     double *WORK = new double[n * n];
     int INFO;
     dgetrf(&N, &N, Vi_mkl, &N, IPIV, &INFO);
-    if (INFO < 0) throw ("Error: LU decomposition failed. Invalid values found in the matrix.\n");
+    if (INFO < 0) LOGGER.e(0, "LU decomposition failed. Invalid values found in the matrix.\n");
     else if (INFO > 0) {
         // free memory
         delete[] Vi_mkl;
@@ -483,14 +482,14 @@ bool gcta::comput_inverse_logdet_LU_mkl_array(int n, float *Vi, double &logdet) 
         return (false); //Vi.diagonal()=Vi.diagonal().array()+Vi.diagonal().mean()*1e-3;
     }else {
         logdet = 0.0;
-        for (i = 0; i < n; i++) {
+        for (uint64_t i = 0; i < n; i++) {
             double d_buf = Vi_mkl[i * n + i];
             logdet += log(fabs(d_buf));
         }
 
         // Calcualte V inverse
         dgetri(&N, Vi_mkl, &N, IPIV, WORK, &LWORK, &INFO);
-        if (INFO < 0) throw ("Error: invalid values found in the varaince-covaraince (V) matrix.\n");
+        if (INFO < 0) LOGGER.e(0, "invalid values found in the varaince-covaraince (V) matrix.\n");
         else if (INFO > 0) {
             // free memory
             delete[] Vi_mkl;
@@ -498,9 +497,9 @@ bool gcta::comput_inverse_logdet_LU_mkl_array(int n, float *Vi, double &logdet) 
             delete[] WORK;
             return (false); // Vi.diagonal()=Vi.diagonal().array()+Vi.diagonal().mean()*1e-3;
         }else {
-            #pragma omp parallel for private(j)
-            for (j = 0; j < n; j++) {
-                for (i = 0; i < n; i++) Vi[i * n + j] = Vi_mkl[i * n + j];
+            #pragma omp parallel for
+            for (uint64_t j = 0; j < n; j++) {
+                for (uint64_t i = 0; i < n; i++) Vi[i * n + j] = Vi_mkl[i * n + j];
             }
         }
     }
@@ -525,7 +524,7 @@ void gcta::LD_pruning_mkl(double rsq_cutoff, int wind_size) {
     vector<double> sd_SNP;
     std_XMat_mkl(_geno_mkl, sd_SNP, false, true, true);
 
-    cout << "\nPruning SNPs for LD ..." << endl;
+    LOGGER << "\nPruning SNPs for LD ..." << endl;
     vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
     get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, wind_size*2);
 
@@ -541,12 +540,12 @@ void gcta::LD_pruning_mkl(double rsq_cutoff, int wind_size) {
     update_id_map_rm(rm_snp_name, _snp_name_map, _include);
     m = _include.size();
 
-    cout << "After LD-pruning, " << m << " SNPs are remaining." << endl;
+    LOGGER << "After LD-pruning, " << m << " SNPs are remaining." << endl;
     string pruned_file = _out + ".prune.in";
     ofstream oprune(pruned_file.data());
     for (i = 0; i < m; i++) oprune << _snp_name[_include[i]] << endl;
     oprune << endl;
-    cout << "The list of " << m << " LD-pruned SNPs (pruned in) have been saved in the file [" + pruned_file + "]." << endl;
+    LOGGER << "The list of " << m << " LD-pruned SNPs (pruned in) have been saved in the file [" + pruned_file + "]." << endl;
 }
 
 void gcta::LD_pruning_blk_mkl(float *X, vector<int> &brk_pnt, double rsq_cutoff, vector<int> &rm_snp_ID1)
@@ -594,7 +593,7 @@ void gcta::calcu_mean_rsq_mkl(int wind_size, double rsq_cutoff)
     std_XMat_mkl(_geno_mkl, sd_SNP, false, true, true);
     calcu_ssx_sqrt_i_mkl(_geno_mkl, sd_SNP);
 
-    cout << "Calculating mean and maximum LD rsq (window size = at least " << wind_size / 1000 << "Kb in either direction; LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
+    LOGGER << "Calculating mean and maximum LD rsq (window size = at least " << wind_size / 1000 << "Kb in either direction; LD rsq threshold = " << rsq_cutoff << ") ... " << endl;
     vector<int> brk_pnt1, brk_pnt2, brk_pnt3;
     get_ld_blk_pnt(brk_pnt1, brk_pnt2, brk_pnt3, wind_size*2);
 
@@ -608,7 +607,7 @@ void gcta::calcu_mean_rsq_mkl(int wind_size, double rsq_cutoff)
     ofstream o_mrsq(mrsq_file.data());
     for (i = 0; i < m; i++) o_mrsq << _snp_name[_include[i]] << " " << 0.5 * _mu[_include[i]] << " " << mean_rsq[i] << " " << snp_num[i] << " " << max_rsq[i] << endl;
     o_mrsq << endl;
-    cout << "Mean and maximum LD rsq for " << m << " SNPs have been saved in the file [" + mrsq_file + "]." << endl;
+    LOGGER << "Mean and maximum LD rsq for " << m << " SNPs have been saved in the file [" + mrsq_file + "]." << endl;
 }
 
 void gcta::calcu_ssx_sqrt_i_mkl(float *X_std, vector<double> &ssx_sqrt_i)

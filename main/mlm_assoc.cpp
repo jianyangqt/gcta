@@ -23,7 +23,7 @@ void gcta::mlma(string grm_file, bool m_grm_flag, string subtract_grm_file, stri
     if (!qcovar_flag && !covar_flag) no_adj_covar=false;
     if (m_grm_flag) grm_flag = false;
     bool subtract_grm_flag = (!subtract_grm_file.empty());
-    if (subtract_grm_flag && m_grm_flag) throw("Error: the --mlma-subtract-grm option can not be used in combination with the --mgrm option.");
+    if (subtract_grm_flag && m_grm_flag) LOGGER.e(0, "the --mlma-subtract-grm option can not be used in combination with the --mgrm option.");
     
     // Read data
     int qcovar_num=0, covar_num=0;
@@ -32,7 +32,7 @@ void gcta::mlma(string grm_file, bool m_grm_flag, string subtract_grm_file, stri
     vector<string> grm_files;
     
     if(phen_file.empty()){
-        throw("Error: no file name in --pheno.");
+        LOGGER.e(0, "no file name in --pheno.");
     }
     read_phen(phen_file, phen_ID, phen_buf, mphen);
     update_id_map_kp(phen_ID, _id_map, _keep);
@@ -46,7 +46,7 @@ void gcta::mlma(string grm_file, bool m_grm_flag, string subtract_grm_file, stri
     }
     // grm operations will overwrite the _keep
     if(_keep.size() < 1){
-        throw("Error: no individual is in common in the input files.");
+        LOGGER.e(0, "no individual is in common in the input files.");
     }
 
     if(subtract_grm_flag){
@@ -85,8 +85,8 @@ void gcta::mlma(string grm_file, bool m_grm_flag, string subtract_grm_file, stri
 	    uni_id_map.insert(pair<string,int>(_fid[_keep[i]]+":"+_pid[_keep[i]], i));
 	}
     _n=_keep.size();
-    if(_n<1) throw("Error: no individual is in common in the input files.");
-    cout<<_n<<" individuals are in common in these files."<<endl;
+    if(_n<1) LOGGER.e(0, "no individual is in common in the input files.");
+    LOGGER<<_n<<" individuals are in common in these files."<<endl;
     
     // construct model terms
     _y.setZero(_n);
@@ -102,13 +102,13 @@ void gcta::mlma(string grm_file, bool m_grm_flag, string subtract_grm_file, stri
         for(i=0; i < 2; i++) _r_indx.push_back(i);
         _A.resize(_r_indx.size());
 
-        cout << "\nReading the primary GRM from [" << grm_files[1] << "] ..." << endl;
+        LOGGER << "\nReading the primary GRM from [" << grm_files[1] << "] ..." << endl;
         read_grm(grm_files[1], grm_id, true, false, false);
 
         StrFunc::match(uni_id, grm_id, kp);
         (_A[0]).resize(_n, _n);
         MatrixXf A_N_buf(_n, _n);
-        #pragma omp parallel for private(j)
+        #pragma omp parallel for private(k)
         for (j = 0; j < _n; j++) {
             for (k = 0; k <= j; k++) {
                 if (kp[j] >= kp[k]){
@@ -122,11 +122,11 @@ void gcta::mlma(string grm_file, bool m_grm_flag, string subtract_grm_file, stri
             }
         }
 
-        cout << "\nReading the secondary GRM from [" << grm_files[0] << "] ..." << endl;
+        LOGGER << "\nReading the secondary GRM from [" << grm_files[0] << "] ..." << endl;
         read_grm(grm_files[0], grm_id, true, false, false);
-        cout<<"\nSubtracting [" << grm_files[1] << "] from [" << grm_files[0] << "] ..." << endl;
+        LOGGER<<"\nSubtracting [" << grm_files[1] << "] from [" << grm_files[0] << "] ..." << endl;
         StrFunc::match(uni_id, grm_id, kp);
-        #pragma omp parallel for private(j)
+        #pragma omp parallel for private(k)
         for (j = 0; j < _n; j++) {
             for (k = 0; k <= j; k++) {
                 if (kp[j] >= kp[k]) (_A[0])(k, j) = (_A[0])(j, k) = ((_A[0])(j, k) * A_N_buf(j, k)  - _grm(kp[j], kp[k]) * _grm_N(kp[j], kp[k])) / (A_N_buf(j, k) - _grm_N(kp[j], kp[k]));
@@ -149,13 +149,13 @@ void gcta::mlma(string grm_file, bool m_grm_flag, string subtract_grm_file, stri
             _grm.resize(0,0);
         }
         else if(m_grm_flag){
-            cout << "There are " << grm_files.size() << " GRM file names specified in the file [" + grm_file + "]." << endl;
+            LOGGER << "There are " << grm_files.size() << " GRM file names specified in the file [" + grm_file + "]." << endl;
             for (i = 0; i < grm_files.size(); i++) {
-                cout << "Reading the GRM from the " << i + 1 << "th file ..." << endl;
+                LOGGER << "Reading the GRM from the " << i + 1 << "th file ..." << endl;
                 read_grm(grm_files[i], grm_id, true, false, true);
                 StrFunc::match(uni_id, grm_id, kp);
                 (_A[i]).resize(_n, _n);
-                #pragma omp parallel for private(j)
+                #pragma omp parallel for private(k)
                 for (j = 0; j < _n; j++) {
                     for (k = 0; k <= j; k++) {
                         if (kp[j] >= kp[k]) (_A[i])(k, j) = (_A[i])(j, k) = _grm(kp[j], kp[k]);
@@ -195,7 +195,7 @@ void gcta::mlma(string grm_file, bool m_grm_flag, string subtract_grm_file, stri
     if(_within_family) detect_family();
     
     // run REML algorithm
-    cout << "\nPerforming MLM association analyses" << (subtract_grm_flag?"":" (including the candidate SNP)") << " ..."<<endl;
+    LOGGER << "\nPerforming MLM association analyses" << (subtract_grm_flag?"":" (including the candidate SNP)") << " ..."<<endl;
     unsigned long n=_keep.size(), m=_include.size();
 	reml(false, true, reml_priors, reml_priors_var, -2.0, -2.0, no_constrain, true, true);
     _P.resize(0,0);
@@ -206,7 +206,7 @@ void gcta::mlma(string grm_file, bool m_grm_flag, string subtract_grm_file, stri
     for(i=0; i<n; i++) y[i]=y_buf[i];
     
 /*    if(grm_flag || m_grm_flag){
-        cout<<endl;
+        LOGGER<<endl;
         _geno_mkl=new float[n*m];
         make_XMat_mkl(_geno_mkl, false);
         #pragma omp parallel for private(j, k)
@@ -227,9 +227,9 @@ void gcta::mlma(string grm_file, bool m_grm_flag, string subtract_grm_file, stri
     delete[] _geno_mkl;
     
     string filename=_out+".mlma";
-    cout<<"\nSaving the results of the mixed linear model association analyses of "<<m<<" SNPs to ["+filename+"] ..."<<endl;
+    LOGGER<<"\nSaving the results of the mixed linear model association analyses of "<<m<<" SNPs to ["+filename+"] ..."<<endl;
     ofstream ofile(filename.c_str());
-    if(!ofile) throw("Can not open the file ["+filename+"] to write.");
+    if(!ofile) LOGGER.e(0, "Can not open the file ["+filename+"] to write.");
     ofile<<"Chr\tSNP\tbp\tA1\tA2\tFreq\tb\tse\tp"<<endl;
 	for(i=0; i<m; i++){
         j=_include[i];
@@ -257,7 +257,7 @@ void gcta::mlma_calcu_stat(float *y, float *geno_mkl, unsigned long n, unsigned 
     beta.resize(m);
     se=eigenVector::Zero(m);
     pval=eigenVector::Constant(m,2);
-    cout<<"\nRunning association tests for "<<m<<" SNPs ..."<<endl;
+    LOGGER<<"\nRunning association tests for "<<m<<" SNPs ..."<<endl;
     int new_start = 0, block_size = 0, block_col = 0, k = 0, l = 0;
     MatrixXf X_block;
     vector<int> indx;
@@ -313,7 +313,7 @@ void gcta::mlma_calcu_stat_covar(float *y, float *geno_mkl, unsigned long n, uns
     beta.resize(m);
     se=eigenVector::Zero(m);
     pval=eigenVector::Constant(m,2);
-    cout<<"\nRunning association tests for "<<m<<" SNPs ..."<<endl;
+    LOGGER<<"\nRunning association tests for "<<m<<" SNPs ..."<<endl;
     int new_start = 0, block_size = 0, block_col = 0, k = 0, l = 0;
     MatrixXf X_block;
     vector<int> indx;
@@ -332,7 +332,7 @@ void gcta::mlma_calcu_stat_covar(float *y, float *geno_mkl, unsigned long n, uns
         for(j = 0; j < n; j++) X[j*col_num+_X_c] = X_block(j, block_col);
         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, n, col_num, n, 1.0, Vi, n, X, col_num, 0.0, Vi_X, col_num);
         cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, col_num, col_num, n, 1.0, X, col_num, Vi_X, col_num, 0.0, Xt_Vi_X, col_num);
-        if(!comput_inverse_logdet_LU_mkl_array(col_num, Xt_Vi_X, d_buf)) throw("Error: Xt_Vi_X is not invertable.");
+        if(!comput_inverse_logdet_LU_mkl_array(col_num, Xt_Vi_X, d_buf)) LOGGER.e(0, "Xt_Vi_X is not invertable.");
         cblas_sgemv(CblasRowMajor, CblasTrans, n, col_num, 1.0, Vi_X, col_num, y, 1, 0.0, Xt_Vi_y, 1);
         cblas_sgemv(CblasRowMajor, CblasNoTrans, col_num, col_num, 1.0, Xt_Vi_X, col_num, Xt_Vi_y, 1, 0.0, b_vec, 1);
         se[i]=Xt_Vi_X[_X_c*col_num+_X_c];
@@ -365,7 +365,7 @@ void gcta::mlma_loco(string phen_file, string qcovar_file, string covar_file, in
     vector< vector<string> > phen_buf, qcovar, covar; // save individuals by column
 
     if(phen_file.empty()){
-        throw("Error: no file name in --pheno.");
+        LOGGER.e(0, "no file name in --pheno.");
     }
     
     read_phen(phen_file, phen_ID, phen_buf, mphen);
@@ -380,13 +380,13 @@ void gcta::mlma_loco(string phen_file, string qcovar_file, string covar_file, in
     }
     n=_keep.size();
     _n=_keep.size();
-    if(_n<1) throw("Error: no individual is in common in the input files.");
-    cout<<_n<<" individuals are in common in these files."<<endl;
+    if(_n<1) LOGGER.e(0, "no individual is in common in the input files.");
+    LOGGER<<_n<<" individuals are in common in these files."<<endl;
     
     vector<int> chrs, vi_buf(_chr);
     stable_sort(vi_buf.begin(), vi_buf.end());
 	vi_buf.erase(unique(vi_buf.begin(), vi_buf.end()), vi_buf.end());
-    if(vi_buf.size()<2) throw("Error: There is only one chromosome. The MLM leave-on-chromosome-out (LOCO) analysis requires at least two chromosome.");
+    if(vi_buf.size()<2) LOGGER.e(0, "There is only one chromosome. The MLM leave-on-chromosome-out (LOCO) analysis requires at least two chromosome.");
     for(i=0; i<vi_buf.size(); i++){
         if(vi_buf[i]<=_autosome_num) chrs.push_back(vi_buf[i]);
     }
@@ -396,11 +396,11 @@ void gcta::mlma_loco(string phen_file, string qcovar_file, string covar_file, in
     vector<float *> grm_chrs(chrs.size());
     vector<float *> geno_chrs(chrs.size());
     vector< vector<int> > icld_chrs(chrs.size());
-    cout<<endl;
+    LOGGER<<endl;
     if(_mu.empty()) calcu_mu();
-    cout<<"\nCalculating the genetic relationship matrix for each of the "<<chrs.size()<<" chromosomes ... "<<endl;
+    LOGGER<<"\nCalculating the genetic relationship matrix for each of the "<<chrs.size()<<" chromosomes ... "<<endl;
     for(c1=0; c1<chrs.size(); c1++){
-        cout<<"Chr "<<chrs[c1]<<":"<<endl;
+        LOGGER<<"Chr "<<chrs[c1]<<":"<<endl;
         extract_chr(chrs[c1], chrs[c1]);
         make_grm_mkl(false, false, inbred, true, 0, true);
         
@@ -443,7 +443,7 @@ void gcta::mlma_loco(string phen_file, string qcovar_file, string covar_file, in
     _var_name.push_back("V(e)");
     
     // MLM association
-    cout<<"\nPerforming MLM association analyses (leave-one-chromosome-out) ..."<<endl;
+    LOGGER<<"\nPerforming MLM association analyses (leave-one-chromosome-out) ..."<<endl;
     
     vector<int> kp;
     StrFunc::match(uni_id, grm_id, kp);
@@ -456,7 +456,7 @@ void gcta::mlma_loco(string phen_file, string qcovar_file, string covar_file, in
     float *y=new float[_n];
     vector<eigenVector> beta(chrs.size()), se(chrs.size()), pval(chrs.size());
     for(c1=0; c1<chrs.size(); c1++){
-        cout<<"\n-----------------------------------\n#Chr "<<chrs[c1]<<":"<<endl;
+        LOGGER<<"\n-----------------------------------\n#Chr "<<chrs[c1]<<":"<<endl;
         extract_chr(chrs[c1], chrs[c1]);
         
         _A[0]=eigenMatrix::Zero(_n, _n);
@@ -494,7 +494,7 @@ void gcta::mlma_loco(string phen_file, string qcovar_file, string covar_file, in
         
         _include=include_o;
         _snp_name_map=snp_name_map_o;
-        cout<<"-----------------------------------"<<endl;
+        LOGGER<<"-----------------------------------"<<endl;
     }
     
     delete[] y;
@@ -504,9 +504,9 @@ void gcta::mlma_loco(string phen_file, string qcovar_file, string covar_file, in
     }
     
     string filename=_out+".loco.mlma";
-    cout<<"\nSaving the results of the mixed linear model association analyses of "<<_include.size()<<" SNPs to ["+filename+"] ..."<<endl;
+    LOGGER<<"\nSaving the results of the mixed linear model association analyses of "<<_include.size()<<" SNPs to ["+filename+"] ..."<<endl;
     ofstream ofile(filename.c_str());
-    if(!ofile) throw("Can not open the file ["+filename+"] to write.");
+    if(!ofile) LOGGER.e(0, "Can not open the file ["+filename+"] to write.");
     ofile<<"Chr\tSNP\tbp\tA1\tA2\tFreq\tb\tse\tp"<<endl;
     for(c1=0; c1<chrs.size(); c1++){
         for(i=0; i<icld_chrs[c1].size(); i++){

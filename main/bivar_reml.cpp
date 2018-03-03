@@ -71,8 +71,8 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
         uni_id_map.insert(pair<string, int>(_fid[_keep[i]] + ":" + _pid[_keep[i]], i));
     }
     _n = _keep.size();
-    if (_n < 1) throw ("Error: no individuals are in common in the input files.");
-    cout << _n << " individuals are in common in these files." << endl;
+    if (_n < 1) LOGGER.e(0, "no individuals are in common in the input files.");
+    LOGGER.i(0, to_string(_n) + " individuals are in common in these files.");
 
     // construct model terms
     int n1 = 0, n2 = 0;
@@ -111,18 +111,18 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
     }
     eigenVector y1_tmp = (_y.segment(0, n1)).array() - (_y.segment(0, n1)).mean();
     _y_Ssq = y1_tmp.squaredNorm() / (n1 - 1.0);
-    if (!(fabs(_y_Ssq) < 1e30)) throw ("Error: the phenotypic variance for trait 1 is infinite. Please check the missing data in your phenotype file. Missing values should be represented by \"NA\" or \"-9\".");
+    if (!(fabs(_y_Ssq) < 1e30)) LOGGER.e(0, "the phenotypic variance for trait 1 is infinite. Please check the missing data in your phenotype file. Missing values should be represented by \"NA\" or \"-9\".");
     eigenVector y2_tmp = (_y.segment(n1, n2)).array() - (_y.segment(n1, n2)).mean();
     _y2_Ssq = y2_tmp.squaredNorm() / (n2 - 1.0);
-    if (!(fabs(_y2_Ssq) < 1e30)) throw ("Error: the phenotypic variance for trait 2 is infinite. Please check the missing data in your phenotype file. Missing values should be represented by \"NA\" or \"-9\".");
-    cout << nms1.size() << " non-missing phenotypes for trait #1 and " << nms2.size() << " for trait #2" << endl;
+    if (!(fabs(_y2_Ssq) < 1e30)) LOGGER.e(0, "the phenotypic variance for trait 2 is infinite. Please check the missing data in your phenotype file. Missing values should be represented by \"NA\" or \"-9\".");
+    LOGGER << nms1.size() << " non-missing phenotypes for trait #1 and " << nms2.size() << " for trait #2" << endl;
     if (!ignore_Ce) {
         if (two_tr_comm == 0) {
             ignore_Ce = true;
-            cout << "Note: the residual covariance component is ignored because no individuals were measured for both traits." << endl;
+            LOGGER << "Note: the residual covariance component is ignored because no individuals were measured for both traits." << endl;
         } else if ((double) two_tr_comm / (double) _keep.size() < 0.1) {
             ignore_Ce = true;
-            cout << "Note: the residual covariance component is ignored because < 10% of individuals were measured for both traits." << endl;
+            LOGGER << "Note: the residual covariance component is ignored because < 10% of individuals were measured for both traits." << endl;
         }
     }
 
@@ -130,13 +130,13 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
     _ncase2 = 0.0;
     eigenVector y1 = _y.segment(0, n1), y2 = _y.segment(n1, n2);
     _flag_CC = check_case_control(_ncase, y1);
-    if (_flag_CC) cout << "for trait #1" << endl;
+    if (_flag_CC) LOGGER << "for trait #1" << endl;
     else prevalence = -1.0;
     _flag_CC2 = check_case_control(_ncase2, y2);
-    if (_flag_CC2) cout << "for trait #2" << endl;
+    if (_flag_CC2) LOGGER << "for trait #2" << endl;
     else prevalence2 = -1.0;
-    //if(flag_CC2!=_flag_CC) throw("Error: for a bivariate analysis, the two traits should be both quantitative or both binary.");
-    if ((_flag_CC && prevalence<-1) || (_flag_CC2 && prevalence2<-1)) cout << "Note: we can specify the disease prevalence by the option --reml-bivar-prevalence so that GCTA can transform the variance explained to the underlying liability scale." << endl;
+    //if(flag_CC2!=_flag_CC) LOGGER.e(0, "for a bivariate analysis, the two traits should be both quantitative or both binary.");
+    if ((_flag_CC && prevalence<-1) || (_flag_CC2 && prevalence2<-1)) LOGGER << "Note: we can specify the disease prevalence by the option --reml-bivar-prevalence so that GCTA can transform the variance explained to the underlying liability scale." << endl;
 
     int pos = 0;
     _r_indx.clear();
@@ -167,7 +167,7 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
             }
         }
         (_Asp[pos]).finalize();
-        //cout << "Fill Matrix " << pos << " finished" << endl; 
+        //LOGGER << "Fill Matrix " << pos << " finished" << endl; 
         pos++;
 
         _bivar_pos[1].push_back(pos);
@@ -177,7 +177,7 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
             }
         }
         (_Asp[pos]).finalize();
-        //cout << "Fill Matrix " << pos << " finished" << endl; 
+        //LOGGER << "Fill Matrix " << pos << " finished" << endl; 
         pos++;
 
         _bivar_pos[2].push_back(pos);
@@ -186,18 +186,18 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
                 (_Asp[pos]).insertBackUncompressed(i + n1, j) = _grm(_keep[nms2[i]], _keep[nms1[j]]);
             }
         }
-        //cout << "Fill Matrix " << pos << " part 1 finished" << endl; 
+        //LOGGER << "Fill Matrix " << pos << " part 1 finished" << endl; 
         for (j = 0; j < n2; j++) {
             for (i = 0; i < n1; i++){
                 (_Asp[pos]).insertBackUncompressed(i, j + n1) = _grm(_keep[nms1[i]], _keep[nms2[j]]);
             }
         }
         (_Asp[pos]).finalize();
-        //cout << "Fill Matrix " << pos << " part2 finished" << endl; 
+        //LOGGER << "Fill Matrix " << pos << " part2 finished" << endl; 
         pos++;
 
         _grm.resize(0, 0);
-        //cout << "Transform the data finished" << endl;
+        //LOGGER << "Transform the data finished" << endl;
     } 
     else if (m_grm_flag) {
         if (!sex_file.empty()) update_sex(sex_file);
@@ -221,10 +221,10 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
         if (!no_lrt) drop_comp(drop);
         string prev_file = grm_files[0];
         vector<string> prev_grm_id(grm_id);
-        cout << "There are " << grm_files.size() << " GRM file names specified in the file [" + grm_file + "]." << endl;
+        LOGGER << "There are " << grm_files.size() << " GRM file names specified in the file [" + grm_file + "]." << endl;
         vector<int> kp;
         for (k = 0; k < grm_files.size(); k++) {
-            cout << "Reading the GRM from the " << k + 1 << "th file ..." << endl;
+            LOGGER << "Reading the GRM from the " << k + 1 << "th file ..." << endl;
             read_grm(grm_files[k], grm_id, true, false, !(adj_grm_fac > -1.0));
             if (adj_grm_fac>-1.0) adj_grm(adj_grm_fac);
             if (dosage_compen>-1) dc(dosage_compen);
@@ -294,7 +294,7 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
     // construct X matrix
     vector<eigenMatrix> E_float;
     eigenMatrix qE_float;
-    cout << "Constructing the covariances" << endl;
+    LOGGER << "Constructing the covariances" << endl;
     construct_X(_keep.size(), uni_id_map, qcovar_flag, qcovar_num, qcovar_ID, qcovar, covar_flag, covar_num, covar_ID, covar, E_float, qE_float);
     eigenMatrix X(_X);
     _X = eigenMatrix::Zero(_n, _X_c * 2);
@@ -326,42 +326,42 @@ bool gcta::calcu_Vi_bivar(eigenMatrix &Vi, eigenVector &prev_varcmp, double &log
     int k=0;
     double d_buf = 0.0;
     logdet = 0.0;
-    string errmsg = "\nError: the V (variance-covariance) matrix is not invertible.";
+    string errmsg = "\nthe V (variance-covariance) matrix is not invertible.";
 
     Vi = eigenMatrix::Zero(_n, _n);
-   // cout << "calcu_Vi_bivar" << endl;
+   // LOGGER << "calcu_Vi_bivar" << endl;
     //for (int i = 0; i < _r_indx.size(); i++) Vi += (_Asp[_r_indx[i]]) * prev_varcmp[i];
     
     for(int i = 0; i < _r_indx.size(); i++){ 
         double cur_varcmp = prev_varcmp[i];
-        #pragma omp parallel for private(k)
-        for(k = 0; k < _Asp[_r_indx[i]].outerSize(); ++k){
+        #pragma omp parallel for
+        for(int k = 0; k < _Asp[_r_indx[i]].outerSize(); ++k){
             for(eigenSparseMat::InnerIterator it(_Asp[_r_indx[i]], k); it; ++it){
                 Vi(it.row(),it.col()) += it.value() * cur_varcmp;
             }
         }
     }
 
-    //cout << " calcu_Vi_bivar finished" << endl;
+    //LOGGER << " calcu_Vi_bivar finished" << endl;
 
     if (_V_inv_mtd == 0) {
         if (!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) {
-            //cout<<"Note: the variance-covaraince matrix V is non-positive definite. Switching to Cholesky to LU decomposition approach."<<endl;
+            //LOGGER<<"Note: the variance-covaraince matrix V is non-positive definite. Switching to Cholesky to LU decomposition approach."<<endl;
             _V_inv_mtd = 1;
         }
     }
     if (_V_inv_mtd == 1) {
-        if (!comput_inverse_logdet_LU_mkl(Vi, logdet)) throw ("Error: the variance-covaraince matrix V is not invertible.");
+        if (!comput_inverse_logdet_LU_mkl(Vi, logdet)) LOGGER.e(0, "the variance-covaraince matrix V is not invertible.");
     }
-    //cout << "Chop decomposition finished" << endl;
+    //LOGGER << "Chop decomposition finished" << endl;
 
     /*    if(!comput_inverse_logdet_LDLT_mkl(Vi, logdet)){
-            if(_reml_have_bend_A) throw(errmsg);
-            cout<<"Warning: the variance-covaraince matrix V is negative-definite."<<endl;
+            if(_reml_have_bend_A) LOGGER.e(0, errmsg);
+            LOGGER<<"Warning: the variance-covaraince matrix V is negative-definite."<<endl;
             bend_A();
             _reml_have_bend_A=true;
             iter=-1;
-            cout<<"Restarting iterations ..."<<endl;
+            LOGGER<<"Restarting iterations ..."<<endl;
             return false;
         }
      */
@@ -384,7 +384,7 @@ void gcta::constrain_rg(eigenVector &varcmp) {
         eigenVector eval = eigensolver.eigenvalues();
         if (eval.minCoeff() <= 0.0) {
             if (count == 0) {
-                cout << "Note: to constrain the correlation being from -1 to 1, a genetic (or residual) variance-covariance matrix is bended to be positive definite. In this case, the SE is unreliable." << endl;
+                LOGGER << "Note: to constrain the correlation being from -1 to 1, a genetic (or residual) variance-covariance matrix is bended to be positive definite. In this case, the SE is unreliable." << endl;
                 count++;
             }
             bending_eigenval(eval);
@@ -435,9 +435,9 @@ double gcta::lgL_fix_rg(eigenVector &prev_varcmp, bool no_constrain) {
         for (i = 0; i < _bivar_pos[0].size() - 1; i++) _fixed_rg_val.push_back(rg_val_buf[i]);
     }
 
-    cout << "\nCalculating the logLikelihood for the model with the genetic correlation" << (_fixed_rg_val.size() > 1 ? "s" : "") << " being fixed at ";
-    for (int i = 0; i < _fixed_rg_val.size() - 1; i++) cout << _fixed_rg_val[i] << "\t";
-    cout << _fixed_rg_val[_fixed_rg_val.size() - 1] << endl;
+    LOGGER << "\nCalculating the logLikelihood for the model with the genetic correlation" << (_fixed_rg_val.size() > 1 ? "s" : "") << " being fixed at ";
+    for (int i = 0; i < _fixed_rg_val.size() - 1; i++) LOGGER << _fixed_rg_val[i] << "\t";
+    LOGGER << _fixed_rg_val[_fixed_rg_val.size() - 1] << endl;
 
     vector<int> r_indx_buf(_r_indx);
     _bivar_pos_prev = _bivar_pos;
@@ -493,7 +493,7 @@ void gcta::init_rg(eigenVector &varcmp)
             varcmp[_bivar_pos[1][i]]/=ratio;
             delta_0=varcmp_buf[_bivar_pos[0][i]]-varcmp[_bivar_pos[0][i]];
         }
-        else throw("Error: unable to calcuate the genetic correlation because one of the genetic variance components is negative.");
+        else LOGGER.e(0, "unable to calcuate the genetic correlation because one of the genetic variance components is negative.");
     }
 }
 
@@ -501,21 +501,21 @@ void gcta::fix_rg(eigenVector &varcmp, int pos)
 {
     int i=0;
     double d_buf=0.0;
-    string errmsg="Error: unable to calcuate the genetic correlation because one of the genetic variance components is zero.";
+    string errmsg="unable to calcuate the genetic correlation because one of the genetic variance components is zero.";
     
     for(i=0; i<_fixed_rg_val.size(); i++){
         if(pos==2){
             d_buf=varcmp[_bivar_pos[0][i]]*varcmp[_bivar_pos[1][i]];
             if(CommFunc::FloatNotEqual(d_buf, 0.0)) varcmp[_bivar_pos[2][i]]=_fixed_rg_val[i]*sqrt(d_buf);
-            else throw(errmsg);
+            else LOGGER.e(0, errmsg);
         }
         else if(pos==1){
             if(CommFunc::FloatNotEqual(varcmp[_bivar_pos[1][i]], 0.0)) varcmp[_bivar_pos[0][i]]=varcmp[_bivar_pos[2][i]]*varcmp[_bivar_pos[2][i]]/(varcmp[_bivar_pos[1][i]]*_fixed_rg_val[i]*_fixed_rg_val[i]);
-            else throw(errmsg);
+            else LOGGER.e(0, errmsg);
         }
         else if(pos==0){
             if(CommFunc::FloatNotEqual(varcmp[_bivar_pos[0][i]], 0.0)) varcmp[_bivar_pos[1][i]]=varcmp[_bivar_pos[2][i]]*varcmp[_bivar_pos[2][i]]/(varcmp[_bivar_pos[0][i]]*_fixed_rg_val[i]*_fixed_rg_val[i]);
-            else throw(errmsg);
+            else LOGGER.e(0, errmsg);
         }
     }
 }

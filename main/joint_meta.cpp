@@ -1,9 +1,9 @@
 #include "gcta.h"
 
 void gcta::read_metafile(string metafile, bool GC, double GC_val) {
-    cout << "\nReading GWAS summary-level statistics from [" + metafile + "] ..." << endl;
+    LOGGER << "\nReading GWAS summary-level statistics from [" + metafile + "] ..." << endl;
     ifstream Meta(metafile.c_str());
-    if (!Meta) throw ("Error: can not open the file [" + metafile + "] to read.");
+    if (!Meta) LOGGER.e(0, "can not open the file [" + metafile + "] to read.");
 
     int i = 0, count = 0;
     double f_buf = 0.0, b_buf = 0.0, se_buf = 0.0, p_buf = 0.0, N_buf = 0.0, Vp_buf = 0.0, GC_buf = 0.0, chi_buf = 0.0, h_buf = 0.0;
@@ -15,7 +15,7 @@ void gcta::read_metafile(string metafile, bool GC, double GC_val) {
     vector<double> freq_buf, beta_buf, beta_se_buf, pval_buf, N_o_buf, Vp_v_buf, GC_v_buf;
     map<string, int>::iterator iter;
     getline(Meta, str_buf); // the header line
-    if (StrFunc::split_string(str_buf, vs_buf) < 7) throw ("Error: format error in the input file [" + metafile + "].");
+    if (StrFunc::split_string(str_buf, vs_buf) < 7) LOGGER.e(0, "format error in the input file [" + metafile + "].");
     _jma_Vp = 0.0;
     _GC_val = -1;
     while (Meta) {
@@ -38,16 +38,16 @@ void gcta::read_metafile(string metafile, bool GC, double GC_val) {
         iss >> str_buf;
         if (str_buf == "NA" || str_buf == ".") continue;
         N_buf = atof(str_buf.c_str());
-        if (N_buf < 10) throw ("Error: invalid sample size in line:\n\"" + str_buf0 + "\"");
+        if (N_buf < 10) LOGGER.e(0, "invalid sample size in line:\n\"" + str_buf0 + "\"");
         if (Meta.eof()) break;
         iter = _snp_name_map.find(snp_buf);
         h_buf = 2.0 * f_buf * (1.0 - f_buf);
         Vp_buf = h_buf * N_buf * se_buf * se_buf + h_buf * b_buf * b_buf * N_buf / (N_buf - 1.0);
-        if (Vp_buf < 0.0) throw ("Error: in line:\n\"" + str_buf0 + "\"");
+        if (Vp_buf < 0.0) LOGGER.e(0, "in line:\n\"" + str_buf0 + "\"");
         Vp_v_buf.push_back(Vp_buf);
         if (GC) {
             GC_buf = b_buf * b_buf / se_buf / se_buf;
-            if (GC_buf < 0) throw ("Error: in line:\n\"" + str_buf0 + "\"");
+            if (GC_buf < 0) LOGGER.e(0, "in line:\n\"" + str_buf0 + "\"");
             GC_v_buf.push_back(GC_buf);
         }
         count++;
@@ -69,21 +69,21 @@ void gcta::read_metafile(string metafile, bool GC, double GC_val) {
         N_o_buf.push_back(N_buf);
     }
     Meta.close();
-    cout << "GWAS summary statistics of " << count << " SNPs read from [" + metafile + "]." << endl;
+    LOGGER << "GWAS summary statistics of " << count << " SNPs read from [" + metafile + "]." << endl;
     _jma_Vp = CommFunc::median(Vp_v_buf);
-    cout << "Phenotypic variance estimated from summary statistics of all " << count << " SNPs: " << _jma_Vp << " (variance of logit for case-control studies)." << endl;
+    LOGGER << "Phenotypic variance estimated from summary statistics of all " << count << " SNPs: " << _jma_Vp << " (variance of logit for case-control studies)." << endl;
     if (GC) {
         if (GC_val > 0) {
             _GC_val = GC_val;
-            cout << "User specified genomic inflation factor: " << _GC_val << endl;
+            LOGGER << "User specified genomic inflation factor: " << _GC_val << endl;
         } else {
             _GC_val = CommFunc::median(GC_v_buf) / 0.455;
-            cout << "Genomic inflation factor calcualted from " << count << " SNPs: " << _GC_val << endl;
+            LOGGER << "Genomic inflation factor calcualted from " << count << " SNPs: " << _GC_val << endl;
         }
-        cout << "p-values wil be adjusted by the genomic control approach." << endl;
+        LOGGER << "p-values wil be adjusted by the genomic control approach." << endl;
     }
 
-    cout << "Matching the GWAS meta-analysis results to the genotype data ..." << endl;
+    LOGGER << "Matching the GWAS meta-analysis results to the genotype data ..." << endl;
     update_id_map_kp(snplist, _snp_name_map, _include);
     vector<int> indx(_include.size());
     map<string, int> id_map;
@@ -100,10 +100,10 @@ void gcta::read_metafile(string metafile, bool GC, double GC_val) {
         obadsnp << "SNP\tA1\tA2\tRefA" << endl;
         for (i = 0; i < bad_snp.size(); i++) obadsnp << bad_snp[i] << "\t" << bad_A1[i] << "\t" << bad_A2[i] << "\t" << bad_refA[i] << endl;
         obadsnp.close();
-        cout << "Warning: can't match the reference alleles of " << bad_snp.size() << " SNPs to those in the genotype data. These SNPs have been saved in [" + badsnpfile + "]." << endl;
+        LOGGER << "Warning: can't match the reference alleles of " << bad_snp.size() << " SNPs to those in the genotype data. These SNPs have been saved in [" + badsnpfile + "]." << endl;
     }
-    if (_include.empty()) throw ("Error: all the SNPs in the GWAS meta-analysis results can't be found in the genotype data.");
-    else cout << _include.size() << " SNPs are matched to the genotype data." << endl;
+    if (_include.empty()) LOGGER.e(0, "all the SNPs in the GWAS meta-analysis results can't be found in the genotype data.");
+    else LOGGER << _include.size() << " SNPs are matched to the genotype data." << endl;
 
     if (_mu.empty()) calcu_mu();
 
@@ -130,7 +130,7 @@ void gcta::init_massoc(string metafile, bool GC, double GC_val)
     read_metafile(metafile, GC, GC_val);
 
     int i = 0, j = 0, n = _keep.size(), m = _include.size();
-    cout << "Calculating the variance of SNP genotypes ..." << endl;
+    LOGGER << "Calculating the variance of SNP genotypes ..." << endl;
     _MSX_B.resize(m);
     _Nd.resize(m);
 
@@ -154,7 +154,7 @@ void gcta::read_fixed_snp(string snplistfile, string msg, vector<int> &pgiven, v
     int i = 0, j = 0;
     vector<string> givenSNPs;
     read_snplist(snplistfile, givenSNPs, msg);
-    if (givenSNPs.empty()) throw ("Error: failed to read any SNP from the file [" + snplistfile + "].");
+    if (givenSNPs.empty()) LOGGER.e(0, "failed to read any SNP from the file [" + snplistfile + "].");
     map<string, int> givenSNPs_map;
     pgiven.clear();
     remain.clear();
@@ -163,8 +163,8 @@ void gcta::read_fixed_snp(string snplistfile, string msg, vector<int> &pgiven, v
         if (givenSNPs_map.find(_snp_name[_include[i]]) != givenSNPs_map.end()) pgiven.push_back(i);
         else remain.push_back(i);
     }
-    if (pgiven.size() > 0) cout << pgiven.size() << " of them are matched to the genotype and summary data." << endl;
-    else throw ("Error: none of the given SNPs can be matched to the genotype and summary data.");
+    if (pgiven.size() > 0) LOGGER << pgiven.size() << " of them are matched to the genotype and summary data." << endl;
+    else LOGGER.e(0, "none of the given SNPs can be matched to the genotype and summary data.");
 }
 
 void gcta::run_massoc_slct(string metafile, int wind_size, double p_cutoff, double collinear, int64_t top_SNPs, bool joint_only, bool GC, double GC_val, bool actual_geno, int mld_slct_alg)
@@ -179,45 +179,45 @@ void gcta::run_massoc_slct(string metafile, int wind_size, double p_cutoff, doub
     if (top_SNPs < 0) top_SNPs = 1e10;
     else {
         _jma_p_cutoff = 0.5;
-        cout << "The threshold p-value has been set to 0.5 because of the --cojo-top-SNPs option." << endl;
+        LOGGER << "The threshold p-value has been set to 0.5 because of the --cojo-top-SNPs option." << endl;
     }
     int i = 0, j = 0;
     vector<int> slct, remain;
     eigenVector bC, bC_se, pC;
-    cout << endl;
+    LOGGER << endl;
     if (!joint_only && mld_slct_alg<2) {
-        cout << "Performing "<< ((mld_slct_alg==0)?"stepwise":"forward") << " model selection on " << _include.size() << " SNPs to select association signals ... (p cutoff = " << _jma_p_cutoff << "; ";
-        cout << "collinearity cutoff = " << _jma_collinear << ")"<< endl;
-        if (!_jma_actual_geno) cout << "(Assuming complete linkage equilibrium between SNPs which are more than " << _jma_wind_size / 1e6 << "Mb away from each other)" << endl;
+        LOGGER << "Performing "<< ((mld_slct_alg==0)?"stepwise":"forward") << " model selection on " << _include.size() << " SNPs to select association signals ... (p cutoff = " << _jma_p_cutoff << "; ";
+        LOGGER << "collinearity cutoff = " << _jma_collinear << ")"<< endl;
+        if (!_jma_actual_geno) LOGGER << "(Assuming complete linkage equilibrium between SNPs which are more than " << _jma_wind_size / 1e6 << "Mb away from each other)" << endl;
         stepwise_slct(slct, remain, bC, bC_se, pC, mld_slct_alg, top_SNPs);
         if (slct.empty()) {
-            cout << "No SNPs have been selected." << endl;
+            LOGGER << "No SNPs have been selected." << endl;
             return;
         }
     } else { // mld_slct_alg = 2 for backward selection
         for (i = 0; i < _include.size(); i++) slct.push_back(i);
         if (mld_slct_alg==2) {
-            cout << "Performing backward selection on " << _include.size() << " SNPs at threshold p-value = " << _jma_p_cutoff << " ..." << endl;
+            LOGGER << "Performing backward selection on " << _include.size() << " SNPs at threshold p-value = " << _jma_p_cutoff << " ..." << endl;
             slct_stay(slct, bC, bC_se, pC);
         }
     }
 
     // joint analysis
     eigenVector bJ, bJ_se, pJ;
-    cout << "Performing joint analysis on all the " << slct.size();
-    if (joint_only) cout << " SNPs ..." << endl;
-    else cout << " selected signals ..." << endl;
-    if (slct.size() >= _keep.size()) throw ("Error: too many SNPs. The number of SNPs in a joint analysis should not be larger than the sample size.");
+    LOGGER << "Performing joint analysis on all the " << slct.size();
+    if (joint_only) LOGGER << " SNPs ..." << endl;
+    else LOGGER << " selected signals ..." << endl;
+    if (slct.size() >= _keep.size()) LOGGER.e(0, "too many SNPs. The number of SNPs in a joint analysis should not be larger than the sample size.");
     massoc_joint(slct, bJ, bJ_se, pJ);
     eigenMatrix rval(slct.size(), slct.size());
     LD_rval(slct, rval);
-    if (_jma_actual_geno) cout << "Residual varaince = " << _jma_Ve << endl;
+    if (_jma_actual_geno) LOGGER << "Residual varaince = " << _jma_Ve << endl;
     massoc_slct_output(joint_only, slct, bJ, bJ_se, pJ, rval);
 
     // output conditional results
     if (!joint_only && !mld_slct_alg==2) {
         massoc_cond_output(remain, bC, bC_se, pC);
-        cout << "(" << _jma_snpnum_backward << " SNPs eliminated by backward selection and " << _jma_snpnum_collienar << " SNPs filtered by collinearity test are not included in the output)" << endl;
+        LOGGER << "(" << _jma_snpnum_backward << " SNPs eliminated by backward selection and " << _jma_snpnum_collienar << " SNPs filtered by collinearity test are not included in the output)" << endl;
     }
 }
 
@@ -230,14 +230,14 @@ void gcta::run_massoc_cond(string metafile, string snplistfile, int wind_size, d
     read_fixed_snp(snplistfile, "given SNPs", pgiven, remain);
 
     eigenVector bC, bC_se, pC;
-    cout << "Performing single-SNP association analysis conditional on the " << pgiven.size() << " given SNPs ... ";
-    cout << "(collinearity cutoff = " << _jma_collinear << ")" << endl;
-    if (!_jma_actual_geno) cout << "(Assuming complete linkage equilibrium between SNPs which are more than " << _jma_wind_size / 1e6 << "Mb away from each other)" << endl;
+    LOGGER << "Performing single-SNP association analysis conditional on the " << pgiven.size() << " given SNPs ... ";
+    LOGGER << "(collinearity cutoff = " << _jma_collinear << ")" << endl;
+    if (!_jma_actual_geno) LOGGER << "(Assuming complete linkage equilibrium between SNPs which are more than " << _jma_wind_size / 1e6 << "Mb away from each other)" << endl;
 
     string filename = _out + ".given.cojo";
-    cout<<"Saving the summary statistics of the given SNPs in the file [" + filename + "] ..." << endl;
+    LOGGER<<"Saving the summary statistics of the given SNPs in the file [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
-    if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
+    if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
     ofile << "Chr\tSNP\tbp\trefA\tfreq\tb\tse\tp" << endl;
     int i = 0, j = 0;
     for (i = 0; i < pgiven.size(); i++) {
@@ -253,10 +253,10 @@ void gcta::run_massoc_cond(string metafile, string snplistfile, int wind_size, d
 void gcta::massoc_slct_output(bool joint_only, vector<int> &slct, eigenVector &bJ, eigenVector &bJ_se, eigenVector &pJ, eigenMatrix &rval)
 {
     string filename = _out + ".jma.cojo";
-    if (joint_only) cout << "Saving the joint analysis result of " << slct.size() << " SNPs to [" + filename + "] ..." << endl;
-    else cout << "Saving the " << slct.size() << " independent signals to [" + filename + "] ..." << endl;
+    if (joint_only) LOGGER << "Saving the joint analysis result of " << slct.size() << " SNPs to [" + filename + "] ..." << endl;
+    else LOGGER << "Saving the " << slct.size() << " independent signals to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
-    if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
+    if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
     ofile << "Chr\tSNP\tbp\trefA\tfreq\tb\tse\tp" << ((_GC_val > 0) ? "_GC" : "") << "\tn\tfreq_geno\tbJ\tbJ_se\tpJ" << ((_GC_val > 0) ? "_GC" : "") << "\tLD_r" << endl;
     int i = 0, j = 0;
     for (i = 0; i < slct.size(); i++) {
@@ -270,10 +270,10 @@ void gcta::massoc_slct_output(bool joint_only, vector<int> &slct, eigenVector &b
     ofile.close();
 
     filename = _out + ".ldr.cojo";
-    if (joint_only) cout << "Saving the LD structure of " << slct.size() << " SNPs to [" + filename + "] ..." << endl;
-    else cout << "Saving the LD structure of " << slct.size() << " independent signals to [" + filename + "] ..." << endl;
+    if (joint_only) LOGGER << "Saving the LD structure of " << slct.size() << " SNPs to [" + filename + "] ..." << endl;
+    else LOGGER << "Saving the LD structure of " << slct.size() << " independent signals to [" + filename + "] ..." << endl;
     ofile.open(filename.c_str());
-    if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
+    if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
     ofile << "SNP\t";
     for (i = 0; i < slct.size(); i++) ofile << _snp_name[_include[slct[i]]] << "\t";
     ofile << endl;
@@ -289,9 +289,9 @@ void gcta::massoc_cond_output(vector<int> &remain, eigenVector &bC, eigenVector 
 {
     int i = 0, j = 0;
     string filename = _out + ".cma.cojo";
-    cout << "Saving the conditional analysis results of " << remain.size() << " remaining SNPs to [" + filename + "] ..." << endl;
+    LOGGER << "Saving the conditional analysis results of " << remain.size() << " remaining SNPs to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
-    if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
+    if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
     ofile << "Chr\tSNP\tbp\trefA\tfreq\tb\tse\tp" << ((_GC_val > 0) ? "_GC" : "") << "\tn\tfreq_geno\tbC\tbC_se\tpC" << ((_GC_val > 0) ? "_GC" : "") << endl;
     for (i = 0; i < remain.size(); i++) {
         j = remain[i];
@@ -317,7 +317,7 @@ void gcta::stepwise_slct(vector<int> &slct, vector<int> &remain, eigenVector &bC
     }
     int prev_num = 0;
     if (mld_slct_alg==0 && _jma_p_cutoff > 1e-3){
-        cout << "Switched to perform a forward model selection because the significance level is too low..." << endl;
+        LOGGER << "Switched to perform a forward model selection because the significance level is too low..." << endl;
         mld_slct_alg=1;
     }
     while (!remain.empty()) {
@@ -325,15 +325,15 @@ void gcta::stepwise_slct(vector<int> &slct, vector<int> &remain, eigenVector &bC
             if (mld_slct_alg==0) slct_stay(slct, bC, bC_se, pC);
         }
         else break;
-        if (slct.size() % 5 == 0 && slct.size() > prev_num) cout << slct.size() << " associated SNPs have been selected." << endl;
+        if (slct.size() % 5 == 0 && slct.size() > prev_num) LOGGER << slct.size() << " associated SNPs have been selected." << endl;
         if (slct.size() > prev_num) prev_num = slct.size();
         if (slct.size() >= top_SNPs) break;
     }
     if (_jma_p_cutoff > 1e-3) {
-        cout << "Performing backward elimination..." << endl;
+        LOGGER << "Performing backward elimination..." << endl;
         slct_stay(slct, bC, bC_se, pC);
     }
-    cout << "Finally, " << slct.size() << " associated SNPs are selected." << endl;
+    LOGGER << "Finally, " << slct.size() << " associated SNPs are selected." << endl;
 }
 
 bool gcta::slct_entry(vector<int> &slct, vector<int> &remain, eigenVector &bC, eigenVector &bC_se, eigenVector &pC) {
@@ -357,7 +357,7 @@ bool gcta::slct_entry(vector<int> &slct, vector<int> &remain, eigenVector &bC, e
 
 void gcta::slct_stay(vector<int> &slct, eigenVector &bJ, eigenVector &bJ_se, eigenVector &pJ) {
     if (_B_N.cols() < 1) {
-        if (!init_B(slct)) throw ("Error: there is a collinearity problem of the given list of SNPs.\nYou can try the option --cojo-slct to get rid of one of each pair of highly correlated SNPs.");
+        if (!init_B(slct)) LOGGER.e(0, "there is a collinearity problem of the given list of SNPs.\nYou can try the option --cojo-slct to get rid of one of each pair of highly correlated SNPs.");
     }
 
     vector<double> pJ_buf;
@@ -387,15 +387,15 @@ double gcta::massoc_calcu_Ve(const vector<int> &slct, eigenVector &bJ, eigenVect
         Ve += _D_N[k] * bJ[k] * b[k];
     }
     double d_buf = CommFunc::median(Nd_buf);
-    if (d_buf - n < 1) throw ("Error: no degree of freedom left for the residues, the model is over-fitting. Please specify a more stringent p cutoff value.");
+    if (d_buf - n < 1) LOGGER.e(0, "no degree of freedom left for the residues, the model is over-fitting. Please specify a more stringent p cutoff value.");
     Ve = ((d_buf - 1) * _jma_Vp - Ve) / (d_buf - n);
-    if (Ve <= 0.0) throw ("Error: residual variance is out of boundary, the model is over-fitting. Please specify a more stringent p cutoff value.");
+    if (Ve <= 0.0) LOGGER.e(0, "residual variance is out of boundary, the model is over-fitting. Please specify a more stringent p cutoff value.");
     return Ve;
 }
 
 void gcta::massoc_joint(const vector<int> &indx, eigenVector &bJ, eigenVector &bJ_se, eigenVector &pJ) {
     if (_B_N.cols() < 1) {
-        if (!init_B(indx)) throw ("Error: there is a collinearity problem of the given list of SNPs.\nYou can try the option --cojo-slct to get rid of one of each pair of highly correlated SNPs.");
+        if (!init_B(indx)) LOGGER.e(0, "there is a collinearity problem of the given list of SNPs.\nYou can try the option --cojo-slct to get rid of one of each pair of highly correlated SNPs.");
     }
 
     int i = 0, n = indx.size();
@@ -425,7 +425,7 @@ void gcta::massoc_joint(const vector<int> &indx, eigenVector &bJ, eigenVector &b
 
 void gcta::massoc_cond(const vector<int> &slct, const vector<int> &remain, eigenVector &bC, eigenVector &bC_se, eigenVector &pC) {
     if (_B_N.cols() < 1) {
-        if (!init_B(slct)) throw ("Error: there is a collinearity problem of the given list of SNPs.\nYou can try the option --cojo-slct to get rid of one of each pair of highly correlated SNPs.");
+        if (!init_B(slct)) LOGGER.e(0, "there is a collinearity problem of the given list of SNPs.\nYou can try the option --cojo-slct to get rid of one of each pair of highly correlated SNPs.");
     }
     if (_Z_N.cols() < 1) init_Z(slct);
 
@@ -708,19 +708,19 @@ void gcta::run_massoc_sblup(string metafile, int wind_size, double lambda)
 
     int j = 0;
     eigenVector bJ;
-    cout << "\nPerforming joint analysis on all the " << _include.size() << " SNPs ..." << endl;
-    cout << "(Assuming complete linkage equilibrium between SNPs which are more than " << _jma_wind_size / 1e6 << "Mb away from each other)" << endl;
+    LOGGER << "\nPerforming joint analysis on all the " << _include.size() << " SNPs ..." << endl;
+    LOGGER << "(Assuming complete linkage equilibrium between SNPs which are more than " << _jma_wind_size / 1e6 << "Mb away from each other)" << endl;
     if (massoc_sblup(lambda, bJ)) {
         string filename = _out + ".sblup.cojo";
-        cout << "Saving the joint analysis result of " << _include.size() << " SNPs to [" + filename + "] ..." << endl;
+        LOGGER << "Saving the joint analysis result of " << _include.size() << " SNPs to [" + filename + "] ..." << endl;
         ofstream ofile(filename.c_str());
-        if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
+        if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
         for (j = 0; j < _include.size(); j++) {
             // change here: convert from u to b before writing to file
             ofile << _snp_name[_include[j]] << "\t" << _ref_A[_include[j]] << "\t" << _beta[j] << "\t" << bJ[j] / sqrt(_MSX[j]) << endl;
         }
         ofile.close();
-    } else throw ("Jacobi iteration not converged. You can increase the maximum number of iterations by the option --massoc-sblup-maxit.");
+    } else LOGGER.e(0, "Jacobi iteration not converged. You can increase the maximum number of iterations by the option --massoc-sblup-maxit.");
 }
 
 bool gcta::massoc_sblup(double lambda, eigenVector &bJ)
@@ -739,7 +739,7 @@ bool gcta::massoc_sblup(double lambda, eigenVector &bJ)
         }
     }
     if(num_err_snp > 0){
-        throw("there are " + to_string(num_err_snp) + " SNPs with MAF=0.");
+        LOGGER.e(0, "there are " + to_string(num_err_snp) + " SNPs with MAF=0.");
     }
 
     //eigenVector Xty = invsqrtvar.array() * D.array() * _beta.array();
@@ -752,7 +752,7 @@ bool gcta::massoc_sblup(double lambda, eigenVector &bJ)
         nz_j[i]=0;
     }
     */
-    cout << "Calculating the LD correlation matrix of all the " << _include.size() << " SNPs..." << endl;
+    LOGGER << "Calculating the LD correlation matrix of all the " << _include.size() << " SNPs..." << endl;
     eigenSparseMat B(_include.size(), _include.size());
     vector<int> n_elements(_include.size());
 
@@ -789,32 +789,32 @@ bool gcta::massoc_sblup(double lambda, eigenVector &bJ)
                 //out_debug << j << "\t" << i << "\t" << _snp_name[_include[j]] << "\t" << _snp_name[_include[i]] << "\t" << temp << endl;
             }
         }
-        if((i + 1) % 1000 == 0 || (i + 1) == _include.size()) cout << i + 1 << " of " << _include.size() << " SNPs.\r";
+        if((i + 1) % 1000 == 0 || (i + 1) == _include.size()) LOGGER << i + 1 << " of " << _include.size() << " SNPs.\r";
     }
     //out_debug.close();
   
-    cout << "Estimating the joint effects of all SNPs ..." << endl;
+    LOGGER << "Estimating the joint effects of all SNPs ..." << endl;
     // change here
     //eigenVector Xty = D.array() * _beta.array();
     SimplicialLDLT<eigenSparseMat> solver;
     solver.compute(B);
     if(solver.info()!=Success) {
-        throw("Error: decomposition failed! The SNP correlation matrix is not positive definite.");
+        LOGGER.e(0, "decomposition failed! The SNP correlation matrix is not positive definite.");
     }
     bJ = solver.solve(Xty);
     if(solver.info()!=Success) {
-        throw("Error: solving failed! Unable to solve the BLUP equation.");
+        LOGGER.e(0, "solving failed! Unable to solve the BLUP equation.");
     }
 
     // debug
-    //cout<<"_MSX: "<<_MSX<<endl;
-    //cout<<"Nd: "<<_Nd<<endl;
-    //cout<<"B: "<<B<<endl;
-    //cout<<"D: "<<D<<endl;
-    //cout<<"_beta: "<<_beta<<endl;
-    //cout<<"bJ: "<<bJ<<endl;
+    //LOGGER<<"_MSX: "<<_MSX<<endl;
+    //LOGGER<<"Nd: "<<_Nd<<endl;
+    //LOGGER<<"B: "<<B<<endl;
+    //LOGGER<<"D: "<<D<<endl;
+    //LOGGER<<"_beta: "<<_beta<<endl;
+    //LOGGER<<"bJ: "<<bJ<<endl;
 
-    //cout<<"B inverse: "<<ldlt.solve(eigenMatrix::Identity(_include.size(), _include.size()))<<endl;
+    //LOGGER<<"B inverse: "<<ldlt.solve(eigenMatrix::Identity(_include.size(), _include.size()))<<endl;
 
 
     return (true);

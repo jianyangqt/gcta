@@ -38,6 +38,7 @@
 #include <omp.h>
 #include <mkl_cblas.h>
 #include <mkl_lapack.h>
+#include "Logger.h"
 
 #ifdef SINGLE_PRECISION
 typedef Eigen::SparseMatrix<float, Eigen::ColMajor, long long> eigenSparseMat;

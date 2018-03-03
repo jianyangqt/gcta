@@ -919,10 +919,10 @@ vector<string> read_ld_score_gz(string filestr, map<string,int> snplist_map, vec
         ldsc_marker.getline(buf, MAX_LINE_LENGTH, '\n');
         if (ldsc_marker.fail() || !ldsc_marker.good()) break;
         stringstream ss(buf);
-        if (!(ss >> strbuf)) throw (err_msg + buf);
-        if (!(ss >> snpbuf)) throw (err_msg + buf);
-        for(i=0; i<3; i++) if (!(ss >> strbuf)) throw (err_msg + buf);
-        if (!(ss >> strbuf)) throw (err_msg + buf);
+        if (!(ss >> strbuf)) LOGGER.e(0, err_msg + buf);
+        if (!(ss >> snpbuf)) LOGGER.e(0, err_msg + buf);
+        for(i=0; i<3; i++) if (!(ss >> strbuf)) LOGGER.e(0, err_msg + buf);
+        if (!(ss >> strbuf)) LOGGER.e(0, err_msg + buf);
         ldscbuf = atof(strbuf.c_str());
         // save the data
         snp_iter = snplist_map.find(snpbuf);

@@ -9,6 +9,7 @@
  */
 
 #include "CommFunc.h"
+#include "Logger.h"
 
 double CommFunc::Abs(const double &x)
 {
@@ -121,5 +122,5 @@ int CommFunc::rand_seed()
 void CommFunc::FileExist(string filename)
 {
     ifstream ifile(filename.c_str());
-    if(!ifile) throw("Error: can not open the file ["+filename+"] to read.");
+    if(!ifile) LOGGER.e(0, "can not open the file ["+filename+"] to read.");
 }

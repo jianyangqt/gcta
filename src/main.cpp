@@ -51,7 +51,7 @@ void out_ver(bool flag_outFile){
 
     log(0, "*******************************************************************");
     log(0, "* Genome-wide Complex Trait Analysis (GCTA)");
-    log(0, "* version 1.91.3 beta");
+    log(0, "* version 1.91.3 beta2");
     log(0, "* (C) 2010-2018, The University of Queensland");
     log(0, "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>");
     log(0, "*******************************************************************");
@@ -185,10 +185,8 @@ int main(int argc, char *argv[]){
         processMains[mains[0]]();
     }else{
         try{
-            if(options.find("--mtcojo-file") != options.end()){
-                LOGGER.open(options["out"][0] + ".log");
-                out_ver(true);
-            }
+            LOGGER.open(options["out"][0] + ".log");
+            out_ver(true);
             option(argc, argv);
         }catch (const string &err_msg) {
             LOGGER.e(0, err_msg);         

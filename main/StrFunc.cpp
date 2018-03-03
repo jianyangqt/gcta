@@ -10,6 +10,7 @@
 
 #include "StrFunc.h"
 #include <cctype>
+#include "Logger.h"
 
 int StrFunc::split_string(const string &str, vector<string> &vec_str, string separator)
 {
@@ -95,7 +96,7 @@ bool StrFunc::StrVecEqual(const vector<string> &VsBufA, const vector<string> &Vs
 {
 	int SizeA=VsBufA.size(), SizeB=VsBufB.size();
 	if(SizeA!=SizeB) return false;
-	if(Pos>=SizeA) throw("Invalid Pos! StrFunc::StrVecEqual");
+	if(Pos>=SizeA) LOGGER.e(0, "Invalid Pos! StrFunc::StrVecEqual");
 
 	int i=0;
 	for(i=Pos; i<SizeA; i++){

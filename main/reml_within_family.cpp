@@ -15,7 +15,7 @@
 
 void gcta::detect_family()
 {
-    cout<<"Accelarating for family based GRM ..."<<endl;
+    LOGGER<<"Accelarating for family based GRM ..."<<endl;
     int i=0, j=0, k=0, l=0, prev_pnt=0;
     double d_buf1=0.0, d_buf2=0.0;
     _fam_brk_pnt.clear();
@@ -38,7 +38,7 @@ bool gcta::calcu_Vi_within_family(eigenMatrix &Vi, eigenVector &prev_varcmp, dou
 {
     int i=0, j=0, k=0;
     double logdet_buf=0.0;
-    string errmsg="\nError: the V (variance-covariance) matrix is not invertible.";
+    string errmsg="\n  the V (variance-covariance) matrix is not invertible.";
     
     if(_r_indx.size()==1){
         Vi = eigenMatrix::Zero(_n, _n);
@@ -58,7 +58,7 @@ bool gcta::calcu_Vi_within_family(eigenMatrix &Vi, eigenVector &prev_varcmp, dou
         solver.compute(Vit);
 
         if(solver.info() != Eigen::Success){
-            throw("can't inverse the matrix within familiy");
+            LOGGER.e(0, "can't inverse the matrix within familiy");
         }
         
         double logdet = solver.vectorD().array().square().log().sum();

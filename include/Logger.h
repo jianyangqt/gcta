@@ -33,11 +33,24 @@
 #include <string>
 #include <map>
 #include <fstream>
+#include <ios>
 #include <chrono>
+#include <iostream>
 #define LOGGER (*Logger::GetLogger())
 #define LOGGER_P Logger::GetLogger()
 using std::string;
 using std::endl;
+
+template<typename S>
+struct _Smanip: public std::function<S &(S &)> {
+    template<typename T> _Smanip(T &&t): std::function<S &(S &)>(
+            [=](S &i) -> S &{ return i << t; }) {}
+    template<typename T> _Smanip(T *t): std::function<S &(S &)>(
+            [=](S &i) -> S &{ return i << t; }) {}
+    template<typename U> friend U &operator<<(U &u, _Smanip &a) {
+        return static_cast<U &>(a(u));
+    }
+};
 
 class Logger {
 public:
@@ -54,10 +67,24 @@ public:
     void l(int level, const string& message);
     void ts(string marker);
     float tp(string marker);
-    Logger& operator<<(const string& message);
-    Logger& operator<<(int level);
     Logger& operator<<(Type type);
     Logger& operator<<(std::ostream& (*manip)(std::ostream&));
+    Logger& operator<<(std::ios& (*pf)(std::ios&));
+    Logger& operator<<(std::ios_base& (*pf)(std::ios_base&));
+    Logger& operator<<(_Smanip<std::ostream> &mip);
+
+    template<typename T>
+    Logger& operator<<(const T& t){
+        std::cout << t;
+        if(m_stat != PROGRESS){
+            m_logFile << t;
+        }
+        return *m_pThis;
+    };
+
+    int precision(int p);
+    int precision();
+    string setprecision(int p);
 
     void open(string ofile);
     void close();

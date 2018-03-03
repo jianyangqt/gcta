@@ -15,15 +15,15 @@
 void gcta::sbat_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, vector<int> &snp_chr, vector<int> &snp_bp, vector<double> &snp_pval)
 {
     ifstream in_snpAssoc(snpAssoc_file.c_str());
-    if (!in_snpAssoc) throw ("Error: can not open the file [" + snpAssoc_file + "] to read.");
-    cout << "\nReading SNP association results from [" + snpAssoc_file + "]." << endl;
+    if (!in_snpAssoc) LOGGER.e(0, "can not open the file [" + snpAssoc_file + "] to read.");
+    LOGGER << "\nReading SNP association results from [" + snpAssoc_file + "]." << endl;
     string str_buf;
     vector<string> vs_buf;
     map<string, int>::iterator iter;
     map<string, int> assoc_snp_map;
     int line = 0;
     while (getline(in_snpAssoc, str_buf)) {
-        if (StrFunc::split_string(str_buf, vs_buf, " \t") != 2) throw ("Error: in line \"" + str_buf + "\".");
+        if (StrFunc::split_string(str_buf, vs_buf, " \t") != 2) LOGGER.e(0, "in line \"" + str_buf + "\".");
         iter = _snp_name_map.find(vs_buf[0]);
         if (iter == _snp_name_map.end()) continue;
         if(assoc_snp_map.find(vs_buf[0]) != assoc_snp_map.end()) continue;
@@ -34,7 +34,7 @@ void gcta::sbat_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, ve
     }
     in_snpAssoc.close();
     snp_name.erase(unique(snp_name.begin(), snp_name.end()), snp_name.end());
-    cout << "Association p-values of " << snp_name.size() << " SNPs have been included." << endl;
+    LOGGER << "Association p-values of " << snp_name.size() << " SNPs have been included." << endl;
 
     update_id_map_kp(snp_name, _snp_name_map, _include);
     vector<string> snp_name_buf(snp_name);
@@ -59,26 +59,26 @@ void gcta::sbat_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, ve
         snp_chr[i] = _chr[_include[i]];
         snp_bp[i] = _bp[_include[i]];
     }
-    if (_include.size() < 1) throw ("Error: no SNP is included in the analysis.");
-    else if (_chr[_include[0]] < 1) throw ("Error: chromosome information is missing.");
-    else if (_bp[_include[0]] < 1) throw ("Error: bp information is missing.");
+    if (_include.size() < 1) LOGGER.e(0, "no SNP is included in the analysis.");
+    else if (_chr[_include[0]] < 1) LOGGER.e(0, "chromosome information is missing.");
+    else if (_bp[_include[0]] < 1) LOGGER.e(0, "bp information is missing.");
 }
 
 void gcta::sbat_read_geneAnno(string gAnno_file, vector<string> &gene_name, vector<int> &gene_chr, vector<int> &gene_bp1, vector<int> &gene_bp2) {
     ifstream in_gAnno(gAnno_file.c_str());
-    if (!in_gAnno) throw ("Error: can not open the file [" + gAnno_file + "] to read.");
-    cout << "Reading physical positions of the genes from [" + gAnno_file + "]." << endl;
+    if (!in_gAnno) LOGGER.e(0, "can not open the file [" + gAnno_file + "] to read.");
+    LOGGER << "Reading physical positions of the genes from [" + gAnno_file + "]." << endl;
     string str_buf;
     vector<string> vs_buf;
     while (getline(in_gAnno, str_buf)) {
-        if (StrFunc::split_string(str_buf, vs_buf) != 4) throw ("Error: in line \"" + str_buf + "\".");
+        if (StrFunc::split_string(str_buf, vs_buf) != 4) LOGGER.e(0, "in line \"" + str_buf + "\".");
         gene_chr.push_back(atoi(vs_buf[0].c_str()));
         gene_bp1.push_back(atoi(vs_buf[1].c_str()));
         gene_bp2.push_back(atoi(vs_buf[2].c_str()));
         gene_name.push_back(vs_buf[3]);
     }
     in_gAnno.close();
-    cout << "Physical positions of " << gene_name.size() << " genes have been include." << endl;
+    LOGGER << "Physical positions of " << gene_name.size() << " genes have been include." << endl;
 }
 
 void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sbat_ld_cutoff, bool sbat_write_snpset)
@@ -112,7 +112,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
     sbat_read_geneAnno(gAnno_file, gene_name, gene_chr, gene_bp1, gene_bp2);
 
     // map genes to SNPs
-    cout << "Mapping the physical positions of genes to SNP data (gene bounaries: " << wind / 1000 << "Kb away from UTRs) ..." << endl;
+    LOGGER << "Mapping the physical positions of genes to SNP data (gene bounaries: " << wind / 1000 << "Kb away from UTRs) ..." << endl;
 
     int gene_num = gene_name.size();
     vector<string> gene2snp_1(gene_num), gene2snp_2(gene_num);
@@ -153,13 +153,13 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
     for (i = 0; i < gene_num; i++) {
         if (gene2snp_1[i] != "NA" && gene2snp_2[i] != "NA") mapped++;
     }
-    if (mapped < 1) throw ("Error: no gene can be mapped to the SNP data. Please check the input data regarding chr and bp.");
-    else cout << mapped << " genes have been mapped to SNP data." << endl;
+    if (mapped < 1) LOGGER.e(0, "no gene can be mapped to the SNP data. Please check the input data regarding chr and bp.");
+    else LOGGER << mapped << " genes have been mapped to SNP data." << endl;
 
     // run gene-based test
     if (_mu.empty()) calcu_mu();
-    cout << "\nRunning fastBAT analysis for genes ..." << endl;
-    if (sbat_ld_cutoff < 1) cout << "Pruning SNPs with LD rsq cutoff = " << sbat_ld_cutoff*sbat_ld_cutoff  << endl;
+    LOGGER << "\nRunning fastBAT analysis for genes ..." << endl;
+    if (sbat_ld_cutoff < 1) LOGGER << "Pruning SNPs with LD rsq cutoff = " << sbat_ld_cutoff*sbat_ld_cutoff  << endl;
     vector<double> gene_pval(gene_num), chisq_o(gene_num), min_snp_pval(gene_num);
     vector<string> min_snp_name(gene_num);
     vector<int> snp_num_in_gene(gene_num);
@@ -176,7 +176,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
         if (iter1 == snp_name_map.end() || iter2 == snp_name_map.end() || iter1->second >= iter2->second) skip = true;
         snp_num_in_gene[i] = iter2->second - iter1->second + 1;
         if(!skip && snp_num_in_gene[i] > 10000){
-            cout<<"Warning: Too many SNPs in the gene region ["<<gene_name[i]<<"]. Maximum limit is 10000. This gene is ignored in the analysis."<<endl;
+            LOGGER<<"Warning: Too many SNPs in the gene region ["<<gene_name[i]<<"]. Maximum limit is 10000. This gene is ignored in the analysis."<<endl;
             skip = true;  
         } 
         if(skip){
@@ -219,13 +219,13 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
 
         }
 
-        if((i + 1) % 100 == 0 || (i + 1) == gene_num) cout << i + 1 << " of " << gene_num << " genes.\r";
+        if((i + 1) % 100 == 0 || (i + 1) == gene_num) LOGGER << i + 1 << " of " << gene_num << " genes.\r";
     }
 
     string filename = _out + ".gene.fastbat";
-    cout << "\nSaving the results of the fastBAT analysis to [" + filename + "] ..." << endl;
+    LOGGER << "\nSaving the results of the fastBAT analysis to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
-    if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
+    if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
     ofile << "Gene\tChr\tStart\tEnd\tNo.SNPs\tSNP_start\tSNP_end\tChisq(Obs)\tPvalue\tTopSNP.Pvalue\tTopSNP" << endl;
     for (i = 0; i < gene_num; i++) {
         if(gene_pval[i]>1.5) continue;
@@ -236,7 +236,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
     }
     ofile.close();
     if (sbat_write_snpset) {
-        cout << "The SNP sets have been save in file [" << rgoodsnpfile << "]." << endl;
+        LOGGER << "The SNP sets have been save in file [" << rgoodsnpfile << "]." << endl;
         rogoodsnp.close();
     }
 }
@@ -244,8 +244,8 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
 void gcta::sbat_read_snpset(string snpset_file, vector<string> &set_name, vector< vector<string> > &snpset)
 {
     ifstream in_snpset(snpset_file.c_str());
-    if (!in_snpset) throw ("Error: can not open the file [" + snpset_file + "] to read.");
-    cout << "\nReading SNP sets from [" + snpset_file + "]." << endl;
+    if (!in_snpset) LOGGER.e(0, "can not open the file [" + snpset_file + "] to read.");
+    LOGGER << "\nReading SNP sets from [" + snpset_file + "]." << endl;
     string str_buf;
     vector<string> vs_buf, snpset_buf, snp_name;
     int i = 0;
@@ -268,7 +268,7 @@ void gcta::sbat_read_snpset(string snpset_file, vector<string> &set_name, vector
     in_snpset.close();
     snp_name.erase(unique(snp_name.begin(), snp_name.end()), snp_name.end());
     update_id_map_kp(snp_name, _snp_name_map, _include);
-    cout << snp_name.size() << " SNPs in " << snpset.size() << " sets have been included." << endl;
+    LOGGER << snp_name.size() << " SNPs in " << snpset.size() << " sets have been included." << endl;
 }
 
 void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, bool sbat_write_snpset)
@@ -292,8 +292,8 @@ void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, b
 
     // run gene-based test
     if (_mu.empty()) calcu_mu();
-    cout << "\nRunning fastBAT analysis ..." << endl;
-    if (sbat_ld_cutoff < 1) cout << "Pruning snps with maximum ld cutoff " << sbat_ld_cutoff  << endl;
+    LOGGER << "\nRunning fastBAT analysis ..." << endl;
+    if (sbat_ld_cutoff < 1) LOGGER << "Pruning snps with maximum ld cutoff " << sbat_ld_cutoff  << endl;
     vector<double> set_pval(set_num), chisq_o(set_num), min_snp_pval(set_num);
     vector<string> min_snp_name(set_num);
     vector<int> snp_num_in_set(set_num);
@@ -315,7 +315,7 @@ void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, b
         }
         snp_num_in_set[i] = snp_indx.size();
         if(!skip && snp_num_in_set[i] > 20000){
-            cout<<"Warning: Too many SNPs in the set ["<<set_name[i]<<"]. Maximum limit is 20000. This gene is ignored in the analysis."<<endl;
+            LOGGER<<"Warning: Too many SNPs in the set ["<<set_name[i]<<"]. Maximum limit is 20000. This gene is ignored in the analysis."<<endl;
             skip = true;  
         } 
         if(skip){
@@ -357,13 +357,13 @@ void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, b
 
         }
 
-        if((i + 1) % 100 == 0 || (i + 1) == set_num) cout << i + 1 << " of " << set_num << " sets.\r";
+        if((i + 1) % 100 == 0 || (i + 1) == set_num) LOGGER << i + 1 << " of " << set_num << " sets.\r";
     }
 
     string filename = _out + ".fastbat";
-    cout << "\nSaving the results of the fastBAT analysis to [" + filename + "] ..." << endl;
+    LOGGER << "\nSaving the results of the fastBAT analysis to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
-    if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
+    if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
     ofile << "Set\tNo.SNPs\tChisq(Obs)\tPvalue\tTopSNP.Pvalue\tTopSNP" << endl;
     for (i = 0; i < set_num; i++) {
         if(set_pval[i]>1.5) continue;
@@ -372,7 +372,7 @@ void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, b
     }
     ofile.close();
     if (sbat_write_snpset) {
-        cout << "The SNP sets have been save in file [" << rgoodsnpfile << "]." << endl;
+        LOGGER << "The SNP sets have been save in file [" << rgoodsnpfile << "]." << endl;
         rogoodsnp.close();
     }
 }
@@ -392,8 +392,8 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, boo
 
     // run gene-based test
     if (_mu.empty()) calcu_mu();
-    cout << "\nRunning fastBAT analysis at genomic segments with a length of " << seg_size/1000 << "Kb ..." << endl;
-    if (sbat_ld_cutoff < 1) cout << "Pruning snps with maximum ld cutoff " << sbat_ld_cutoff  << endl;
+    LOGGER << "\nRunning fastBAT analysis at genomic segments with a length of " << seg_size/1000 << "Kb ..." << endl;
+    if (sbat_ld_cutoff < 1) LOGGER << "Pruning snps with maximum ld cutoff " << sbat_ld_cutoff  << endl;
     vector< vector<int> > snp_set_indx;
     vector<int> set_chr, set_start_bp, set_end_bp;
     get_sbat_seg_blk(seg_size, snp_set_indx, set_chr, set_start_bp, set_end_bp);
@@ -412,7 +412,7 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, boo
         if(snp_indx.size() < 1) skip = true;
         snp_num_in_set[i] = snp_indx.size();
         if(!skip && snp_num_in_set[i] > 20000){
-            cout<<"Warning: Too many SNPs in the set on [chr" << set_chr[i] << ":" << set_start_bp[i] << "-" << set_end_bp[i] << "]. Maximum limit is 20000. This gene is ignored in the analysis."<<endl;
+            LOGGER<<"Warning: Too many SNPs in the set on [chr" << set_chr[i] << ":" << set_start_bp[i] << "-" << set_end_bp[i] << "]. Maximum limit is 20000. This gene is ignored in the analysis."<<endl;
             skip = true;  
         } 
         if(skip){
@@ -453,13 +453,13 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, boo
 
         }
 
-        if((i + 1) % 100 == 0 || (i + 1) == set_num) cout << i + 1 << " of " << set_num << " sets.\r";
+        if((i + 1) % 100 == 0 || (i + 1) == set_num) LOGGER << i + 1 << " of " << set_num << " sets.\r";
     }
 
     string filename = _out + ".seg.fastbat";
-    cout << "\nSaving the results of the segment-based fastBAT analysis to [" + filename + "] ..." << endl;
+    LOGGER << "\nSaving the results of the segment-based fastBAT analysis to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
-    if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
+    if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
     ofile << "Chr\tStart\tEnd\tNo.SNPs\tChisq(Obs)\tPvalue\tTopSNP.Pvalue\tTopSNP" << endl;
     for (i = 0; i < set_num; i++) {
         if(set_pval[i]>1.5) continue;
@@ -470,7 +470,7 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, boo
     }
     ofile.close();
     if (sbat_write_snpset) {
-        cout << "The SNP sets have been save in file [" << rgoodsnpfile << "]." << endl;
+        LOGGER << "The SNP sets have been save in file [" << rgoodsnpfile << "]." << endl;
         rogoodsnp.close();
     }
 }

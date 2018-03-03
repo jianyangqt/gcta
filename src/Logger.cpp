@@ -104,8 +104,9 @@ void Logger::flush(){
 }
 
 void Logger::Log(int level, Type type, const string& prompt, const string& message){
+    string spaces(level * 2, ' ');
     std::lock_guard<std::mutex> lock(log_mutex);
-    (*m_pThis) << level << type << prompt << INFO << message << endl;
+    (*m_pThis) << spaces << type << prompt << INFO << message << endl;
 }
 
 void Logger::e(int level, const string& message){
@@ -116,6 +117,22 @@ void Logger::e(int level, const string& message){
 
 void Logger::i(int level, const string& message){
     m_pThis->Log(level, INFO, "", message);
+}
+
+int Logger::precision(int p){
+    cout.precision(p);
+    m_logFile.precision(p);
+    return cout.precision();
+}
+
+string Logger::setprecision(int p){
+    cout.precision(p);
+    m_logFile.precision(p);
+    return("");
+}
+
+int Logger::precision(){
+    return cout.precision();
 }
 
 void Logger::i(int level, const string& prompt, const string& message){
@@ -133,15 +150,17 @@ void Logger::d(int level, const string &message) {
 }
 
 void Logger::p(int level, const string &message) {
+    string spaces(level * 2, ' ');
     m_stat = PROGRESS;
     std::lock_guard<std::mutex> lock(log_mutex);
-    (*m_pThis) << level << message << PROGRESS << std::flush;
+    (*m_pThis) << spaces << message << PROGRESS << std::flush;
 }
 
 void Logger::m(int level, const string &message){
+    string spaces(level * 2, ' ');
     m_stat = PROGRESS;
     std::lock_guard<std::mutex> lock(log_mutex);
-    (*m_pThis) << level << message << endl;
+    (*m_pThis) << spaces << message << endl;
 }
 
 void Logger::l(int level, const string &message){
@@ -165,25 +184,6 @@ float Logger::tp(string key){
     return secs;
 }
 
-Logger& Logger::operator<<(const string& message){
-    cout << message;
-    if(m_stat != PROGRESS){
-        m_logFile << message;
-        //m_logFile.flush();
-    }
-    return *m_pThis;
-}
-
-Logger& Logger::operator<<(int level){
-    string spaces(level * 2, ' ');
-    cout << spaces;
-    if(m_stat != PROGRESS) {
-        m_logFile << spaces;
-        //m_logFile.flush();
-    }
-    return *m_pThis;
-}
-
 Logger& Logger::operator<<(Type type){
     m_stat = type;
     cout << style_map[type];
@@ -198,5 +198,24 @@ Logger& Logger::operator<<(std::ostream& (*op)(std::ostream&)){
     }
     return *m_pThis;
 }
+
+Logger& Logger::operator<<(std::ios& (*pf)(std::ios&)){
+    cout << pf;
+    m_logFile << pf;
+    return *m_pThis;
+}
+
+Logger& Logger::operator<<(std::ios_base& (*pf)(std::ios_base&)){
+    cout << pf;
+    m_logFile << pf;
+    return *m_pThis;
+}
+
+Logger& Logger::operator<<(_Smanip<std::ostream> &mip){
+    cout << mip;
+    m_logFile << mip;
+    return *m_pThis;
+}
+
 
 

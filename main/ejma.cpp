@@ -66,31 +66,31 @@ void gcta::calcu_eR()
 void gcta::read_eR(string eR_file)
 {
     ifstream eR_inf(eR_file.c_str());
-    if (!eR_inf.is_open()) throw ("Error: can not open the file [" + eR_file + "] to read.");
-    cout << "Reading correlation matrix of gene expression from [" + eR_file + "] ..." << endl;
+    if (!eR_inf.is_open()) LOGGER.e(0, "can not open the file [" + eR_file + "] to read.");
+    LOGGER << "Reading correlation matrix of gene expression from [" + eR_file + "] ..." << endl;
     
     string str_buf="";
     getline(eR_inf, str_buf); // reading the probe names
     _probe_num = StrFunc::split_string(str_buf, _probe_name, " \t\n");
-    cout<<_probe_num<<" probes found in the file. \nReading correlation matrix ..."<<endl; 
+    LOGGER<<_probe_num<<" probes found in the file. \nReading correlation matrix ..."<<endl; 
     int i = 0, j = 0;
     _ecojo_wholeR.resize(_probe_num, _probe_num);
     for(i = 0; i < _probe_num; i++) {
         for(j = 0; j < _probe_num; j++) {
-            if(!(eR_inf >> _ecojo_wholeR(i,j))) throw("Error: incorrect format of [" + eR_file + "].");
+            if(!(eR_inf >> _ecojo_wholeR(i,j))) LOGGER.e(0, "incorrect format of [" + eR_file + "].");
         }
     }
     eR_inf.close();
-    cout<<"Correlation matrix for "<<_probe_num<<" probes have been included from the file [" + eR_file + "]."<<endl; 
+    LOGGER<<"Correlation matrix for "<<_probe_num<<" probes have been included from the file [" + eR_file + "]."<<endl; 
 
     init_e_include();
 }
 
 void gcta::read_e_metafile(string e_metafile)
 {
-    cout << "\nReading expression-trait association summary-level statistics from [" + e_metafile + "] ..." << endl;
+    LOGGER << "\nReading expression-trait association summary-level statistics from [" + e_metafile + "] ..." << endl;
     ifstream e_meta(e_metafile.c_str());
-    if (!e_meta) throw ("Error: can not open the file [" + e_metafile + "] to read.");
+    if (!e_meta) LOGGER.e(0, "can not open the file [" + e_metafile + "] to read.");
 
     string str_buf="";
     double d_buf=0.0;
@@ -98,25 +98,25 @@ void gcta::read_e_metafile(string e_metafile)
     vector<double> z_buf, n_buf;
     
     getline(e_meta, str_buf); // the header line
-    if (StrFunc::split_string(str_buf, vs_buf) < 3) throw ("Error: there needs be at least 3 columns in the file [" + e_metafile + "].");
+    if (StrFunc::split_string(str_buf, vs_buf) < 3) LOGGER.e(0, "there needs be at least 3 columns in the file [" + e_metafile + "].");
     stringstream errmsg;
     int line=1;
     while(getline(e_meta, str_buf)){
         stringstream iss(str_buf);
-        if(!(iss >> str_buf)){ errmsg<<"Error: in line "<<line<<"."; throw(errmsg.str()); }
+        if(!(iss >> str_buf)){ errmsg<<"in line "<<line<<"."; LOGGER.e(0, errmsg.str()); }
         if (_probe_name_map.find(str_buf) == _probe_name_map.end()) continue;
         probe_buf.push_back(str_buf);
-        if(!(iss >> d_buf)){ errmsg<<"Error: in line "<<line<<"."; throw(errmsg.str()); }
+        if(!(iss >> d_buf)){ errmsg<<"in line "<<line<<"."; LOGGER.e(0, errmsg.str()); }
         z_buf.push_back(d_buf);
-        if(!(iss >> d_buf)){ errmsg<<"Error: in line "<<line<<"."; throw(errmsg.str()); }
+        if(!(iss >> d_buf)){ errmsg<<"in line "<<line<<"."; LOGGER.e(0, errmsg.str()); }
         n_buf.push_back(d_buf);
         line++;
     }
     e_meta.close();
-    if(probe_buf.size()<1) throw("Error: no probe remains in the analysis.");
-    cout << "GWAS summary statistics of " << probe_buf.size() << " probs read from [" + e_metafile + "]." << endl;
+    if(probe_buf.size()<1) LOGGER.e(0, "no probe remains in the analysis.");
+    LOGGER << "GWAS summary statistics of " << probe_buf.size() << " probs read from [" + e_metafile + "]." << endl;
 
-    cout << "Matching the summary data to the genotype data ..." << endl;
+    LOGGER << "Matching the summary data to the genotype data ..." << endl;
     update_id_map_kp(probe_buf, _probe_name_map, _e_include);
     vector<int> indx(_e_include.size());
     map<string, int> id_map;
@@ -161,30 +161,30 @@ void gcta::run_ecojo_slct(string e_metafile, double p_cutoff, double collinear)
     int i = 0, j = 0;
     vector<int> slct, remain;
     eigenVector bC, bC_se, pC;
-    cout << endl;
+    LOGGER << endl;
     if (!joint_only && !backward) {
-        cout << "Performing stepwise model selection on " << _e_include.size() << " probes to select association signals ... (p cutoff = " << _ecojo_p_cutoff << "; ";
-        cout << "collinearity cutoff = " << _ecojo_collinear << ")"<< endl;
+        LOGGER << "Performing stepwise model selection on " << _e_include.size() << " probes to select association signals ... (p cutoff = " << _ecojo_p_cutoff << "; ";
+        LOGGER << "collinearity cutoff = " << _ecojo_collinear << ")"<< endl;
         ecojo_slct(slct, remain, bC, bC_se, pC);
         if (slct.empty()) {
-            cout << "No probe has been selected." << endl;
+            LOGGER << "No probe has been selected." << endl;
             return;
         }
     }
     else {
         for (i = 0; i < _e_include.size(); i++) slct.push_back(i);
         if (backward) {
-            cout << "Performing backward selection on " << _e_include.size() << " probes at threshold p-value = " << _ecojo_p_cutoff << " ..." << endl;
+            LOGGER << "Performing backward selection on " << _e_include.size() << " probes at threshold p-value = " << _ecojo_p_cutoff << " ..." << endl;
             ecojo_slct_stay(slct, bC, bC_se, pC);
         }
     }
 
     // joint analysis
     eigenVector bJ, bJ_se, pJ;
-    cout << "Performing joint analysis on all the " << slct.size();
-    if (joint_only) cout << " probes ..." << endl;
-    else cout << " selected signals ..." << endl;
-    if (slct.size() >= _keep.size()) throw ("Error: too many probes. The number of probes in a joint analysis should not be larger than the sample size.");
+    LOGGER << "Performing joint analysis on all the " << slct.size();
+    if (joint_only) LOGGER << " probes ..." << endl;
+    else LOGGER << " selected signals ..." << endl;
+    if (slct.size() >= _keep.size()) LOGGER.e(0, "too many probes. The number of probes in a joint analysis should not be larger than the sample size.");
     ecojo_joint(slct, bJ, bJ_se, pJ);
     ecojo_slct_output(joint_only, slct, bJ, bJ_se, pJ);
 }
@@ -192,10 +192,10 @@ void gcta::run_ecojo_slct(string e_metafile, double p_cutoff, double collinear)
 void gcta::ecojo_slct_output(bool joint_only, vector<int> &slct, eigenVector &bJ, eigenVector &bJ_se, eigenVector &pJ)
 {
     string filename = _out + ".slct.ecojo";
-    if (joint_only) cout << "Saving the joint analysis result of " << slct.size() << " probes to [" + filename + "] ..." << endl;
-    else cout << "Saving the " << slct.size() << " independent signals to [" + filename + "] ..." << endl;
+    if (joint_only) LOGGER << "Saving the joint analysis result of " << slct.size() << " probes to [" + filename + "] ..." << endl;
+    else LOGGER << "Saving the " << slct.size() << " independent signals to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
-    if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
+    if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
     ofile << "Probe\tb\tse\tz\tn\tbJ\tbJ_se\tzJ\tpJ"<< endl;
     int i = 0, j = 0;
     for (i = 0; i < slct.size(); i++) {
@@ -219,7 +219,7 @@ void gcta::ecojo_slct(vector<int> &slct, vector<int> &remain, eigenVector &bC, e
     int prev_num = 0;
     ecojo_init_R(slct);
     ecojo_init_RC(slct, remain);
-    if (_ecojo_p_cutoff > 1e-3) cout << "Performing forward model selection because the significance level is too low..." << endl;
+    if (_ecojo_p_cutoff > 1e-3) LOGGER << "Performing forward model selection because the significance level is too low..." << endl;
 
     while (!remain.empty()) {
         if (ecojo_slct_entry(slct, remain, bC, bC_se, pC)) {
@@ -227,14 +227,14 @@ void gcta::ecojo_slct(vector<int> &slct, vector<int> &remain, eigenVector &bC, e
             ecojo_init_RC(slct, remain);
         }
         else break;        
-        if (slct.size() % 5 == 0 && slct.size() > prev_num) cout << slct.size() << " associated probes have been selected." << endl;
+        if (slct.size() % 5 == 0 && slct.size() > prev_num) LOGGER << slct.size() << " associated probes have been selected." << endl;
         if (slct.size() > prev_num) prev_num = slct.size();
     }
     if (_ecojo_p_cutoff > 1e-3) {
-        cout << "Performing backward elimination..." << endl;
+        LOGGER << "Performing backward elimination..." << endl;
         ecojo_slct_stay(slct, bC, bC_se, pC);
     }
-    cout << "Finally, " << slct.size() << " associated probes are selected." << endl;
+    LOGGER << "Finally, " << slct.size() << " associated probes are selected." << endl;
 }
 
 bool gcta::ecojo_slct_entry(vector<int> &slct, vector<int> &remain, eigenVector &bC, eigenVector &bC_se, eigenVector &pC)
@@ -253,7 +253,7 @@ bool gcta::ecojo_slct_entry(vector<int> &slct, vector<int> &remain, eigenVector 
 
 
             // debug
-/*            cout<<"here"<<endl;
+/*            LOGGER<<"here"<<endl;
             ofstream tmp("cond.txt");
             for(int j=0; j<remain.size(); j++){
                 tmp<<_probe_name[_e_include[remain[j]]]<<" "<<bC[j]<<" "<<bC_se[j]<<" "<<pC[j]<<endl;
@@ -284,7 +284,7 @@ bool gcta::ecojo_slct_entry(vector<int> &slct, vector<int> &remain, eigenVector 
         remain.erase(remain.begin() + m);
 
         // debug
-        //cout<<"remain = "<<remain.size()<<endl;
+        //LOGGER<<"remain = "<<remain.size()<<endl;
     }
 }
 
@@ -413,7 +413,7 @@ void gcta::ecojo_erase_R(const vector<int> &slct)
 void gcta::run_ecojo_blup_efile(string e_metafile, double lambda)
 {
     read_e_metafile(e_metafile);
-    cout << "Recoding gene expression data ..." << endl;
+    LOGGER << "Recoding gene expression data ..." << endl;
     calcu_eR();
     ecojo_blup(lambda);
 }
@@ -426,23 +426,23 @@ void gcta::run_ecojo_blup_eR(string e_metafile, double lambda)
 
 void gcta::ecojo_blup(double lambda)
 {
-    cout << "\nPerforming joint analysis on all the " << _e_include.size() << " probes ..." << endl;
+    LOGGER << "\nPerforming joint analysis on all the " << _e_include.size() << " probes ..." << endl;
     int i = 0, j=0;
     double d_n = _ecojo_n.mean();
     double diag_val=1.0+_e_include.size()*(1.0/lambda-1.0)/d_n;
     for(i=0; i<_e_include.size(); i++) _ecojo_wholeR(i,i)=diag_val;
     double logdet=0.0;
     if (!comput_inverse_logdet_LDLT_mkl(_ecojo_wholeR, logdet)) {
-        cout<<"Note: no solution to LDLT decomposition. Switching to LU decomposition."<<endl;
+        LOGGER<<"Note: no solution to LDLT decomposition. Switching to LU decomposition."<<endl;
         _ecojo_wholeR = _ecojo_wholeR.lu().solve(eigenMatrix::Identity(_e_include.size(), _e_include.size()));
-        //if (!comput_inverse_logdet_LU_mkl(_ecojo_wholeR, logdet)) throw("\nError: the correlation matrix is not invertible.");
+        //if (!comput_inverse_logdet_LU_mkl(_ecojo_wholeR, logdet)) LOGGER.e(0, "\n  the correlation matrix is not invertible.");
     }
     eigenVector bJ=_ecojo_wholeR*_ecojo_b;
 
     string filename = _out + ".blup.ecojo";
-    cout << "Saving the BLUP analysis result of " << _e_include.size() << " probes to [" + filename + "] ..." << endl;
+    LOGGER << "Saving the BLUP analysis result of " << _e_include.size() << " probes to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
-    if (!ofile) throw ("Can not open the file [" + filename + "] to write.");
+    if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
     ofile << "Probe\tb\tse\tz\tn\tb_blup"<< endl;
     for (i = 0; i < _e_include.size(); i++) {
         ofile << _probe_name[_e_include[i]] << "\t" << _ecojo_b[i] << "\t" <<_ecojo_se[i] << "\t" << _ecojo_z[i] << "\t" << _ecojo_n[i] << "\t"<< bJ[i] << endl;
@@ -452,11 +452,11 @@ void gcta::ecojo_blup(double lambda)
 
 void gcta::ecojo_inv_R() {
     int i = 0, j = 0, k = 0;
-    string errmsg = "\nError: the correlation matrix is not invertible.";
+    string errmsg = "\n  the correlation matrix is not invertible.";
 
     double logdet=0.0;
     if (!comput_inverse_logdet_LDLT_mkl(_ecojo_R, logdet)) {
-        cout<<"Note: no solution to LDLT decomposition. Switching to LU decomposition."<<endl;
+        LOGGER<<"Note: no solution to LDLT decomposition. Switching to LU decomposition."<<endl;
         _ecojo_R = _ecojo_R.lu().solve(eigenMatrix::Identity(_ecojo_R.cols(), _ecojo_R.cols()));
     }
 }

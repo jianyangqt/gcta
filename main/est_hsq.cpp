@@ -41,31 +41,31 @@ void gcta::set_reml_mtd(int reml_mtd)
 void gcta::read_phen(string phen_file, vector<string> &phen_ID, vector< vector<string> > &phen_buf, int mphen, int mphen2) {
     // Read phenotype data
     ifstream in_phen(phen_file.c_str());
-    if (!in_phen) throw ("Error: can not open the file [" + phen_file + "] to read.");
+    if (!in_phen) LOGGER.e(0, "can not open the file [" + phen_file + "] to read.");
 
     int i = 0;
     vector<string> fid, pid, vs_buf;
     string str_buf, fid_buf, pid_buf;
     phen_ID.clear();
     phen_buf.clear();
-    cout << "Reading phenotypes from [" + phen_file + "]." << endl;
+    LOGGER << "Reading phenotypes from [" + phen_file + "]." << endl;
     getline(in_phen, str_buf);
     int phen_num = StrFunc::split_string(str_buf, vs_buf) - 2;
-    if (phen_num <= 0) throw ("Error: no phenotype data is found.");
-    if (phen_num > 1) cout << "There are " << phen_num << " traits specified in the file [" + phen_file + "]." << endl;
+    if (phen_num <= 0) LOGGER.e(0, "no phenotype data is found.");
+    if (phen_num > 1) LOGGER << "There are " << phen_num << " traits specified in the file [" + phen_file + "]." << endl;
     if (mphen > phen_num) {
         stringstream errmsg;
-        errmsg << "Error: can not find the " << mphen << "th trait in the file [" + phen_file + "].";
-        throw (errmsg.str());
+        errmsg << "can not find the " << mphen << "th trait in the file [" + phen_file + "].";
+        LOGGER.e(0, errmsg.str());
     }
     if (_bivar_reml && mphen2 > phen_num) {
         stringstream errmsg;
-        errmsg << "Error: can not find the " << mphen2 << "th trait in the file [" + phen_file + "].";
-        throw (errmsg.str());
+        errmsg << "can not find the " << mphen2 << "th trait in the file [" + phen_file + "].";
+        LOGGER.e(0, errmsg.str());
     }
-    if (_bivar_reml) cout << "Traits " << mphen << " and " << mphen2 << " are included in the bivariate analysis." << endl;
+    if (_bivar_reml) LOGGER << "Traits " << mphen << " and " << mphen2 << " are included in the bivariate analysis." << endl;
     else {
-        if (phen_num > 1) cout << "Trait #" << mphen << " is included for analysis." << endl;
+        if (phen_num > 1) LOGGER << "Trait #" << mphen << " is included for analysis." << endl;
     }
     in_phen.seekg(ios::beg);
     mphen--;
@@ -79,8 +79,8 @@ void gcta::read_phen(string phen_file, vector<string> &phen_ID, vector< vector<s
         getline(in_phen, str_buf);
         if (StrFunc::split_string(str_buf, vs_buf) != phen_num) {
             stringstream errmsg;
-            errmsg << "Error: " << vs_buf.size() - phen_num << " phenotype values are missing in line #" << line << " in the file [" + phen_file + "]";
-            throw (errmsg.str());
+            errmsg << vs_buf.size() - phen_num << " phenotype values are missing in line #" << line << " in the file [" + phen_file + "]";
+            LOGGER.e(0, errmsg.str());
         }
         if (_bivar_reml) {
             if ((vs_buf[mphen] == "-9" || vs_buf[mphen] == "NA") && (vs_buf[mphen2] == "-9" || vs_buf[mphen2] == "NA")) continue;
@@ -93,7 +93,7 @@ void gcta::read_phen(string phen_file, vector<string> &phen_ID, vector< vector<s
         phen_buf.push_back(vs_buf);
     }
     in_phen.close();
-    cout << "Non-missing phenotypes of " << phen_buf.size() << " individuals are included from [" + phen_file + "]." << endl;
+    LOGGER << "Non-missing phenotypes of " << phen_buf.size() << " individuals are included from [" + phen_file + "]." << endl;
 
     if (_id_map.empty()) {
         _fid = fid;
@@ -106,18 +106,18 @@ void gcta::read_phen(string phen_file, vector<string> &phen_ID, vector< vector<s
 int gcta::read_covar(string covar_file, vector<string> &covar_ID, vector< vector<string> > &covar, bool qcovar_flag) {
     // Read covariate data
     ifstream in_covar(covar_file.c_str());
-    if (!in_covar) throw ("Error: can not open the file [" + covar_file + "] to read.");
+    if (!in_covar) LOGGER.e(0, "can not open the file [" + covar_file + "] to read.");
 
     int i = 0, covar_num = 0;
     string str_buf, id_buf;
     vector<string> covar_buf, vs_buf;
     covar_ID.clear();
     covar.clear();
-    if (qcovar_flag) cout << "Reading quantitative covariates from [" + covar_file + "]." << endl;
-    else cout << "Reading discrete covariate(s) from [" + covar_file + "]." << endl;
+    if (qcovar_flag) LOGGER << "Reading quantitative covariates from [" + covar_file + "]." << endl;
+    else LOGGER << "Reading discrete covariate(s) from [" + covar_file + "]." << endl;
     covar_num = read_fac(in_covar, covar_ID, covar);
-    if (qcovar_flag) cout << covar_num << " quantitative covariate(s) of " << covar_ID.size() << " individuals read from [" + covar_file + "]." << endl;
-    else cout << covar_num << " discrete covariate(s) of " << covar_ID.size() << " individuals are included from [" + covar_file + "]." << endl;
+    if (qcovar_flag) LOGGER << covar_num << " quantitative covariate(s) of " << covar_ID.size() << " individuals read from [" + covar_file + "]." << endl;
+    else LOGGER << covar_num << " discrete covariate(s) of " << covar_ID.size() << " individuals are included from [" + covar_file + "]." << endl;
 
     return covar_num;
 }
@@ -134,7 +134,7 @@ int gcta::read_fac(ifstream &ifstrm, vector<string> &ID, vector< vector<string> 
         id_buf += ":" + str_buf;
         getline(ifstrm, str_buf);
         fac_num = StrFunc::split_string(str_buf, vs_buf);
-        if (line > 0 && fac_num != prev_fac_num) throw ("Error: each row should have the same number of columns.\n" + id_buf + "\t" + str_buf);
+        if (line > 0 && fac_num != prev_fac_num) LOGGER.e(0, "each row should have the same number of columns.\n" + id_buf + "\t" + str_buf);
         line++;
         prev_fac_num = fac_num;
         bool continue_flag = false;
@@ -152,7 +152,7 @@ int gcta::read_fac(ifstream &ifstrm, vector<string> &ID, vector< vector<string> 
 int gcta::read_GE(string GE_file, vector<string> &GE_ID, vector< vector<string> > &GE, bool qGE_flag) {
     // Read phenotype data
     ifstream in_GE(GE_file.c_str());
-    if (!in_GE) throw ("Error: can not open the file [" + GE_file + "] to read.");
+    if (!in_GE) LOGGER.e(0, "can not open the file [" + GE_file + "] to read.");
 
     string str_buf, id_buf;
     vector<string> vs_buf;
@@ -161,10 +161,10 @@ int gcta::read_GE(string GE_file, vector<string> &GE_ID, vector< vector<string> 
     string env = "environmental";
     if (qGE_flag == true) env = "continuous " + env;
     else env = "categorical " + env;
-    cout << "Reading " << env << " factor(s) for the analysis of GE interaction from [" + GE_file + "]." << endl;
+    LOGGER << "Reading " << env << " factor(s) for the analysis of GE interaction from [" + GE_file + "]." << endl;
     int GE_num = read_fac(in_GE, GE_ID, GE);
-    if (GE_num == 0) throw ("Error: no " + env + " factor is specified. Please check the format of the file: " + GE_file + ".");
-    cout << GE_num << " " << env << " factor(s) for " << GE_ID.size() << " individuals are included from [" + GE_file + "]." << endl;
+    if (GE_num == 0) LOGGER.e(0, "no " + env + " factor is specified. Please check the format of the file: " + GE_file + ".");
+    LOGGER << GE_num << " " << env << " factor(s) for " << GE_ID.size() << " individuals are included from [" + GE_file + "]." << endl;
 
     return GE_num;
 }
@@ -237,7 +237,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
         uni_id_map.insert(pair<string, int>(_fid[_keep[i]] + ":" + _pid[_keep[i]], i));
     }
     _n = _keep.size();
-    if (_n < 1) throw ("Error: no individual is in common in the input files.");
+    if (_n < 1) LOGGER.e(0, "no individual is in common in the input files.");
 
     // construct model terms
     _y.setZero(_n);
@@ -250,13 +250,13 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
     // case-control
     _ncase = 0.0;
     _flag_CC = check_case_control(_ncase, _y);
-    cout << endl;
+    LOGGER << endl;
     if (_flag_CC) {
-        //if(mlmassoc) throw("Error: the option --mlm-assoc is valid for the quantitative trait only.");
+        //if(mlmassoc) LOGGER.e(0, "the option --mlm-assoc is valid for the quantitative trait only.");
         if (!_bivar_reml) {
-            if (!mlmassoc && prevalence<-1) cout << "Note: you can specify the disease prevalence by the option --prevalence so that GCTA can transform the variance explained to the underlying liability scale." << endl;
+            if (!mlmassoc && prevalence<-1) LOGGER << "Note: you can specify the disease prevalence by the option --prevalence so that GCTA can transform the variance explained to the underlying liability scale." << endl;
         } else {
-            cout << "Note: you can specify the prevalences of the two diseases by the option --reml-bivar-prevalence so that GCTA can transform the estimates of variance explained to the underlying liability scale." << endl;
+            LOGGER << "Note: you can specify the prevalences of the two diseases by the option --reml-bivar-prevalence so that GCTA can transform the estimates of variance explained to the underlying liability scale." << endl;
         }
     }
 
@@ -277,7 +277,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
         }
         if (_reml_diag_one) {
             double diag_mean = (_A[0]).diagonal().mean();
-            cout << "Mean of diagonal elements of the GRM = " << diag_mean << endl;
+            LOGGER << "Mean of diagonal elements of the GRM = " << diag_mean << endl;
             //pragma omp parallel for private(j)
             #pragma omp parallel for
             for (int i = 0; i < _n; i++) {
@@ -297,9 +297,9 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
         _A.resize(_r_indx.size());
         string prev_file = grm_files[0];
         vector<string> prev_grm_id(grm_id);
-        cout << "There are " << grm_files.size() << " GRM file names specified in the file [" + grm_file + "]." << endl;
+        LOGGER << "There are " << grm_files.size() << " GRM file names specified in the file [" + grm_file + "]." << endl;
         for (int i = 0; i < grm_files.size(); i++, pos++) {
-            cout << "Reading the GRM from the " << i + 1 << "th file ..." << endl;
+            LOGGER << "Reading the GRM from the " << i + 1 << "th file ..." << endl;
             read_grm(grm_files[i], grm_id, true, false, !(adj_grm_fac > -1.0));
             if (adj_grm_fac>-1.0) adj_grm(adj_grm_fac);
             if (dosage_compen>-1) dc(dosage_compen);
@@ -316,7 +316,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
 
             if (_reml_diag_one) {
                 double diag_mean = (_A[pos]).diagonal().mean();
-                cout << "Mean of diagonal elements of the GRM = " << diag_mean << endl;
+                LOGGER << "Mean of diagonal elements of the GRM = " << diag_mean << endl;
                 #pragma omp parallel for
                 for (int j = 0; j < _n; j++) {
                     //(_A[pos])(j,j)=diag_mean;
@@ -365,10 +365,10 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
         }
         for (int j = 0; j < E_fac_num; j++) {
             stringstream errmsg;
-            errmsg << "Error: too many classes for the " << j + 1 << "th environmental factor. \nPlease make sure you input a discrete variable as the environmental factor.";
+            errmsg << "too many classes for the " << j + 1 << "th environmental factor. \nPlease make sure you input a discrete variable as the environmental factor.";
             string errmsg1 = errmsg.str();
             errmsg.str("");
-            errmsg << "Error: the " << j + 1 << "th environmental factor has only one class.";
+            errmsg << "the " << j + 1 << "th environmental factor has only one class.";
             string errmsg2 = errmsg.str();
             coeff_mat(E_str[j], E_float[j], errmsg1, errmsg2);
             mbuf = ((E_float[j])*(E_float[j]).transpose());
@@ -411,7 +411,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
     }
     _var_name.push_back("V(e)");
 
-    cout << _n << " individuals are in common in these files." << endl;
+    LOGGER << _n << " individuals are in common in these files." << endl;
 
     // within family
     if (_within_family) detect_family();
@@ -431,12 +431,12 @@ void gcta::drop_comp(vector<int> &drop) {
     drop.erase(unique(drop.begin(), drop.end()), drop.end());
     for (i = drop.size() - 1; i >= 0; i--) {
         if (drop[i] < 1 || drop[i] > _r_indx.size() - 1) {
-            errmsg << "Error: there " << (_r_indx.size() > 2 ? "are" : "is") << " only " << _r_indx.size() - 1 << " genetic variance component in the model. You can't drop the " << drop[i] << "-th component.";
-            throw (errmsg.str());
+            errmsg << "there " << (_r_indx.size() > 2 ? "are" : "is") << " only " << _r_indx.size() - 1 << " genetic variance component in the model. You can't drop the " << drop[i] << "-th component.";
+            LOGGER.e(0, errmsg.str());
         }
         _r_indx_drop.erase(_r_indx_drop.begin() + drop[i] - 1);
     }
-    if (_r_indx.size() == _r_indx_drop.size()) throw ("Error: no component has been dropped from the model. Please check the --reml-lrt option.");
+    if (_r_indx.size() == _r_indx_drop.size()) LOGGER.e(0, "no component has been dropped from the model. Please check the --reml-lrt option.");
 }
 
 void gcta::construct_X(int n, map<string, int> &uni_id_map, bool qcovar_flag, int qcovar_num, vector<string> &qcovar_ID, vector< vector<string> > &qcovar, bool covar_flag, int covar_num, vector<string> &covar_ID, vector< vector<string> > &covar, vector<eigenMatrix> &E_float, eigenMatrix &qE_float) {
@@ -454,8 +454,8 @@ void gcta::construct_X(int n, map<string, int> &uni_id_map, bool qcovar_flag, in
             if (iter == uni_id_map.end()) continue;
             for (j = 0; j < qcovar_num; j++) X_q(iter->second, j) = atof(qcovar[i][j].c_str());
         }
-        if (qcovar_num == 0) throw ("Error: no quantitative covariate is found.");
-        cout << qcovar_num << " quantitative variable(s) included as covariate(s)." << endl;
+        if (qcovar_num == 0) LOGGER.e(0, "no quantitative covariate is found.");
+        LOGGER << qcovar_num << " quantitative variable(s) included as covariate(s)." << endl;
         _X_c += qcovar_num;
     }
     // discrete covariates
@@ -468,14 +468,14 @@ void gcta::construct_X(int n, map<string, int> &uni_id_map, bool qcovar_flag, in
             if (iter == uni_id_map.end()) continue;
             for (j = 0; j < covar_num; j++) covar_tmp[j][iter->second] = covar[i][j];
         }
-        cout << covar_num << " discrete variable(s) included as covariate(s)." << endl;
+        LOGGER << covar_num << " discrete variable(s) included as covariate(s)." << endl;
         X_d.resize(covar_num);
         for (i = 0; i < covar_num; i++) {
             stringstream errmsg;
-            errmsg << "Error: too many classes for the " << i + 1 << "th discrete variable. \nPlease use the --qcovar if it is a quantitative covariate.";
+            errmsg << "too many classes for the " << i + 1 << "th discrete variable. \nPlease use the --qcovar if it is a quantitative covariate.";
             string errmsg1 = errmsg.str();
             errmsg.str("");
-            errmsg << "Error: the " << i + 1 << "th discrete variable has only one class.";
+            errmsg << "the " << i + 1 << "th discrete variable has only one class.";
             string errmsg2 = errmsg.str();
             coeff_mat(covar_tmp[i], X_d[i], errmsg1, errmsg2);
             _X_c += (X_d[i]).cols() - 1;
@@ -513,8 +513,8 @@ void gcta::coeff_mat(const vector<string> &vec, eigenMatrix &coeff_mat, string e
     vector<string> value(vec);
     stable_sort(value.begin(), value.end());
     value.erase(unique(value.begin(), value.end()), value.end());
-    if (value.size() > 0.5 * vec.size()) throw (errmsg1); // throw("Error: too many classes for the envronmental factor. \nPlease make sure you input a discrete variable as the environmental factor.");
-    if (value.size() == 1) throw (errmsg2); //throw("Error: the envronmental factor should has more than one classes.");
+    if (value.size() > 0.5 * vec.size()) LOGGER.e(0, errmsg1); // LOGGER.e(0, "too many classes for the envronmental factor. \nPlease make sure you input a discrete variable as the environmental factor.");
+    if (value.size() == 1) LOGGER.e(0, errmsg2); //LOGGER.e(0, "the envronmental factor should has more than one classes.");
 
     int i = 0, j = 0, row_num = vec.size(), column_num = value.size();
     map<string, int> val_map;
@@ -539,11 +539,11 @@ bool gcta::check_case_control(double &ncase, eigenVector &y) {
     if (value.size() == 2) {
         if (CommFunc::FloatEqual(value[0], 0.0) && CommFunc::FloatEqual(value[1], 1.0)) case_num = y.sum();
         else if (CommFunc::FloatEqual(value[0], 1.0) && CommFunc::FloatEqual(value[1], 2.0)) case_num = (y.sum() - n);
-        if (!_bivar_reml) cout << "Assuming a disease phenotype for a case-control study: ";
-        cout << (int) case_num << " cases and " << (int) (n - case_num) << " controls ";
+        if (!_bivar_reml) LOGGER  << "Assuming a disease phenotype for a case-control study: ";
+        LOGGER << (int) case_num << " cases and " << (int) (n - case_num) << " controls ";
         ncase = case_num / (double) n;
         return true;
-    } else if (value.size() < 2) throw ("Error: invalid phenotype. Please check the phenotype file.");
+    } else if (value.size() < 2) LOGGER.e(0, "invalid phenotype. Please check the phenotype file.");
     return false;
 }
 
@@ -625,25 +625,25 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
     eigenVector y_tmp = _y.array() - _y.mean();
     if (!_bivar_reml) {
         _y_Ssq = y_tmp.squaredNorm() / (_n - 1.0);
-        if (!(fabs(_y_Ssq) < 1e30)) throw ("Error: the phenotypic variance is infinite. Please check the missing data in your phenotype file. Missing values should be represented by \"NA\" or \"-9\".");
+        if (!(fabs(_y_Ssq) < 1e30)) LOGGER.e(0, "the phenotypic variance is infinite. Please check the missing data in your phenotype file. Missing values should be represented by \"NA\" or \"-9\".");
     }
     bool reml_priors_flag = !reml_priors.empty(), reml_priors_var_flag = !reml_priors_var.empty();
     if (reml_priors_flag && reml_priors.size() < _r_indx.size() - 1) {
-        errmsg << "Error: in option --reml-priors. There are " << _r_indx.size() << " variance components. At least " << _r_indx.size() - 1 << " prior values should be specified.";
-        throw (errmsg.str());
+        errmsg << "in option --reml-priors. There are " << _r_indx.size() << " variance components. At least " << _r_indx.size() - 1 << " prior values should be specified.";
+        LOGGER.e(0, errmsg.str());
     }
     if (reml_priors_var_flag && reml_priors_var.size() < _r_indx.size() - 1) {
-        errmsg << "Error: in option --reml-priors-var. There are " << _r_indx.size() << " variance components. At least " << _r_indx.size() - 1 << " prior values should be specified.";
-        throw (errmsg.str());
+        errmsg << "in option --reml-priors-var. There are " << _r_indx.size() << " variance components. At least " << _r_indx.size() - 1 << " prior values should be specified.";
+        LOGGER.e(0, errmsg.str());
     }
 
-    cout << "\nPerforming " << (_bivar_reml ? "bivariate" : "") << " REML analysis ... (Note: may take hours depending on sample size)." << endl;
-    if (_n < 10) throw ("Error: sample size is too small.");
-    cout << _n << " observations, " << _X_c << " fixed effect(s), and " << _r_indx.size() << " variance component(s)(including residual variance)." << endl;
+    LOGGER << "\nPerforming " << (_bivar_reml ? "bivariate" : "") << " REML analysis ... (Note: may take hours depending on sample size)." << endl;
+    if (_n < 10) LOGGER.e(0, "sample size is too small.");
+    LOGGER << _n << " observations, " << _X_c << " fixed effect(s), and " << _r_indx.size() << " variance component(s)(including residual variance)." << endl;
     eigenMatrix Vi_X(_n, _X_c), Xt_Vi_X_i(_X_c, _X_c), Hi(_r_indx.size(), _r_indx.size());
     eigenVector Py(_n), varcmp;
     init_varcomp(reml_priors_var, reml_priors, varcmp);
-    //cout << "REML begin reml iteration" << endl;
+    //LOGGER << "REML begin reml iteration" << endl;
     double lgL = reml_iteration(Vi_X, Xt_Vi_X_i, Hi, Py, varcmp, reml_priors_var_flag | reml_priors_flag, no_constrain);
     eigenMatrix u;
     if (pred_rand_eff) {
@@ -685,34 +685,34 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
     // output results
     double sum_hsq = 0.0, var_sum_hsq = 0.0;
     if (!_bivar_reml && _r_indx.size() > 2) calcu_sum_hsq(Vp, VarVp, sum_hsq, var_sum_hsq, varcmp, Hi);
-    cout << "\nSummary result of REML analysis:" << endl;
-    cout << "Source\tVariance\tSE" << setiosflags(ios::fixed) << setprecision(6) << endl;
-    for (i = 0; i < _r_indx.size(); i++) cout << _var_name[i] << "\t" << varcmp[i] << "\t" << sqrt(Hi(i, i)) << endl;
+    LOGGER << "\nSummary result of REML analysis:" << endl;
+    LOGGER << "Source\tVariance\tSE" << std::fixed << LOGGER.setprecision(6) << endl;
+    for (i = 0; i < _r_indx.size(); i++) LOGGER << _var_name[i] << "\t" << varcmp[i] << "\t" << sqrt(Hi(i, i)) << endl;
     if (_bivar_reml) {
-        cout << "Vp_tr1\t" << Vp << "\t" << sqrt(VarVp) << endl;
-        cout << "Vp_tr2\t" << Vp2 << "\t" << sqrt(VarVp2) << endl;
+        LOGGER << "Vp_tr1\t" << Vp << "\t" << sqrt(VarVp) << endl;
+        LOGGER << "Vp_tr2\t" << Vp2 << "\t" << sqrt(VarVp2) << endl;
         for (i = 0, j = 0; i < _bivar_pos[0].size() - 1; i++, j += 2) {
-            cout << _hsq_name[j] << "\t" << Hsq[_bivar_pos[0][i]] << "\t" << sqrt(VarHsq[_bivar_pos[0][i]]) << endl;
-            cout << _hsq_name[j + 1] << "\t" << Hsq[_bivar_pos[1][i]] << "\t" << sqrt(VarHsq[_bivar_pos[1][i]]) << endl;
+            LOGGER << _hsq_name[j] << "\t" << Hsq[_bivar_pos[0][i]] << "\t" << sqrt(VarHsq[_bivar_pos[0][i]]) << endl;
+            LOGGER << _hsq_name[j + 1] << "\t" << Hsq[_bivar_pos[1][i]] << "\t" << sqrt(VarHsq[_bivar_pos[1][i]]) << endl;
         }
     } else {
-        cout << "Vp\t" << Vp << "\t" << sqrt(VarVp) << endl;
-        for (i = 0; i < Hsq.size(); i++) cout << _hsq_name[i] << "\t" << Hsq[i] << "\t" << sqrt(VarHsq[i]) << endl;
-        if (_r_indx.size() > 2) cout << "\nSum of V(G)/Vp\t" << sum_hsq << "\t" << sqrt(var_sum_hsq) << endl;
+        LOGGER << "Vp\t" << Vp << "\t" << sqrt(VarVp) << endl;
+        for (i = 0; i < Hsq.size(); i++) LOGGER << _hsq_name[i] << "\t" << Hsq[i] << "\t" << sqrt(VarHsq[i]) << endl;
+        if (_r_indx.size() > 2) LOGGER << "\nSum of V(G)/Vp\t" << sum_hsq << "\t" << sqrt(var_sum_hsq) << endl;
     }
     if ((_flag_CC && prevalence>-1) || (_flag_CC2 && prevalence2>-1)) {
-        cout << "The estimate of variance explained on the observed scale is transformed to that on the underlying scale:" << endl;
+        LOGGER << "The estimate of variance explained on the observed scale is transformed to that on the underlying scale:" << endl;
         if (_bivar_reml) {
-            if (_flag_CC) cout << "Proportion of cases in the sample = " << _ncase << " for trait #1; User-specified disease prevalence = " << prevalence << " for trait #1" << endl;
-            if (_flag_CC2) cout << "Proportion of cases in the sample = " << _ncase2 << " for trait #2; User-specified disease prevalence = " << prevalence2 << " for trait #2" << endl;
+            if (_flag_CC) LOGGER << "Proportion of cases in the sample = " << _ncase << " for trait #1; User-specified disease prevalence = " << prevalence << " for trait #1" << endl;
+            if (_flag_CC2) LOGGER << "Proportion of cases in the sample = " << _ncase2 << " for trait #2; User-specified disease prevalence = " << prevalence2 << " for trait #2" << endl;
             for (i = 0, j = 0; i < _bivar_pos[0].size() - 1; i++, j += 2) {
-                if (_flag_CC) cout << _hsq_name[j] << "_L\t" << transform_hsq_L(_ncase, prevalence, Hsq[_bivar_pos[0][i]]) << "\t" << transform_hsq_L(_ncase, prevalence, sqrt(VarHsq[_bivar_pos[0][i]])) << endl;
-                if (_flag_CC2) cout << _hsq_name[j + 1] << "_L\t" << transform_hsq_L(_ncase2, prevalence2, Hsq[_bivar_pos[1][i]]) << "\t" << transform_hsq_L(_ncase2, prevalence2, sqrt(VarHsq[_bivar_pos[1][i]])) << endl;
+                if (_flag_CC) LOGGER << _hsq_name[j] << "_L\t" << transform_hsq_L(_ncase, prevalence, Hsq[_bivar_pos[0][i]]) << "\t" << transform_hsq_L(_ncase, prevalence, sqrt(VarHsq[_bivar_pos[0][i]])) << endl;
+                if (_flag_CC2) LOGGER << _hsq_name[j + 1] << "_L\t" << transform_hsq_L(_ncase2, prevalence2, Hsq[_bivar_pos[1][i]]) << "\t" << transform_hsq_L(_ncase2, prevalence2, sqrt(VarHsq[_bivar_pos[1][i]])) << endl;
             }
         } else {
-            cout << "(Proportion of cases in the sample = " << _ncase << "; User-specified disease prevalence = " << prevalence << ")" << endl;
-            for (i = 0; i < Hsq.size(); i++) cout << _hsq_name[i] << "_L\t" << transform_hsq_L(_ncase, prevalence, Hsq[i]) << "\t" << transform_hsq_L(_ncase, prevalence, sqrt(VarHsq[i])) << endl;
-            if (_r_indx.size() > 2)  cout << "\nSum of V(G)_L/Vp\t" << transform_hsq_L(_ncase, prevalence, sum_hsq) << "\t" << transform_hsq_L(_ncase, prevalence, sqrt(var_sum_hsq)) << endl;
+            LOGGER << "(Proportion of cases in the sample = " << _ncase << "; User-specified disease prevalence = " << prevalence << ")" << endl;
+            for (i = 0; i < Hsq.size(); i++) LOGGER << _hsq_name[i] << "_L\t" << transform_hsq_L(_ncase, prevalence, Hsq[i]) << "\t" << transform_hsq_L(_ncase, prevalence, sqrt(VarHsq[i])) << endl;
+            if (_r_indx.size() > 2)  LOGGER << "\nSum of V(G)_L/Vp\t" << transform_hsq_L(_ncase, prevalence, sum_hsq) << "\t" << transform_hsq_L(_ncase, prevalence, sqrt(var_sum_hsq)) << endl;
         }
     }
     // output genetic correlation
@@ -721,31 +721,31 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
     if (_bivar_reml) {
         calcu_rg(varcmp, Hi, rg, rg_var, rg_name);
         for (i = 0; i < rg_name.size(); i++) {
-            cout << rg_name[i] << "\t" << rg[i] << "\t" << sqrt(rg_var[i]) << endl;
+            LOGGER << rg_name[i] << "\t" << rg[i] << "\t" << sqrt(rg_var[i]) << endl;
         }
     }
     if(!_reml_force_converge || !_reml_AI_not_invertible){
-        cout << "\nSampling variance/covariance of the estimates of variance components:" << endl;
+        LOGGER << "\nSampling variance/covariance of the estimates of variance components:" << endl;
         for (i = 0; i < _r_indx.size(); i++) {
-            //for (j = 0; j < _r_indx.size(); j++) cout << setiosflags(ios::scientific) << Hi(i, j) << "\t";
-            for (j = 0; j < _r_indx.size(); j++) cout << std::scientific << Hi(i, j) << "\t";
-            cout << endl;
+            //for (j = 0; j < _r_indx.size(); j++) LOGGER << setiosflags(ios::scientific) << Hi(i, j) << "\t";
+            for (j = 0; j < _r_indx.size(); j++) LOGGER << std::scientific << Hi(i, j) << "\t";
+            LOGGER << endl;
         }
     }
     if (est_fix_eff) {
-        cout << "Estimate" << (_X_c > 1 ? "s" : "") << "of fixed effect" << (_X_c > 1 ? "s" : "") << ":" << endl;
-        cout << "\nSource\tEstimate\tSE" << endl;
+        LOGGER << "Estimate" << (_X_c > 1 ? "s" : "") << "of fixed effect" << (_X_c > 1 ? "s" : "") << ":" << endl;
+        LOGGER << "\nSource\tEstimate\tSE" << endl;
         for (i = 0; i < _X_c; i++) {
-            if (i == 0) cout << "mean\t";
-            else cout << "X_" << i + 1 << "\t";
-            cout << std::fixed << _b[i] << "\t" << sqrt(Xt_Vi_X_i(i, i)) << endl;
+            if (i == 0) LOGGER << "mean\t";
+            else LOGGER << "X_" << i + 1 << "\t";
+            LOGGER << std::fixed << _b[i] << "\t" << sqrt(Xt_Vi_X_i(i, i)) << endl;
         }
     }
 
     // save summary result into a file
     string reml_rst_file = _out + ".hsq";
     ofstream o_reml(reml_rst_file.c_str());
-    if (!o_reml) throw ("Error: can not open the file [" + reml_rst_file + "] to write.");
+    if (!o_reml) LOGGER.e(0, "can not open the file [" + reml_rst_file + "] to write.");
     o_reml << "Source\tVariance\tSE" << setiosflags(ios::fixed) << setprecision(6) << endl;
     for (i = 0; i < _r_indx.size(); i++) o_reml << _var_name[i] << "\t" << varcmp[i] << "\t" << sqrt(Hi(i, i)) << endl;
     if (_bivar_reml) {
@@ -800,7 +800,7 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
         for (i = 0; i < _X_c; i++) o_reml << setprecision(6) << _b[i] << "\t" << sqrt(Xt_Vi_X_i(i, i)) << endl;
         o_reml.close();
     }
-    cout << "\nSummary result of REML analysis has been saved in the file [" + reml_rst_file + "]." << endl;
+    LOGGER << "\nSummary result of REML analysis has been saved in the file [" + reml_rst_file + "]." << endl;
 
     // save random effect to a file
     if (pred_rand_eff) {
@@ -811,7 +811,7 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
             for (j = 0; j < _r_indx.size(); j++) o_rand_eff << setprecision(6) << Py[i] * varcmp[j] << "\t" << u(i, j) << "\t";
             o_rand_eff << endl;
         }
-        cout << "\nBLUP solutions of the genetic effects for " << _keep.size() << " individuals has been saved in the file [" + rand_eff_file + "]." << endl;
+        LOGGER << "\nBLUP solutions of the genetic effects for " << _keep.size() << " individuals has been saved in the file [" + rand_eff_file + "]." << endl;
     }
 }
 
@@ -830,14 +830,14 @@ void gcta::init_varcomp(vector<double> &reml_priors_var, vector<double> &reml_pr
                 varcmp[pos] = reml_priors[pos] * _y_Ssq;
                 d_buf += reml_priors[pos];
             }
-            if (d_buf > 1.0) throw ("\nError: --reml-priors. The sum of all prior values for trait 1 should not exceed 1.0.");
+            if (d_buf > 1.0) LOGGER.e(0, "\n  --reml-priors. The sum of all prior values for trait 1 should not exceed 1.0.");
             varcmp[_bivar_pos[0][_bivar_pos[0].size() - 1]] = (1.0 - d_buf) * _y_Ssq;
             for (i = 0, d_buf = 0; i < _bivar_pos[1].size() - 1; i++) {
                 pos = _bivar_pos[1][i];
                 varcmp[pos] = reml_priors[pos] * _y_Ssq;
                 d_buf += reml_priors[pos];
             }
-            if (d_buf > 1.0) throw ("\nError: --reml-priors. The sum of all prior values for trait 2 should not exceed 1.0.");
+            if (d_buf > 1.0) LOGGER.e(0, "\n  --reml-priors. The sum of all prior values for trait 2 should not exceed 1.0.");
             varcmp[_bivar_pos[1][_bivar_pos[1].size() - 1]] = (1.0 - d_buf) * _y2_Ssq;
             for (i = 0; i < _bivar_pos[2].size(); i++) varcmp[_bivar_pos[2][i]] = reml_priors[_bivar_pos[2][i]] * sqrt(_y_Ssq * _y2_Ssq);
         }
@@ -860,7 +860,7 @@ void gcta::init_varcomp(vector<double> &reml_priors_var, vector<double> &reml_pr
             varcmp[i] = reml_priors[i] * _y_Ssq;
             d_buf += reml_priors[i];
         }
-        if (d_buf > 1.0) throw ("\nError: --reml-priors. The sum of all prior values should not exceed 1.0.");
+        if (d_buf > 1.0) LOGGER.e(0, "\n  --reml-priors. The sum of all prior values should not exceed 1.0.");
         varcmp[_r_indx.size() - 1] = (1.0 - d_buf) * _y_Ssq;
     }
     else varcmp.setConstant(_y_Ssq / (_r_indx.size()));
@@ -869,11 +869,11 @@ void gcta::init_varcomp(vector<double> &reml_priors_var, vector<double> &reml_pr
 double gcta::lgL_reduce_mdl(bool no_constrain) {
     if (_r_indx.size() - 1 == 0) return 0;
     bool multi_comp = (_r_indx.size() - _r_indx_drop.size() > 1);
-    cout << "\nCalculating the logLikelihood for the reduced model ...\n(variance component" << (multi_comp ? "s " : " ");
+    LOGGER << "\nCalculating the logLikelihood for the reduced model ...\n(variance component" << (multi_comp ? "s " : " ");
     for (int i = 0; i < _r_indx.size() - 1; i++) {
-        if (find(_r_indx_drop.begin(), _r_indx_drop.end(), _r_indx[i]) == _r_indx_drop.end()) cout << _r_indx[i] + 1 << " ";
+        if (find(_r_indx_drop.begin(), _r_indx_drop.end(), _r_indx[i]) == _r_indx_drop.end()) LOGGER << _r_indx[i] + 1 << " ";
     }
-    cout << (multi_comp ? "are" : "is") << " dropped from the model)" << endl;
+    LOGGER << (multi_comp ? "are" : "is") << " dropped from the model)" << endl;
     vector<int> vi_buf(_r_indx);
     _r_indx = _r_indx_drop;
     eigenMatrix Vi_X(_n, _X_c), Xt_Vi_X_i(_X_c, _X_c), Hi(_r_indx.size(), _r_indx.size());
@@ -891,7 +891,7 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
     /*if(reml_bivar_fix_rg){
         if(no_constrain){
             no_constrain=false;
-            cout<<"Warning: --reml-no-constrain disabled. The genetic correlation is fixed so that all the variance components are constrained to be positive."<<endl;
+            LOGGER<<"Warning: --reml-no-constrain disabled. The genetic correlation is fixed so that all the variance components are constrained to be positive."<<endl;
         }
     }*/
 
@@ -906,34 +906,34 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         if (iter == 0) {
             prev_varcmp = varcomp_init;
             if (prior_var_flag){
-                if(_reml_fixed_var) cout << "Variance components are fixed at: " << varcmp.transpose() << endl;
-                else cout << "Prior values of variance components: " << varcmp.transpose() << endl;
+                if(_reml_fixed_var) LOGGER << "Variance components are fixed at: " << varcmp.transpose() << endl;
+                else LOGGER << "Prior values of variance components: " << varcmp.transpose() << endl;
             }
             else {
                 _reml_mtd = 2;
-                cout << "Calculating prior values of variance components by EM-REML ..." << endl;
+                LOGGER << "Calculating prior values of variance components by EM-REML ..." << endl;
             }
         }
         if (iter == 1) {
             _reml_mtd = reml_mtd_tmp;
-            cout << "Running " << mtd_str[_reml_mtd] << " algorithm ..." << "\nIter.\tlogL\t";
-            for (i = 0; i < _r_indx.size(); i++) cout << _var_name[_r_indx[i]] << "\t";
-            cout << endl;
+            LOGGER << "Running " << mtd_str[_reml_mtd] << " algorithm ..." << "\nIter.\tlogL\t";
+            for (i = 0; i < _r_indx.size(); i++) LOGGER << _var_name[_r_indx[i]] << "\t";
+            LOGGER << endl;
         }
-        //cout << "Iter " << iter << endl;
+        //LOGGER << "Iter " << iter << endl;
         if (_bivar_reml) calcu_Vi_bivar(_Vi, prev_varcmp, logdet, iter); // Calculate Vi, bivariate analysis //very slow
         else if (_within_family) calcu_Vi_within_family(_Vi, prev_varcmp, logdet, iter); // within-family REML
         else {
             if (!calcu_Vi(_Vi, prev_varcmp, logdet, iter)){ // Calculate Vi
-                cout<<"Warning: V matrix is not positive-definite.\n";
+                LOGGER<<"Warning: V matrix is not positive-definite.\n";
                 varcmp = prev_prev_varcmp;
-                if(!calcu_Vi(_Vi, varcmp, logdet, iter)) throw("Error: V matrix is not positive-definite.");
+                if(!calcu_Vi(_Vi, varcmp, logdet, iter)) LOGGER.e(0, "V matrix is not positive-definite.");
                 calcu_Hi(_P, Hi);
                 Hi = 2 * Hi;
                 break;
             }
         }
-        //cout << "calcu_vi_bivar returned" << endl;
+        //LOGGER << "calcu_vi_bivar returned" << endl;
         logdet_Xt_Vi_X = calcu_P(_Vi, Vi_X, Xt_Vi_X_i, _P); // Calculate P  //quick
         if (_reml_mtd == 0) ai_reml(_P, Hi, Py, prev_varcmp, varcmp, dlogL);
         else if (_reml_mtd == 1) reml_equation(_P, Hi, Py, varcmp);
@@ -943,14 +943,14 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         if(_reml_force_converge && _reml_AI_not_invertible) break;
             /*{
             if(_reml_mtd != 1){
-                cout<<"Warning: the information matrix is not invertible. Trying to fix the problem using the Fisher-scoring approach."<<endl;
+                LOGGER<<"Warning: the information matrix is not invertible. Trying to fix the problem using the Fisher-scoring approach."<<endl;
                 _reml_mtd = 1;
                 _reml_AI_not_invertible = false;
                 iter--;
                 continue;
             }
             else {
-                cout<<"Warning: the information matrix is not invertible using the Fisher-scoring approach."<<endl;
+                LOGGER<<"Warning: the information matrix is not invertible using the Fisher-scoring approach."<<endl;
                 break;
             }
         }*/
@@ -959,22 +959,22 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         if (!no_constrain) constrain_num = constrain_varcmp(varcmp);
         if (_bivar_reml && !_bivar_no_constrain) constrain_rg(varcmp);
         if (iter > 0) {
-            cout << iter << "\t" << setiosflags(ios::fixed) << setprecision(2) << lgL << "\t";
-            for (i = 0; i < _r_indx.size(); i++) cout << setprecision(5) << varcmp[i] << "\t";
-            if (constrain_num > 0) cout << "(" << constrain_num << " component(s) constrained)" << endl;
-            else cout << endl;
+            LOGGER << iter << "\t" << std::fixed << LOGGER.setprecision(2) << lgL << "\t";
+            for (i = 0; i < _r_indx.size(); i++) LOGGER << LOGGER.setprecision(5) << varcmp[i] << "\t";
+            if (constrain_num > 0) LOGGER << "(" << constrain_num << " component(s) constrained)" << endl;
+            else LOGGER << endl;
         } else {
-            if (!prior_var_flag) cout << "Updated prior values: " << varcmp.transpose() << endl;
-            cout << "logL: " << lgL << endl;
-            //if(_reml_max_iter==1) cout<<"logL: "<<lgL<<endl;
+            if (!prior_var_flag) LOGGER << "Updated prior values: " << varcmp.transpose() << endl;
+            LOGGER << "logL: " << lgL << endl;
+            //if(_reml_max_iter==1) LOGGER<<"logL: "<<lgL<<endl;
         }
         if(_reml_fixed_var){
             varcmp = prev_varcmp; 
             break;
         }
-        if (constrain_num * 2 > _r_indx.size()) throw ("Error: analysis stopped because more than half of the variance components are constrained. The result would be unreliable.\n Please have a try to add the option --reml-no-constrain.");
+        if (constrain_num * 2 > _r_indx.size()) LOGGER.e(0, "analysis stopped because more than half of the variance components are constrained. The result would be unreliable.\n Please have a try to add the option --reml-no-constrain.");
         // added by Jian Yang on 22 Oct 2014
-        //if (constrain_num == _r_indx.size()) throw ("Error: analysis stopped because all variance components are constrained. You may have a try of adding the option --reml-no-constrain.");
+        //if (constrain_num == _r_indx.size()) LOGGER.e(0, "analysis stopped because all variance components are constrained. You may have a try of adding the option --reml-no-constrain.");
 
         if((_reml_force_converge || _reml_no_converge) && prev_lgL > lgL){
             varcmp = prev_varcmp;
@@ -998,15 +998,15 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         prev_lgL = lgL;
     }
     
-    if(_reml_fixed_var) cout << "Warning: the model is evaluated at fixed variance components. The likelihood might not be maximised." <<endl;
+    if(_reml_fixed_var) LOGGER << "Warning: the model is evaluated at fixed variance components. The likelihood might not be maximised." <<endl;
     else {
-        if(converged_flag) cout << "Log-likelihood ratio converged." << endl;
+        if(converged_flag) LOGGER << "Log-likelihood ratio converged." << endl;
         else {
-            if(_reml_force_converge || _reml_no_converge) cout << "Warning: Log-likelihood not converged. Results are not reliable." <<endl;
+            if(_reml_force_converge || _reml_no_converge) LOGGER << "Warning: Log-likelihood not converged. Results are not reliable." <<endl;
             else if(iter == _reml_max_iter){
                 stringstream errmsg;
-                errmsg << "Error: Log-likelihood not converged (stop after " << _reml_max_iter << " iteractions). \nYou can specify the option --reml-maxit to allow for more iterations." << endl;
-                if (_reml_max_iter > 1) throw (errmsg.str());
+                errmsg << "Log-likelihood not converged (stop after " << _reml_max_iter << " iteractions). \nYou can specify the option --reml-maxit to allow for more iterations." << endl;
+                if (_reml_max_iter > 1) LOGGER.e(0, errmsg.str());
             }
         }
     }
@@ -1086,7 +1086,7 @@ void gcta::calcu_sum_hsq(double Vp, double VarVp, double &sum_hsq, double &var_s
 bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, int &iter)
 {
     int i = 0, j = 0, k = 0;
-    string errmsg = "\nError: the V (variance-covariance) matrix is not invertible.";
+    string errmsg = "\n  the V (variance-covariance) matrix is not invertible.";
 
     Vi = eigenMatrix::Zero(_n, _n);
     if (_r_indx.size() == 1) {
@@ -1110,36 +1110,36 @@ bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, i
         if (_V_inv_mtd == 0) {
             if (!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) {
                 if(_reml_force_inv) {
-                    cout<<"Warning: the variance-covaraince matrix V is non-positive definite." << endl;
+                    LOGGER<<"Warning: the variance-covaraince matrix V is non-positive definite." << endl;
                     _V_inv_mtd = 1;
-                    cout << "\nSwitching to the \"bending\" approach to invert V. This method hasn't been tested. The results might not be reliable!" << endl;
+                    LOGGER << "\nSwitching to the \"bending\" approach to invert V. This method hasn't been tested. The results might not be reliable!" << endl;
                 }else {
                     if(_reml_no_converge){
-                        cout<<"Warning: the variance-covaraince matrix is invertible. A small positive value is added to the diagonals. The results might not be reliable!"<<endl;
+                        LOGGER<<"Warning: the variance-covaraince matrix is invertible. A small positive value is added to the diagonals. The results might not be reliable!"<<endl;
                         double d_buf = Vi.diagonal().mean() * 0.01;
                         for(j = 0; j < _n ; j++) Vi(j,j) += d_buf;
                         if(!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) return false;  
                     } 
-                    else throw("Error: the variance-covaraince matrix V is not positive definite.");
+                    else LOGGER.e(0, "the variance-covaraince matrix V is not positive definite.");
                 }
             }
         }
         if (_V_inv_mtd == 1) bend_V(Vi);
        /*if (_V_inv_mtd == 2) {
             if(!_reml_force_converge){
-                cout << "Switching from Cholesky to LU decomposition approach. The results might not be reliable!" << endl;
+                LOGGER << "Switching from Cholesky to LU decomposition approach. The results might not be reliable!" << endl;
                 if (!comput_inverse_logdet_LU_mkl(Vi, logdet)){
                     if(_reml_no_converge){
-                        cout<<"Warning: the variance-covaraince matrix is invertible. A small positive value is added to the diagonals. The results might not be reliable!"<<endl;
+                        LOGGER<<"Warning: the variance-covaraince matrix is invertible. A small positive value is added to the diagonals. The results might not be reliable!"<<endl;
                         double d_buf = Vi.diagonal().mean() * 0.01;
                         for(j = 0; j < _n ; j++) Vi(j,j) += d_buf;
                         if(!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) return false;  
                     } 
-                    else throw ("Error: the variance-covaraince matrix V is still not invertible using LU decomposition.");
+                    else LOGGER.e(0, "the variance-covaraince matrix V is still not invertible using LU decomposition.");
                 }
             }
             else{
-                cout<<"Warning: the variance-covaraince matrix is invertible. A small positive value is added to the diagonals. The results might not be reliable!"<<endl;
+                LOGGER<<"Warning: the variance-covaraince matrix is invertible. A small positive value is added to the diagonals. The results might not be reliable!"<<endl;
                 double d_buf = Vi.diagonal().mean() * 0.01;
                 for(j = 0; j < _n ; j++) Vi(j,j) += d_buf;
                 comput_inverse_logdet_LU_mkl(Vi, logdet);
@@ -1164,7 +1164,7 @@ void gcta::bend_V(eigenMatrix &Vi)
 void gcta::bend_A() {
     _Vi.resize(0, 0);
     _P.resize(0, 0);
-    cout << "Bending the GRM(s) to be positive-definite (may take a while if there are multiple GRMs)..." << endl;
+    LOGGER << "Bending the GRM(s) to be positive-definite (may take a while if there are multiple GRMs)..." << endl;
     int i = 0;
     for (i = 0; i < _r_indx.size() - 1; i++) {
         #ifdef SINGLE_PRECISION
@@ -1175,7 +1175,7 @@ void gcta::bend_A() {
         eigenVector eval = eigensolver.eigenvalues();
         if (bending_eigenval(eval)) {
             (_A[_r_indx[i]]) = eigensolver.eigenvectors() * eigenDiagMat(eval) * eigensolver.eigenvectors().transpose();
-            cout << "Bending the " << i + 1 << "th GRM completed." << endl;
+            LOGGER << "Bending the " << i + 1 << "th GRM completed." << endl;
         }
     }
 }
@@ -1246,9 +1246,9 @@ bool gcta::inverse_H(eigenMatrix &H)
     if (!comput_inverse_logdet_LDLT_mkl(H, d_buf)) return false;
     /*{
         if(_reml_force_inv) {
-            cout<<"Warning: the information matrix is non-positive definite. Switching from Cholesky to LU decomposition approach. The results might not be reliable!"<<endl;
+            LOGGER<<"Warning: the information matrix is non-positive definite. Switching from Cholesky to LU decomposition approach. The results might not be reliable!"<<endl;
             if (!comput_inverse_logdet_LU_mkl(H, d_buf)){
-                cout<<"Warning: the information matrix is invertible. A small positive value is added to the diagonals. The results might not be reliable!"<<endl;
+                LOGGER<<"Warning: the information matrix is invertible. A small positive value is added to the diagonals. The results might not be reliable!"<<endl;
                 int i = 0;
                 d_buf = H.diagonal().mean() * 0.001;
                 for(i = 0; i < H.rows(); i++) H(i,i) += d_buf;
@@ -1265,7 +1265,7 @@ double gcta::calcu_P(eigenMatrix &Vi, eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i,
     Vi_X = Vi*_X;
     Xt_Vi_X_i = _X.transpose() * Vi_X;
     double logdet_Xt_Vi_X = 0.0;
-    if(!comput_inverse_logdet_LU(Xt_Vi_X_i, logdet_Xt_Vi_X)) throw("\nError: the X^t * V^-1 * X matrix is not invertible. Please check the covariate(s) and/or the environmental factor(s).");
+    if(!comput_inverse_logdet_LU(Xt_Vi_X_i, logdet_Xt_Vi_X)) LOGGER.e(0, "\n  the X^t * V^-1 * X matrix is not invertible. Please check the covariate(s) and/or the environmental factor(s).");
     P = Vi - Vi_X * Xt_Vi_X_i * Vi_X.transpose();
     return logdet_Xt_Vi_X;
 }
@@ -1274,7 +1274,7 @@ double gcta::calcu_P(eigenMatrix &Vi, eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i,
 void gcta::calcu_Hi(eigenMatrix &P, eigenMatrix &Hi)
 {
     double d_buf = 0.0;
-    //cout << "Before calcu_Hi: " << getVMemKB() << " " << getMemKB() << ", "; 
+    //LOGGER << "Before calcu_Hi: " << getVMemKB() << " " << getMemKB() << ", "; 
 
     // Calculate PA
     vector<eigenMatrix> PA(_r_indx.size());
@@ -1305,10 +1305,10 @@ void gcta::calcu_Hi(eigenMatrix &P, eigenMatrix &Hi)
 
     if (!inverse_H(Hi)){
         if(_reml_force_converge){
-            cout << "Warning: the information matrix is not invertible." << endl;
+            LOGGER << "Warning: the information matrix is not invertible." << endl;
             _reml_AI_not_invertible = true;
         }
-        else throw ("Error: the information matrix is not invertible.");
+        else LOGGER.e(0, "the information matrix is not invertible.");
     }
     delete[] d_bufs;
 }
@@ -1343,14 +1343,14 @@ void gcta::ai_reml(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector
     Py = P*_y;
     //eigenVector cvec(_n);
     eigenMatrix APy(_n, _r_indx.size());
-    //cout << "AI reml 1 start" << endl;
+    //LOGGER << "AI reml 1 start" << endl;
     #pragma omp parallel for
     for (int i = 0; i < _r_indx.size(); i++) {
         if (_bivar_reml || _within_family) (APy.col(i)) = (_Asp[_r_indx[i]]) * Py;
         else (APy.col(i)) = (_A[_r_indx[i]]) * Py;
     }
 
-    //cout << "AI reml 2 start" << endl;
+    //LOGGER << "AI reml 2 start" << endl;
     // Calculate Hi
     eigenVector R(_r_indx.size());
     #pragma omp parallel for
@@ -1360,7 +1360,7 @@ void gcta::ai_reml(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector
         Hi(i, i) = ((APy.col(i)).transpose() * cvec)(0, 0);
         for (int j = 0; j < i; j++) Hi(j, i) = Hi(i, j) = ((APy.col(j)).transpose() * cvec)(0, 0);
     }
-    //cout << "AI reml 2 end" << endl;
+    //LOGGER << "AI reml 2 end" << endl;
     Hi = 0.5 * Hi;
 
     // Calcualte tr(PA) and dL
@@ -1371,11 +1371,11 @@ void gcta::ai_reml(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector
     // Calculate variance component
     if (!inverse_H(Hi)){
         if(_reml_force_converge){
-            cout << "Warning: the information matrix is not invertible." << endl;
+            LOGGER << "Warning: the information matrix is not invertible." << endl;
             _reml_AI_not_invertible = true;
             return;
         }
-        else throw ("Error: the information matrix is not invertible.");
+        else LOGGER.e(0, "the information matrix is not invertible.");
     }
 
     eigenVector delta(_r_indx.size());
@@ -1389,17 +1389,17 @@ void gcta::ai_reml(eigenMatrix &P, eigenMatrix &Hi, eigenVector &Py, eigenVector
 void gcta::em_reml(eigenMatrix &P, eigenVector &Py, eigenVector &prev_varcmp, eigenVector &varcmp)
 {
     // Calculate trace(PA)
-    //cout << "Before em_reml: " << getVMemKB() << " " << getMemKB() << ", "; 
+    //LOGGER << "Before em_reml: " << getVMemKB() << " " << getMemKB() << ", "; 
     eigenVector tr_PA;
     calcu_tr_PA(P, tr_PA);  // extremely slow
-    //cout << "calcu_tr_PA returned" << endl;
+    //LOGGER << "calcu_tr_PA returned" << endl;
     // Calculate R
     Py = P*_y;
     eigenVector R(_r_indx.size());
 
     #pragma omp parallel for
     for (int i = 0; i < _r_indx.size(); i++) {
-        //cout << "EM reml " << i << endl;
+        //LOGGER << "EM reml " << i << endl;
         if (_bivar_reml || _within_family) R(i) = (Py.transpose()*(_Asp[_r_indx[i]]) * Py)(0, 0);
         else R(i) = (Py.transpose()*(_A[_r_indx[i]]) * Py)(0, 0);
         // Calculate Variance component;
@@ -1416,17 +1416,17 @@ void gcta::em_reml(eigenMatrix &P, eigenVector &Py, eigenVector &prev_varcmp, ei
 
 // input P, calculate tr(PA)
 void gcta::calcu_tr_PA(eigenMatrix &P, eigenVector &tr_PA) {
-    //cout << "Before calcu_tr_PA: " << getVMemKB() << " " << getMemKB() << ", "; 
+    //LOGGER << "Before calcu_tr_PA: " << getVMemKB() << " " << getMemKB() << ", "; 
 
     // Calculate trace(PA)
     tr_PA.resize(_r_indx.size());
     //double d_bufs[_n];
     double *d_bufs = new double[_n];
     for (int i = 0; i < _r_indx.size(); i++) {
-        //cout << "calcu_tr_PA " << i << endl;
+        //LOGGER << "calcu_tr_PA " << i << endl;
         if (_bivar_reml || _within_family){
             //eigenMatrix temp = P * (_Asp[_r_indx[i]]);
-            //cout << "   matrix product finished" << endl;
+            //LOGGER << "   matrix product finished" << endl;
             //tr_PA(i) = (P * (_Asp[_r_indx[i]])).diagonal().sum();   ///extremely slow
             int cur_r_indx_size = _Asp[_r_indx[i]].outerSize();
             VectorXd v(cur_r_indx_size);
@@ -1440,7 +1440,7 @@ void gcta::calcu_tr_PA(eigenMatrix &P, eigenVector &tr_PA) {
             tr_PA(i) = v.sum();
             v.resize(0);
             //tr_PA(i) = temp.diagonal().sum();   ///extremely slow
-            //cout << "diag sum finished" << endl;
+            //LOGGER << "diag sum finished" << endl;
             //temp.resize(0,0);
         }
         else {
@@ -1471,7 +1471,7 @@ void gcta::blup_snp_geno() {
     double x = 0.0, fcount = 0.0;
 
     // Calcuate A matrix
-    cout << "Calculating the BLUP solutions to SNP effects ..." << endl;
+    LOGGER << "Calculating the BLUP solutions to SNP effects ..." << endl;
     vector<double> var_SNP(_include.size());
     eigenMatrix b_SNP = eigenMatrix::Zero(_include.size(), col_num); // variance of each SNP, 2pq
     for (j = 0; j < _include.size(); j++) {
@@ -1509,7 +1509,7 @@ void gcta::blup_snp_dosage() {
     }
 
     // Calculate A matrix
-    cout << "Calculating the BLUP solutions to SNP effects using imputed dosage scores ... " << endl;
+    LOGGER << "Calculating the BLUP solutions to SNP effects using imputed dosage scores ... " << endl;
     vector<double> var_SNP(_include.size()); // variance of each SNP, 2pq
     eigenMatrix b_SNP = eigenMatrix::Zero(_include.size(), col_num); // variance of each SNP, 2pq
     for (j = 0; j < _include.size(); j++) {
@@ -1530,16 +1530,16 @@ void gcta::blup_snp_dosage() {
 void gcta::output_blup_snp(eigenMatrix &b_SNP) {
     string o_b_snp_file = _out + ".snp.blp";
     ofstream o_b_snp(o_b_snp_file.c_str());
-    if (!o_b_snp) throw ("Error: can not open the file " + o_b_snp_file + " to write.");
+    if (!o_b_snp) LOGGER.e(0, "can not open the file " + o_b_snp_file + " to write.");
     int i = 0, j = 0, col_num = b_SNP.cols();
-    cout << "Writing BLUP solutions of SNP effects for " << _include.size() << " SNPs to [" + o_b_snp_file + "]." << endl;
+    LOGGER << "Writing BLUP solutions of SNP effects for " << _include.size() << " SNPs to [" + o_b_snp_file + "]." << endl;
     for (i = 0; i < _include.size(); i++) {
         o_b_snp << _snp_name[_include[i]] << "\t" << _ref_A[_include[i]] << "\t";
         for (j = 0; j < col_num; j++) o_b_snp << b_SNP(i, j) << "\t";
         o_b_snp << endl;
     }
     o_b_snp.close();
-    cout << "BLUP solutions of SNP effects for " << _include.size() << " SNPs have been saved in the file [" + o_b_snp_file + "]." << endl;
+    LOGGER << "BLUP solutions of SNP effects for " << _include.size() << " SNPs have been saved in the file [" + o_b_snp_file + "]." << endl;
 }
 
 void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string keep_indi_file, string remove_indi_file, int mphen) {
@@ -1573,12 +1573,12 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
         } else {
             int n = read_grm_id(grm_files[i], grm_id, true, true);
             if (n != size_grm) {
-                throw ("Error: file [" + grm_files[i] + "] contains a different number of ind than other GRM file.");
+                LOGGER.e(0, "file [" + grm_files[i] + "] contains a different number of ind than other GRM file.");
             }
         }
         string grm_binfile = grm_files[i] + ".grm.bin";
         A_bin[i] = new ifstream(grm_binfile.c_str(), ios::in | ios::binary);
-        if ((*A_bin[i]).bad()) throw ("Error: can not open the file [" + grm_binfile + "] to read.");
+        if ((*A_bin[i]).bad()) LOGGER.e(0, "can not open the file [" + grm_binfile + "] to read.");
     }
     update_id_map_kp(grm_id, _id_map, _keep);
 
@@ -1599,8 +1599,8 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
         uni_id_map.insert(pair<string, int>(_fid[_keep[i]] + ":" + _pid[_keep[i]], i));
     }
     _n = _keep.size();
-    if (_n < 1) throw ("Error: no individual is in common in the input files.");
-    cout << _n << " individuals are in common in these files." << endl;
+    if (_n < 1) LOGGER.e(0, "no individual is in common in the input files.");
+    LOGGER << _n << " individuals are in common in these files." << endl;
     
     // fill phenotypes to _y vector based on the order of uni_id
     _y.setZero(_n);
@@ -1610,10 +1610,10 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
         _y[iter->second] = atof(phen_buf[i][mphen - 1].c_str());
     }
     
-    cout << "\nPerforming Haseman-Elston regression ...\n" << endl;
+    LOGGER << "\nPerforming Haseman-Elston regression ...\n" << endl;
 
     // normalise phenotype
-    cout << "Standardising the phenotype ..." << endl;
+    LOGGER << "Standardising the phenotype ..." << endl;
     _y.array() -= _y.mean();
     _y.array() /= sqrt(_y.squaredNorm() / (_n - 1.0));
     
@@ -1660,7 +1660,7 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
     
     
     // Fill GRMij into the ordinary least squares equations without reading the whole GRM(s) into memory
-    cout << "Constructing ordinary least squares equations ..." << endl;
+    LOGGER << "Constructing ordinary least squares equations ..." << endl;
     eigenVector aij(n_grm);
     int size = sizeof (float);
     float f_buf = 0.0;
@@ -1728,9 +1728,9 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
     eigenVector se_cp = (invLhs.diagonal() * vare_cp).array().sqrt();
     eigenVector se_sd = (invLhs.diagonal() * vare_sd).array().sqrt();
     
-    cout << "\nLeft-hand side of OLS equations (X'X)\n" << Lhs  << endl << endl;
-    //cout << "vare_cp " << vare_cp << endl;
-    //cout << "vare_sd " << vare_sd << endl << endl;
+    LOGGER << "\nLeft-hand side of OLS equations (X'X)\n" << Lhs  << endl << endl;
+    //LOGGER << "vare_cp " << vare_cp << endl;
+    //LOGGER << "vare_sd " << vare_sd << endl << endl;
     
     eigenVector pval_cp(n_term);
     eigenVector pval_sd(n_term);
@@ -1835,12 +1835,12 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
         ss << setw(16) << -0.5*beta_sd[i] << setw(16) << 0.5*se_sd[i] << setw(16) << 0.5*jk_se_sd[i] << setw(16) << pval_sd[i] << setw(16) << jk_pval_sd[i] << endl;
     }
     if (n_grm>1) ss << setw(16) << "Sum of V(G)/Vp" << setw(16) << -0.5*beta_sum_sd << setw(16) << 0.5*se_sum_sd << setw(16) << 0.5*jk_sum_se_sd << setw(16) << pval_sum_sd << setw(16) << jk_pval_sum_sd << endl;
-    cout << ss.str() << endl;
+    LOGGER << ss.str() << endl;
     string ofile = _out + ".HEreg";
     ofstream os(ofile.c_str());
-    if (!os) throw ("Error: can not open the file [" + ofile + "] to write.");
+    if (!os) LOGGER.e(0, "can not open the file [" + ofile + "] to write.");
     os << ss.str() << endl;
-    cout << "Results from Haseman-Elston regression have been saved in [" + ofile + "]." << endl;
+    LOGGER << "Results from Haseman-Elston regression have been saved in [" + ofile + "]." << endl;
 }
 
 void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, string keep_indi_file, string remove_indi_file, int mphen, int mphen2) {
@@ -1874,12 +1874,12 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
         } else {
             int n = read_grm_id(grm_files[i], grm_id, true, true);
             if (n != size_grm) {
-                throw ("Error: file [" + grm_files[i] + "] contains a different number of ind than other GRM file.");
+                LOGGER.e(0, "file [" + grm_files[i] + "] contains a different number of ind than other GRM file.");
             }
         }
         string grm_binfile = grm_files[i] + ".grm.bin";
         A_bin[i] = new ifstream(grm_binfile.c_str(), ios::in | ios::binary);
-        if ((*A_bin[i]).bad()) throw ("Error: can not open the file [" + grm_binfile + "] to read.");
+        if ((*A_bin[i]).bad()) LOGGER.e(0, "can not open the file [" + grm_binfile + "] to read.");
     }
     update_id_map_kp(grm_id, _id_map, _keep);
     
@@ -1904,8 +1904,8 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
         uni_id_map.insert(pair<string, int>(combinedID, i));
     }
     _n = _keep.size();
-    if (_n < 1) throw ("Error: no individual is in common in the input files.");
-    cout << _n << " individuals are in common in these files." << endl;
+    if (_n < 1) LOGGER.e(0, "no individual is in common in the input files.");
+    LOGGER << _n << " individuals are in common in these files." << endl;
     
     
     // find out matched unique ID for each trait
@@ -1928,7 +1928,7 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
         if (phen_buf[idx][mphen] != "NA" && phen_buf[idx][mphen] != "-9") {
             uni_id_tr1.push_back(uni_id[i]);
             y1[n1++] = atof(phen_buf[idx][mphen].c_str());
-            //cout << i << " " << idx << " " << phen_buf[idx][mphen] << " " << atof(phen_buf[idx][mphen].c_str()) << endl;
+            //LOGGER << i << " " << idx << " " << phen_buf[idx][mphen] << " " << atof(phen_buf[idx][mphen].c_str()) << endl;
         }
         if (phen_buf[idx][mphen2] != "NA" && phen_buf[idx][mphen2] != "-9") {
             uni_id_tr2.push_back(uni_id[i]);
@@ -1939,9 +1939,9 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
     y1.conservativeResize(n1);
     y2.conservativeResize(n2);
     
-    cout << y1.size() << " non-missing phenotypes for trait #1 and " << y2.size() << " for trait #2" << endl;
-    if (y1.size()==0) throw("Error: no non-missing phenotypes for trait 1.");
-    if (y2.size()==0) throw("Error: no non-missing phenotypes for trait 2.");
+    LOGGER << y1.size() << " non-missing phenotypes for trait #1 and " << y2.size() << " for trait #2" << endl;
+    if (y1.size()==0) LOGGER.e(0, "no non-missing phenotypes for trait 1.");
+    if (y2.size()==0) LOGGER.e(0, "no non-missing phenotypes for trait 2.");
 
     // grm_kp contains the rows of grm_id to keep in order of uni_id, which is a subset of and in the same order of grm_id
     vector<int> grm_kp_tr1;
@@ -1951,10 +1951,10 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
     StrFunc::match(uni_id_tr2, grm_id, grm_kp_tr2);
     
     
-    cout << "\nPerforming Haseman-Elston regression ...\n" << endl;
+    LOGGER << "\nPerforming Haseman-Elston regression ...\n" << endl;
     
     // normalise phenotype
-    cout << "Standardising the phenotype ..." << endl;
+    LOGGER << "Standardising the phenotype ..." << endl;
     y1.array() -= y1.mean();
     y2.array() -= y2.mean();
     y1.array() /= sqrt(y1.squaredNorm() / (n1 - 1.0));
@@ -2034,7 +2034,7 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
     
     
     // Fill GRMij into the ordinary least squares equations without reading the whole GRM(s) into memory
-    cout << "Constructing ordinary least squares equations ..." << endl;
+    LOGGER << "Constructing ordinary least squares equations ..." << endl;
     eigenVector aij(n_grm);
     int size = sizeof (float);
     float f_buf = 0.0;
@@ -2181,10 +2181,10 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
     }
     
     
-    cout << "\n length of covariates:" << endl;
-    cout << "\t trait1:  " << count[0] << endl;
-    cout << "\t trait2:  " << count[1] << endl;
-    cout << "\t trait12: " << count[2] << endl;
+    LOGGER << "\n length of covariates:" << endl;
+    LOGGER << "\t trait1:  " << count[0] << endl;
+    LOGGER << "\t trait2:  " << count[1] << endl;
+    LOGGER << "\t trait12: " << count[2] << endl;
     
     
     for (k = 0; k < n_grm; k++) {
@@ -2198,7 +2198,7 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
     LhsAll.block(n_term, n_term, n_term, n_term) = Lhs[1];
     LhsAll.bottomRightCorner(n_term, n_term) = Lhs[2];
     
-    cout << "\nLeft-hand side of OLS equations (X'X)\n" << LhsAll  << endl << endl;
+    LOGGER << "\nLeft-hand side of OLS equations (X'X)\n" << LhsAll  << endl << endl;
     
     // compute OLS variance-covariance matrix of estimates and p-value
     vector<eigenMatrix> invLhs(3);
@@ -2300,7 +2300,7 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
 
     
     // sampling variance-covariance of estimates of variance components
-    cout << "\nJackknife sampling variance/covariance of the estimates of heritabilities:" << endl;
+    LOGGER << "\nJackknife sampling variance/covariance of the estimates of heritabilities:" << endl;
     eigenMatrix betaGJk(minn, 3*n_grm);
     j = 0;
     for (i=0; i<n_grm; ++i) {
@@ -2312,7 +2312,7 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
     eigenMatrix varcov = (centered.adjoint() * centered) / double(minn);
     varcov *= double(minn-1);
     
-    cout << varcov << endl << endl;
+    LOGGER << varcov << endl << endl;
     
     
     // output
@@ -2353,12 +2353,12 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
     ss << setw(20) << "N_tr1" << setw(16) << n1 << endl;
     ss << setw(20) << "N_tr2" << setw(16) << n2 << endl;
     ss << endl;
-    cout << ss.str() << endl;
+    LOGGER << ss.str() << endl;
     string ofile = _out + ".HEreg";
     ofstream os(ofile.c_str());
-    if (!os) throw ("Error: can not open the file [" + ofile + "] to write.");
+    if (!os) LOGGER.e(0, "can not open the file [" + ofile + "] to write.");
     os << ss.str() << endl;
-    cout << "Results from Haseman-Elston regression have been saved in [" + ofile + "]." << endl;
+    LOGGER << "Results from Haseman-Elston regression have been saved in [" + ofile + "]." << endl;
 }
 
 /*   // old implementation of single component HE regression
@@ -2383,7 +2383,7 @@ void gcta::HE_reg(string grm_file, string phen_file, string keep_indi_file, stri
         uni_id_map.insert(pair<string, int>(_fid[_keep[i]] + ":" + _pid[_keep[i]], i));
     }
     _n = _keep.size();
-    if (_n < 1) throw ("Error: no individual is in common in the input files.");
+    if (_n < 1) LOGGER.e(0, "no individual is in common in the input files.");
 
     _y.setZero(_n);
     for (i = 0; i < phen_ID.size(); i++) {
@@ -2392,7 +2392,7 @@ void gcta::HE_reg(string grm_file, string phen_file, string keep_indi_file, stri
         _y[iter->second] = atof(phen_buf[i][mphen - 1].c_str());
     }
 
-    cout << "\nPerforming Haseman-Elston regression ...\n" << endl;
+    LOGGER << "\nPerforming Haseman-Elston regression ...\n" << endl;
     int n = _n * (_n - 1) / 2;
 //       vector<bool> nomiss(_n*(_n-1));
 //       for(i=0, k=0; i<_n; i++){
@@ -2406,7 +2406,7 @@ void gcta::HE_reg(string grm_file, string phen_file, string keep_indi_file, stri
 //       }
 
     // normalise phenotype
-    cout << "Standardising the phenotype ..." << endl; 
+    LOGGER << "Standardising the phenotype ..." << endl; 
     eigenVector y = _y.array() - _y.mean();
     y = y.array() / sqrt(y.squaredNorm() / (_n - 1.0));
 
@@ -2433,11 +2433,11 @@ void gcta::HE_reg(string grm_file, string phen_file, string keep_indi_file, stri
     ss << "Slope\t" << reg_sum_cp.row(1) << endl;
     ss << "V(G)/Vp\t" << reg_sum_cp(1, 0) << "\t" << reg_sum_cp(1, 1) << endl;
 
-    cout << ss.str() << endl;
+    LOGGER << ss.str() << endl;
     string ofile = _out + ".HEreg";
     ofstream os(ofile.c_str());
-    if (!os) throw ("Error: can not open the file [" + ofile + "] to write.");
+    if (!os) LOGGER.e(0, "can not open the file [" + ofile + "] to write.");
     os << ss.str() << endl;
-    cout << "Results from Haseman-Elston regression have been saved in [" + ofile + "]." << endl;
+    LOGGER << "Results from Haseman-Elston regression have been saved in [" + ofile + "]." << endl;
 
 } */

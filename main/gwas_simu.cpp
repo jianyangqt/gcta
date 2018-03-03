@@ -20,10 +20,10 @@ int gcta::read_QTL_file(string qtl_file, vector<string> &qtl_name, vector<int> &
     have_eff.clear();
 
     ifstream i_qtl(qtl_file.c_str());
-    if (!i_qtl) throw ("Error: can not open the file [" + qtl_file + "] to read.");
+    if (!i_qtl) LOGGER.e(0, "can not open the file [" + qtl_file + "] to read.");
     string qtl_buf, str_buf;
     double qtl_eff_buf = 0.0;
-    cout << "Reading a list of SNPs (as causal variants) from [" + qtl_file + "]." << endl;
+    LOGGER << "Reading a list of SNPs (as causal variants) from [" + qtl_file + "]." << endl;
     map<string, int>::iterator iter, End = _snp_name_map.end();
     vector<string> vs_buf;
     vector<int> confirm(_snp_num);
@@ -35,7 +35,7 @@ int gcta::read_QTL_file(string qtl_file, vector<string> &qtl_name, vector<int> &
         if (getline(i_qtl, str_buf) && StrFunc::split_string(str_buf, vs_buf, " \t\n") > 0) {
             have_eff.push_back(1);
             qtl_eff_buf = atof(vs_buf[0].c_str());
-            if (fabs(qtl_eff_buf) > 1e5) throw ("Error: invalid effect size specified for the causal variant [" + str_buf + "].");
+            if (fabs(qtl_eff_buf) > 1e5) LOGGER.e(0, "invalid effect size specified for the causal variant [" + str_buf + "].");
         } else {
             have_eff.push_back(0);
             qtl_eff_buf = 0.0;
@@ -51,8 +51,8 @@ int gcta::read_QTL_file(string qtl_file, vector<string> &qtl_name, vector<int> &
     qtl_name_buf.erase(unique(qtl_name_buf.begin(), qtl_name_buf.end()), qtl_name_buf.end());
     i_qtl.close();
     
-    if(qtl_name_buf.size() < qtl_name.size()) throw("Error: there are duplicated SNP IDs.");
-    cout << qtl_pos.size() << " SNPs (as causal variants) to be included from [" + qtl_file + "]." << endl;
+    if(qtl_name_buf.size() < qtl_name.size()) LOGGER.e(0, "there are duplicated SNP IDs.");
+    LOGGER << qtl_pos.size() << " SNPs (as causal variants) to be included from [" + qtl_file + "]." << endl;
     return (qtl_pos.size());
 }
 
@@ -61,18 +61,18 @@ void gcta::output_simu_par(vector<string> &qtl_name, vector<int> &qtl_pos, vecto
     int i = 0;
     string out_parfile = _out + ".par";
     ofstream out_par(out_parfile.c_str());
-    if (!out_par) throw ("Error: can not open par file [" + out_parfile + "] to write!");
+    if (!out_par) LOGGER.e(0, "can not open par file [" + out_parfile + "] to write!");
     out_par << "QTL\tRefAllele\tFrequency\tEffect" << endl;
     for (i = 0; i < qtl_eff.size(); i++) out_par << qtl_name[i] << "\t" << _ref_A[qtl_pos[i]] << "\t" << 0.5 * _mu[qtl_pos[i]] << "\t" << qtl_eff[i] << endl;
     out_par.close();
-    cout << "Simulated QTL effect(s) have been saved in [" + out_parfile + "]." << endl;
+    LOGGER << "Simulated QTL effect(s) have been saved in [" + out_parfile + "]." << endl;
 }
 
 void gcta::save_phenfile(vector< vector<double> > &y)
 {
     string phenfile = _out + ".phen";
     ofstream phen(phenfile.c_str());
-    if (!phen) throw ("Error: can not open the file [" + phenfile + "] to write.");
+    if (!phen) LOGGER.e(0, "can not open the file [" + phenfile + "] to write.");
     int i = 0, j = 0;
     for (i = 0; i < _keep.size(); i++) {
         phen << _fid[_keep[i]] << " " << _pid[_keep[i]] << " ";
@@ -88,15 +88,15 @@ void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, 
     bool cc_flag = false;
     if (case_num > 0 || control_num > 0) cc_flag = true;
 
-    cout << "Simulation parameters:" << endl;
-    cout << "Number of simulation replicate(s) = " << simu_num << " (Default = 1)" << endl;
-    cout << "Heritability " << (cc_flag ? "of liability = " : " = ") << hsq << " (Default = 0.1)" << endl;
+    LOGGER << "Simulation parameters:" << endl;
+    LOGGER << "Number of simulation replicate(s) = " << simu_num << " (Default = 1)" << endl;
+    LOGGER << "Heritability " << (cc_flag ? "of liability = " : " = ") << hsq << " (Default = 0.1)" << endl;
     if (cc_flag) {
-        cout << "Disease prevalence = " << K << " (Default = 0.1)" << endl;
-        cout << "Number of cases = " << case_num << endl;
-        cout << "Number of controls = " << control_num << endl;
+        LOGGER << "Disease prevalence = " << K << " (Default = 0.1)" << endl;
+        LOGGER << "Number of cases = " << case_num << endl;
+        LOGGER << "Number of controls = " << control_num << endl;
     }
-    cout << endl;
+    LOGGER << endl;
 
     // Read QTL file
     vector<string> qtl_name;
@@ -115,8 +115,8 @@ void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, 
                 num_gener_qtl_eff++;
             }
         }
-        if (qtl_num - num_gener_qtl_eff > 0) cout << qtl_num - num_gener_qtl_eff << " user-specified QTL effects." << endl;
-        if (num_gener_qtl_eff > 0) cout << num_gener_qtl_eff << " unspecified QTL effects are generated from standard normal distribution." << endl;
+        if (qtl_num - num_gener_qtl_eff > 0) LOGGER << qtl_num - num_gener_qtl_eff << " user-specified QTL effects." << endl;
+        if (num_gener_qtl_eff > 0) LOGGER << num_gener_qtl_eff << " unspecified QTL effects are generated from standard normal distribution." << endl;
 
         vector<string> vs_buf(qtl_num);
         for (i = 0; i < qtl_num; i++) vs_buf[i] = _snp_name[_include[i]];
@@ -161,7 +161,7 @@ void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, 
     output_simu_par(qtl_name, qtl_pos, qtl_eff, var_e + var_g);
 
     // Output phenotype file
-    cout << "Simulating GWAS based on the real genotyped data with " << simu_num << " replicate(s) ..." << endl;
+    LOGGER << "Simulating GWAS based on the real genotyped data with " << simu_num << " replicate(s) ..." << endl;
     vector< vector<double> > y(simu_num);
     int case_num_buf = 0, control_num_buf = 0;
     for (i = 0; i < simu_num; i++) {
@@ -195,15 +195,15 @@ void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, 
 
     if (!simu_emb_flag) {
         save_phenfile(y);
-        if (cc_flag) cout << "Simulated " << case_num_buf << " cases and " << control_num << " controls have been saved in [" + _out + ".phen" + "]." << endl;
-        else cout << "Simulated phenotypes of " << _keep.size() << " individuals have been saved in [" + _out + ".phen" + "]." << endl;
+        if (cc_flag) LOGGER << "Simulated " << case_num_buf << " cases and " << control_num << " controls have been saved in [" + _out + ".phen" + "]." << endl;
+        else LOGGER << "Simulated phenotypes of " << _keep.size() << " individuals have been saved in [" + _out + ".phen" + "]." << endl;
     } else {
         // emBayesB format
         if (!output_causal) update_id_map_rm(qtl_name, _snp_name_map, _include);
         string out_rstfile = _out + ".emb";
         ofstream out_emBayesB(out_rstfile.c_str());
-        if (!out_emBayesB) throw ("Error: can not open the file [" + out_rstfile + "] to write.");
-        cout << "Saving the simulated data to the file [" + out_rstfile + "] (in emBayesB format)." << endl;
+        if (!out_emBayesB) LOGGER.e(0, "can not open the file [" + out_rstfile + "] to write.");
+        LOGGER << "Saving the simulated data to the file [" + out_rstfile + "] (in emBayesB format)." << endl;
         for (i = 0; i < _keep.size(); i++) {
             if (y[0][i] == -9) continue;
             out_emBayesB << _pid[_keep[i]] << " " << g[i] << " " << y[0][i] << endl;
@@ -214,7 +214,7 @@ void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, 
             out_emBayesB << endl;
         }
         out_emBayesB.close();
-        cout << "Simulated data (" << _keep.size() << " individuals and " << _include.size() << " SNPs) has been saved in [" + out_rstfile + "]." << endl;
+        LOGGER << "Simulated data (" << _keep.size() << " individuals and " << _include.size() << " SNPs) has been saved in [" + out_rstfile + "]." << endl;
     }
 }
 
@@ -226,11 +226,11 @@ void gcta::GenerCases(string bfile, string qtl_file, int case_num, int control_n
 {
         int i=0, j=0, k=0;
 
-        if(gnrt<1.0 || gnrt>1e5) throw("Error: --simu-gener should be within the range from 1 to 100000.");
-        if(hsq>1.0 || hsq<0.0) throw("Error: --simu-h2 should be within the range from 0 to 1.");
-        if(K>0.5 || K<0.0001) throw("Error: --simu-K should be within the range from 0.0001 to 0.5.");
-        if(!curr_popu && (case_num>1e5 || case_num<1)) throw("Error: --simu-cc, Invalid number of cases.");
-        if(!curr_popu && (control_num>1e6 || control_num<1)) throw("Error: --simu-cc, Invalid number of controls.");
+        if(gnrt<1.0 || gnrt>1e5) LOGGER.e(0, "--simu-gener should be within the range from 1 to 100000.");
+        if(hsq>1.0 || hsq<0.0) LOGGER.e(0, "--simu-h2 should be within the range from 0 to 1.");
+        if(K>0.5 || K<0.0001) LOGGER.e(0, "--simu-K should be within the range from 0.0001 to 0.5.");
+        if(!curr_popu && (case_num>1e5 || case_num<1)) LOGGER.e(0, "--simu-cc, Invalid number of cases.");
+        if(!curr_popu && (control_num>1e6 || control_num<1)) LOGGER.e(0, "--simu-cc, Invalid number of controls.");
 
         // Read bim file: recombination rate is defined between SNP i and SNP i-1
         read_bimfile(bfile+".bim");
@@ -250,7 +250,7 @@ void gcta::GenerCases(string bfile, string qtl_file, int case_num, int control_n
     }
     stable_sort(qtl_pos.begin(), qtl_pos.end());
         int qtl_num=qtl_pos.size();
-        cout<<qtl_num<<" SNPs (as QTLs) to be included from ["+qtl_file+"]."<<endl;
+        LOGGER<<qtl_num<<" SNPs (as QTLs) to be included from ["+qtl_file+"]."<<endl;
 
         // Read fam and bed files
         read_famfile(bfile+".fam");
@@ -258,7 +258,7 @@ void gcta::GenerCases(string bfile, string qtl_file, int case_num, int control_n
 
         // Generate QTL effects
         int Seed=-CommFunc::rand_seed();
-        cout<<"Generating QTL effects ("<<"Random seed = "<<abs(Seed)<<")."<<endl;
+        LOGGER<<"Generating QTL effects ("<<"Random seed = "<<abs(Seed)<<")."<<endl;
         vector<double> qtl_eff(qtl_num);
         for(i=0; i<qtl_num && hsq>0.0; i++) qtl_eff[i]=StatFunc::gasdev(Seed);
 
@@ -296,14 +296,14 @@ void gcta::GenerCases(string bfile, string qtl_file, int case_num, int control_n
     }
         string out_parfile=_out+".par";
         ofstream out_par(out_parfile.c_str());
-        if(!out_par) throw("Error: can not open par file ["+out_parfile+"] to write!");
-        cout<<"Writing simulation parameters to file ["<<out_parfile<<"]."<<endl;
+        if(!out_par) LOGGER.e(0, "can not open par file ["+out_parfile+"] to write!");
+        LOGGER<<"Writing simulation parameters to file ["<<out_parfile<<"]."<<endl;
         for(i=0; i<qtl_num; i++) out_par<<qtl_name[i]<<"\t"<<AF[i]<<"\t"<<qtl_eff[i]<<"\t"<<qsq[i]<<endl;
     out_par.close();
 
         // If generate cases and controls based on current population
         if(curr_popu){
-            cout<<"Generating cases and control based on the current population."<<endl;
+            LOGGER<<"Generating cases and control based on the current population."<<endl;
         for(i=0; i<_indi_num; i++){
             if(y_backup[i]>Th) _pheno[i]=2;
             else _pheno[i]=1;
@@ -316,7 +316,7 @@ void gcta::GenerCases(string bfile, string qtl_file, int case_num, int control_n
     int fa_hap_buf=0, mo_hap_buf, fa=0, mo=0;
     double score=0.0;
         vector< vector<int> > case_fa, case_mo, case_fa_hap, case_mo_hap, control_fa, control_mo, control_fa_hap, control_mo_hap;
-        cout<<"Generating population derived from the current population."<<endl;
+        LOGGER<<"Generating population derived from the current population."<<endl;
         while(case_fa.size()<case_num || control_fa.size()<control_num){
         vector<int> fa_vbuf, mo_vbuf, fa_hap_vbuf, mo_hap_vbuf;
             for(i=0; i<_snp_num; i++){
@@ -361,14 +361,14 @@ void gcta::GenerCases(string bfile, string qtl_file, int case_num, int control_n
             }
         }
     }
-        cout<<case_num<<" cases and "<<control_num<<" controls have been generated."<<endl;
+        LOGGER<<case_num<<" cases and "<<control_num<<" controls have been generated."<<endl;
         _indi_num=case_num+control_num;
 
         // Output fam file
         string out_famfile=_out+".fam";
     ofstream out_fam(out_famfile.c_str());
-    if(!out_fam) throw("Error: can not open fam file ["+out_famfile+"] to write!");
-    cout<<"Writing IDs of cases and controls to file ["<<out_famfile<<"]."<<endl;
+    if(!out_fam) LOGGER.e(0, "can not open fam file ["+out_famfile+"] to write!");
+    LOGGER<<"Writing IDs of cases and controls to file ["<<out_famfile<<"]."<<endl;
     for(i=0; i<case_num; i++) out_fam<<i+1<<"\t"<<i+1<<"\t0\t0\t0\t2"<<endl;
     for(i=case_num; i<_indi_num; i++) out_fam<<i+1<<"\t"<<i+1<<"\t0\t0\t0\t1"<<endl;
     out_fam.close();
@@ -407,8 +407,8 @@ void gcta::save_bedfile(vector< vector<int> > &fa_indx, vector< vector<int> > &m
     int i=0, pos=0, n=0, fa=0, mo=0, fa_hap_buf=0, mo_hap_buf=0;
     string OutBedFile=_out+".bed";
         fstream OutBed(OutBedFile.c_str(), ios::out|ios::binary);
-        if(!OutBed) throw("Error: can not open the file ["+OutBedFile+"] to write.");
-        cout<<"Writing genotypes to PLINK BED file ["+OutBedFile+"]."<<endl;
+        if(!OutBed) LOGGER.e(0, "can not open the file ["+OutBedFile+"] to write.");
+        LOGGER<<"Writing genotypes to PLINK BED file ["+OutBedFile+"]."<<endl;
         bitset<8> b;
         char ch[1];
     b.reset();
@@ -472,14 +472,14 @@ void gcta::save_famfile()
 {
     string famfile=_out+".fam";
         ofstream Fam(famfile.c_str());
-        if(!Fam) throw("Error: can not open the fam file "+famfile+" to save!");
-        cout<<"Writing PLINK FAM file to ["+famfile+"]."<<endl;
+        if(!Fam) LOGGER.e(0, "can not open the fam file "+famfile+" to save!");
+        LOGGER<<"Writing PLINK FAM file to ["+famfile+"]."<<endl;
         int i=0;
         for(i=0; i<_indi_num; i++){
                 Fam<<_fid[i]<<"\t"<<_pid[i]<<"\t"<<_fa_id[i]<<"\t"<<_mo_id[i]<<"\t"<<_sex[i]<<"\t"<<_pheno[i]<<endl;
         }
         Fam.close();
-        cout<<_indi_num<<" individuals to be saved to ["+famfile+"]."<<endl;
+        LOGGER<<_indi_num<<" individuals to be saved to ["+famfile+"]."<<endl;
 }
 
 void gcta::save_bimfile()
@@ -487,13 +487,13 @@ void gcta::save_bimfile()
         int i=0;
         string bimfile=_out+".bim";
         ofstream Bim(bimfile.c_str());
-        if(!Bim) throw("Error: can not open the file ["+bimfile+"] to write.");
-        cout<<"Writing PLINK bim file to ["<<bimfile<<"]."<<endl;
+        if(!Bim) LOGGER.e(0, "can not open the file ["+bimfile+"] to write.");
+        LOGGER<<"Writing PLINK bim file to ["<<bimfile<<"]."<<endl;
         for(i=0; i<_snp_num; i++){
                 Bim<<_chr[i]<<"\t"<<_snp_name[i]<<"\t"<<_genet_dst[i]<<"\t"<<_bp[i]<<"\t"<<_allele1[i]<<"\t"<<_allele2[i]<<endl;
         }
         Bim.close();
-        cout<<_snp_num<<" SNPs to be saved to ["<<bimfile<<"]."<<endl;
+        LOGGER<<_snp_num<<" SNPs to be saved to ["<<bimfile<<"]."<<endl;
 }
  */
 void gcta::genet_dst(string bfile, string hapmap_genet_map)
@@ -513,7 +513,7 @@ void gcta::genet_dst(string bfile, string hapmap_genet_map)
         str_strm << hapmap_genet_map << i + 1 << "_CEU_b36.txt";
         genet_mapfile = str_strm.str();
         ifstream i_genet_map(genet_mapfile.c_str());
-        if (!i_genet_map) throw ("Error: can not open HAPMAP genetic map file " + genet_mapfile + "!");
+        if (!i_genet_map) LOGGER.e(0, "can not open HAPMAP genetic map file " + genet_mapfile + "!");
         hap_genet[i].resize(2);
         getline(i_genet_map, str_buf);
         while (getline(i_genet_map, str_buf)) {
@@ -554,10 +554,10 @@ void gcta::genet_dst(string bfile, string hapmap_genet_map)
     // Output fam file
     string out_bimfile = _out + ".genetdst";
     ofstream out_bim(out_bimfile.c_str());
-    if (!out_bim) throw ("Error: can not open file " + out_bimfile + " to write!");
+    if (!out_bim) LOGGER.e(0, "can not open file " + out_bimfile + " to write!");
     for (i = 0; i < snp_num; i++) out_bim << _chr[i] << "\t" << _snp_name[i] << "\t" << dst[i]*1e-6 << "\t" << _bp[i] << "\t" << _allele1[i] << "\t" << _allele2[i] << endl;
     out_bim.close();
-    cout << "Genetic distances have been created, and been saved in [" + out_bimfile + "]." << endl;
+    LOGGER << "Genetic distances have been created, and been saved in [" + out_bimfile + "]." << endl;
 }
 
 /*
@@ -577,11 +577,11 @@ void gcta::simu_genome(
     int seed=CommFunc::rand_seed();
     vector< vector<bool> > data; // the return chromosome by connecting all independent chromosome into one long chromosome
 
-    cout<<"\n*********************************************"<<endl;
-    cout<<"The following output is generated by the program GENOME\n"<<endl;
+    LOGGER<<"\n*********************************************"<<endl;
+    LOGGER<<"The following output is generated by the program GENOME\n"<<endl;
     genome(popSize, nSubPOP, nSubSample, numPieces, pieceLen, numIndepRegion, s, rec, mut, mig, data, seed, false, false);
-    cout<<"\nEnd of output by GENOME"<<endl;
-    cout<<"*********************************************\n"<<endl;
+    LOGGER<<"\nEnd of output by GENOME"<<endl;
+    LOGGER<<"*********************************************\n"<<endl;
     _snp_a.clear();
     _snp_b.clear();
     _pheno.clear();
@@ -690,7 +690,7 @@ void gcta::simu_geno_unlinked(int N, int M, double maf)
     std::tr1::minstd_rand eng;
         eng.seed((unsigned int)time(NULL));
 	
-        cout<<"maf "<<maf<<endl;
+        LOGGER<<"maf "<<maf<<endl;
 	
     for(j=0; j<M; j++){
         _include[j]=j;
@@ -708,14 +708,14 @@ void gcta::simu_geno_unlinked(int N, int M, double maf)
         double p = runiform(eng)/1.0e10;
 		
                 //debug
-                cout<<"p = "<<p<<endl;
+                LOGGER<<"p = "<<p<<endl;
 		
         for(i=0; i<N; i++){
             std::tr1::binomial_distribution<int, double> rbinom(2,0.5);
             x=rbinom(eng);
 			
                         //debug
-                        cout<<x<<"\t";
+                        LOGGER<<x<<"\t";
 			
 			
             if(x==2) _snp_1[j][i]=_snp_2[j][i]=true;
@@ -727,7 +727,7 @@ void gcta::simu_geno_unlinked(int N, int M, double maf)
         }  
 		
                 //debug
-                cout<<endl;
+                LOGGER<<endl;
     }
     
     save_plink();
