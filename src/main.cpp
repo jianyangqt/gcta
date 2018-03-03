@@ -40,24 +40,25 @@ using std::to_string;
 using std::function;
 using std::placeholders::_1;
 using std::placeholders::_2;
+using std::placeholders::_3;
 
 void out_ver(bool flag_outFile){
-    function<void (int, const string&)> log;
+    function<void (int, const string&, const string&)> log;
     if(flag_outFile){
-        log = bind(&Logger::l, LOGGER_P, _1, _2);
+        log = bind(&Logger::l, LOGGER_P, _1, _2, _3);
     }else{
-        log = bind(&Logger::m, LOGGER_P, _1, _2);
+        log = bind(&Logger::m, LOGGER_P, _1, _2, _3);
     }
 
-    log(0, "*******************************************************************");
-    log(0, "* Genome-wide Complex Trait Analysis (GCTA)");
-    log(0, "* version 1.91.3 beta2");
-    log(0, "* (C) 2010-2018, The University of Queensland");
-    log(0, "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>");
-    log(0, "*******************************************************************");
-    log(0, "Analysis started at " + getLocalTime() + ".");
-    log(0, "Hostname: " + getHostName());
-    log(0, "");
+    log(0, "*******************************************************************", "");
+    log(0, "* Genome-wide Complex Trait Analysis (GCTA)", "");
+    log(0, "* version 1.91.3 beta2", "");
+    log(0, "* (C) 2010-2018, The University of Queensland", "");
+    log(0, "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>", "");
+    log(0, "*******************************************************************", "");
+    log(0, string("at ") + getLocalTime() + ".", "Analysis started");
+    log(0, "Hostname: " + getHostName(), "");
+    log(0, "", "");
 }
 
 int main(int argc, char *argv[]){
@@ -160,9 +161,10 @@ int main(int argc, char *argv[]){
             break;
         }
     }
+
+    LOGGER.open(options["out"][0] + ".log");
+    out_ver(true);
     if(mains.size() != 0 && !unKnownFlag){
-        LOGGER.open(options["out"][0] + ".log");
-        out_ver(true);
         // List all of the options
         LOGGER.i(0, "Options: ");
         LOGGER.i(0, " ");
@@ -184,20 +186,12 @@ int main(int argc, char *argv[]){
         omp_set_num_threads(thread_num);
         processMains[mains[0]]();
     }else{
-        try{
-            LOGGER.open(options["out"][0] + ".log");
-            out_ver(true);
-            option(argc, argv);
-        }catch (const string &err_msg) {
-            LOGGER.e(0, err_msg);         
-        }catch (const char *err_msg) {
-            LOGGER.e(0, string(err_msg));
-        }
+        option(argc, argv);
     }
 
     LOGGER.i(0, "");
 
-    LOGGER.i(0, "Analysis finished: " + getLocalTime());
+    LOGGER.i(0,  "at " + getLocalTime(), "Analysis finished");
     float duration = LOGGER.tp("main");
     int hours = (int) duration / 3600;
     string time_str = (hours == 0) ? "" : (to_string(hours) + " hour" + ((hours == 1) ? " ": "s "));

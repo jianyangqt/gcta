@@ -52,19 +52,19 @@ struct _Smanip: public std::function<S &(S &)> {
     }
 };
 
+
 class Logger {
 public:
     enum Type{INFO, PROMPT, PROGRESS, WARN, ERROR, DEBUG};
 
     void Log(int level, Type type, const string& prompt, const string& message);
-    void e(int level, const string& message);
-    void i(int level, const string& message);
-    void i(int level, const string& prompt, const string& message);
-    void d(int level, const string& message);
-    void w(int level, const string& message);
-    void p(int level, const string& message);
-    void m(int level, const string& message);
-    void l(int level, const string& message);
+    void e(int level, const string& message, const string& title = empty);
+    void i(int level, const string& message, const string& title = empty);
+    void d(int level, const string& message, const string& title = empty);
+    void w(int level, const string& message, const string& title = empty);
+    void p(int level, const string& message, const string& title = empty);
+    void m(int level, const string& message, const string& title = empty);
+    void l(int level, const string& message, const string& title = empty);
     void ts(string marker);
     float tp(string marker);
     Logger& operator<<(Type type);
@@ -94,6 +94,7 @@ public:
 private:
     static std::map<Logger::Type, string> style_map;
     static std::map<string, std::chrono::time_point<std::chrono::steady_clock>> time_map;
+    static string empty;
 
     static std::mutex log_mutex;
 

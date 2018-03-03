@@ -39,6 +39,7 @@
 using std::cout;
 
 std::mutex Logger::log_mutex;
+std::string Logger::empty = {};
 std::map<string, std::chrono::time_point<std::chrono::steady_clock>> Logger::time_map;
 #ifdef _WIN32 
 std::map<Logger::Type, string> Logger::style_map = {{Logger::INFO, ""}, {Logger::PROMPT, ""},
@@ -109,14 +110,11 @@ void Logger::Log(int level, Type type, const string& prompt, const string& messa
     (*m_pThis) << spaces << type << prompt << INFO << message << endl;
 }
 
-void Logger::e(int level, const string& message){
-    m_pThis->Log(level, ERROR, "Error: ", message);
+void Logger::e(int level, const string& message, const string& title){
+    string head = title.empty() ? "Error: " : (title+" ");
+    m_pThis->Log(level, ERROR, head, message);
     m_pThis->Log(level, INFO, "", "An error occurs, please check the options or data");
     exit(1);
-}
-
-void Logger::i(int level, const string& message){
-    m_pThis->Log(level, INFO, "", message);
 }
 
 int Logger::precision(int p){
@@ -135,37 +133,45 @@ int Logger::precision(){
     return cout.precision();
 }
 
-void Logger::i(int level, const string& prompt, const string& message){
-    m_pThis->Log(level, PROMPT, prompt+" ", message);
+void Logger::i(int level, const string& message, const string& title){
+    string head = title.empty() ? "" : (title + " ");
+    m_pThis->Log(level, PROMPT, head, message);
 }
 
-void Logger::w(int level, const string &message) {
-    m_pThis->Log(level, WARN, "Warn: ", message);
+void Logger::w(int level, const string &message, const string& title) {
+    string head = title.empty() ? "Warn: " : (title + " ");
+    m_pThis->Log(level, WARN, head, message);
 }
 
-void Logger::d(int level, const string &message) {
+void Logger::d(int level, const string &message, const string& title) {
     #ifndef NDEBUG
-    m_pThis->Log(level, DEBUG, "Debug: ", message);
+    string head = title.empty() ? "Debug: " : (title + " ");
+    m_pThis->Log(level, DEBUG, head, message);
     #endif
 }
 
-void Logger::p(int level, const string &message) {
+void Logger::p(int level, const string &message, const string& title) {
+    string head = title.empty() ? "" : (title + " ");
     string spaces(level * 2, ' ');
     m_stat = PROGRESS;
     std::lock_guard<std::mutex> lock(log_mutex);
-    (*m_pThis) << spaces << message << PROGRESS << std::flush;
+    (*m_pThis) << spaces << head << message << PROGRESS << std::flush;
+    m_stat = INFO;
 }
 
-void Logger::m(int level, const string &message){
+void Logger::m(int level, const string &message, const string& title){
+    string head = title.empty() ? "" : (title + " ");
     string spaces(level * 2, ' ');
     m_stat = PROGRESS;
     std::lock_guard<std::mutex> lock(log_mutex);
-    (*m_pThis) << spaces << message << endl;
+    (*m_pThis) << spaces << PROMPT << head << INFO << message << endl;
+    m_stat = INFO;
 }
 
-void Logger::l(int level, const string &message){
+void Logger::l(int level, const string &message, const string &title){
+    string head = title.empty() ? "" : (title + " ");
     string spaces(level * 2, ' ');
-    m_logFile << spaces << message << endl;
+    m_logFile << spaces << head << message << endl;
 }
 
 void Logger::ts(string key){
