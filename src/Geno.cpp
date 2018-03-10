@@ -94,36 +94,57 @@ void Geno::filter_MAF(){
         vector<function<void (uint64_t *, int)>> callBacks;
         callBacks.push_back(bind(&Geno::freq64, this, _1, _2));
         loop_64block(callBacks);
+        LOGGER.i(0, "loop finished", "DEBUG");
         // We adopt the EPSILON from plink, because the double value may have some precision issue;
         double min_maf = options_d["min_maf"] * (1 - Constants::SMALL_EPSILON);
         double max_maf = options_d["max_maf"] * (1 + Constants::SMALL_EPSILON);
         LOGGER.d(0, "min_maf: " + to_string(min_maf) + " max_maf: " + to_string(max_maf));
-        vector<int> remove_extract_index;
+        vector<uint32_t> extract_index;
         double cur_AF;
+        LOGGER.ts("MAF");
+        LOGGER.i(0, "begin remove maf", "DEBUG");
         for(int index = 0; index != AFA1.size(); index++){
             cur_AF = AFA1[index];
             if(cur_AF > 0.5) cur_AF = 1.0 - cur_AF;
-            if((cur_AF < min_maf) || (cur_AF > max_maf)){
-                remove_extract_index.push_back(index);
+            if((cur_AF > min_maf) && (cur_AF < max_maf)){
+                extract_index.push_back(index);
                 LOGGER.d(0, to_string(index) + ": " + to_string(cur_AF));
             }
         }
 
-        for(auto index = remove_extract_index.rbegin(); index != remove_extract_index.rend(); ++index){
-            auto rindex = *index;
-            LOGGER.d(5, to_string(rindex));
-            AFA1.erase(AFA1.begin() + rindex);
-            countA1A1.erase(countA1A1.begin() + rindex);
-            countA1A2.erase(countA1A2.begin() + rindex);
-            countA2A2.erase(countA2A2.begin() + rindex);
-            RDev.erase(RDev.begin() + rindex);
+        LOGGER.i(0, "begin remove array " + to_string(LOGGER.tp("MAF")), "DEBUG");
+
+        vector<double> AFA1o = AFA1;
+        vector<uint32_t> countA1A1o = countA1A1;
+        vector<uint32_t> countA1A2o = countA1A2;
+        vector<uint32_t> countA2A2o = countA2A2;
+        vector<double> RDevo = RDev;
+
+        AFA1.resize(extract_index.size());
+        countA1A1.resize(extract_index.size());
+        countA1A2.resize(extract_index.size());
+        countA2A2.resize(extract_index.size());
+        RDev.resize(extract_index.size());
+
+        #pragma omp parallel for
+        for(uint32_t index = 0; index < extract_index.size(); index++){
+            uint32_t cur_index = extract_index[index];
+            AFA1[index] = AFA1o[cur_index];
+            countA1A1[index] = countA1A1[cur_index];
+            countA1A2[index] = countA1A2[cur_index];
+            countA2A2[index] = countA2A2[cur_index];
+            RDev[index] = RDevo[cur_index];
         }
 
-        marker->remove_extracted_index(remove_extract_index);
+        LOGGER.i(0, "array index finished " + to_string(LOGGER.tp("MAF")), "DEBUG");
+
+        marker->keep_extracted_index(extract_index);
+        LOGGER.i(0, "marker removed " + to_string(LOGGER.tp("MAF")), "DEBUG");
+
         init_AsyncBuffer();
         num_blocks = marker->count_extract() / Constants::NUM_MARKER_READ +
                      (marker->count_extract() % Constants::NUM_MARKER_READ != 0);
-        LOGGER.i(0, to_string(remove_extract_index.size()) + " SNPs removed due to --maf or --max-maf,  " + to_string(marker->count_extract()) + " remained");
+        LOGGER.i(0, to_string(extract_index.size()) + " SNPs remained due to --maf or --max-maf,  " + to_string(marker->count_extract()) + " remained");
     }
 
 }
@@ -484,8 +505,9 @@ void Geno::loop_block(vector<function<void (uint8_t *buf, int num_marker)>> call
     LOGGER.i(1, ss.str());
 }
 
-// extracted from plink2.0
-
+// extracted and revised from plink2.0
+// GPL v3, license detailed on github
+// https://github.com/chrchang/plink-ng
 void copy_quaterarr_nonempty_subset(uint64_t* raw_quaterarr[], const uint64_t* subset_mask, uint32_t raw_quaterarr_entry_ct, uint32_t subset_entry_ct, uint64_t* output_quaterarr[], const int num_marker) {
     // in plink 2.0, we probably want (0-based) bit raw_quaterarr_entry_ct of
     // subset_mask to be always allocated and unset.  This removes a few special

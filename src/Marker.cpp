@@ -122,7 +122,7 @@ void Marker::read_bim(string bim_file) {
     num_extract = index_extract.size();
     LOGGER.i(0, to_string(num_marker) + " SNPs to be included from BIM file.");
     if(num_marker != num_extract){
-        LOGGER.i(0, to_string(num_extract) + " SNPs remained after filtered by valid chromosome");
+        LOGGER.i(0, to_string(num_extract) + " SNPs to be included from valid chromosome number");
     }
     bim.close();
     if(num_marker == 0){
@@ -177,16 +177,17 @@ void Marker::extract_marker(vector<string> markers, bool isExtract) {
 
 }
 
-void Marker::remove_extracted_index(vector<int> remove_index) {
-    auto sorted_remove_index = remove_index;
-    std::sort(sorted_remove_index.begin(), sorted_remove_index.end());
+void Marker::keep_extracted_index(const vector<uint32_t>& keep_index) {
+    index_extract.resize(keep_index.size());
+    index_extract = keep_index;
 
-    for(auto i = sorted_remove_index.rbegin(); i != sorted_remove_index.rend(); ++i){
-        index_exclude.push_back(index_extract[*i]);
-        index_extract.erase(index_extract.begin() + (*i));
-    }
-    std::sort(index_exclude.begin(), index_exclude.end());
-    std::sort(index_extract.begin(), index_extract.end());
+    vector<uint32_t> whole_index(num_marker);
+    std::iota(whole_index.begin(), whole_index.end(), 0);
+
+    index_exclude.resize(whole_index.size() - index_extract.size());
+    std::set_difference(whole_index.begin(), whole_index.end(), index_extract.begin(), 
+            index_extract.end(), index_exclude.begin());
+
     num_exclude = index_exclude.size();
     num_extract = index_extract.size();
 }

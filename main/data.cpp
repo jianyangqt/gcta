@@ -1566,10 +1566,17 @@ void gcta::calcu_mu(bool ssq_flag) {
     int i = 0, j = 0;
 
     vector<double> auto_fac(_keep.size()), xfac(_keep.size()), fac(_keep.size());
+    bool no_sex_info = false;
+    bool flag_x_problem = false;
     for (i = 0; i < _keep.size(); i++) {
         auto_fac[i] = 1.0;
-        if (_sex[_keep[i]] == 1) xfac[i] = 0.5;
-        else if (_sex[_keep[i]] == 2) xfac[i] = 1.0;
+        if (_sex[_keep[i]] == 1){
+            xfac[i] = 0.5;
+        }else if (_sex[_keep[i]] == 2){
+            xfac[i] = 1.0;
+        }else{
+            no_sex_info = true;
+        }
         fac[i] = 0.5;
     }
 
@@ -1579,9 +1586,24 @@ void gcta::calcu_mu(bool ssq_flag) {
 
     #pragma omp parallel for
     for (int j = 0; j < _include.size(); j++) {
-        if (_chr[_include[j]]<(_autosome_num + 1)) mu_func(j, auto_fac);
-        else if (_chr[_include[j]] == (_autosome_num + 1)) mu_func(j, xfac);
-        else mu_func(j, fac);
+        if (_chr[_include[j]]<(_autosome_num + 1)) {
+            mu_func(j, auto_fac);
+        }else if (_chr[_include[j]] == (_autosome_num + 1)) {
+            if(no_sex_info){
+                #pragma omp critical
+                {
+                    flag_x_problem = true;
+                }
+                #pragma omp cancel for
+            }
+            mu_func(j, xfac);
+        }else{
+            mu_func(j, fac);
+        }
+    }
+
+    if(flag_x_problem){
+        LOGGER.e(0, "gender information (the 5th column of the .fam file) is required for COJO analysis on chromosome X.");
     }
 }
 

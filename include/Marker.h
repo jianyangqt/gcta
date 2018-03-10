@@ -35,7 +35,7 @@ public:
     static int registerOption(map<string, vector<string>>& options_in);
     static void processMain();
     void extract_marker(vector<string> markers, bool isExtract);
-    void remove_extracted_index(vector<int> remove_index);
+    void keep_extracted_index(const vector<uint32_t>& keep_index);
 
 private:
     vector<uint8_t> chr;

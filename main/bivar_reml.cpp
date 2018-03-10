@@ -38,8 +38,14 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
     }
     else if (m_grm_flag) {
         read_grm_filenames(grm_file, grm_files, false);
+        int last_sample;
         for (i = 0; i < grm_files.size(); i++) {
             read_grm(grm_files[i], grm_id, false, true, !(adj_grm_fac > -1.0));
+            if(i > 0 && grm_id.size() != last_sample){
+                LOGGER.e(0, "REML bivar can't handle different sample size in --mgrm currently. \n"
+                        "Please use GRMs in same samples");
+            }
+            last_sample = grm_id.size();
             update_id_map_kp(grm_id, _id_map, _keep);
         }
     }
