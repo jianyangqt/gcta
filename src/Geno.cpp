@@ -36,13 +36,13 @@
 #ifdef _WIN64
   #include <intrin.h>
   uint32_t __inline CTZLU(uint32_t value){
-      DWORD tz = 0;
+      unsigned long tz = 0;
       _BitScanForward(&tz, value);
       return tz;
   }
   
   uint32_t __inline CLZLU(uint32_t value){
-      DWORD lz = 0;
+      unsigned long lz = 0;
       _BitScanReverse(&lz, value);
       return lz;
   }
