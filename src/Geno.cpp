@@ -34,8 +34,18 @@
 #include <cstring>
 
 #ifdef _WIN64
-  #define CTZLU __builtin_ctzll
-  #define CLZLU __builtin_clzll
+  #include <intrin.h>
+  uint32_t __inline CTZLU(uint32_t value){
+      DWORD tz = 0;
+      _BitScanForward(&tz, value);
+      return tz;
+  }
+  
+  uint32_t __inline CLZLU(uint32_t value){
+      DWORD lz = 0;
+      _BitScanReverse(&lz, value);
+      return lz;
+  }
 #else
   #define CTZLU __builtin_ctzl
   #define CLZLU __builtin_clzl
@@ -542,7 +552,7 @@ void copy_quaterarr_nonempty_subset(uint64_t* raw_quaterarr[], const uint64_t* s
                             raw_quaterarr_word[i] = raw_quaterarr[i][temp_index];
                         }
                         do {
-                            uint32_t rqa_idx_lowbits = __builtin_ctz(cur_include_halfword);
+                            uint32_t rqa_idx_lowbits = CTZLU(cur_include_halfword);
                             uint32_t lshift = word_write_halfshift * 2; 
                             uint32_t rshift = rqa_idx_lowbits * 2;
                             for(int i = 0; i != num_marker; i++){

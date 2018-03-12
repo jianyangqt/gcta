@@ -13,6 +13,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{1586BD91-5670-4552-B603-494BE2297176}</ProjectGuid>
     <Keyword>MakeFileProj</Keyword>
+    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -44,7 +45,7 @@
     <LibraryPath>$(OmpLibDir);$(LibraryPath);C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\lib\intel64;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\lib\intel64;D:\Program\zlib-1.2.11\contrib\vstudio\vc14\x64\ZlibStatRelease</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(MKLIncludeDir);$(IncludePath);D:\Program\eigen-3.3.4;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\include;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\include;D:\Program\zlib-1.2.11;..\include;..\</IncludePath>
+    <IncludePath>$(MKLIncludeDir);$(IncludePath);D:\Program\eigen-3.3.4;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\include;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\include;D:\Program\zlib-1.2.11;..\include;..\;D:\Program\boost_1_66_0;</IncludePath>
     <LibraryPath>$(OmpLibDir);$(LibraryPath);C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\lib\intel64;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\lib\intel64;D:\Program\zlib-1.2.11\contrib\vstudio\vc14\x64\ZlibStatRelease</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -107,6 +108,7 @@
     <ClCompile Include="..\main\est_hsq.cpp" />
     <ClCompile Include="..\main\gbat.cpp" />
     <ClCompile Include="..\main\grm.cpp" />
+    <ClCompile Include="..\main\gsmr.cpp" />
     <ClCompile Include="..\main\gwas_simu.cpp" />
     <ClCompile Include="..\main\joint_meta.cpp" />
     <ClCompile Include="..\main\ld.cpp" />
@@ -128,6 +130,7 @@
     <ClCompile Include="..\src\main.cpp" />
     <ClCompile Include="..\src\Marker.cpp" />
     <ClCompile Include="..\src\Pheno.cpp" />
+    <ClCompile Include="..\src\StatLib.cpp" />
     <ClCompile Include="..\src\tables.cpp" />
     <ClCompile Include="..\src\ThreadPool.cpp" />
     <ClCompile Include="..\src\utils.cpp" />
@@ -142,6 +145,7 @@
     <ClInclude Include="..\include\Marker.h" />
     <ClInclude Include="..\include\mem.hpp" />
     <ClInclude Include="..\include\Pheno.h" />
+    <ClInclude Include="..\include\StatLib.h" />
     <ClInclude Include="..\include\tables.h" />
     <ClInclude Include="..\include\ThreadPool.h" />
     <ClInclude Include="..\include\utils.hpp" />
