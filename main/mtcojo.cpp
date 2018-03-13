@@ -729,7 +729,7 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
     std::stringstream ss1, ss2;
     ss1 << std::fixed << std::setprecision(2) << ld_fdr_thresh;
     ss2 << std::fixed << std::setprecision(2) << r2_thresh;
-    LOGGER.i(0, "LD clumping with a FDR threshold of " + ss1.str() + "a LD r2 threshold of " + ss2.str() + " ...");
+    LOGGER.i(0, "LD clumping with a FDR threshold of " + ss1.str() + " and a LD r2 threshold of " + ss2.str() + " ...");
     vector<int> kept_ID;
     vector<string> indices_snp_buf(indices_snp);
     kept_ID = rm_cor_elements(ld_r_mat, r2_thresh, true);
@@ -1307,6 +1307,22 @@ void mtcojo_ldsc(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eigenMatr
             ldsc_slope(i,j) = ldsc_slope(j,i) = rst_ldsc[1];
         }
     }
+    // Print the intercept of rg
+    stringstream ss;
+    LOGGER.i(0, "Intercept:");
+    for(i=0; i<ntrait; i++) {
+        ss.str("");
+        for(j=0; j<ntrait; j++)
+            ss << ldsc_intercept(i,j) << " ";
+        LOGGER.i(0, ss.str());
+    }
+    LOGGER.i(0, "rg:");
+    for(i=0; i<ntrait; i++) {
+        ss.str("");
+        for(j=0; j<ntrait; j++) 
+            ss << ldsc_slope(i,j) << " ";
+        LOGGER.i(0, ss.str());
+    }
     LOGGER.i(0, "LD score regression analysis completed.");
 }
 
@@ -1318,7 +1334,7 @@ eigenMatrix mtcojo_cond_single_covar(eigenVector bzy, eigenVector bzy_se,  eigen
     for(i=0; i<nsnp; i++) {
         mtcojo_est(i,0) = bzy(i) - bzx(i,0)*bxy;
         var_bzx_buf = bxy*bxy*bzx_se(i,0)*bzx_se(i,0);
-        cov_bzx_bzy = bxy*ldsc_intercept(0,i)*bzx_se(i,0)*bzy_se(i);
+        cov_bzx_bzy = bxy*ldsc_intercept(0,1)*bzx_se(i,0)*bzy_se(i);
         mtcojo_est(i,1) = sqrt(bzy_se(i)*bzy_se(i) + var_bzx_buf - 2*cov_bzx_bzy);
         mtcojo_est(i,2) = StatFunc::pchisq(mtcojo_est(i,0)*mtcojo_est(i,0)/mtcojo_est(i,1)/mtcojo_est(i,1), 1);
      }
