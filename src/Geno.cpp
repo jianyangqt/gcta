@@ -51,17 +51,22 @@
   //#define CLZU __builtin_clz
   #if defined(__linux__)
   __attribute__((target("avx2")))
-  #endif
   uint32_t CTZU(uint32_t value){
       return __builtin_ctz(value);
   }
 
-  #if defined(__linux__)
   __attribute__((target("default")))
-  #endif
   uint32_t CTZU(uint32_t value){
       return __builtin_ctz(value);
   }
+  #endif
+
+  #ifdef __APPLE__
+   uint32_t CTZU(uint32_t value){
+      return __builtin_ctz(value);
+   }
+  #endif
+ 
 #endif
 
 typedef uint32_t halfword_t;
