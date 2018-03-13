@@ -152,7 +152,7 @@ void option(int option_num, char* option_str[])
     bool heidi_flag=true, mtcojo_flag=false, heidi_thresh_flag=true, nsnp_heidi_flag=true, ref_ld_flag=false, w_ld_flag=false;
 
     // GSMR
-    bool gsmr_flag = false;
+    bool gsmr_flag = false, o_snp_instru_flag = false;
     int gsmr_alg_flag = 0;
     string expo_file_list = "", outcome_file_list = "";
     
@@ -1006,6 +1006,9 @@ void option(int option_num, char* option_str[])
             if(gsmr_alg_flag < 0 || gsmr_alg_flag > 2) 
                 LOGGER.e(0, "--gsmr-alg should be 0 (forward-GSMR), 1 (reverse-GSMR) or 2 (bi-GSMR).");
             cout << "--gsmr-alg " << gsmr_alg_flag << endl;
+        } else if (strcmp(argv[i], "--effect-plot") == 0) {
+            o_snp_instru_flag = true;
+            cout << "--effect-plot" << endl;
         } else if (strcmp(argv[i], "--mtcojo-file") == 0) {
             mtcojo_flag = true;
             mtcojolist_file = argv[++i];
@@ -1261,7 +1264,7 @@ void option(int option_num, char* option_str[])
             else if (massoc_slct_flag | massoc_joint_flag) pter_gcta->run_massoc_slct(massoc_file, massoc_wind, massoc_p, massoc_collinear, massoc_top_SNPs, massoc_joint_flag, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag, massoc_mld_slct_alg);
             else if (!massoc_cond_snplist.empty()) pter_gcta->run_massoc_cond(massoc_file, massoc_cond_snplist, massoc_wind, massoc_collinear, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag);
             else if (massoc_sblup_flag) pter_gcta->run_massoc_sblup(massoc_file, massoc_wind, massoc_sblup_fac);
-            else if (gsmr_flag) pter_gcta->gsmr(gsmr_alg_flag,  clump_thresh1, clump_thresh2, clump_wind_size, clump_r2_thresh, gwas_thresh, heidi_thresh, ld_fdr_thresh, nsnp_heidi, nsnp_gsmr, heidi_flag);
+            else if (gsmr_flag) pter_gcta->gsmr(gsmr_alg_flag,  clump_thresh1, clump_thresh2, clump_wind_size, clump_r2_thresh, gwas_thresh, heidi_thresh, ld_fdr_thresh, nsnp_heidi, nsnp_gsmr, heidi_flag, o_snp_instru_flag);
             else if (mtcojo_flag) pter_gcta->mtcojo(mtcojolist_file, ref_ld_dirt, w_ld_dirt, clump_thresh1, clump_thresh2, clump_wind_size, clump_r2_thresh, gwas_thresh, heidi_thresh, ld_fdr_thresh, nsnp_heidi, nsnp_gsmr, heidi_flag);
             else if (simu_qt_flag || simu_cc) pter_gcta->GWAS_simu(bfile, simu_rep, simu_causal, simu_case_num, simu_control_num, simu_h2, simu_K, simu_seed, simu_output_causal, simu_emb_flag, simu_eff_mod);
             else if (make_bed_flag) pter_gcta->save_plink();

@@ -682,7 +682,7 @@ void adjust_ld_r_fdr(eigenMatrix &ld_r_mat, vector<pair<double, int>> ld_pval, i
     }
 }
 
-vector<double> gcta::gsmr_meta(eigenVector bzx, eigenVector bzx_se, eigenVector bzx_pval, eigenVector bzy, eigenVector bzy_se, vector<bool> snp_flag, double pval_thresh1, double pval_thresh2, int wind_size, double r2_thresh, double gwas_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, int nsnp_heidi, bool heidi_flag) {
+vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eigenVector bzx_se, eigenVector bzx_pval, eigenVector bzy, eigenVector bzy_se, vector<bool> snp_flag, double pval_thresh1, double pval_thresh2, int wind_size, double r2_thresh, double gwas_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, int nsnp_heidi, bool heidi_flag) {
     
     int i=0, j=0, k=0, nsnp = _include.size(), nindi=_keep.size();
     vector<string> indices_snp;
@@ -740,6 +740,7 @@ vector<double> gcta::gsmr_meta(eigenVector bzx, eigenVector bzx_se, eigenVector 
     LOGGER.i(0, "After LD clumping, there are " + to_string(n_indices_snp) + " SNPs, " + to_string(n_rm_snp) + " SNPs removed.");
 
     if(n_indices_snp < nsnp_gsmr) LOGGER.e(0, "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required.");
+    
     // Adjust LD
     eigenMatrix ld_pval_mat(n_indices_snp, n_indices_snp);
     vector<pair<double,int>> ld_pval(n_indices_snp*(n_indices_snp-1)/2);
@@ -822,6 +823,11 @@ vector<double> gcta::gsmr_meta(eigenVector bzx, eigenVector bzx_se, eigenVector 
     int n_snp_gsmr = include_gsmr.size();
     LOGGER.i(0, to_string(n_snp_gsmr) + " index SNPs are retained after the HEIDI-outlier analysis.");
     if(n_snp_gsmr  < nsnp_gsmr) LOGGER.e(0, "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required.");
+    
+    // Save the SNPs after HEIDI-outlier test
+    snp_instru.clear(); snp_instru.resize(n_snp_gsmr);
+    for(i=0; i<n_snp_gsmr; i++)
+        snp_instru[i] = indices_snp[include_gsmr[i]];
     
     // update cov(bxy_i, bxy_j) and bxy
     double logdet = 0.0;
@@ -1392,9 +1398,10 @@ void gcta::mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, 
     vector<double> gsmr_rst(4);
     eigenVector bxy_est(ncovar);
     for(i=1; i<=ncovar; i++) {
+        vector<string> snp_instru;
         LOGGER.i(0, "\nGSMR analysis for covariate #" + to_string(i) + " ...");
         for(j=0; j<nsnp_init; j++) snp_pair_flag[j] = (int)((_snp_val_flag[0][j]+_snp_val_flag[i][j])/2);
-        gsmr_rst =  gsmr_meta(_meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), _meta_snp_b.col(0), _meta_snp_se.col(0),  snp_pair_flag, clump_thresh1, clump_thresh2, clump_wind_size, clump_r2_thresh, gwas_thresh, heidi_thresh, ld_fdr_thresh, nsnp_heidi, nsnp_gsmr, heidi_flag);
+        gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), _meta_snp_b.col(0), _meta_snp_se.col(0),  snp_pair_flag, clump_thresh1, clump_thresh2, clump_wind_size, clump_r2_thresh, gwas_thresh, heidi_thresh, ld_fdr_thresh, nsnp_heidi, nsnp_gsmr, heidi_flag);
         if(std::isnan(gsmr_rst[3])) 
             LOGGER.e(0, "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required for the GSMR analysis.");
         bxy_est(i-1) = gsmr_rst[0];
