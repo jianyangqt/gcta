@@ -35,35 +35,35 @@
 
 #ifdef _WIN64
   #include <intrin.h>
-  uint32_t __inline CTZU(uint32_t value){
-      unsigned long tz = 0;
-      _BitScanForward(&tz, value);
+  uint32_t __inline CTZ64U(uint64_t value){
+      uint32_t tz = 0;
+      _BitScanForward64(&tz, value);
       return tz;
   }
   
-  uint32_t __inline CLZU(uint32_t value){
-      unsigned long lz = 0;
-      _BitScanReverse(&lz, value);
-      return 31 - lz;
+  uint32_t __inline CLZ64U(uint64_t value){
+      uint32_t lz = 0;
+      _BitScanReverse64(&lz, value);
+      return 63 - lz;
   }
 #else
   //#define CTZU __builtin_ctz
   //#define CLZU __builtin_clz
   #if defined(__linux__)
   __attribute__((target("avx2")))
-  uint32_t CTZU(uint32_t value){
-      return __builtin_ctz(value);
+  uint32_t CTZ64U(uint64_t value){
+      return __builtin_ctzll(value);
   }
 
   __attribute__((target("default")))
-  uint32_t CTZU(uint32_t value){
-      return __builtin_ctz(value);
+  uint32_t CTZ64U(uint64_t value){
+      return __builtin_ctzll(value);
   }
   #endif
 
   #ifdef __APPLE__
-   uint32_t CTZU(uint32_t value){
-      return __builtin_ctz(value);
+   uint32_t CTZ64U(uint64_t value){
+      return __builtin_ctzll(value);
    }
   #endif
  
@@ -571,7 +571,7 @@ void copy_quaterarr_nonempty_subset(uint64_t* raw_quaterarr[], const uint64_t* s
                             raw_quaterarr_word[i] = raw_quaterarr[i][temp_index];
                         }
                         do {
-                            uint32_t rqa_idx_lowbits = CTZU(cur_include_halfword);
+                            uint32_t rqa_idx_lowbits = CTZ64U(cur_include_halfword);
                             uint32_t lshift = word_write_halfshift * 2; 
                             uint32_t rshift = rqa_idx_lowbits * 2;
                             for(int i = 0; i != num_marker; i++){
@@ -625,7 +625,7 @@ void copy_quaterarr_nonempty_subset(uint64_t* raw_quaterarr[], const uint64_t* s
                 raw_quaterarr_word[i] = *(raw_quaterarr_iter[i]++);
             }
             while (cur_include_halfword) {
-                uint32_t rqa_idx_lowbits = CTZU(cur_include_halfword); // tailing zero
+                uint32_t rqa_idx_lowbits = CTZ64U(cur_include_halfword); // tailing zero
                 uint64_t halfword_invshifted = (~cur_include_halfword) >> rqa_idx_lowbits;
                 uint64_t raw_quaterarr_curblock_unmasked[num_marker];
                 int m_bit = rqa_idx_lowbits * 2;
@@ -633,7 +633,7 @@ void copy_quaterarr_nonempty_subset(uint64_t* raw_quaterarr[], const uint64_t* s
                     raw_quaterarr_curblock_unmasked[i] = raw_quaterarr_word[i] >> m_bit; 
                 }
                 //uintptr_t raw_quaterarr_curblock_unmasked = raw_quaterarr_word >> (rqa_idx_lowbits * 2); // remove mask bit tailing zero, not to keep
-                uint32_t rqa_block_len = CTZU(halfword_invshifted);  // find another keep
+                uint32_t rqa_block_len = CTZ64U(halfword_invshifted);  // find another keep
                 uint32_t block_len_limit = kBitsPerWordD2 - word_write_halfshift;
                 m_bit = 2 * word_write_halfshift;
                 for(int i = 0; i != num_marker; i++){
