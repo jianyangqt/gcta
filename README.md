@@ -17,16 +17,16 @@ Please report bugs to: Jian Yang <jian.yang@uq.edu.au>
 5. BOOST >= 1.4
 ### Linux
 1. Kernel version >= 2.6.8
-2. GCC version >= 4.9 with C++ 11 support, Or Intel compiler version >= 15.0
+2. GCC version >= 6.1 with C++ 11 support
 ### Mac
 1. Mac version > 10.7
 2. Mac platform SDK (Usually ship with Xcode)
-3. GCC version >= 5.4 with C++ 11 support, Or Intel compiler version >= 15.0
+3. GCC version >= 5.4 with C++ 11 support
 ### Windows
 1. Windows 7 and above
-2. MSbuild toolkit 2015 version >= 14.0 (Or Visual Studio 2015 and above)
+2. MSbuild toolkit 2015 version >= 14.0 (Or Visual Studio 2017 and above)
 3. Intel compiler version >= 15.0
-4. zlib 
+4. zlib
 
 
 ## Before compile
