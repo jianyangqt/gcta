@@ -36,36 +36,26 @@
 #ifdef _WIN64
   #include <intrin.h>
   uint32_t __inline CTZ64U(uint64_t value){
-      uint32_t tz = 0;
+      unsigned long tz = 0;
       _BitScanForward64(&tz, value);
       return tz;
   }
   
   uint32_t __inline CLZ64U(uint64_t value){
-      uint32_t lz = 0;
+      unsigned long lz = 0;
       _BitScanReverse64(&lz, value);
       return 63 - lz;
   }
 #else
   //#define CTZU __builtin_ctz
   //#define CLZU __builtin_clz
-  #if defined(__linux__)
-  __attribute__((target("avx2")))
+  #ifdef __linux__
+  #pragma message("multiple target")
+  __attribute__((target_clones("avx2","default")))
+  #endif
   uint32_t CTZ64U(uint64_t value){
       return __builtin_ctzll(value);
   }
-
-  __attribute__((target("default")))
-  uint32_t CTZ64U(uint64_t value){
-      return __builtin_ctzll(value);
-  }
-  #endif
-
-  #ifdef __APPLE__
-   uint32_t CTZ64U(uint64_t value){
-      return __builtin_ctzll(value);
-   }
-  #endif
  
 #endif
 
