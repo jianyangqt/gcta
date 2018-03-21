@@ -994,18 +994,20 @@ void option(int option_num, char* option_str[])
             }
             i--;
             if (gsmr_file_list.size() < 1 || gsmr_file_list.size() > 2) 
-                LOGGER.e(0, "--gsmr-file Please specify the GWAS summary data for the exposure(s) and the outcome(s).");
+                LOGGER.e(0, "--gsmr-file, please specify the GWAS summary data for the exposure(s) and the outcome(s).");
 
             expo_file_list = gsmr_file_list[0];
             outcome_file_list = gsmr_file_list[1];
             cout << "--gsmr-file " << expo_file_list << " " << outcome_file_list << endl;
             CommFunc::FileExist(expo_file_list);
             CommFunc::FileExist(outcome_file_list);
-        } else if (strcmp(argv[i], "--gsmr-alg") == 0) {
+        } else if (strcmp(argv[i], "--gsmr-direction") == 0) {
             gsmr_alg_flag = atoi(argv[++i]);
             if(gsmr_alg_flag < 0 || gsmr_alg_flag > 2) 
-                LOGGER.e(0, "--gsmr-alg should be 0 (forward-GSMR), 1 (reverse-GSMR) or 2 (bi-GSMR).");
-            cout << "--gsmr-alg " << gsmr_alg_flag << endl;
+                LOGGER.e(0, "--gsmr-direction should be 0 (forward-GSMR), 1 (reverse-GSMR) or 2 (bi-GSMR).");
+            cout << "--gsmr-direction " << gsmr_alg_flag << endl;
+        } else if (strcmp(argv[i], "--gsmr-alg") == 0) {
+            LOGGER.e(0, "--gsmr-alg has been superceded by --gsmr-direction.");
         } else if (strcmp(argv[i], "--effect-plot") == 0) {
             o_snp_instru_flag = true;
             cout << "--effect-plot" << endl;
@@ -1150,7 +1152,8 @@ void option(int option_num, char* option_str[])
     }
     if(bivar_reml_flag && prevalence_flag) throw("Error: --prevalence option is not compatible with --reml-bivar option. Please check the --reml-bivar-prevalence option!");
     if(!heidi_flag && (heidi_thresh_flag || nsnp_heidi_flag))                 LOGGER.i(0, "The HEIDI-outlier test will be not perfomed, although parameters of the HEIDI-outlier test have been assigned. ");
-
+    if(ref_ld_flag && !w_ld_flag) LOGGER.e(0, "--ref-ld-chr, please specify the directory of LD score files.");
+    if(!ref_ld_flag && w_ld_flag) LOGGER.e(0, "--w-ld-chr, please specify the directory of LD scores for the regression weights.");
     // OpenMP
     stringstream ss;
     ss << thread_num;
@@ -1236,7 +1239,7 @@ void option(int option_num, char* option_str[])
             }
             if (!update_refA_file.empty()) pter_gcta->update_ref_A(update_refA_file);
             if (LD) pter_gcta->read_LD_target_SNPs(LD_file);
-            if(gsmr_flag) pter_gcta->read_gsmrfile(expo_file_list, outcome_file_list, clump_thresh1, gwas_thresh);
+            if(gsmr_flag) pter_gcta->read_gsmrfile(expo_file_list, outcome_file_list, clump_thresh1, gwas_thresh, ref_ld_flag);
             if(mtcojo_flag) pter_gcta->read_mtcojofile(mtcojolist_file, clump_thresh1, gwas_thresh, nsnp_gsmr);
             if(bfile_flag==1) pter_gcta->read_bedfile(bfile + ".bed");
             else pter_gcta->read_multi_bedfiles(multi_bfiles);
@@ -1264,7 +1267,7 @@ void option(int option_num, char* option_str[])
             else if (massoc_slct_flag | massoc_joint_flag) pter_gcta->run_massoc_slct(massoc_file, massoc_wind, massoc_p, massoc_collinear, massoc_top_SNPs, massoc_joint_flag, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag, massoc_mld_slct_alg);
             else if (!massoc_cond_snplist.empty()) pter_gcta->run_massoc_cond(massoc_file, massoc_cond_snplist, massoc_wind, massoc_collinear, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag);
             else if (massoc_sblup_flag) pter_gcta->run_massoc_sblup(massoc_file, massoc_wind, massoc_sblup_fac);
-            else if (gsmr_flag) pter_gcta->gsmr(gsmr_alg_flag,  clump_thresh1, clump_thresh2, clump_wind_size, clump_r2_thresh, gwas_thresh, heidi_thresh, ld_fdr_thresh, nsnp_heidi, nsnp_gsmr, heidi_flag, o_snp_instru_flag);
+            else if (gsmr_flag) pter_gcta->gsmr(gsmr_alg_flag, ref_ld_dirt, w_ld_dirt, clump_thresh1, clump_thresh2, clump_wind_size, clump_r2_thresh, gwas_thresh, heidi_thresh, ld_fdr_thresh, nsnp_heidi, nsnp_gsmr, heidi_flag, o_snp_instru_flag, ref_ld_flag);
             else if (mtcojo_flag) pter_gcta->mtcojo(mtcojolist_file, ref_ld_dirt, w_ld_dirt, clump_thresh1, clump_thresh2, clump_wind_size, clump_r2_thresh, gwas_thresh, heidi_thresh, ld_fdr_thresh, nsnp_heidi, nsnp_gsmr, heidi_flag);
             else if (simu_qt_flag || simu_cc) pter_gcta->GWAS_simu(bfile, simu_rep, simu_causal, simu_case_num, simu_control_num, simu_h2, simu_K, simu_seed, simu_output_causal, simu_emb_flag, simu_eff_mod);
             else if (make_bed_flag) pter_gcta->save_plink();

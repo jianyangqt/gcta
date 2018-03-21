@@ -44,7 +44,7 @@ vector<string> update_common_snps(const vector<string> snplist, vector<string> c
     }
     stable_sort(snpbuf.begin(), snpbuf.end());
     
-    return(snpbuf);
+    return snpbuf;
 }
 
 void read_metafile_list(string mtcojolist_file, string &target_pheno, string &target_pheno_file, vector<string> &covar_pheno, vector<string> &covar_pheno_file, vector<double> &popu_prev, vector<double> &smpl_prev) {
@@ -250,7 +250,7 @@ vector<string> gcta::read_snp_metafile(string metafile, double thresh) {
         }
     }
     meta_snp.close();
-    return(snplist);
+    return snplist;
 }
 
 double gcta::read_single_metafile(string metafile, map<string, int> id_map,
@@ -311,7 +311,7 @@ double gcta::read_single_metafile(string metafile, map<string, int> id_map,
     meta_raw.close();
     if(vec_vp_buf.size()>0) median_vp = CommFunc::median(vec_vp_buf);
 
-    return(median_vp);
+    return median_vp;
 }
 
 vector<string> gcta::remove_bad_snps(vector<string> snp_name, vector<int> snp_remain, vector<vector<bool>> snp_flag, vector<vector<string>> &snp_a1, vector<vector<string>> &snp_a2, eigenMatrix &snp_freq,  
@@ -392,7 +392,7 @@ vector<string> gcta::remove_bad_snps(vector<string> snp_name, vector<int> snp_re
     }
    
     stable_sort(badsnps.begin(), badsnps.end());
-    return(badsnps);
+    return badsnps;
 }
 
 vector<string> gcta::filter_meta_snp_pval(vector<string> snp_name, vector<int> remain_snp_indx,  eigenMatrix snp_pval, int start_indx, int end_indx, double pval_thresh) {
@@ -408,7 +408,7 @@ vector<string> gcta::filter_meta_snp_pval(vector<string> snp_name, vector<int> r
             }
         }
     }
-    return(kpsnps);
+    return kpsnps;
 }
 
 void gcta::read_mtcojofile(string mtcojolist_file, double clump_thresh1, double gwas_thresh, int nsnp_gsmr) {
@@ -604,7 +604,7 @@ vector<string> gcta::clumping_meta(eigenVector snp_pval, vector<bool> snp_flag, 
         indices_snp.push_back(snpbuf);
     }
   
-    return(indices_snp);
+    return indices_snp;
 }
 
 vector<int> rm_cor_elements(eigenMatrix r_mat, double r2_thresh, bool r2_flag) {
@@ -663,7 +663,7 @@ vector<int> rm_cor_elements(eigenMatrix r_mat, double r2_thresh, bool r2_flag) {
         for(i=0; i<n; i++) kept_ID[i] = i;
     }
 
-    return(kept_ID);
+    return kept_ID;
 }
 
 void adjust_ld_r_fdr(eigenMatrix &ld_r_mat, vector<pair<double, int>> ld_pval, int m, double thresh) {
@@ -682,14 +682,14 @@ void adjust_ld_r_fdr(eigenMatrix &ld_r_mat, vector<pair<double, int>> ld_pval, i
     }
 }
 
-vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eigenVector bzx_se, eigenVector bzx_pval, eigenVector bzy, eigenVector bzy_se, vector<bool> snp_flag, double pval_thresh1, double pval_thresh2, int wind_size, double r2_thresh, double gwas_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, int nsnp_heidi, bool heidi_flag) {
+vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eigenVector bzx_se, eigenVector bzx_pval, eigenVector bzy, eigenVector bzy_se, double rho_pheno, vector<bool> snp_flag, double pval_thresh1, double pval_thresh2, int wind_size, double r2_thresh, double gwas_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, int nsnp_heidi, bool heidi_flag) {
     
     int i=0, j=0, k=0, nsnp = _include.size(), nindi=_keep.size();
     vector<string> indices_snp;
     vector<double> rst(4);
     for(i=0; i<4; i++) rst[i] = nan("");
 
-    if(nsnp < nsnp_gsmr) return(rst);
+    if(nsnp < nsnp_gsmr) return rst;
 
     // clumping analysis
     indices_snp = clumping_meta(bzx_pval, snp_flag, pval_thresh1, pval_thresh2, wind_size, r2_thresh);
@@ -697,7 +697,7 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
 
     LOGGER.i(0, to_string(n_indices_snp) + " index SNPs are obtained from the clumping analysis.");
 
-    if(n_indices_snp < nsnp_gsmr) return(rst);
+    if(n_indices_snp < nsnp_gsmr) return rst;
 
     // LD r
     MatrixXf x_sub(nindi, n_indices_snp);
@@ -761,7 +761,7 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
         bxy(i) = bzy(iter->second)/bzx(iter->second);
      }
   
-    eigenVector zscore_inv1(n_indices_snp), zscore_inv2(n_indices_snp);
+    eigenVector zscore_inv1(n_indices_snp), zscore_inv2(n_indices_snp), zscore_inv3(n_indices_snp);
     eigenMatrix cov_bxy(n_indices_snp, n_indices_snp);
     for(i=0; i<n_indices_snp; i++) {
         iter = _meta_snp_name_map.find(indices_snp[i]);
@@ -771,13 +771,17 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
     for(i=0; i<n_indices_snp; i++) {
         for(j=i; j<n_indices_snp; j++) {
             if(i==j) {
-                cov_bxy(i,j) = zscore_inv2(i)*zscore_inv2(j) + zscore_inv1(i)*zscore_inv1(j)*bxy(i)*bxy(j); // - bxy(i)*bxy(j)*zscore_inv1(i)*zscore_inv1(j)*zscore_inv1(i)*zscore_inv1(j);
+                cov_bxy(i,j) = zscore_inv2(i)*zscore_inv2(j) + zscore_inv1(i)*zscore_inv1(j)*bxy(i)*bxy(j)
+                            - rho_pheno*zscore_inv1(i)*zscore_inv2(j)*bxy(i) - rho_pheno*zscore_inv2(i)*zscore_inv1(j)*bxy(j);       
             } else {
-                cov_bxy(i,j) = cov_bxy(j,i) = ld_r_mat(kept_ID[i],kept_ID[j])*zscore_inv2(i)*zscore_inv2(j) + ld_r_mat(kept_ID[i],kept_ID[j])*zscore_inv1(i)*zscore_inv1(j)*bxy(i)*bxy(j); // - bxy(i)*bxy(j)*zscore_inv1(i)*zscore_inv1(j)*zscore_inv1(i)*zscore_inv1(j);
+                cov_bxy(i,j) = cov_bxy(j,i) = ld_r_mat(kept_ID[i],kept_ID[j])*zscore_inv2(i)*zscore_inv2(j) 
+                            + ld_r_mat(kept_ID[i],kept_ID[j])*zscore_inv1(i)*zscore_inv1(j)*bxy(i)*bxy(j)
+                            - ld_r_mat(kept_ID[i],kept_ID[j])*rho_pheno*zscore_inv1(i)*zscore_inv2(j)*bxy(i)
+                            - ld_r_mat(kept_ID[i],kept_ID[j])*rho_pheno*zscore_inv2(i)*zscore_inv1(j)*bxy(j);          
             }
         }
     }
-  
+
     if(n_indices_snp  < nsnp_heidi) LOGGER.e(0, "Not enough SNPs to perform the HEIDI-outlier analysis. At least " + to_string(nsnp_heidi) + " SNPs are required.");
 
     // heidi-outlier
@@ -855,13 +859,12 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
     bxy_gsmr_se = sqrt(bxy_gsmr_se);
     
     rst[0] = bxy_gsmr; rst[1] = bxy_gsmr_se; rst[2] = bxy_gsmr_pval; rst[3] = n_snp_gsmr;
-    return (rst);
+    return rst;
 }
 
-double read_ld_marker(string ref_ld_dirt) {
+int read_ld_marker(string ref_ld_dirt) {
     // Read the number of markers
-    int i = 0, chr_num = 22;
-    double d_buf = 0.0, ttl_mk_num = 0.0;
+    int i = 0, i_buf = 0, ttl_mk_num = 0, chr_num = 22;
     string filestr = "", strbuf = "";
     for(i=0; i<chr_num; i++) {
         filestr = ref_ld_dirt + to_string(i+1)+ ".l2.M_5_50";
@@ -872,11 +875,11 @@ double read_ld_marker(string ref_ld_dirt) {
         std::istream_iterator<string> begin(linebuf), end;
         vector<string> line_elements(begin, end);
         if(line_elements.size() != 1) LOGGER.e(0, "Format of file [" + filestr + "] is not correct.");
-        d_buf = atof(line_elements[0].c_str());
-        ttl_mk_num += d_buf;
+        i_buf = atoi(line_elements[0].c_str());
+        ttl_mk_num += i_buf;
         ref_marker.close();
     }
-    return(ttl_mk_num);
+    return ttl_mk_num;
 }
 
 vector<string> read_ld_score_txt(string filestr, map<string,int> snplist_map, vector<double> &ld_score) {
@@ -906,7 +909,7 @@ vector<string> read_ld_score_txt(string filestr, map<string,int> snplist_map, ve
         }
     }
     ldsc_marker.close();
-    return(ld_score_snps);
+    return ld_score_snps;
 }
 
 vector<string> read_ld_score_gz(string filestr, map<string,int> snplist_map, vector<double> &ld_score) {
@@ -939,7 +942,7 @@ vector<string> read_ld_score_gz(string filestr, map<string,int> snplist_map, vec
         }
     }
     ldsc_marker.close();
-    return(ld_score_snps);
+    return ld_score_snps;
 }
 
 vector<string> read_ld_score(string ld_dirt, map<string,int> snplist_map, int nsnp, vector<double> &ld_score) {
@@ -964,7 +967,7 @@ vector<string> read_ld_score(string ld_dirt, map<string,int> snplist_map, int ns
         else LOGGER.e(0, "Cannot open the file [" + filestr_t1 + "] or [" + filestr_t2 + "] to read.");
     }
     
-    return(ld_score_snps);
+    return ld_score_snps;
 }
 
 eigenVector update_weights_hsq(double intercept, double h, int ttl_mk_num, int n_ld_snp, eigenVector ref_ld, eigenVector w_ld, eigenVector n) {
@@ -1113,9 +1116,9 @@ eigenVector update_weights_gcov(double intercept1, double h1, double intercept2,
     eigenVector w(n_ld_snp);
 
     for(i=0; i<n_ld_snp; i++) {
-        d1 = n1(i)*h1*ref_ld(i)/ttl_mk_num + intercept1;
-        d2 = n2(i)*h2*ref_ld(i)/ttl_mk_num + intercept2;
-        d3 = n_gcov(i)*gcov*ref_ld(i)/ttl_mk_num + intercept_gcov;
+        d1 = n1(i)*h1*ref_ld(i)/(double)ttl_mk_num + intercept1;
+        d2 = n2(i)*h2*ref_ld(i)/(double)ttl_mk_num + intercept2;
+        d3 = n_gcov(i)*gcov*ref_ld(i)/(double)ttl_mk_num + intercept_gcov;
         w(i) = 1/( w_ld(i) * (d1*d2 + d3*d3) );
     }
     return w;
@@ -1188,7 +1191,199 @@ double transform_hsq_L(double P, double K, double hsq) {
     return (hsq * C);
 }
 
-void mtcojo_ldsc(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eigenMatrix snp_se, eigenMatrix snp_n, int ntrait, 
+vector<string> gcta::read_snp_ldsc(map<string,int> ldsc_snp_name_map, vector<string> snp_name, vector<int> snp_remain, int &ttl_mk_num, 
+                                   string ref_ld_dirt, string w_ld_dirt, vector<double> &ref_ld_vec, vector<double> &w_ld_vec) {
+    int i=0, nsnp = snp_remain.size();
+    vector<string> ref_ld_snps, w_ld_snps;
+
+    ref_ld_vec.clear(); w_ld_vec.clear();
+    // Read the total number of markers
+    ttl_mk_num = read_ld_marker(ref_ld_dirt);
+    // Read the reference LD scores
+    ref_ld_snps = read_ld_score(ref_ld_dirt, ldsc_snp_name_map, nsnp, ref_ld_vec);
+    // Read the weighted LD scores
+    w_ld_snps = read_ld_score(w_ld_dirt, ldsc_snp_name_map, nsnp, w_ld_vec);
+    // SNPs in common
+    map<string,int> w_ld_snp_map;
+    vector<string> cm_ld_snps;
+    int n_ref_ld_snps = ref_ld_snps.size(), n_w_ld_snps = w_ld_snps.size();
+    for(i=0; i<n_w_ld_snps; i++)
+        w_ld_snp_map.insert(pair<string, int>(w_ld_snps[i], i));
+    for(i=0; i<n_ref_ld_snps; i++) {
+        if(w_ld_snp_map.find(ref_ld_snps[i])!=w_ld_snp_map.end()) {
+            cm_ld_snps.push_back(ref_ld_snps[i]);
+        }
+    }
+
+    return cm_ld_snps;
+}
+
+void gcta::reorder_snp_effect(vector<int> snp_remain, eigenMatrix &bhat_z, eigenMatrix &bhat_n, eigenMatrix snp_b, eigenMatrix snp_se, eigenMatrix snp_n, 
+                              vector<vector<bool>> &snp_flag, vector<vector<bool>> snp_val_flag, vector<int> &nsnp_cm_trait,
+                              vector<string> cm_ld_snps, map<string,int> ldsc_snp_name_map,
+                              eigenVector &ref_ld, eigenVector &w_ld, vector<double> ref_ld_vec, vector<double> w_ld_vec, int ntrait) {
+    // Re-order the variables
+    int i = 0, j = 0, n_cm_ld_snps = cm_ld_snps.size(), indxbuf = 0;
+    map<string,int>::iterator iter;
+    
+    ref_ld.resize(n_cm_ld_snps);
+    w_ld.resize(n_cm_ld_snps);
+    bhat_z.resize(n_cm_ld_snps, ntrait);
+    bhat_n.resize(n_cm_ld_snps, ntrait);
+    snp_flag.clear(); snp_flag.resize(ntrait);
+    for(i=0; i<ntrait; i++) snp_flag[i].resize(n_cm_ld_snps);
+    for(i=0; i<n_cm_ld_snps; i++) {
+        iter = ldsc_snp_name_map.find(cm_ld_snps[i]);
+        indxbuf = iter->second;
+        ref_ld(i) = ref_ld_vec[indxbuf]; w_ld(i) = w_ld_vec[indxbuf];
+        for(j=0; j<ntrait; j++) {
+            snp_flag[j][i] = snp_val_flag[j][snp_remain[indxbuf]];
+            if(!snp_flag[j][i]) continue;
+            nsnp_cm_trait[j]++;
+            bhat_z(i,j) = snp_b(snp_remain[indxbuf], j)/snp_se(snp_remain[indxbuf], j);
+            bhat_n(i,j) = snp_n(snp_remain[indxbuf], j);
+        }
+    }
+}
+
+eigenMatrix gcta::ldsc_snp_h2(eigenMatrix bhat_z, eigenMatrix bhat_n, eigenVector ref_ld, eigenVector w_ld, vector<vector<bool>> snp_flag, vector<int> nsnp_cm_trait, int n_cm_ld_snps, int ttl_mk_num, vector<string> trait_name, int ntrait) {
+    // Estimate SNP h2
+    int i = 0, j = 0;
+    vector<double> rst_ldsc(2);
+    vector<vector<vector<double>>> ldsc_trait(3);
+    eigenMatrix ldsc_var(ntrait, 2);
+    
+    for(i=0; i<ntrait; i++) {
+        // Remove missing value
+        int k = 0, nsnp_buf = 0;
+        eigenVector chi_val_buf(nsnp_cm_trait[i]), n_buf(nsnp_cm_trait[i]), ref_ld_buf(nsnp_cm_trait[i]), w_ld_buf(nsnp_cm_trait[i]);
+        for(j = 0, k = 0; j < n_cm_ld_snps; j++) {
+            if(!snp_flag[i][j]) continue;
+            chi_val_buf(k) = bhat_z(j,i)*bhat_z(j,i);
+            n_buf(k) = bhat_n(j,i);
+            ref_ld_buf(k) = ref_ld(j);
+            w_ld_buf(k) = w_ld(j); 
+            k++;
+        }
+        // h2
+        rst_ldsc = est_hsq_trait_2_steps(chi_val_buf, n_buf, ref_ld_buf, w_ld_buf, nsnp_cm_trait[i], ttl_mk_num);
+        ldsc_var(i, 0) = rst_ldsc[0];
+        if(rst_ldsc[1]>0) {
+            ldsc_var(i,1) = rst_ldsc[1];
+            LOGGER.i(0, trait_name[i] + ": " + to_string(rst_ldsc[0]) + " " + to_string(rst_ldsc[1]));  
+        } else {
+            LOGGER.e(0, "Negative SNP heritability estimate for " + trait_name[i] + ". Exiting ...");
+        }
+    }
+    return ldsc_var;
+}
+
+eigenMatrix gcta::ldsc_snp_rg(eigenMatrix ldsc_var_h2, eigenMatrix bhat_z, eigenMatrix bhat_n, eigenVector ref_ld, eigenVector w_ld, vector<vector<bool>> snp_flag, vector<int> trait_indx1, vector<int> trait_indx2, int n_cm_ld_snps, int ttl_mk_num) {
+    // Estimate SNP rg
+    int i = 0, nproc = trait_indx1.size();
+    eigenMatrix ldsc_var_rg(nproc, 2);
+    eigenVector gcov_n1n2(n_cm_ld_snps);
+    vector<double> rst_ldsc(2);
+    for( i = 0; i < nproc; i++ ) {
+        int k = 0, n_cm_snps_buf = 0;
+        vector<bool> snp_pair_flag(n_cm_ld_snps);
+        for(k=0; k<n_cm_ld_snps; k++) {
+            snp_pair_flag[k] = (int)((snp_flag[trait_indx1[i]][k] + snp_flag[trait_indx2[i]][k])/2);
+            n_cm_snps_buf += snp_pair_flag[k];
+        }
+        eigenVector gcov_z1z2(n_cm_snps_buf), gcov_n1n2(n_cm_snps_buf), ref_ld_buf(n_cm_snps_buf), w_ld_buf(n_cm_snps_buf), n_buf_i(n_cm_snps_buf), n_buf_j(n_cm_snps_buf);
+        int t = 0;
+        for(k=0, t=0; k<n_cm_ld_snps; k++) {
+            if(!snp_pair_flag[k]) continue;
+            gcov_z1z2(t) = bhat_z(k,trait_indx1[i])*bhat_z(k,trait_indx2[i]);
+            gcov_n1n2(t) = sqrt(bhat_n(k,trait_indx1[i])*bhat_n(k,trait_indx2[i]));
+            ref_ld_buf(t) = ref_ld(k);
+            w_ld_buf(t) = w_ld(k);
+            n_buf_i(t) = bhat_n(k,trait_indx1[i]);
+            n_buf_j(t) = bhat_n(k,trait_indx2[i]);
+            t++;
+        }
+        rst_ldsc = est_gcov_trait_1_step(gcov_z1z2, gcov_n1n2, ref_ld_buf, w_ld_buf, 
+                                        ldsc_var_h2(trait_indx1[i],0), ldsc_var_h2(trait_indx1[i],1), n_buf_i, 
+                                        ldsc_var_h2(trait_indx2[i],0), ldsc_var_h2(trait_indx2[i],1), n_buf_j, n_cm_snps_buf, ttl_mk_num);
+        ldsc_var_rg(i,0) = rst_ldsc[0];
+        ldsc_var_rg(i,1) = rst_ldsc[1];
+    } 
+    return ldsc_var_rg;
+}
+
+void gcta::mtcojo_ldsc(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eigenMatrix snp_se, eigenMatrix snp_n, int ntrait, 
+                vector<string> snp_name, vector<int> snp_remain, string ref_ld_dirt, string w_ld_dirt, vector<string> trait_name,
+                eigenMatrix &ldsc_intercept, eigenMatrix &ldsc_slope) {
+
+    int i = 0, j = 0, nsnp = snp_remain.size();
+    int ttl_mk_num = 0;
+    vector<int> nsnp_cm_trait(ntrait);    
+    vector<double> ref_ld_vec, w_ld_vec;
+    vector<string> cm_ld_snps;
+    vector<vector<bool>> snp_flag;
+    map<string,int> ldsc_snp_name_map;
+    eigenVector ref_ld, w_ld;
+    eigenMatrix bhat_z, bhat_n;
+
+    // Initialize the parameters
+    for(i=0; i<nsnp; i++) {
+        ldsc_snp_name_map.insert(pair<string,int>(snp_name[snp_remain[i]], i));
+    }
+    for(i=0; i<ntrait; i++) nsnp_cm_trait[i] = 0;
+    // Read the LD scores
+    cm_ld_snps = read_snp_ldsc(ldsc_snp_name_map, snp_name, snp_remain, ttl_mk_num, ref_ld_dirt, w_ld_dirt, ref_ld_vec, w_ld_vec);
+    // Re-order the SNP effects and LD scores
+    reorder_snp_effect(snp_remain, bhat_z, bhat_n, snp_b, snp_se, snp_n, snp_flag, snp_val_flag, nsnp_cm_trait,
+                       cm_ld_snps, ldsc_snp_name_map, ref_ld, w_ld, ref_ld_vec, w_ld_vec, ntrait);
+    
+    // LDSC analysis
+    int n_cm_ld_snps = cm_ld_snps.size();
+    ldsc_intercept.resize(ntrait, ntrait);
+    ldsc_slope.resize(ntrait, ntrait);
+    // Estimate SNP h2
+    LOGGER.i(0, "\nLD score regression analysis to estimate SNP heritability ..."); 
+    eigenMatrix ldsc_var_h2;
+    ldsc_var_h2 = ldsc_snp_h2(bhat_z, bhat_n, ref_ld, w_ld, snp_flag, nsnp_cm_trait, n_cm_ld_snps, ttl_mk_num, trait_name, ntrait);
+    for( i = 0; i < ntrait; i++ ) {
+        ldsc_intercept(i,i) = ldsc_var_h2(i,0);
+        ldsc_slope(i,i) = ldsc_var_h2(i,1);
+    }
+    // Estimate SNP rg
+    LOGGER.i(0, "LD score regression analysis to estimate genetic correlation between each pair of traits ...");
+    int k = 0, nproc = ntrait*(ntrait-1)/2;
+    eigenMatrix ldsc_var_rg;
+    vector<int> trait_indx1(nproc), trait_indx2(nproc);
+    for( i=0, k=0; i<(ntrait-1); i++ ) {
+        for( j=i+1; j<ntrait; j++, k++) {
+            trait_indx1[k] = i; trait_indx2[k] = j;
+        }
+    }
+    ldsc_var_rg = ldsc_snp_rg(ldsc_var_h2, bhat_z, bhat_n, ref_ld, w_ld, snp_flag, trait_indx1, trait_indx2, n_cm_ld_snps, ttl_mk_num);
+    for( i=0; i<nproc; i++) {
+        ldsc_intercept(trait_indx1[i], trait_indx2[i]) = ldsc_intercept(trait_indx2[i], trait_indx1[i]) = ldsc_var_rg(i,0);
+        ldsc_slope(trait_indx1[i], trait_indx2[i]) = ldsc_slope(trait_indx2[i], trait_indx1[i]) = ldsc_var_rg(i,1);
+    }
+    // Print the intercept of rg
+    stringstream ss;
+    LOGGER.i(0, "Intercept:");
+    for(i=0; i<ntrait; i++) {
+        ss.str("");
+        for(j=0; j<ntrait; j++)
+            ss << ldsc_intercept(i,j) << " ";
+        LOGGER.i(0, ss.str());
+    }
+    LOGGER.i(0, "rg:");
+    for(i=0; i<ntrait; i++) {
+        ss.str("");
+        for(j=0; j<ntrait; j++) 
+            ss << ldsc_slope(i,j) << " ";
+        LOGGER.i(0, ss.str());
+    }
+    LOGGER.i(0, "LD score regression analysis completed.");
+} 
+
+/*void mtcojo_ldsc(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eigenMatrix snp_se, eigenMatrix snp_n, int ntrait, 
                 vector<string> snp_name, vector<int> snp_remain, vector<double> popu_prev, vector<double> smpl_prev,
                 string ref_ld_dirt, string w_ld_dirt, eigenMatrix &ldsc_intercept, eigenMatrix &ldsc_slope) {
     int i=0, nsnp = snp_remain.size();
@@ -1324,7 +1519,7 @@ void mtcojo_ldsc(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eigenMatr
         LOGGER.i(0, ss.str());
     }
     LOGGER.i(0, "LD score regression analysis completed.");
-}
+}*/
 
 eigenMatrix mtcojo_cond_single_covar(eigenVector bzy, eigenVector bzy_se,  eigenMatrix bzx, eigenMatrix bzx_se, double bxy, eigenMatrix ldsc_intercept, eigenMatrix ldsc_slope, int nsnp) {
     int i=0;
@@ -1408,27 +1603,30 @@ void gcta::mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, 
     vector<string> badsnps;
 
     // Calculate allele frequency
-   if (_mu.empty()) calcu_mu();
+    if (_mu.empty()) calcu_mu();
     
+    // LDSC analysis to estimate h2 and rg
+    eigenMatrix ldsc_intercept, ldsc_slope;
+    vector<string> trait_name;
+    trait_name.push_back(_target_pheno_name);
+    trait_name.insert(trait_name.end(), _covar_pheno_name.begin(), _covar_pheno_name.end());
+    mtcojo_ldsc(_snp_val_flag, _meta_snp_b, _meta_snp_se, _meta_snp_n_o, ncovar+1, _meta_snp_name, _meta_remain_snp, ref_ld_dirt, w_ld_dirt, trait_name, ldsc_intercept, ldsc_slope);
+  
     // GSMR analysis
     vector<double> gsmr_rst(4);
     eigenVector bxy_est(ncovar);
     for(i=1; i<=ncovar; i++) {
         vector<string> snp_instru;
-        LOGGER.i(0, "\nGSMR analysis for covariate #" + to_string(i) + " ...");
+        LOGGER.i(0, "\nGSMR analysis for covariate #" + to_string(i) + " (" + trait_name[i] + ")" + " ...");
         for(j=0; j<nsnp_init; j++) snp_pair_flag[j] = (int)((_snp_val_flag[0][j]+_snp_val_flag[i][j])/2);
-        gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), _meta_snp_b.col(0), _meta_snp_se.col(0),  snp_pair_flag, clump_thresh1, clump_thresh2, clump_wind_size, clump_r2_thresh, gwas_thresh, heidi_thresh, ld_fdr_thresh, nsnp_heidi, nsnp_gsmr, heidi_flag);
+        gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), _meta_snp_b.col(0), _meta_snp_se.col(0), ldsc_intercept(0, i), snp_pair_flag, clump_thresh1, clump_thresh2, clump_wind_size, clump_r2_thresh, gwas_thresh, heidi_thresh, ld_fdr_thresh, nsnp_heidi, nsnp_gsmr, heidi_flag);
         if(std::isnan(gsmr_rst[3])) 
             LOGGER.e(0, "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required for the GSMR analysis.");
         bxy_est(i-1) = gsmr_rst[0];
         LOGGER.i(0, "bxy " + to_string(gsmr_rst[0]) + " " + to_string(gsmr_rst[1]));
-        LOGGER.i(0, "GSMR analysis for covariate #" + to_string(i) + " completed.");
+        LOGGER.i(0, "GSMR analysis for covariate #" + to_string(i) + " (" + trait_name[i] + ") completed.");
     }
 
-    // LDSC analysis to estimate h2 and rg
-    eigenMatrix ldsc_intercept, ldsc_slope;
-    mtcojo_ldsc(_snp_val_flag, _meta_snp_b, _meta_snp_se, _meta_snp_n_o, ncovar+1, _meta_snp_name, _meta_remain_snp, _meta_popu_prev, _meta_smpl_prev, ref_ld_dirt, w_ld_dirt, ldsc_intercept, ldsc_slope);
-    
     // mtcojo analysis
     // SNPs in common across the whole traits
     int n_buf = 0;
