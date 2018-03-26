@@ -91,7 +91,7 @@ void Logger::open(string ofile){
         m_logFile.open(ofile, std::ios::out);
         m_FileName = ofile;
         if(!check()){
-            throw("Error: can't write to log file [" + ofile + "]");
+            m_pThis->e(0, "can't write to log file [" + ofile + "].\nPlease check file/folder permission or disk quota.");
         }
     }
 }
