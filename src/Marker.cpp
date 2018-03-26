@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <numeric>
 #include <boost/algorithm/string.hpp>
+#include "utils.hpp"
 
 using std::to_string;
 
@@ -60,10 +61,46 @@ Marker::Marker() {
     }
 
     if(options.find("update_ref_allele_file") != options.end()){
-
-
+        LOGGER.i(0, "Reading reference alleles of SNPs from [" + options["update_ref_allele_file"] + "]...");
+        std::ifstream allele_file(options["update_ref_allele_file"].c_str());
+        vector<string> marker_name, ref_allele;
+        string line;
+        while(std::getline(allele_file, line)){
+            vector<string> line_elements;
+            boost::split(line_elements, line, boost::is_any_of("\t "));
+            if(line_elements.size() == 2){
+                marker_name.push_back(line_elements[0]);
+                ref_allele.push_back(line_elements[1]);
+            }
+        }
+        vector<uint32_t> marker_index, ref_index;
+        vector_commonIndex(name, marker_name, marker_index, ref_index);
+        vector<uint32_t> index_remained;
+        for(int i = 0; i < marker_index.size(); i++){
+            uint32_t cur_marker_index = marker_index[i];
+            string cur_ref = ref_allele[ref_index[i]];
+            std::transform(cur_ref.begin(), cur_ref.end(), cur_ref.begin(), toupper);
+            if(a1[cur_marker_index] == cur_ref){
+                A_rev[cur_marker_index] = false;
+                index_remained.push_back(cur_marker_index);
+            }else if(a2[cur_marker_index] == cur_ref){
+                A_rev[cur_marker_index] = true;
+                index_remained.push_back(cur_marker_index);
+            }
+        }
+        std::sort(index_remained.begin(), index_remained.end());
+        
+        vector<uint32_t> common_index;
+        std::set_intersection(index_extract.begin(), index_extract.end(), 
+                              index_remained.begin(), index_remained.end(),
+                              std::back_inserter(common_index));
+        int rm_snps = index_extract.size() - common_index.size();
+        if(rm_snps){
+            LOGGER.w(0, to_string(rm_snps) + " SNPs are removed due to mismatching SNP name or alleles.");
+        }
+        keep_extracted_index(common_index);
+        LOGGER.i(0, "Reference alleles are updated.");
     }
-    
 
 }
 
@@ -110,9 +147,11 @@ void Marker::read_bim(string bim_file) {
             LOGGER.e(0, "Line " + to_string(line_number) + " of [" + bim_file +
                         "] contains illegal distance value, please check");
         }
+        std::transform(line_elements[4].begin(), line_elements[4].end(), line_elements[4].begin(), toupper);
+        std::transform(line_elements[5].begin(), line_elements[5].end(), line_elements[5].begin(), toupper);
         a1.push_back(line_elements[4]);
         a2.push_back(line_elements[5]);
-        A.push_back(line_elements[4]);
+        A_rev.push_back(false);
         last_length = line_elements.size();
         if(chr_item >= options_i["start_chr"] && chr_item <= options_i["end_chr"]){
             index_extract.push_back(line_number - 1);
@@ -192,9 +231,14 @@ void Marker::keep_extracted_index(const vector<uint32_t>& keep_index) {
     num_extract = index_extract.size();
 }
 
-string Marker::get_marker(int extract_index){
-    return std::to_string(chr[extract_index]) + "\t" + name[extract_index] + "\t" + 
-            std::to_string(pd[extract_index]) + "\t" + a1[extract_index] + "\t" + a2[extract_index];
+string Marker::get_marker(int extract_index){ // raw index
+    string return_string = std::to_string(chr[extract_index]) + "\t" + name[extract_index] + "\t" + 
+        std::to_string(pd[extract_index]) + "\t";
+    if(A_rev[extract_index]){
+        return return_string + a2[extract_index] + "\t" + a1[extract_index];
+    }else{
+        return return_string + a1[extract_index] + "\t" + a2[extract_index];
+    }
 }
 
 bool Marker::isInExtract(uint32_t index) {
@@ -207,6 +251,10 @@ bool Marker::isInExtract(uint32_t index) {
 
 uint32_t Marker::getExtractIndex(uint32_t extractedIndex){
     return index_extract[extractedIndex];
+}
+
+bool Marker::isEffecRev(uint32_t extractedIndex){
+    return A_rev[index_extract[extractedIndex]];
 }
 
 //TODO support multiple SNP list, currently only take the first SNP list

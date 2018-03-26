@@ -31,6 +31,7 @@ public:
     uint32_t count_extract();
     bool isInExtract(uint32_t index);
     uint32_t getExtractIndex(uint32_t extractedIndex);
+    bool isEffecRev(uint32_t extractedIndex);
     string get_marker(int extract_index);
     static int registerOption(map<string, vector<string>>& options_in);
     static void processMain();
@@ -44,7 +45,7 @@ private:
     vector<uint32_t> pd;
     vector<string> a1;
     vector<string> a2;
-    vector<string> A; //effect allele;
+    vector<bool> A_rev; //effect allele;
 
     vector<uint32_t> index_extract;
     vector<uint32_t> index_exclude;

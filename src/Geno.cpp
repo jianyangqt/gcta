@@ -113,15 +113,13 @@ void Geno::filter_MAF(){
         vector<function<void (uint64_t *, int)>> callBacks;
         callBacks.push_back(bind(&Geno::freq64, this, _1, _2));
         loop_64block(callBacks);
-        LOGGER.i(0, "loop finished", "DEBUG");
         // We adopt the EPSILON from plink, because the double value may have some precision issue;
         double min_maf = options_d["min_maf"] * (1 - Constants::SMALL_EPSILON);
         double max_maf = options_d["max_maf"] * (1 + Constants::SMALL_EPSILON);
         LOGGER.d(0, "min_maf: " + to_string(min_maf) + " max_maf: " + to_string(max_maf));
         vector<uint32_t> extract_index;
         double cur_AF;
-        LOGGER.ts("MAF");
-        LOGGER.i(0, "begin remove maf", "DEBUG");
+
         for(int index = 0; index != AFA1.size(); index++){
             cur_AF = AFA1[index];
             if(cur_AF > 0.5) cur_AF = 1.0 - cur_AF;
@@ -130,8 +128,6 @@ void Geno::filter_MAF(){
                 LOGGER.d(0, to_string(index) + ": " + to_string(cur_AF));
             }
         }
-
-        LOGGER.i(0, "begin remove array " + to_string(LOGGER.tp("MAF")), "DEBUG");
 
         vector<double> AFA1o = AFA1;
         vector<uint32_t> countA1A1o = countA1A1;
@@ -155,10 +151,7 @@ void Geno::filter_MAF(){
             RDev[index] = RDevo[cur_index];
         }
 
-        LOGGER.i(0, "array index finished " + to_string(LOGGER.tp("MAF")), "DEBUG");
-
         marker->keep_extracted_index(extract_index);
-        LOGGER.i(0, "marker removed " + to_string(LOGGER.tp("MAF")), "DEBUG");
 
         init_AsyncBuffer();
         num_blocks = marker->count_extract() / Constants::NUM_MARKER_READ +
@@ -463,7 +456,11 @@ void Geno::freq64(uint64_t *buf, int num_marker) {
         countA1A1[raw_index_marker] = curA1A1;
         countA1A2[raw_index_marker] = curA1A2;
         countA2A2[raw_index_marker] = curA2A2;
-        AFA1[raw_index_marker] = (2.0 * curA1A1 + curA1A2) / (2.0 * (curA1A1 + curA1A2 + curA2A2));
+        double cur_af = (2.0 * curA1A1 + curA1A2) / (2.0 * (curA1A1 + curA1A2 + curA2A2));
+        if(marker->isEffecRev(raw_index_marker)){
+            cur_af = 1.0 - cur_af;
+        }
+        AFA1[raw_index_marker] = cur_af;
     }
     num_marker_freq += num_marker;
 }
