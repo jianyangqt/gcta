@@ -59,6 +59,7 @@ Marker::Marker() {
         vector<string> excludelist = read_snplist(options["exclude_file"]);
         extract_marker(excludelist, false);
     }
+    reset_exclude();
 
     if(options.find("update_ref_allele_file") != options.end()){
         LOGGER.i(0, "Reading reference alleles of SNPs from [" + options["update_ref_allele_file"] + "]...");
@@ -244,63 +245,50 @@ uint32_t Marker::count_extract(){
 }
 
 void Marker::extract_marker(vector<string> markers, bool isExtract) {
-    std::sort(markers.begin(), markers.end());
-    vector<uint32_t> index_in;
-    uint32_t counter = 0;
-    for(auto &item_mark : name){
-        if(std::binary_search(markers.begin(), markers.end(), item_mark)){
-            index_in.push_back(counter);
-        }
-        counter++;
-    }
-
+    vector<uint32_t> ori_index, marker_index;
+    vector_commonIndex_sorted1(name, markers, ori_index, marker_index);
+    vector<uint32_t> remain_index;
     if(isExtract){
-        auto common = [&index_in](const int key) ->bool{
-            return std::find(index_in.begin(), index_in.end(), key) == index_in.end();
-        };
-        index_extract.erase(std::remove_if(index_extract.begin(), index_extract.end(), common), index_extract.end());
+        std::set_intersection(index_extract.begin(), index_extract.end(),
+                              ori_index.begin(), ori_index.end(),
+                              std::back_inserter(remain_index));
     }else{
-        auto diff = [&index_in](const int key) ->bool{
-            return std::find(index_in.begin(), index_in.end(), key) != index_in.end();
-        };
-        index_extract.erase(std::remove_if(index_extract.begin(), index_extract.end(), diff), index_extract.end());
+        std::set_difference(index_extract.begin(), index_extract.end(),
+                            ori_index.begin(), ori_index.end(),
+                            std::back_inserter(remain_index));
     }
 
-    vector<uint32_t> whole_index(num_marker);
-    std::iota(whole_index.begin(), whole_index.end(), 0);
-    auto diff = [this](const int key) ->bool{
-        return std::find(this->index_extract.begin(), this->index_extract.end(), key) != this->index_extract.end();
-    };
-    whole_index.erase(std::remove_if(whole_index.begin(), whole_index.end(), diff), whole_index.end());
-
-    index_exclude = whole_index;
-
+    index_extract = remain_index;
     num_extract = index_extract.size();
-    num_exclude = index_exclude.size();
 
     if(num_extract == 0){
         LOGGER.e(0, "0 SNP remain.");
     }
-    LOGGER.i(0, string("After ") + (isExtract? "extracting" : "excluding") +  " SNP, " + to_string(num_exclude) + " SNPs removed, " + to_string(num_extract) + " SNPs remained.");
+
+    LOGGER.i(0, string("After ") + (isExtract? "extracting" : "excluding") +  " SNP, " +  to_string(num_extract) + " SNPs remain.");
 
 }
 
-void Marker::keep_raw_index(const vector<uint32_t>& keep_index) {
-    index_extract.resize(keep_index.size());
-    index_extract = keep_index;
-
+void Marker::reset_exclude(){
     vector<uint32_t> whole_index(num_marker);
     std::iota(whole_index.begin(), whole_index.end(), 0);
 
     index_exclude.resize(whole_index.size() - index_extract.size());
     std::set_difference(whole_index.begin(), whole_index.end(), index_extract.begin(), 
             index_extract.end(), index_exclude.begin());
-
     num_exclude = index_exclude.size();
+}
+
+// didn't check whether in extracted list or not;
+void Marker::keep_raw_index(const vector<uint32_t>& keep_index) {
+    index_extract.resize(keep_index.size());
+    index_extract = keep_index;
+
     num_extract = index_extract.size();
     if(num_extract == 0){
         LOGGER.e(0, "0 SNP remain.");
     }
+    reset_exclude();
 }
 
 void Marker::keep_extracted_index(const vector<uint32_t>& keep_index) {
@@ -339,7 +327,7 @@ bool Marker::isEffecRev(uint32_t extractedIndex){
     return A_rev[index_extract[extractedIndex]];
 }
 
-//TODO support multiple SNP list, currently only take the first SNP list
+//TODO support multiple column SNP list, currently only take the first SNP list
 // If multiple column provided, it will miss the correct SNP name.
 vector<string> Marker::read_snplist(string snplist_file) {
     std::ifstream if_snplist(snplist_file.c_str());

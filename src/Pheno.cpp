@@ -276,7 +276,7 @@ uint32_t Pheno::count_keep(){
     return num_keep;
 }
 
-// remove have larger priority than keep, keep in mind, once the SNP has been removed, it
+// remove have larger priority than keep, once the SNP has been removed, it
 // will never be kept again
 void Pheno::set_keep(vector<string>& indi_marks, vector<string>& marks, vector<uint32_t>& keeps, bool isKeep) {
     std::sort(indi_marks.begin(), indi_marks.end());
@@ -501,10 +501,8 @@ int Pheno::registerOption(map<string, vector<string>>& options_in){
     //options_in.erase("--keep");
     addOneFileOption("remove_file", "", "--remove", options_in,options);
     //options_in.erase("--remove"); // also may use in the GRM
-
-    if(options_in.find("--update-sex") != options_in.end()){
-       // LOGGER.w(0, "--update-sex didn't work this time");
-    }
+    
+    addOneFileOption("sex_file", "", "--update-sex", options_in, options);
 
     if(options_in.find("--pheno") != options_in.end()){
         addOneFileOption("qpheno_file", "", "--pheno", options_in, options);
