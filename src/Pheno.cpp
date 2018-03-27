@@ -26,6 +26,7 @@
 #include <cmath>
 #include "utils.hpp"
 #include <cstring>
+#include <boost/algorithm/string.hpp>
 
 using std::to_string;
 
@@ -68,8 +69,19 @@ Pheno::Pheno() {
         cur_pheno -= 1;
 
         update_pheno(pheno_subjects, phenos[cur_pheno]);
+        LOGGER.i(0, to_string(index_keep.size()) + " overlapped individuals with non-missing data to be included from the phenotype file.");
         
     }
+
+    if(options.find("sex_file") != options.end()){
+        vector<vector<double>> phenos;
+        LOGGER.i(0, "Reading gender information from [" + options["sex_file"] + "]...");
+        vector<string> subjects = read_sublist(options["sex_file"], &phenos);
+        vector<double> sex_info = phenos[0];
+        update_sex(subjects, sex_info);
+        LOGGER.i(0, to_string(index_keep.size()) + " individuals with valid sex information to be included from the phenotype file.");
+    }
+
 
     reinit();
 }
@@ -88,7 +100,11 @@ void Pheno::reinit(){
     reinit_rm(index_keep, index_rm, num_ind);
     num_keep = index_keep.size();
     num_rm = index_rm.size();
+    if(num_keep == 0){
+        LOGGER.e(0, "0 individual remain for further analysis.");
+    }
     init_mask_block();
+    
 }
 
 
@@ -109,9 +125,8 @@ vector<string> Pheno::read_sublist(string sublist_file, vector<vector<double>> *
     int large_elements = 0;
     while(std::getline(sublist, line)){
         line_number++;
-        std::istringstream line_buf(line);
-        std::istream_iterator<string> begin(line_buf), end;
-        vector<string> line_elements(begin, end);
+        vector<string> line_elements;
+        boost::split(line_elements, line, boost::is_any_of("\t "));
         int num_elements = line_elements.size();
         if(num_elements < 2){
             LOGGER.e(0, err_file + ", line " + to_string(line_number) +
@@ -175,9 +190,8 @@ void Pheno::read_fam(string fam_file) {
     string line;
     while(std::getline(fam, line)){
         line_number++;
-        std::istringstream line_buf(line);
-        std::istream_iterator<string> begin(line_buf), end;
-        vector<string> line_elements(begin, end);
+        vector<string> line_elements;
+        boost::split(line_elements, line, boost::is_any_of("\t ")); 
         if(line_elements.size() < Constants::NUM_FAM_COL) {
             LOGGER.e(0, "the fam file [" + fam_file + "], line " + to_string(line_number)
                    + " has elements less than " + to_string(Constants::NUM_FAM_COL));
@@ -321,12 +335,47 @@ void Pheno::set_keep(vector<string>& indi_marks, vector<string>& marks, vector<u
 
 }
 
+void Pheno::update_sex(vector<string>& indi_marks, vector<double>& phenos){
+    vector<uint32_t> pheno_index, update_index;
+    vector_commonIndex_sorted1(mark, indi_marks, pheno_index, update_index);
+    
+    vector<uint32_t> common_index, pheno_index2;
+    vector_commonIndex(index_keep, pheno_index, common_index, pheno_index2); 
+
+    vector<uint32_t> indicies;
+    indicies.reserve(common_index.size());
+    for(int i = 0; i < common_index.size(); i++){
+        uint32_t raw_index = index_keep[common_index[i]];
+        int temp_update_pheno = std::round(phenos[update_index[pheno_index2[i]]]);
+        if(temp_update_pheno > 0 && temp_update_pheno < 3){
+            indicies.push_back(raw_index);
+            sex[raw_index] = temp_update_pheno;
+        }
+    }
+    index_keep = indicies;
+}
+
+
 void Pheno::update_pheno(vector<string>& indi_marks, vector<double>& phenos){
     vector<uint32_t> pheno_index, update_index;
-    vector_commonIndex(mark, indi_marks, pheno_index, update_index);
+    vector_commonIndex_sorted1(mark, indi_marks, pheno_index, update_index);
+    
+    vector<uint32_t> common_index, pheno_index2;
+    vector_commonIndex(index_keep, pheno_index, common_index, pheno_index2); 
 
-    vector<uint32_t> pIN;
+    vector<uint32_t> indicies;
+    indicies.reserve(common_index.size());
+    for(int i = 0; i < common_index.size(); i++){
+        uint32_t raw_index = index_keep[common_index[i]];
+        double temp_update_pheno = phenos[update_index[pheno_index2[i]]];
+        if(!std::isnan(temp_update_pheno)){
+            indicies.push_back(raw_index);
+            pheno[raw_index] = temp_update_pheno;
+        }
+    }
+    index_keep = indicies;
 
+    /*
     for(int i = 0; i < pheno_index.size(); i++){
         double temp_update_pheno = phenos[update_index[i]];
         int raw_index = pheno_index[i];
@@ -336,9 +385,9 @@ void Pheno::update_pheno(vector<string>& indi_marks, vector<double>& phenos){
             pheno[raw_index] = temp_update_pheno;
         }
     }
-    std::sort(pIN.begin(), pIN.end());
+
     index_keep = pIN;
-/*
+
     for(auto& index : index_keep){
         auto lower = std::lower_bound(indi_marks.begin(), indi_marks.end(), mark[index]);
         int lower_index = lower - indi_marks.begin();
@@ -350,7 +399,6 @@ void Pheno::update_pheno(vector<string>& indi_marks, vector<double>& phenos){
 
     index_keep = pIN;
     */
-    LOGGER.i(0, to_string(index_keep.size()) + " overlapped individuals with non-missing data to be included from the phenotype file.");
 }
 
 

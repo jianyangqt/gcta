@@ -74,6 +74,7 @@ private:
 
     void read_fam(string fam_file);
     void update_pheno(vector<string>& indi_marks, vector<double>& phenos);
+    void update_sex(vector<string>& indi_marks, vector<double>& sex);
     void init_mask_block();
     void init_bmask_block();
     void reinit();
