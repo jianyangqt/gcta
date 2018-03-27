@@ -279,6 +279,23 @@ uint32_t Pheno::count_keep(){
 // remove have larger priority than keep, once the SNP has been removed, it
 // will never be kept again
 void Pheno::set_keep(vector<string>& indi_marks, vector<string>& marks, vector<uint32_t>& keeps, bool isKeep) {
+    vector<uint32_t> keep_index, indi_index;
+    vector_commonIndex_sorted1(marks, indi_marks, keep_index, indi_index);
+
+    vector<uint32_t> remain_index;
+    if(isKeep){
+        std::set_intersection(keeps.begin(), keeps.end(),
+                               keep_index.begin(), keep_index.end(),
+                               std::back_inserter(remain_index));
+    }else{
+        std::set_difference(keeps.begin(), keeps.end(),
+                            keep_index.begin(), keep_index.end(),
+                            std::back_inserter(remain_index));
+    }
+    keeps = remain_index;
+
+    LOGGER.i(0, string("After ") + (isKeep?"keeping":"removing") +  " individuals, " + to_string(keeps.size()) + " subjects remain.");
+/* 
     std::sort(indi_marks.begin(), indi_marks.end());
     vector<uint32_t> pIN;
     uint32_t counter = 0;
@@ -300,8 +317,8 @@ void Pheno::set_keep(vector<string>& indi_marks, vector<string>& marks, vector<u
         };
         keeps.erase(std::remove_if(keeps.begin(), keeps.end(), diff), keeps.end());
     }
+    */
 
-    LOGGER.i(0, string("After ") + (isKeep?"keeping":"removing") +  " individuals, " + to_string(keeps.size()) + " subjects remained.");
 }
 
 void Pheno::update_pheno(vector<string>& indi_marks, vector<double>& phenos){
