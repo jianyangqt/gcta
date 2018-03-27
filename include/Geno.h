@@ -82,7 +82,7 @@ private:
 
     void read_bed();
 
-    void init_AF();
+    void init_AF(string alleleFileName);
     void init_AsyncBuffer();
     void filter_MAF();
     uint64_t num_item_1geno;

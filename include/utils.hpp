@@ -106,5 +106,15 @@ void vector_commonIndex(const std::vector<T>& v1, const std::vector<T>& v2, std:
 	//std::sort(k2.begin(), k2.end());
 }
 
+template <typename T, typename P>
+void vector_commonIndex_sorted1(const std::vector<T>& v1, const std::vector<T>& v2, std::vector<P>& k1, std::vector<P>& k2){
+    vector_commonIndex(v1, v2, k1, k2);
+    std::vector<size_t> k1_index = sort_indexes(k1);
+    std::vector<P> k1_sorted(k1.size()), k2_sorted(k2.size());
+    std::transform(k1_index.begin(), k1_index.end(), k1_sorted.begin(), [&k1](size_t pos){return k1[pos];});
+    std::transform(k1_index.begin(), k1_index.end(), k2_sorted.begin(), [&k2](size_t pos){return k2[pos];});
+    k1 = k1_sorted;
+    k2 = k2_sorted;
+}
 
 #endif

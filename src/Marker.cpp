@@ -62,46 +62,112 @@ Marker::Marker() {
 
     if(options.find("update_ref_allele_file") != options.end()){
         LOGGER.i(0, "Reading reference alleles of SNPs from [" + options["update_ref_allele_file"] + "]...");
-        std::ifstream allele_file(options["update_ref_allele_file"].c_str());
-        vector<string> marker_name, ref_allele;
-        string line;
-        while(std::getline(allele_file, line)){
-            vector<string> line_elements;
-            boost::split(line_elements, line, boost::is_any_of("\t "));
-            if(line_elements.size() == 2){
-                marker_name.push_back(line_elements[0]);
-                ref_allele.push_back(line_elements[1]);
-            }
+        vector<int> field_return;
+        vector<string> fields;
+        vector<bool> a_rev;
+        matchSNPListFile(options["update_ref_allele_file"], 2, field_return, fields, a_rev, true);
+
+        LOGGER.i(0, "Reference alleles are updated."); 
+    }
+
+}
+
+void Marker::matchSNPListFile(string filename, int num_min_fields, const vector<int>& field_return, vector<string> &fields, vector<bool>& a_rev, bool update_a_rev){
+    vector<string> temp_fields;
+    vector<bool> temp_a_rev;
+    std::ifstream allele_file(filename.c_str());
+    if(allele_file.fail()){
+        LOGGER.e(0, "can't open [" + filename + "] to read]");
+    }
+
+    int max_fields = num_min_fields;
+    int require_fields = (field_return.size() > 0) ? (field_return[field_return.size() - 1] + 1): 0;
+    require_fields = (max_fields > require_fields) ? max_fields : require_fields;
+
+    vector<string> marker_name, ref_allele;
+    string line;
+    vector<uint32_t> bad_lines;
+    int num_line = 0;
+    while(std::getline(allele_file, line)){
+        num_line++;
+        vector<string> line_elements;
+        boost::split(line_elements, line, boost::is_any_of("\t "));
+        if(line_elements.size() < require_fields){
+            bad_lines.push_back(num_line);
         }
-        vector<uint32_t> marker_index, ref_index;
-        vector_commonIndex(name, marker_name, marker_index, ref_index);
-        vector<uint32_t> index_remained;
+        if(line_elements.size() >= 1){
+            marker_name.push_back(line_elements[0]);
+        }
+
+        if(line_elements.size() >= 2){
+            ref_allele.push_back(line_elements[1]);
+        }
+        for(auto index : field_return){
+            temp_fields.push_back(line_elements[index]);
+        }
+
+    }
+
+    // match snp name
+    vector<uint32_t> marker_index, ref_index;
+    vector_commonIndex_sorted1(name, marker_name, marker_index, ref_index);
+
+    // match alleles
+    vector<uint32_t> index_remained;
+    index_remained.reserve(marker_index.size());
+    if(ref_allele.size()){
+        temp_a_rev.reserve(marker_index.size());
         for(int i = 0; i < marker_index.size(); i++){
             uint32_t cur_marker_index = marker_index[i];
             string cur_ref = ref_allele[ref_index[i]];
             std::transform(cur_ref.begin(), cur_ref.end(), cur_ref.begin(), toupper);
             if(a1[cur_marker_index] == cur_ref){
-                A_rev[cur_marker_index] = false;
+                temp_a_rev.push_back(false);
                 index_remained.push_back(cur_marker_index);
             }else if(a2[cur_marker_index] == cur_ref){
-                A_rev[cur_marker_index] = true;
+                temp_a_rev.push_back(true);
                 index_remained.push_back(cur_marker_index);
             }
         }
-        std::sort(index_remained.begin(), index_remained.end());
-        
-        vector<uint32_t> common_index;
-        std::set_intersection(index_extract.begin(), index_extract.end(), 
-                              index_remained.begin(), index_remained.end(),
-                              std::back_inserter(common_index));
-        int rm_snps = index_extract.size() - common_index.size();
-        if(rm_snps){
-            LOGGER.w(0, to_string(rm_snps) + " SNPs are removed due to mismatching SNP name or alleles.");
-        }
-        keep_extracted_index(common_index);
-        LOGGER.i(0, "Reference alleles are updated.");
+    }else{
+        index_remained = marker_index;
     }
 
+    if(update_a_rev){
+        for(int i = 0; i < index_remained.size(); i++){
+            A_rev[index_remained[i]] = temp_a_rev[i];
+        }
+    }
+
+    // match original kept list
+    vector<uint32_t> extract_index, export_index;
+    vector_commonIndex_sorted1(index_extract, index_remained, extract_index, export_index);
+
+    vector<uint32_t> index_common;
+    index_common.resize(extract_index.size());
+    std::transform(extract_index.begin(), extract_index.end(), index_common.begin(), [this](size_t pos){return (this->index_extract)[pos];});
+
+    int rm_snps = index_extract.size() - index_common.size();
+    if(rm_snps){
+        LOGGER.w(0, to_string(rm_snps) + " SNPs are removed due to mismatching SNP name or alleles.");
+    }
+
+    keep_raw_index(index_common);
+
+    if(ref_allele.size()){
+        a_rev.resize(export_index.size());
+        std::transform(export_index.begin(), export_index.end(), a_rev.begin(), [&temp_a_rev](size_t pos){return temp_a_rev[pos];});
+    }
+
+    int field_num = field_return.size();
+    if(field_num){
+        fields.reserve(export_index.size() * field_num);
+        for(auto i : export_index){
+            for(int j = i; j < i + field_num; j++){
+                fields.push_back(temp_fields[j]);
+            }
+        }
+    }
 }
 
 void Marker::read_bim(string bim_file) {
@@ -165,7 +231,7 @@ void Marker::read_bim(string bim_file) {
     }
     bim.close();
     if(num_marker == 0){
-        LOGGER.e(0, "0 SNPs remained");
+        LOGGER.e(0, "0 SNP remain.");
     }
 }
 
@@ -212,11 +278,14 @@ void Marker::extract_marker(vector<string> markers, bool isExtract) {
     num_extract = index_extract.size();
     num_exclude = index_exclude.size();
 
+    if(num_extract == 0){
+        LOGGER.e(0, "0 SNP remain.");
+    }
     LOGGER.i(0, string("After ") + (isExtract? "extracting" : "excluding") +  " SNP, " + to_string(num_exclude) + " SNPs removed, " + to_string(num_extract) + " SNPs remained.");
 
 }
 
-void Marker::keep_extracted_index(const vector<uint32_t>& keep_index) {
+void Marker::keep_raw_index(const vector<uint32_t>& keep_index) {
     index_extract.resize(keep_index.size());
     index_extract = keep_index;
 
@@ -229,6 +298,19 @@ void Marker::keep_extracted_index(const vector<uint32_t>& keep_index) {
 
     num_exclude = index_exclude.size();
     num_extract = index_extract.size();
+    if(num_extract == 0){
+        LOGGER.e(0, "0 SNP remain.");
+    }
+}
+
+void Marker::keep_extracted_index(const vector<uint32_t>& keep_index) {
+    vector<uint32_t> raw_index;
+    raw_index.reserve(keep_index.size());
+    for(auto index : keep_index){
+        raw_index.push_back(index_extract[index]);
+    }
+    std::sort(raw_index.begin(), raw_index.end());
+    keep_raw_index(raw_index);
 }
 
 string Marker::get_marker(int extract_index){ // raw index

@@ -97,7 +97,12 @@ Geno::Geno(Pheno* pheno, Marker* marker) {
 
     check_bed();
 
-    init_AF();
+    string alleleFileName = "";
+    if(options.find("update_freq_file") != options.end()){
+        alleleFileName = options["update_freq_file"];
+    }
+    init_AF(alleleFileName);
+
     init_AsyncBuffer();
     filter_MAF();
 }
@@ -161,12 +166,38 @@ void Geno::filter_MAF(){
 
 }
 
-void Geno::init_AF() {
+void Geno::init_AF(string alleleFileName) {
     AFA1.clear();
     countA1A2.clear();
     countA1A1.clear();
     countA2A2.clear();
     RDev.clear();
+    if(!alleleFileName.empty()){
+        LOGGER.i(0, "Reading frequencies from [" + alleleFileName + "]...");
+        vector<int> field_return = {2};
+        vector<string> fields;
+        vector<bool> a_rev;
+        marker->matchSNPListFile(alleleFileName, 3, field_return, fields, a_rev, false);
+        AFA1.resize(a_rev.size());
+        for(int i = 0; i < a_rev.size(); i++){
+            double af;
+            try{
+                af = stod(fields[i]);
+            }catch(std::out_of_range &){
+                LOGGER.e(0, "the third columun shall be a number");
+            }
+            if(af < 0 || af > 1.0){
+                LOGGER.e(0, "frequencies value shall range from 0 to 1");
+            }
+            if(a_rev[i]){
+                AFA1[i] = 1.0 - af;
+            }else{
+                AFA1[i] = af;
+            }
+        }
+        LOGGER.i(0, "Frequencies are updated.");
+        num_marker_freq = a_rev.size();
+    }
     uint32_t num_marker = marker->count_extract();
     AFA1.resize(num_marker);
     countA1A1.resize(num_marker);
@@ -910,8 +941,6 @@ int Geno::registerOption(map<string, vector<string>>& options_in) {
     }
 
     addOneFileOption("update_freq_file", "", "--update-freq", options_in);
-    addOneFileOption("update_ref_allele_file", "", "--update-ref-allele", options_in);
-    
 
     return return_value;
 }
