@@ -46,6 +46,7 @@ public:
     vector<uint32_t>& get_index_keep();
     void get_pheno(vector<string>& ids, vector<double>& pheno);
     void filter_keep_index(vector<uint32_t>& k_index);
+    void getMaskBit(uint64_t *maskp);
 
     static int registerOption(map<string, vector<string>>& options);
     static void processMain();

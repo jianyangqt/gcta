@@ -27,10 +27,12 @@ class Marker {
 
 public:
     Marker();
-    uint32_t count_raw();
+    uint32_t count_raw(int part = -1);
     uint32_t count_extract();
     bool isInExtract(uint32_t index);
     uint32_t getExtractIndex(uint32_t extractedIndex);
+    vector<uint32_t>& get_extract_index();
+    int getMIndex(uint32_t raw_index);
     bool isEffecRev(uint32_t extractedIndex);
     string get_marker(int extract_index);
     static int registerOption(map<string, vector<string>>& options_in);
@@ -49,6 +51,7 @@ private:
     vector<string> a1;
     vector<string> a2;
     vector<bool> A_rev; //effect allele;
+    vector<uint32_t> raw_limits;
 
     vector<uint32_t> index_extract;
     vector<uint32_t> index_exclude;
@@ -57,6 +60,7 @@ private:
     uint32_t num_exclude;
 
     void read_bim(string bim_file);
+    void read_mbim(string bim_file);
 
     static map<string, string> options;
     static map<string, int> options_i;

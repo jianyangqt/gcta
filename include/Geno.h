@@ -40,10 +40,7 @@ class Geno {
 public:
     Geno(Pheno* pheno, Marker* marker);
     ~Geno();
-    void loop_block(vector<function<void (uint8_t *buf, int num_marker)>> callbacks
-                    = vector<function<void (uint8_t *buf, int num_marker)>>());
-    void loop_64block(vector<function<void (uint64_t *buf, int num_marker)>> callbacks
-                    = vector<function<void (uint64_t *buf, int num_marker)>>());
+    void loop_64block(const vector<uint32_t>& raw_marker_index, vector<function<void (uint64_t *buf, int num_marker)>> callbacks = vector<function<void (uint64_t *buf, int num_marker)>>());
     void freq(uint8_t *buf, int num_marker);
     void freq2(uint8_t *buf, int num_marker);
     void freq64(uint64_t *buf, int num_marker);
@@ -58,7 +55,7 @@ public:
 private:
     Pheno* pheno;
     Marker* marker;
-    string bed_file;
+    vector<string> bed_files;
     int64_t num_byte_per_marker;
     int last_byte_NA_sample;
     int64_t num_byte_buffer;
@@ -80,7 +77,7 @@ private:
     static void addOneFileOption(string key_store, string append_string, string key_name,
                                  map<string, vector<string>> options_in);
 
-    void read_bed();
+    void read_bed(const vector<uint32_t> &raw_marker_index);
 
     void init_AF(string alleleFileName);
     void init_AsyncBuffer();

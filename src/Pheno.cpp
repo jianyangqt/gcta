@@ -27,12 +27,19 @@
 #include "utils.hpp"
 #include <cstring>
 #include <boost/algorithm/string.hpp>
+#include <set>
 
 using std::to_string;
 
 map<string, string> Pheno::options;
 
+const uintptr_t k1LU = (uintptr_t)1;
+
 Pheno::Pheno() {
+    if(options.find("m_file") != options.end()){
+   }
+            
+        
     if(options.find("pheno_file") != options.end()){
         this->read_fam(options["pheno_file"]);
     }else{
@@ -103,7 +110,7 @@ void Pheno::reinit(){
     if(num_keep == 0){
         LOGGER.e(0, "0 individual remain for further analysis.");
     }
-    init_mask_block();
+    //init_mask_block();
     
 }
 
@@ -539,6 +546,15 @@ void Pheno::mask_geno_keep(uint8_t *const geno_1block, int num_blocks) {
     }
 }
 
+void Pheno::getMaskBit(uint64_t *maskp){
+    for(auto keep_item : index_keep){
+        uint32_t cur_qword = keep_item / 64;
+        uint32_t cur_offset = keep_item % 64;
+        maskp[cur_qword] |= k1LU << cur_offset;
+    }
+}
+
+
 void Pheno::addOneFileOption(string key_store, string append_string, string key_name,
                                     map<string, vector<string>> options_in, map<string,string>& options) {
     if(options_in.find(key_name) != options_in.end()){
@@ -562,6 +578,56 @@ int Pheno::registerOption(map<string, vector<string>>& options_in){
     addOneFileOption("pheno_file", ".fam", "--bfile", options_in, options);
     addOneFileOption("pheno_file", "", "--fam", options_in, options);
     options_in.erase("--fam");
+
+    addOneFileOption("m_file", "", "--mbfile", options_in, options);
+    if(options.find("m_file") != options.end()){
+       vector<string> m_files;
+        std::ifstream m_file(options["m_file"]);
+        string line;
+        vector<string> initial_ids;
+        bool inited = false;
+        while(std::getline(m_file,line)){
+            vector<string> line_elements;
+            boost::split(line_elements, line, boost::is_any_of("\t "));
+            for(auto elements : line_elements){
+                if(!elements.empty()){
+                    vector<string> ids = read_sublist(elements+".fam");
+                    m_files.push_back(elements);
+                    if(!inited){
+                        initial_ids = ids;
+                        inited = true;
+                        continue;
+                    }
+                    if(ids == initial_ids){
+                        continue;
+                    }else{
+                        LOGGER.e(0, "fam is different in [" + elements + "].");
+                    }
+                }
+            }
+        }
+        m_file.close();
+        if(m_files.size() > 0){
+            options["pheno_file"] = m_files[0] + ".fam";
+            std::set<string> unique_mfiles;
+            auto ends = std::remove_if(m_files.begin(), m_files.end(),
+                    [&unique_mfiles](const string& item){
+                        if(unique_mfiles.find(item) != unique_mfiles.end()){
+                            return true;
+                        }
+                        unique_mfiles.insert(item);
+                        return false;
+                    });
+            m_files.erase(ends, m_files.end());
+            LOGGER.i(0, to_string(m_files.size()) + " genotype(s) in [" + options["m_file"] + "].");
+            options_in.erase("--mbfile");
+            options_in["m_file"] = m_files;
+        }else{
+            LOGGER.e(0, "no item in [" + options["m_file"] + "].");
+        }
+    }
+  
+
     addOneFileOption("keep_file", "", "--keep", options_in, options);
     //options_in.erase("--keep");
     addOneFileOption("remove_file", "", "--remove", options_in,options);

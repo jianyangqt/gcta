@@ -32,6 +32,7 @@
 #include "omp.h"
 #include "ThreadPool.h"
 #include <cstring>
+#include <boost/algorithm/string.hpp>
 
 #ifdef _WIN64
   #include <intrin.h>
@@ -70,11 +71,23 @@ map<string, double> Geno::options_d;
 vector<string> Geno::processFunctions;
 
 Geno::Geno(Pheno* pheno, Marker* marker) {
+    bool has_geno = false;
     if(options.find("geno_file") != options.end()){
-        bed_file = options["geno_file"];
-    }else{
+        bed_files.push_back(options["geno_file"]);
+        has_geno = true;
+    }
+
+    if(options.find("m_file") != options.end()){
+        bed_files.clear();
+        boost::split(bed_files, options["m_file"], boost::is_any_of("\t "));
+        std::transform(bed_files.begin(), bed_files.end(), bed_files.begin(), [](string r){return r + ".bed";});
+        has_geno = true;
+    }
+
+    if(!has_geno){
         LOGGER.e(0, "No genotype file specified");
     }
+
 
     this->pheno = pheno;
     this->marker = marker;
@@ -87,13 +100,8 @@ Geno::Geno(Pheno* pheno, Marker* marker) {
     num_item_1geno = (num_keep_sample + 31) / 32;
     num_item_geno_buffer = num_item_1geno * Constants::NUM_MARKER_READ;
 
-    vector<uint32_t>& index_keep = pheno->get_index_keep();
     keep_mask = new uint64_t[(num_raw_sample + 63)/64]();
-    for(auto keep_item : index_keep){
-        uint32_t cur_qword = keep_item / 64;
-        uint32_t cur_offset = keep_item % 64;
-        keep_mask[cur_qword] |= k1LU << cur_offset;
-    }
+    pheno->getMaskBit(keep_mask);
 
     check_bed();
 
@@ -117,7 +125,7 @@ void Geno::filter_MAF(){
         LOGGER.i(0, "Computing allele frequencies...");
         vector<function<void (uint64_t *, int)>> callBacks;
         callBacks.push_back(bind(&Geno::freq64, this, _1, _2));
-        loop_64block(callBacks);
+        loop_64block(this->marker->get_extract_index(), callBacks);
         // We adopt the EPSILON from plink, because the double value may have some precision issue;
         double min_maf = options_d["min_maf"] * (1 - Constants::SMALL_EPSILON);
         double max_maf = options_d["max_maf"] * (1 + Constants::SMALL_EPSILON);
@@ -235,108 +243,182 @@ void Geno::out_freq(string filename){
 }
 
 bool Geno::check_bed(){
+    bool has_error = false;
     FILE *pFile;
     uint64_t f_size;
     uint8_t * buffer = new uint8_t[3];
+    string message;
+    uint32_t previous_size  = 0;
 
-    pFile = fopen(bed_file.c_str(), "rb");
-    if(pFile == NULL){
-        LOGGER.e(0, "can't open [" + bed_file + "] to read");
+    for(int i = 0; i < bed_files.size(); i++){
+        string bed_file = bed_files[i];
+        uint32_t cur_size =  marker->count_raw(i);
+
+        pFile = fopen(bed_file.c_str(), "rb");
+        if(pFile == NULL){
+            has_error = true;
+            message += "Can't open [" + bed_file + "] to read.\n";
+            previous_size = cur_size;
+            continue;
+        }
+        fseek(pFile, 0, SEEK_END);
+        f_size = ftell(pFile);
+        rewind(pFile);
+
+        if((f_size - 3) != ((uint64_t)num_byte_per_marker) * (cur_size - previous_size)){
+            has_error = true;
+            message += "Invalid bed file [" + bed_file +
+                "]. The sample and SNP number in bed file are different from bim and fam file.\n";
+            previous_size = cur_size;
+            continue;
+        }
+
+        size_t read_count = fread(buffer, 1, 3, pFile);
+        fclose(pFile);
+        if((read_count != 3) &&
+                (*buffer != 0x6c) &&
+                (*(buffer+1) != 0x1b) &&
+                (*(buffer+2) != 0x01)){
+            has_error = true;
+            message += "Invalid bed file [" + bed_file +
+                "], please convert it into new format (SNP major).\n";
+        }
+        previous_size = cur_size;
     }
-    fseek(pFile, 0, SEEK_END);
-    f_size = ftell(pFile);
-    rewind(pFile);
 
-    if((f_size - 3) != num_byte_per_marker * marker->count_raw()){
-        LOGGER.e(0, "invalid bed file [" + bed_file +
-                "]. The sample and SNP number in bed file are different from bim and fam file");
-    }
-
-    size_t read_count = fread(buffer, 1, 3, pFile);
-    fclose(pFile);
-    if((read_count != 3) &&
-            (*buffer != 0x6c) &&
-            (*(buffer+1) != 0x1b) &&
-            (*(buffer+2) != 0x01)){
-        LOGGER.e(0, "invalid bed file [" + bed_file +
-                    "], please convert it into new format (SNP major).");
-        return false;
+    delete[] buffer;
+    if(has_error){
+        LOGGER.e(0, message);
     }else{
-        delete[] buffer;
-        LOGGER.d(0, "BED file check OK");
-        return true;
+        LOGGER.i(0, "BED file(s) check OK.");
     }
+    return has_error;
 }
 
-void Geno::read_bed(){
-    
-    LOGGER.i(0, "Reading PLINK BED file from [" + bed_file + "] in SNP-major format...");
-    //LOGGER.i(0, "Genotype data for " + to_string(pheno->count_keep()) + " individuals and " + 
-    //            to_string(marker->count_extract()) + " SNPs to be included from [" + bed_file + "]");
-    //clock_t begin = clock();
-    //omp_set_num_threads(THREADS.getThreadCount()+1);
-    FILE *pFile;
-    pFile = fopen(bed_file.c_str(), "rb");
-    if(pFile == NULL){
-        LOGGER.e(0, "can't open [" + bed_file + "] to read.");
+void Geno::read_bed(const vector<uint32_t> &raw_marker_index){
+    LOGGER.i(0, "Reading PLINK BED file(s) in SNP-major format...");
+
+    // init start index for each file
+    vector<uint32_t> pos;
+    pos.push_back(0);
+    for(int i = 0; i != bed_files.size() - 1; i++){
+        pos.push_back(marker->count_raw(i));
     }
 
-    fseek(pFile, 3, SEEK_SET);
+    //init files handles;
+    vector<FILE *> pFiles;
+    for(auto & cur_bed_file : bed_files){
+        FILE *pFile = fopen(cur_bed_file.c_str(), "rb");
+        if(pFile == NULL){
+            LOGGER.e(0, "can't open [" + cur_bed_file + "] to read.");
+        }
 
-    uint8_t *w_buf = NULL, *iw_buf = NULL;
-    bool isEOF = false;
-    uint64_t index_marker_extracted = 0;
-    uint64_t last_index = marker->getExtractIndex(index_marker_extracted);
-    fseek(pFile, num_byte_per_marker * last_index, SEEK_CUR);
+        fseek(pFile, 3, SEEK_SET);
+        pFiles.push_back(pFile);
+    }
 
-    int cur_block = 0;
-    int last_num_marker = marker->count_extract() % Constants::NUM_MARKER_READ;
+    uint8_t *w_buf = NULL;
+    w_buf = asyncBuffer->start_write();
+    int num_marker_read = 0;
+    for(auto & cur_marker_index : raw_marker_index){
+        int cur_file_index = marker->getMIndex(cur_marker_index);
+        FILE * pFile = pFiles[cur_file_index];
+        int32_t lag_index = cur_marker_index - pos[cur_file_index];
+        //very arbitary number to skip
+        if(lag_index > 10){
+            fseek(pFile, (lag_index - 1) * num_byte_per_marker, SEEK_CUR);
+        }else{
+            for(int32_t ab_index = 1; ab_index < lag_index; ab_index++){
+                fread(w_buf, 1, num_byte_per_marker, pFile);
+            }
+        }
+        size_t read_count = fread(w_buf, 1, num_byte_per_marker, pFile);
+        if(read_count != num_byte_per_marker){
+            LOGGER.e(0, "read [" + bed_files[cur_file_index] + "] error.\nThere might be some problems in your storage, or have you changed the file?");
+        }
+        w_buf += num_byte_per_marker;
+        pos[cur_file_index] = cur_marker_index;
 
-    LOGGER.ts("read_geno");
+        num_marker_read += 1;
+        if(num_marker_read == Constants::NUM_MARKER_READ){
+            asyncBuffer->end_write();
+            w_buf = asyncBuffer->start_write();
+            num_marker_read = 0;
+        }
+    }
 
-    while(!isEOF){
-        w_buf = asyncBuffer->start_write();
-        
-        LOGGER.d(0, "read start");
-        int num_marker = 0;
-        size_t read_count = 0;
-        iw_buf = w_buf;
-        //begin = clock();
-        int cur_num_block = (cur_block != (num_blocks - 1))? Constants::NUM_MARKER_READ : last_num_marker;
-        do{
-            uint64_t  cur_index = marker->getExtractIndex(index_marker_extracted);
-            uint64_t lag_index = cur_index - last_index;
+    asyncBuffer->end_write();
 
-            //very arbitrary value to skip, maybe precised in the future.
-            if(lag_index > 10){
-                fseek(pFile, (lag_index - 1) * num_byte_per_marker, SEEK_CUR);
-            }else{
-                for(int64_t ab_index = 1; ab_index < lag_index; ab_index++){
-                    fread(w_buf, 1, num_byte_per_marker, pFile);
+    for(auto & pFile : pFiles){
+        fclose(pFile);
+    }
+
+/*
+    for(int i = 0; i < bed_files.size(); i++){
+        cur_bed_file = bed_files[i];
+
+        pFile = fopen(cur_bed_file.c_str(), "rb");
+        if(pFile == NULL){
+            LOGGER.e(0, "can't open [" + cur_bed_file + "] to read.");
+        }
+
+        fseek(pFile, 3, SEEK_SET);
+
+        bool isEOF = false;
+        uint64_t index_marker_extracted = 0;
+        uint64_t last_index = marker->getExtractIndex(index_marker_extracted);
+        fseek(pFile, num_byte_per_marker * last_index, SEEK_CUR);
+
+        int cur_block = 0;
+        int last_num_marker = marker->count_extract() % Constants::NUM_MARKER_READ;
+
+        LOGGER.ts("read_geno");
+
+        while(!isEOF){
+            w_buf = asyncBuffer->start_write();
+
+            LOGGER.d(0, "read start");
+            int num_marker = 0;
+            size_t read_count = 0;
+            iw_buf = w_buf;
+            //begin = clock();
+            int cur_num_block = (cur_block != (num_blocks - 1))? Constants::NUM_MARKER_READ : last_num_marker;
+            do{
+                uint64_t  cur_index = marker->getExtractIndex(index_marker_extracted);
+                uint64_t lag_index = cur_index - last_index;
+
+                //very arbitrary value to skip, maybe precised in the future.
+                if(lag_index > 10){
+                    fseek(pFile, (lag_index - 1) * num_byte_per_marker, SEEK_CUR);
+                }else{
+                    for(int64_t ab_index = 1; ab_index < lag_index; ab_index++){
+                        fread(w_buf, 1, num_byte_per_marker, pFile);
+                    }
                 }
-            }
-            read_count = fread(w_buf, 1, num_byte_per_marker, pFile);
-            w_buf += num_byte_per_marker;
+                read_count = fread(w_buf, 1, num_byte_per_marker, pFile);
+                w_buf += num_byte_per_marker;
 
-            last_index = cur_index;
-            index_marker_extracted++;
-            num_marker++;
+                last_index = cur_index;
+                index_marker_extracted++;
+                num_marker++;
 
-            if(read_count != num_byte_per_marker || index_marker_extracted == marker->count_extract()){
-                asyncBuffer->setEOF();
-                isEOF = true;
-                break;
-            }
-        }while(num_marker != cur_num_block);
+                if(read_count != num_byte_per_marker || index_marker_extracted == marker->count_extract()){
+                    asyncBuffer->setEOF();
+                    isEOF = true;
+                    break;
+                }
+            }while(num_marker != cur_num_block);
 
-        asyncBuffer->end_write();
-        LOGGER.d(2, "read block success");
-        //std::cout << "   read bed" << "@T: " << 1.0 * (clock() - begin) / CLOCKS_PER_SEC << std::endl;
-        cur_block++;
-    }
-    fclose(pFile);
+            asyncBuffer->end_write();
+            LOGGER.d(2, "read block success");
+            //std::cout << "   read bed" << "@T: " << 1.0 * (clock() - begin) / CLOCKS_PER_SEC << std::endl;
+            cur_block++;
+        }
+        fclose(pFile);
+        */
     //LOGGER.i(0, "Read bed time: " + to_string(LOGGER.tp("read_geno")));
 }
+
 /*
 void Geno::freq(uint8_t *buf, int num_marker){
     if(num_marker_freq >= marker->count_extract()) return;
@@ -494,62 +576,6 @@ void Geno::freq64(uint64_t *buf, int num_marker) {
         AFA1[raw_index_marker] = cur_af;
     }
     num_marker_freq += num_marker;
-}
-
-void Geno::loop_block(vector<function<void (uint8_t *buf, int num_marker)>> callbacks) {
-    num_finished_markers = 0;
-    thread read_thread([this](){this->read_bed();});
-    read_thread.detach();
-
-    uint8_t *r_buf = NULL;
-    bool isEOF = false;
-    int cur_num_marker_read;
-
-    LOGGER.ts("LOOP_GENO_TOT");
-    LOGGER.ts("LOOP_GENO_PRE");
-
-    for(int cur_block = 0; cur_block < num_blocks; ++cur_block){
-        std::tie(r_buf, isEOF) = asyncBuffer->start_read();
-        //LOGGER.i(0, "time get buffer: " + to_string(LOGGER.tp("LOOP_GENO_PRE")));
-
-        LOGGER.d(0, "Process block " + std::to_string(cur_block));
-        if(isEOF && cur_block != (num_blocks - 1)){
-            LOGGER.e(0, "can't read to the end of file [" + bed_file + "].");
-        }
-        //correct the marker read;
-        if(cur_block == (num_blocks - 1)){
-            cur_num_marker_read = marker->count_extract() - Constants::NUM_MARKER_READ * cur_block;
-        }else{
-            cur_num_marker_read = Constants::NUM_MARKER_READ;
-        }
-
-        for(auto callback : callbacks){
-         //   LOGGER.i(0, "time1: " + to_string(LOGGER.tp("LOOP_GENO_PRE")));
-            callback(r_buf, cur_num_marker_read);
-          //  LOGGER.i(0, "time2: " + to_string(LOGGER.tp("LOOP_GENO_PRE")));
-        }
-
-        asyncBuffer->end_read();
-
-        num_finished_markers += cur_num_marker_read;
-        if(cur_block % 100 == 0){
-            float time_p = LOGGER.tp("LOOP_GENO_PRE");
-            if(time_p > 300){
-                LOGGER.ts("LOOP_GENO_PRE");
-                float elapse_time = LOGGER.tp("LOOP_GENO_TOT");
-                float finished_percent = (float) cur_block / num_blocks;
-                float remain_time = (1.0 / finished_percent - 1) * elapse_time / 60;
-
-                std::ostringstream ss;
-                ss << std::fixed << std::setprecision(1) << finished_percent * 100 << "% Estimated time remaining " << remain_time << " min"; 
-                
-                LOGGER.i(1, ss.str());
-            }
-        }
-    }
-    std::ostringstream ss;
-    ss << std::fixed << std::setprecision(1) << "100% Finished in " << LOGGER.tp("LOOP_GENO_TOT") / 60 << " min";
-    LOGGER.i(1, ss.str());
 }
 
 // extracted and revised from plink2.0
@@ -733,9 +759,9 @@ void Geno::move_geno(uint8_t *buf, uint64_t *keep_list, uint32_t num_raw_sample,
     }
 }
 
-void Geno::loop_64block(vector<function<void (uint64_t *buf, int num_marker)>> callbacks) {
+void Geno::loop_64block(const vector<uint32_t> &raw_marker_index, vector<function<void (uint64_t *buf, int num_marker)>> callbacks) {
     num_finished_markers = 0;
-    thread read_thread([this](){this->read_bed();});
+    thread read_thread([this, &raw_marker_index](){this->read_bed(raw_marker_index);});
     read_thread.detach();
 
     uint8_t *r_buf = NULL;
@@ -751,7 +777,7 @@ void Geno::loop_64block(vector<function<void (uint64_t *buf, int num_marker)>> c
 
         LOGGER.d(0, "Process block " + std::to_string(cur_block));
         if(isEOF && cur_block != (num_blocks - 1)){
-            LOGGER.e(0, "can't read to the end of file [" + bed_file + "].");
+            LOGGER.e(0, "read to the end of the BED file, but still didn't finish.");
         }
         //correct the marker read;
         if(cur_block == (num_blocks - 1)){
@@ -885,6 +911,18 @@ int Geno::registerOption(map<string, vector<string>>& options_in) {
     int return_value = 0;
     addOneFileOption("geno_file", ".bed","--bfile", options_in);
     options_in.erase("--bfile");
+    if(options_in.find("m_file") != options_in.end()){
+        for(auto & item : options_in["m_file"]){
+            std::ifstream file_item((item + ".bed").c_str());
+            if(file_item.fail()){
+                LOGGER.e(0, "can't read BED file in [" + item + "].");
+            }
+            file_item.close();
+        }
+        options["m_file"] = boost::algorithm::join(options_in["m_file"], "\t");
+    }
+    options_in.erase("m_file");
+
     options_d["min_maf"] = 0.0;
     options_d["max_maf"] = 0.5;
 
@@ -956,7 +994,7 @@ void Geno::processMain() {
             if(geno.num_marker_freq == 0 ){
                 LOGGER.i(0, "Computing allele frequencies...");
                 callBacks.push_back(bind(&Geno::freq64, &geno, _1, _2));
-                geno.loop_64block(callBacks);
+                geno.loop_64block(marker.get_extract_index(), callBacks);
             }
             geno.out_freq(options["out"]);
             callBacks.clear();

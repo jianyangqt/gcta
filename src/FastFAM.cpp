@@ -640,7 +640,7 @@ void FastFAM::processMain(){
             }else{
                 callBacks.push_back(bind(&FastFAM::calculate_gwa, &ffam, _1, _2));
             }
-            geno.loop_64block(callBacks);
+            geno.loop_64block(marker.get_extract_index(), callBacks);
 
             ffam.output(options["out"]);
         }

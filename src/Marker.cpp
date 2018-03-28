@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <numeric>
 #include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/join.hpp>
 #include "utils.hpp"
 
 using std::to_string;
@@ -42,12 +43,21 @@ Marker::Marker() {
     chr_maps["xy"] = last_chr_autosome + 3;
     chr_maps["MT"] = last_chr_autosome + 4;
     chr_maps["mt"] = last_chr_autosome + 4;
-
+ 
+    bool has_marker = false;
 
     if(options.find("marker_file") != options.end()){
         read_bim(options["marker_file"]);
-    }else{
-        LOGGER.e(0, "No marker file present");
+        has_marker = true;
+        raw_limits.push_back(num_marker);
+    }
+    
+    if(options.find("m_file") != options.end()){
+        has_marker = true;
+        read_mbim(options["m_file"]);
+    }
+    if(!has_marker){
+        LOGGER.e(0, "no marker exist");
     }
 
     if(options.find("extract_file") != options.end()){
@@ -171,6 +181,29 @@ void Marker::matchSNPListFile(string filename, int num_min_fields, const vector<
     }
 }
 
+void Marker::read_mbim(string mfile){
+    vector<string> mfiles;
+    boost::split(mfiles, mfile, boost::is_any_of("\t "));
+    raw_limits.clear();
+    for(auto & mfile : mfiles){
+        read_bim(mfile + ".bim");
+        raw_limits.push_back(num_marker);
+    }
+}
+
+vector<uint32_t>& Marker::get_extract_index(){
+    return this->index_extract;
+}
+
+int Marker::getMIndex(uint32_t raw_index){
+    for(int i = 0; i < raw_limits.size(); i++){
+        if(raw_index < raw_limits[i]){
+            return i;
+        }
+    }
+    LOGGER.e(0, "too large SNP index " + to_string(raw_index));
+}
+
 void Marker::read_bim(string bim_file) {
     LOGGER.i(0, "Reading PLINK BIM file from [" + bim_file + "]...");
     std::ifstream bim(bim_file.c_str());
@@ -178,9 +211,10 @@ void Marker::read_bim(string bim_file) {
         LOGGER.e(0, "can not open the file [" + bim_file + "] to read");
     }
 
-    int line_number = 0;
+    int line_number = name.size();
     int last_length = 0;
     string line;
+    int start_line_number = name.size() + 1;
     uint8_t chr_item;
     while(std::getline(bim, line)){
         line_number++;
@@ -193,7 +227,7 @@ void Marker::read_bim(string bim_file) {
             LOGGER.e(0, "the bim file [" + bim_file + "], line " + to_string(line_number)
                    + " has elements less than " + to_string(Constants::NUM_BIM_COL));
         }
-        if(line_number > 1 && line_elements.size() != last_length){
+        if(line_number > start_line_number && line_elements.size() != last_length){
             LOGGER.w(0, "the bim file [" + bim_file + "], line " + to_string(line_number) +
                     " have different elements, take care");
         }
@@ -236,8 +270,12 @@ void Marker::read_bim(string bim_file) {
     }
 }
 
-uint32_t Marker::count_raw() {
-    return num_marker;
+uint32_t Marker::count_raw(int part) {
+    if(part == -1){
+        return num_marker;
+    }else{
+        return raw_limits[part];
+    }
 }
 
 uint32_t Marker::count_extract(){
@@ -384,6 +422,17 @@ int Marker::registerOption(map<string, vector<string>>& options_in){
     addOneFileOption("extract_file", "", "--extract", options_in);
     addOneFileOption("exclude_file", "", "--exclude", options_in);
     addOneFileOption("update_ref_allele_file", "", "--update-ref-allele", options_in);
+
+    if(options_in.find("m_file") != options_in.end()){
+        for(auto & item : options_in["m_file"]){
+            std::ifstream file_item((item + ".bim").c_str());
+            if(file_item.fail()){
+                LOGGER.e(0, "can't read BIM file in [" + item + "].");
+            }
+            file_item.close();
+        }
+        options["m_file"] = boost::algorithm::join(options_in["m_file"], "\t");
+    }
 
     if(options_in.find("--autosome-num") != options_in.end()){
         if(options_in["--autosome-num"].size() == 1){

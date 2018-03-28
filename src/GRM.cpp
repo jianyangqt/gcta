@@ -1185,7 +1185,7 @@ void GRM::processMain() {
             GRM grm(&geno);
             callBacks.push_back(bind(&Geno::freq64, &geno, _1, _2));
             callBacks.push_back(bind(&GRM::calculate_GRM, &grm, _1, _2));
-            geno.loop_64block(callBacks);
+            geno.loop_64block(marker.get_extract_index(), callBacks);
             grm.deduce_GRM();
             return;
         }
