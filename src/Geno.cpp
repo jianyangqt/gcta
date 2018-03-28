@@ -169,7 +169,7 @@ void Geno::filter_MAF(){
         init_AsyncBuffer();
         num_blocks = marker->count_extract() / Constants::NUM_MARKER_READ +
                      (marker->count_extract() % Constants::NUM_MARKER_READ != 0);
-        LOGGER.i(0, to_string(extract_index.size()) + " SNPs remained due to --maf or --max-maf,  " + to_string(marker->count_extract()) + " remained");
+        LOGGER.i(0, to_string(extract_index.size()) + " SNPs remain from --maf or --max-maf,  ");
     }
 
 }
@@ -299,10 +299,10 @@ void Geno::read_bed(const vector<uint32_t> &raw_marker_index){
     LOGGER.i(0, "Reading PLINK BED file(s) in SNP-major format...");
 
     // init start index for each file
-    vector<uint32_t> pos;
-    pos.push_back(0);
+    vector<int32_t> pos;
+    pos.push_back(-1);
     for(int i = 0; i != bed_files.size() - 1; i++){
-        pos.push_back(marker->count_raw(i));
+        pos.push_back(marker->count_raw(i) - 1);
     }
 
     //init files handles;

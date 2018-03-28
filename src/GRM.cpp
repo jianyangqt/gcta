@@ -1187,6 +1187,7 @@ void GRM::processMain() {
             callBacks.push_back(bind(&GRM::calculate_GRM, &grm, _1, _2));
             geno.loop_64block(marker.get_extract_index(), callBacks);
             grm.deduce_GRM();
+
             return;
         }
 
