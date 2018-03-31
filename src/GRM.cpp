@@ -1055,8 +1055,10 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
 
     string part_grm = "--make-grm-part";
     string part_grm_d = "--make-grm-d-part";
+    string part_grm_xchr = "--make-grm-xchr-part";
     bool bool_part_grm = options_in.find(part_grm) != options_in.end();
     bool bool_part_grm_d = options_in.find(part_grm_d) != options_in.end();
+    bool bool_part_grm_xchr = options_in.find(part_grm_xchr) != options_in.end();
     string part_grm_symbol = "";
     bool isDominance = false;
     if(bool_part_grm){
@@ -1067,11 +1069,15 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
         part_grm_symbol = part_grm_d;
         isDominance = true;
     }
-    if(bool_part_grm && bool_part_grm_d){
-        LOGGER.e(0, "can't specify --make-grm-part and --make-grm-d-part together");
+    if(bool_part_grm_xchr){
+        part_grm_symbol = part_grm_xchr;
+        isDominance = false;
+    }
+    if(bool_part_grm && bool_part_grm_d && bool_part_grm_xchr){
+        LOGGER.e(0, "can't specify --make-grm-part, --make-grm-d-part or --make-grm-xchr-part together");
     }
 
-    if(bool_part_grm || bool_part_grm_d){
+    if(bool_part_grm || bool_part_grm_d || bool_part_grm_xchr){
         if(options_in[part_grm_symbol].size() == 2){
             try{
                 num_parts = std::stoi(options_in[part_grm_symbol][0]);
@@ -1090,13 +1096,17 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
             std::string c_parts = std::to_string(cur_part);
             options["out"] = options["out"] + ".part_" + s_parts + "_" + std::string(s_parts.length() - c_parts.length(), '0') + c_parts;
             options_in["out"][0] = options["out"];
-            processFunctions.push_back("make_grm");
             options_in.erase(part_grm_symbol);
-            std::map<string, vector<string>> t_option;
-            t_option["--autosome"] = {};
-            Marker::registerOption(t_option);
+            if(!bool_part_grm_xchr){
+                std::map<string, vector<string>> t_option;
+                t_option["--autosome"] = {};
+                Marker::registerOption(t_option);
+                processFunctions.push_back("make_grm");
+                return_value++;
+            }else{
+                options_in["--make-grm-xchr"] = {};
+            }
  
-            return_value++;
         }else{
             LOGGER.e(0, part_grm_symbol + " takes two arguments, total parts and part to calculate currently");
         }
@@ -1108,7 +1118,23 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
     if(options_in.find("--grm-singleton") != options_in.end()){
         options_in["--make-grm"] = {};
     }
-    
+
+    string op_grmx = "--make-grm-xchr";
+    options_b["xchr"] = false;
+    if(options_in.find(op_grmx) != options_in.end()){
+        std::map<string, vector<string>> t_option;
+        t_option["--chrx"] = {};
+        t_option["--filter-sex"] = {};
+        Pheno::registerOption(t_option);
+        Marker::registerOption(t_option);
+        Geno::registerOption(t_option);
+        processFunctions.push_back("make_grmx");
+        options_b["xchr"] = true;
+        options_in.erase(op_grmx);
+        return_value++;
+    }
+
+   
     string op_grm_d = "--make-grm-d";
     if(options_in.find(op_grm_d) != options_in.end()){
         isDominance = true;
@@ -1176,20 +1202,6 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
 
     }
 
-    string op_grmx = "--make-grm-xchr";
-    options_b["xchr"] = false;
-    if(options_in.find(op_grmx) != options_in.end()){
-        std::map<string, vector<string>> t_option;
-        t_option["--chrx"] = {};
-        t_option["--filter-sex"] = {};
-        Pheno::registerOption(t_option);
-        Marker::registerOption(t_option);
-        Geno::registerOption(t_option);
-        processFunctions.push_back("make_grmx");
-        options_b["xchr"] = true;
-        options_in.erase(op_grmx);
-        return_value++;
-    }
     
 
     vector<string> flags = {"--make-bK-sparse", "--make-bK"};
