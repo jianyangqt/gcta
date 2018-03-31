@@ -36,10 +36,12 @@ public:
     Pheno();
     PhenoMask get_indi_mask(uint32_t ori_index);
     uint8_t get_mask(uint32_t ori_index);
+    void filter_sex();
     uint32_t count_raw();
     static void set_keep(vector<string>& indi_marks, vector<string>& marks, vector<uint32_t>& keeps, bool isKeep);
     static void reinit_rm(vector<uint32_t>& keeps, vector<uint32_t>& rms, int total_sample_number);
     uint32_t count_keep();
+    uint32_t count_male();
     void mask_geno_keep(uint8_t *const geno_1block, int num_blocks);
     vector<string> get_id(int from_index, int to_index);
     uint8_t extract_genobit(uint8_t * const buf, int index_in_keep);
@@ -47,6 +49,7 @@ public:
     void get_pheno(vector<string>& ids, vector<double>& pheno);
     void filter_keep_index(vector<uint32_t>& k_index);
     void getMaskBit(uint64_t *maskp);
+    void getMaskBitMale(uint64_t *maskp);
 
     static int registerOption(map<string, vector<string>>& options);
     static void processMain();
@@ -60,10 +63,11 @@ private:
     vector<string> mark;
     vector<string> fa_id;
     vector<string> mo_id;
-    vector<int> sex;
+    vector<int8_t> sex;
     vector<double> pheno;
     vector<uint32_t> index_keep;
     vector<uint32_t> index_rm;
+    vector<uint32_t> index_keep_male;
     vector<int> block8_rm;
     vector<uint8_t> mask_rm;
     int num_ind = 0;

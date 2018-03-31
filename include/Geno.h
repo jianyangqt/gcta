@@ -44,6 +44,7 @@ public:
     void freq(uint8_t *buf, int num_marker);
     void freq2(uint8_t *buf, int num_marker);
     void freq64(uint64_t *buf, int num_marker);
+    void freq64_x(uint64_t *buf, int num_marker);
     bool check_bed();
     void out_freq(string filename);
     void makeMarkerX(uint64_t *buf, int cur_marker, double *w_buf, bool center, bool std);
@@ -70,6 +71,7 @@ private:
     vector<uint32_t> countA1A2;
     vector<uint32_t> countA2A2;
     vector<double> RDev;
+    uint32_t total_markers;
 
     static map<string, string> options;
     static map<string, double> options_d;
@@ -85,8 +87,11 @@ private:
     uint64_t num_item_1geno;
     uint64_t num_raw_sample;
     uint64_t num_keep_sample;
+    uint64_t num_male_keep_sample;
     uint64_t num_item_geno_buffer;
     uint64_t *keep_mask;
+    uint64_t *keep_male_mask;
+    bool isX;
 
     friend class GRM;
     friend class FastFAM;

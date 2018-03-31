@@ -1149,6 +1149,19 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
 
     }
 
+    string op_grmx = "--make-grm-xchr";
+    if(options_in.find(op_grmx) != options_in.end()){
+        std::map<string, vector<string>> t_option;
+        t_option["--chrx"] = {};
+        t_option["--filter-sex"] = {};
+        Pheno::registerOption(t_option);
+        Marker::registerOption(t_option);
+        Geno::registerOption(t_option);
+        processFunctions.push_back("make_grmx");
+        options_in.erase(op_grmx);
+    }
+    
+
     vector<string> flags = {"--make-bK-sparse", "--make-bK"};
     vector<bool> isSparse = {true, false};
     for(int index = 0; index != flags.size(); index++){
@@ -1190,6 +1203,21 @@ void GRM::processMain() {
 
             return;
         }
+
+        if(process_function == "make_grmx"){
+            LOGGER.i(0, "Note: This function takes X chromosome as non PAR region.");
+            Pheno pheno;
+            Marker marker;
+            Geno geno(&pheno, &marker);
+            GRM grm(&geno);
+            callBacks.push_back(bind(&Geno::freq64_x, &geno, _1, _2));
+            callBacks.push_back(bind(&GRM::calculate_GRM, &grm, _1, _2));
+            geno.loop_64block(marker.get_extract_index(), callBacks);
+            grm.deduce_GRM();
+
+            return;
+        }
+
 
         if(process_function == "grm_cutoff"){
             GRM grm;

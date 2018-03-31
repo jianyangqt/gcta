@@ -487,7 +487,7 @@ int Marker::registerOption(map<string, vector<string>>& options_in){
     if(options_in.find("--chr") != options_in.end()){
         specifiedChrFlag = true;
         if(filterChrFlag){
-            LOGGER.w(0, "One of the chromosome filter has been applied, it has been overrided by --chr");
+            LOGGER.w(0, "One of the CHR filter has been applied, it has been overrided by --chr");
         }
         if(options_in["--chr"].size() == 1){
             try{
@@ -511,7 +511,17 @@ int Marker::registerOption(map<string, vector<string>>& options_in){
         if(options_i["start_chr"] < 0 || options_i["end_chr"] > options_i["last_chr"]){
             LOGGER.e(0, "--chr is out of chromosome range");
         }
+        filterChrFlag = true;
+    }
 
+    if(options_in.find("--chrx") != options_in.end()){
+        specifiedChrFlag = true;
+        if(filterChrFlag){
+            LOGGER.w(0, "One of the CHR filter has been applied, it has been overrided by --chrx");
+        }
+        options_i["start_chr"] = options_i["last_chr_autosome"] + 1;
+        options_i["end_chr"] = options_i["start_chr"];
+        filterChrFlag = true;
     }
 
     return 0;

@@ -89,6 +89,9 @@ Pheno::Pheno() {
         LOGGER.i(0, to_string(index_keep.size()) + " individuals with valid sex information to be included from the phenotype file.");
     }
 
+    if(options.find("filter_sex") != options.end()){
+        filter_sex();
+    }
 
     reinit();
 }
@@ -102,6 +105,34 @@ void Pheno::filter_keep_index(vector<uint32_t>& k_index){
 
     reinit();
 }
+
+void Pheno::filter_sex(){
+    vector<uint32_t> new_index;
+    vector<uint32_t> male_index;
+    new_index.reserve(index_keep.size());
+    uint32_t valid_index = 0;
+    for(int i = 0; i < index_keep.size(); i++){
+        uint32_t index = index_keep[i];
+        int8_t sex_item = sex[index];
+        switch(sex_item){
+            case 1:
+                male_index.push_back(valid_index);
+                new_index.push_back(index);
+                valid_index++;
+                break;
+            case 2:
+                new_index.push_back(index);
+                valid_index++;
+                break;
+        }
+    }
+
+    new_index.shrink_to_fit();
+    index_keep = new_index;
+    index_keep_male = male_index;
+    LOGGER.i(0, to_string(new_index.size()) + " individuals have gender information.");
+}
+
 
 void Pheno::reinit(){
     reinit_rm(index_keep, index_rm, num_ind);
@@ -295,6 +326,10 @@ uint32_t Pheno::count_raw(){
 
 uint32_t Pheno::count_keep(){
     return num_keep;
+}
+
+uint32_t Pheno::count_male(){
+    return index_keep_male.size();
 }
 
 // remove have larger priority than keep, once the SNP has been removed, it
@@ -554,6 +589,15 @@ void Pheno::getMaskBit(uint64_t *maskp){
     }
 }
 
+void Pheno::getMaskBitMale(uint64_t *maskp){
+    for(auto keep_item : index_keep_male){
+        uint32_t cur_qword = keep_item / 64;
+        uint32_t cur_offset = keep_item % 64;
+        maskp[cur_qword] |= k1LU << cur_offset;
+    }
+}
+
+
 
 void Pheno::addOneFileOption(string key_store, string append_string, string key_name,
                                     map<string, vector<string>> options_in, map<string,string>& options) {
@@ -647,6 +691,11 @@ int Pheno::registerOption(map<string, vector<string>>& options_in){
         options["mpheno"] = options_in["--mpheno"][0];
         options_in.erase("--mpheno");
     }
+
+    if(options_in.find("--filter-sex") != options_in.end()){
+        options["filter_sex"] = "yes";
+    }
+
 
     // no main
     return 0;

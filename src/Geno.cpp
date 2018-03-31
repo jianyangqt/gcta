@@ -60,6 +60,32 @@
  
 #endif
 
+#ifdef __linux__
+__attribute__(target("default"))
+#endif
+uint64_t fill_inter_zero(uint64_t x) {
+   uint64_t t;
+   t = (x ^ (x >> 16)) & 0x00000000FFFF0000;
+   x = x ^ t ^ (t << 16);
+   t = (x ^ (x >> 8)) & 0x0000FF000000FF00;
+   x = x ^ t ^ (t << 8);
+   t = (x ^ (x >> 4)) & 0x00F000F000F000F0;
+   x = x ^ t ^ (t << 4);
+   t = (x ^ (x >> 2)) & 0x0C0C0C0C0C0C0C0C;
+   x = x ^ t ^ (t << 2);
+   t = (x ^ (x >> 1)) & 0x2222222222222222;
+   x = x ^ t ^ (t << 1);
+   return x;
+}
+#ifdef __linux__
+#include <x86intrin.h>
+__attibute__((target("avx2"))
+uint64_t fill_inter_zero(uint64_t x) {
+    return _pdep_u64(x, 0x5555555555555555U);
+}
+#endif
+
+
 typedef uint32_t halfword_t;
 const uintptr_t k1LU = (uintptr_t)1;
 
@@ -97,11 +123,20 @@ Geno::Geno(Pheno* pheno, Marker* marker) {
     last_byte_NA_sample = (4 - (num_raw_sample % 4)) % 4;
 
     num_keep_sample = pheno->count_keep();
+    total_markers = 2 * num_keep_sample;
     num_item_1geno = (num_keep_sample + 31) / 32;
     num_item_geno_buffer = num_item_1geno * Constants::NUM_MARKER_READ;
 
     keep_mask = new uint64_t[(num_raw_sample + 63)/64]();
     pheno->getMaskBit(keep_mask);
+
+    isX = false;
+    if(options.find("sex") != options.end()){
+        isX = true;
+        total_markers -= pheno->count_male();
+        keep_male_mask = new uint64_t[(num_male_keep_sample + 63)/64]();
+        pheno->getMaskBitMale(keep_male_mask);
+    }
 
     check_bed();
 
@@ -124,7 +159,11 @@ void Geno::filter_MAF(){
     if((options_d["min_maf"] != 0.0) || (options_d["max_maf"] != 0.5)){
         LOGGER.i(0, "Computing allele frequencies...");
         vector<function<void (uint64_t *, int)>> callBacks;
-        callBacks.push_back(bind(&Geno::freq64, this, _1, _2));
+        if(isX){ 
+            callBacks.push_back(bind(&Geno::freq64_x, this, _1, _2));
+        }else{
+            callBacks.push_back(bind(&Geno::freq64, this, _1, _2));
+        } 
         loop_64block(this->marker->get_extract_index(), callBacks);
         // We adopt the EPSILON from plink, because the double value may have some precision issue;
         double min_maf = options_d["min_maf"] * (1 - Constants::SMALL_EPSILON);
@@ -540,6 +579,45 @@ void Geno::freq2(uint8_t *buf, int num_marker) {
     num_marker_freq += num_marker;
 }
 
+void Geno::freq64_x(uint64_t *buf, int num_marker) {
+    const static uint64_t MASK = 6148914691236517205UL; 
+    if(num_marker_freq >= marker->count_extract()) return;
+
+    int cur_num_marker_read = num_marker;
+    
+    #pragma omp parallel for schedule(dynamic) 
+    for(int cur_marker_index = 0; cur_marker_index < cur_num_marker_read; ++cur_marker_index){
+        uint64_t mask_gender;
+        mask_gender = fill_inter_zero(mask_gender);
+        uint32_t curA1A1, curA1A2, curA2A2;
+        uint32_t even_ct = 0, odd_ct = 0, both_ct = 0, odd_ct_m = 0, both_ct_m = 0;
+        uint64_t *p_buf = buf + cur_marker_index * num_item_1geno;
+        for(int index = 0; index < num_item_1geno ; index++){
+            uint64_t g_buf = p_buf[index];
+            uint64_t g_buf_h = MASK & (g_buf >> 1);
+            uint64_t g_buf_l = g_buf & MASK;
+            uint64_t g_buf_b = g_buf & g_buf_h;
+            odd_ct += popcount(g_buf_l);
+            even_ct += popcount(g_buf_h);
+            both_ct += popcount(g_buf_b);
+
+            odd_ct_m += popcount(g_buf_l & mask_gender);
+            both_ct_m += popcount(g_buf_b & mask_gender);
+        }
+
+        int raw_index_marker = num_marker_freq + cur_marker_index;
+
+        double cur_af = (even_ct + both_ct_m) / ( total_markers - odd_ct_m - odd_ct + both_ct_m + both_ct);
+        if(!marker->isEffecRev(raw_index_marker)){
+            cur_af = 1.0 - cur_af;
+        }
+        AFA1[raw_index_marker] = cur_af;
+    }
+    num_marker_freq += num_marker;
+
+}
+
+
 void Geno::freq64(uint64_t *buf, int num_marker) {
     //pheno->mask_geno_keep(buf, num_marker);
     const static uint64_t MASK = 6148914691236517205UL; 
@@ -781,7 +859,7 @@ void Geno::loop_64block(const vector<uint32_t> &raw_marker_index, vector<functio
         }
         //correct the marker read;
         if(cur_block == (num_blocks - 1)){
-            cur_num_marker_read = marker->count_extract() - Constants::NUM_MARKER_READ * cur_block;
+            cur_num_marker_read = raw_marker_index.size() - Constants::NUM_MARKER_READ * cur_block;
         }else{
             cur_num_marker_read = Constants::NUM_MARKER_READ;
         }
@@ -978,7 +1056,25 @@ int Geno::registerOption(map<string, vector<string>>& options_in) {
         return_value++;
     }
 
+    if(options_in.find("--freqx") != options_in.end()){
+        processFunctions.push_back("freqx");
+        if(options_in["--freqx"].size() != 0){
+            LOGGER.w(0, "--freq should not follow by other parameters, if you want to calculate in founders only, "
+                    "please specify by --founders option");
+        }
+        options_in.erase("--freqx");
+
+        options["out"] = options_in["--out"][0];
+
+        return_value++;
+    }
+
+
     addOneFileOption("update_freq_file", "", "--update-freq", options_in);
+
+    if(options_in.find("--filter-sex") != options_in.end()){
+        options["sex"] = "yes";
+    }
 
     return return_value;
 }
@@ -999,6 +1095,21 @@ void Geno::processMain() {
             geno.out_freq(options["out"]);
             callBacks.clear();
         }
+
+        if(process_function == "freqx"){
+            Pheno pheno;
+            Marker marker;
+            Geno geno(&pheno, &marker);
+            if(geno.num_marker_freq == 0 ){
+                LOGGER.i(0, "Computing allele frequencies...");
+                callBacks.push_back(bind(&Geno::freq64_x, &geno, _1, _2));
+                geno.loop_64block(marker.get_extract_index(), callBacks);
+            }
+            geno.out_freq(options["out"]);
+            callBacks.clear();
+        }
+
+
     }
 
 }
