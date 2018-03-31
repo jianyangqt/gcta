@@ -332,6 +332,10 @@ uint32_t Pheno::count_male(){
     return index_keep_male.size();
 }
 
+int8_t Pheno::get_sex(uint32_t index){
+    return sex[index_keep[index]];
+}
+
 // remove have larger priority than keep, once the SNP has been removed, it
 // will never be kept again
 void Pheno::set_keep(vector<string>& indi_marks, vector<string>& marks, vector<uint32_t>& keeps, bool isKeep) {

@@ -37,6 +37,7 @@ public:
     PhenoMask get_indi_mask(uint32_t ori_index);
     uint8_t get_mask(uint32_t ori_index);
     void filter_sex();
+    int8_t get_sex(uint32_t index);
     uint32_t count_raw();
     static void set_keep(vector<string>& indi_marks, vector<string>& marks, vector<uint32_t>& keeps, bool isKeep);
     static void reinit_rm(vector<uint32_t>& keeps, vector<uint32_t>& rms, int total_sample_number);

@@ -814,32 +814,59 @@ void GRM::deduce_GRM(){
         LOGGER.e(0, "can't open " + o_name + ".grm.bin or .grm.N.bin to write");
     }
 
+    float weights[5];
+    weights[2] = 0.5;
+    weights[3] = sqrt(0.5);
+    weights[4] = 1;
+
     uint32_t num_sample = index_keep.size();
     float *w_grm = new float[num_sample];
     float *w_N = new float[num_sample];
 
     double *po_grm = grm;
     uint32_t *po_N = N;
-    uint32_t sub_miss1;
-    uint32_t sub_N;
-    for(int pair1 = part_keep_indices.first; pair1 != part_keep_indices.second + 1; pair1++){
-        sub_miss1 = finished_marker - sub_miss[pair1];
-        for(int pair2 = 0; pair2 != pair1 + 1; pair2++){
-            sub_N = *po_N + sub_miss1 - sub_miss[pair2];
-            w_N[pair2] = (float)sub_N;
+    if(!options_b["xchr"]){
+        for(int pair1 = part_keep_indices.first; pair1 != part_keep_indices.second + 1; pair1++){
+            uint32_t sub_miss1 = finished_marker - sub_miss[pair1];
+            for(int pair2 = 0; pair2 != pair1 + 1; pair2++){
+                uint32_t sub_N = *po_N + sub_miss1 - sub_miss[pair2];
+                w_N[pair2] = (float)sub_N;
 
-            if(sub_N){
-                w_grm[pair2] = (float)((*po_grm)/sub_N);
-            }else{
-                w_grm[pair2] = 0.0;
+                if(sub_N){
+                    w_grm[pair2] = (float)(*po_grm)/sub_N;
+                }else{
+                    w_grm[pair2] = 0.0;
+                }
+                po_N++;
+                po_grm++;
             }
-            po_N++;
-            po_grm++;
+            fwrite(w_grm, sizeof(float), pair1 + 1, grm_out);
+            fwrite(w_N, sizeof(float), pair1 + 1, N_out);
         }
-        fwrite(w_grm, sizeof(float), pair1 + 1, grm_out);
-        fwrite(w_N, sizeof(float), pair1 + 1, N_out);
+    }else{
+        for(uint32_t pair1 = part_keep_indices.first; pair1 != part_keep_indices.second + 1; pair1++){
+            uint32_t sub_miss1 = finished_marker - sub_miss[pair1];
+            int8_t weight1 = geno->pheno->get_sex(pair1);
+            for(uint32_t pair2 = 0; pair2 != pair1 + 1; pair2++){
+                uint32_t sub_N = *po_N + sub_miss1 - sub_miss[pair2];
+                w_N[pair2] = (float)sub_N;
 
+                if(sub_N){
+                    int8_t weight2 = weight1 + geno->pheno->get_sex(pair2);
+                    w_grm[pair2] = (float)weights[weight2] * (*po_grm) /sub_N;
+
+                }else{
+                    w_grm[pair2] = 0.0;
+                }
+                po_N++;
+                po_grm++;
+            }
+            fwrite(w_grm, sizeof(float), pair1 + 1, grm_out);
+            fwrite(w_N, sizeof(float), pair1 + 1, N_out);
+        }
     }
+ 
+
     fclose(grm_out);
     fclose(N_out);
     delete[] w_grm;
@@ -1150,6 +1177,7 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
     }
 
     string op_grmx = "--make-grm-xchr";
+    options_b["xchr"] = false;
     if(options_in.find(op_grmx) != options_in.end()){
         std::map<string, vector<string>> t_option;
         t_option["--chrx"] = {};
@@ -1158,7 +1186,9 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
         Marker::registerOption(t_option);
         Geno::registerOption(t_option);
         processFunctions.push_back("make_grmx");
+        options_b["xchr"] = true;
         options_in.erase(op_grmx);
+        return_value++;
     }
     
 
@@ -1213,6 +1243,7 @@ void GRM::processMain() {
             callBacks.push_back(bind(&Geno::freq64_x, &geno, _1, _2));
             callBacks.push_back(bind(&GRM::calculate_GRM, &grm, _1, _2));
             geno.loop_64block(marker.get_extract_index(), callBacks);
+            geno.out_freq("test.frq");
             grm.deduce_GRM();
 
             return;
