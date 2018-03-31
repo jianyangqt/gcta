@@ -56,7 +56,7 @@ if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
     # message(FALTAL_ERROR "GCTA has an known issue compile with Clang, we are checking the code")
     message(WARNING "GCTA has an known issue compile with Clang, we are checking the code")
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64 -msse4.2 -pthread -DMKL_LP64 -fvisibility=hidden -fvisibility-inlines-hidden -mpopcnt")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64 -msse4.2 -pthread -DMKL_LP64 -fvisibility=hidden -fvisibility-inlines-hidden -mpopcnt -mbmi2")
     set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG") #-flto 
     set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -fno-inline -fno-implicit-inline-templates -g3")
     add_compile_options(-fopenmp)

@@ -61,7 +61,7 @@
 #endif
 
 #ifdef __linux__
-__attribute__(target("default"))
+__attribute__((target("default")))
 #endif
 uint64_t fill_inter_zero(uint64_t x) {
    uint64_t t;
@@ -79,7 +79,7 @@ uint64_t fill_inter_zero(uint64_t x) {
 }
 #ifdef __linux__
 #include <x86intrin.h>
-__attibute__((target("avx2"))
+__attribute__((target("avx2")))
 uint64_t fill_inter_zero(uint64_t x) {
     return _pdep_u64(x, 0x5555555555555555U);
 }
@@ -182,24 +182,27 @@ void Geno::filter_MAF(){
         }
 
         vector<double> AFA1o = AFA1;
-        vector<uint32_t> countA1A1o = countA1A1;
-        vector<uint32_t> countA1A2o = countA1A2;
-        vector<uint32_t> countA2A2o = countA2A2;
+        //vector<uint32_t> countA1A1o = countA1A1;
+        //vector<uint32_t> countA1A2o = countA1A2;
+        //vector<uint32_t> countA2A2o = countA2A2;
+        vector<uint32_t> countMarkerso = countMarkers;
         vector<double> RDevo = RDev;
 
         AFA1.resize(extract_index.size());
-        countA1A1.resize(extract_index.size());
-        countA1A2.resize(extract_index.size());
-        countA2A2.resize(extract_index.size());
+        //countA1A1.resize(extract_index.size());
+        //countA1A2.resize(extract_index.size());
+        //countA2A2.resize(extract_index.size());
+        countMarkers.resize(extract_index.size());
         RDev.resize(extract_index.size());
 
         #pragma omp parallel for
         for(uint32_t index = 0; index < extract_index.size(); index++){
             uint32_t cur_index = extract_index[index];
             AFA1[index] = AFA1o[cur_index];
-            countA1A1[index] = countA1A1[cur_index];
-            countA1A2[index] = countA1A2[cur_index];
-            countA2A2[index] = countA2A2[cur_index];
+            //countA1A1[index] = countA1A1[cur_index];
+            //countA1A2[index] = countA1A2[cur_index];
+            //countA2A2[index] = countA2A2[cur_index];
+            countMarkers[index] = countMarkerso[cur_index];
             RDev[index] = RDevo[cur_index];
         }
 
@@ -215,9 +218,10 @@ void Geno::filter_MAF(){
 
 void Geno::init_AF(string alleleFileName) {
     AFA1.clear();
-    countA1A2.clear();
-    countA1A1.clear();
-    countA2A2.clear();
+    //countA1A2.clear();
+    //countA1A1.clear();
+    //countA2A2.clear();
+    countMarkers.clear();
     RDev.clear();
     if(!alleleFileName.empty()){
         LOGGER.i(0, "Reading frequencies from [" + alleleFileName + "]...");
@@ -247,9 +251,10 @@ void Geno::init_AF(string alleleFileName) {
     }
     uint32_t num_marker = marker->count_extract();
     AFA1.resize(num_marker);
-    countA1A1.resize(num_marker);
-    countA1A2.resize(num_marker);
-    countA2A2.resize(num_marker);
+    //countA1A1.resize(num_marker);
+    //countA1A2.resize(num_marker);
+    //countA2A2.resize(num_marker);
+    countMarkers.resize(num_marker);
     RDev = vector<double>(num_marker, 0.0); 
     num_blocks = num_marker / Constants::NUM_MARKER_READ +
                  (num_marker % Constants::NUM_MARKER_READ != 0);
@@ -274,7 +279,7 @@ void Geno::out_freq(string filename){
     out_contents.push_back("CHR\tSNP\tPOS\tA1\tA2\tAF\tNCHROBS");
     for(int i = 0; i != AFA1.size(); i++){
         out_contents.push_back(marker->get_marker(marker->getExtractIndex(i)) + "\t" + to_string(AFA1[i])
-                               + "\t" + to_string( 2*(countA1A1[i] + countA1A2[i] + countA2A2[i])));
+                               + "\t" + to_string(countMarkers[i]));
     }
     std::copy(out_contents.begin(), out_contents.end(), std::ostream_iterator<string>(o_freq, "\n"));
     o_freq.close();
@@ -484,6 +489,7 @@ void Geno::freq(uint8_t *buf, int num_marker){
 }
 */
 
+/*
 void Geno::freq(uint8_t *buf, int num_marker) {
     if(num_marker_freq >= marker->count_extract()) return;
     //pheno->mask_geno_keep(buf, num_marker);
@@ -578,21 +584,23 @@ void Geno::freq2(uint8_t *buf, int num_marker) {
     }
     num_marker_freq += num_marker;
 }
+*/
 
 void Geno::freq64_x(uint64_t *buf, int num_marker) {
     const static uint64_t MASK = 6148914691236517205UL; 
     if(num_marker_freq >= marker->count_extract()) return;
 
     int cur_num_marker_read = num_marker;
+    uint32_t *gender_mask = (uint32_t *)keep_male_mask;
     
     #pragma omp parallel for schedule(dynamic) 
     for(int cur_marker_index = 0; cur_marker_index < cur_num_marker_read; ++cur_marker_index){
-        uint64_t mask_gender;
-        mask_gender = fill_inter_zero(mask_gender);
-        uint32_t curA1A1, curA1A2, curA2A2;
         uint32_t even_ct = 0, odd_ct = 0, both_ct = 0, odd_ct_m = 0, both_ct_m = 0;
         uint64_t *p_buf = buf + cur_marker_index * num_item_1geno;
         for(int index = 0; index < num_item_1geno ; index++){
+            uint64_t mask_gender = *(gender_mask + index);
+            mask_gender = ~fill_inter_zero(mask_gender);
+
             uint64_t g_buf = p_buf[index];
             uint64_t g_buf_h = MASK & (g_buf >> 1);
             uint64_t g_buf_l = g_buf & MASK;
@@ -606,12 +614,14 @@ void Geno::freq64_x(uint64_t *buf, int num_marker) {
         }
 
         int raw_index_marker = num_marker_freq + cur_marker_index;
+        uint32_t cur_total_markers = total_markers - odd_ct_m - odd_ct + both_ct_m + both_ct;
 
-        double cur_af = (even_ct + both_ct_m) / ( total_markers - odd_ct_m - odd_ct + both_ct_m + both_ct);
+        double cur_af = 1.0 * (even_ct + both_ct_m) / cur_total_markers;
         if(!marker->isEffecRev(raw_index_marker)){
             cur_af = 1.0 - cur_af;
         }
         AFA1[raw_index_marker] = cur_af;
+        countMarkers[raw_index_marker] = cur_total_markers;
     }
     num_marker_freq += num_marker;
 
@@ -627,7 +637,7 @@ void Geno::freq64(uint64_t *buf, int num_marker) {
     
     #pragma omp parallel for schedule(dynamic) 
     for(int cur_marker_index = 0; cur_marker_index < cur_num_marker_read; ++cur_marker_index){
-        uint32_t curA1A1, curA1A2, curA2A2;
+        //uint32_t curA1A1, curA1A2, curA2A2;
         uint32_t even_ct = 0, odd_ct = 0, both_ct = 0;
         uint64_t *p_buf = buf + cur_marker_index * num_item_1geno;
         for(int index = 0; index < num_item_1geno ; index++){
@@ -638,20 +648,22 @@ void Geno::freq64(uint64_t *buf, int num_marker) {
             both_ct += popcount(g_buf & g_buf_h);
         }
 
-        curA1A1 = num_keep_sample + both_ct - even_ct - odd_ct;
-        curA1A2 = even_ct - both_ct;
-        curA2A2 = both_ct;
+        //curA1A1 = num_keep_sample + both_ct - even_ct - odd_ct;
+        //curA1A2 = even_ct - both_ct;
+        //curA2A2 = both_ct;
 
         int raw_index_marker = num_marker_freq + cur_marker_index;
 
-        countA1A1[raw_index_marker] = curA1A1;
-        countA1A2[raw_index_marker] = curA1A2;
-        countA2A2[raw_index_marker] = curA2A2;
-        double cur_af = (2.0 * curA1A1 + curA1A2) / (2.0 * (curA1A1 + curA1A2 + curA2A2));
-        if(marker->isEffecRev(raw_index_marker)){
+        //countA1A1[raw_index_marker] = curA1A1;
+        //countA1A2[raw_index_marker] = curA1A2;
+        //countA2A2[raw_index_marker] = curA2A2;
+        uint32_t cur_total_markers = (total_markers - 2 * (odd_ct - both_ct));
+        double cur_af = 1.0*(even_ct + both_ct) / cur_total_markers;
+        if(!marker->isEffecRev(raw_index_marker)){
             cur_af = 1.0 - cur_af;
         }
         AFA1[raw_index_marker] = cur_af;
+        countMarkers[raw_index_marker] = cur_total_markers;
     }
     num_marker_freq += num_marker;
 }
@@ -1097,6 +1109,13 @@ void Geno::processMain() {
         }
 
         if(process_function == "freqx"){
+            std::map<string, vector<string>> t_option;
+            t_option["--chrx"] = {};
+            t_option["--filter-sex"] = {}; 
+            Pheno::registerOption(t_option);
+            Marker::registerOption(t_option);
+            Geno::registerOption(t_option);
+
             Pheno pheno;
             Marker marker;
             Geno geno(&pheno, &marker);
