@@ -411,7 +411,7 @@ void gcta::massoc_joint(const vector<int> &indx, eigenVector &bJ, eigenVector &b
     if (_jma_actual_geno) _jma_Ve = massoc_calcu_Ve(indx, bJ, b);
     bJ_se *= _jma_Ve;
     for (i = 0; i < n; i++) {
-        if (bJ_se[i] > 1.0e-7) {
+        if (bJ_se[i] > 1.0e-30) {
             bJ_se[i] = sqrt(bJ_se[i]);
             chisq = bJ[i] / bJ_se[i];
             if (_GC_val > 0) pJ[i] = StatFunc::pchisq(chisq * chisq / _GC_val, 1);
