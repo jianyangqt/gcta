@@ -122,6 +122,7 @@ void option(int option_num, char* option_str[])
     int massoc_wind = 1e7, massoc_top_SNPs = -1, massoc_mld_slct_alg = 0;
     double massoc_p = 5e-8, massoc_collinear = 0.9, massoc_sblup_fac = -1, massoc_gc_val = -1;
     bool massoc_slct_flag = false, massoc_joint_flag = false, massoc_sblup_flag = false, massoc_gc_flag = false, massoc_actual_geno_flag = false;
+    double massoc_out_pC_thresh = -1;
 
     // mixed linear model association 
     bool mlma_flag = false, mlma_loco_flag = false, mlma_no_adj_covar = false;
@@ -835,6 +836,8 @@ void option(int option_num, char* option_str[])
             massoc_p = atof(argv[++i]);
             LOGGER << "--cojo-p " << massoc_p << endl;
             if (massoc_p > 0.05 || massoc_p <= 0) LOGGER.e(0, "\n  --cojo-p should be within the range from 0 to 0.05.\n");
+        } else if (strcmp(argv[i], "--restrict-output-pC") == 0) {
+            massoc_out_pC_thresh = strtod(argv[++i], NULL);
         } else if (strcmp(argv[i], "--cojo-collinear") == 0) {
             massoc_collinear = atof(argv[++i]);
             LOGGER << "--cojo-collinear " << massoc_collinear << endl;
@@ -1261,8 +1264,8 @@ void option(int option_num, char* option_str[])
             else if (blup_snp_flag) pter_gcta->blup_snp_geno();
             else if (mlma_flag) pter_gcta->mlma(grm_file, m_grm_flag, subtract_grm_file, phen_file, qcovar_file, covar_file, mphen, MaxIter, reml_priors, reml_priors_var, no_constrain, within_family, make_grm_inbred_flag, mlma_no_adj_covar);
             else if (mlma_loco_flag) pter_gcta->mlma_loco(phen_file, qcovar_file, covar_file, mphen, MaxIter, reml_priors, reml_priors_var, no_constrain, make_grm_inbred_flag, mlma_no_adj_covar);
-            else if (massoc_slct_flag | massoc_joint_flag) pter_gcta->run_massoc_slct(massoc_file, massoc_wind, massoc_p, massoc_collinear, massoc_top_SNPs, massoc_joint_flag, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag, massoc_mld_slct_alg);
-            else if (!massoc_cond_snplist.empty()) pter_gcta->run_massoc_cond(massoc_file, massoc_cond_snplist, massoc_wind, massoc_collinear, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag);
+            else if (massoc_slct_flag | massoc_joint_flag) {pter_gcta->set_massoc_pC_thresh(massoc_out_pC_thresh); pter_gcta->run_massoc_slct(massoc_file, massoc_wind, massoc_p, massoc_collinear, massoc_top_SNPs, massoc_joint_flag, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag, massoc_mld_slct_alg);}
+            else if (!massoc_cond_snplist.empty()) {pter_gcta->set_massoc_pC_thresh(massoc_out_pC_thresh); pter_gcta->run_massoc_cond(massoc_file, massoc_cond_snplist, massoc_wind, massoc_collinear, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag);}
             else if (massoc_sblup_flag) pter_gcta->run_massoc_sblup(massoc_file, massoc_wind, massoc_sblup_fac);
             else if (gsmr_flag) pter_gcta->gsmr(gsmr_alg_flag,  clump_thresh1, clump_thresh2, clump_wind_size, clump_r2_thresh, gwas_thresh, heidi_thresh, ld_fdr_thresh, nsnp_heidi, nsnp_gsmr, heidi_flag, o_snp_instru_flag);
             else if (mtcojo_flag) pter_gcta->mtcojo(mtcojolist_file, ref_ld_dirt, w_ld_dirt, clump_thresh1, clump_thresh2, clump_wind_size, clump_r2_thresh, gwas_thresh, heidi_thresh, ld_fdr_thresh, nsnp_heidi, nsnp_gsmr, heidi_flag);

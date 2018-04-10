@@ -285,21 +285,40 @@ void gcta::massoc_slct_output(bool joint_only, vector<int> &slct, eigenVector &b
     ofile.close();
 }
 
+void gcta::set_massoc_pC_thresh(double thresh){
+    g_massoc_out_thresh = thresh;
+}
+
 void gcta::massoc_cond_output(vector<int> &remain, eigenVector &bC, eigenVector &bC_se, eigenVector &pC)
 {
+    double out_thresh = g_massoc_out_thresh;
     int i = 0, j = 0;
     string filename = _out + ".cma.cojo";
     LOGGER << "Saving the conditional analysis results of " << remain.size() << " remaining SNPs to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
     if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
     ofile << "Chr\tSNP\tbp\trefA\tfreq\tb\tse\tp" << ((_GC_val > 0) ? "_GC" : "") << "\tn\tfreq_geno\tbC\tbC_se\tpC" << ((_GC_val > 0) ? "_GC" : "") << endl;
-    for (i = 0; i < remain.size(); i++) {
-        j = remain[i];
-        ofile << _chr[_include[j]] << "\t" << _snp_name[_include[j]] << "\t" << _bp[_include[j]] << "\t";
-        ofile << _ref_A[_include[j]] << "\t" << _freq[j] << "\t" << _beta[j] << "\t" << _beta_se[j] << "\t";
-        ofile << _pval[j] << "\t" << _Nd[j] << "\t" << 0.5 * _mu[_include[j]] << "\t";
-        if (pC[i] > 1.5) ofile << "NA\tNA\tNA" << endl;
-        else ofile << bC[i] << "\t" << bC_se[i] << "\t" << pC[i] << endl;
+
+    if(out_thresh < 0){
+        for (i = 0; i < remain.size(); i++) {
+            j = remain[i];
+            ofile << _chr[_include[j]] << "\t" << _snp_name[_include[j]] << "\t" << _bp[_include[j]] << "\t";
+            ofile << _ref_A[_include[j]] << "\t" << _freq[j] << "\t" << _beta[j] << "\t" << _beta_se[j] << "\t";
+            ofile << _pval[j] << "\t" << _Nd[j] << "\t" << 0.5 * _mu[_include[j]] << "\t";
+            if (pC[i] > 1.5) ofile << "NA\tNA\tNA" << endl;
+            else ofile << bC[i] << "\t" << bC_se[i] << "\t" << pC[i] << endl;
+        }
+    }else{
+        LOGGER << "Restrict output thresh to " << out_thresh << "." << endl;
+        for (i = 0; i < remain.size(); i++) {
+            if(pC[i] < out_thresh){
+                j = remain[i];
+                ofile << _chr[_include[j]] << "\t" << _snp_name[_include[j]] << "\t" << _bp[_include[j]] << "\t";
+                ofile << _ref_A[_include[j]] << "\t" << _freq[j] << "\t" << _beta[j] << "\t" << _beta_se[j] << "\t";
+                ofile << _pval[j] << "\t" << _Nd[j] << "\t" << 0.5 * _mu[_include[j]] << "\t";
+                ofile << bC[i] << "\t" << bC_se[i] << "\t" << pC[i] << endl;
+            }
+        }
     }
     ofile.close();
 }

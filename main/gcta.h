@@ -147,6 +147,7 @@ public:
     void run_massoc_slct(string metafile, int wind_size, double p_cutoff, double collinear, int64_t top_SNPs, bool joint_only, bool GC, double GC_val, bool actual_geno, int mld_slct_alg);
     void run_massoc_cond(string metafile, string snplistfile, int wind_size, double collinear, bool GC, double GC_val, bool actual_geno);
     void run_massoc_sblup(string metafile, int wind_size, double lambda);
+    void set_massoc_pC_thresh(double thresh);
 
     void save_plink();
     void dose2bed();
@@ -588,6 +589,7 @@ private:
     eigenVector _D_N;
     eigenSparseMat _Z_N;
     eigenSparseMat _Z;
+    double g_massoc_out_thresh = -1.0;
     
     // GSMR analysis
     int _expo_num;
