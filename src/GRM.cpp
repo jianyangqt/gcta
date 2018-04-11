@@ -876,6 +876,10 @@ void GRM::deduce_GRM(){
     LOGGER.i(0, "Number of SNPs in each pair of individuals has been saved in the file [" + o_name + ".grm.N.bin]");
 }
 
+#ifdef __linux__
+#pragma message("multiple target of N thread")
+__attribute__((target_clones("popcnt","default")))
+#endif
 void GRM::N_thread(int grm_index_from, int grm_index_to){
     //LOGGER.i(0, "Nthread: ", to_string(grm_index_from) + " " + to_string(grm_index_to));
     uint32_t *po_N;

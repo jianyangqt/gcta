@@ -52,7 +52,7 @@
   //#define CLZU __builtin_clz
   #ifdef __linux__
   #pragma message("multiple target")
-  __attribute__((target_clones("avx2","default")))
+  __attribute__((target_clones("popcnt","default")))
   #endif
   uint32_t CTZ64U(uint64_t value){
       return __builtin_ctzll(value);
@@ -79,7 +79,7 @@ uint64_t fill_inter_zero(uint64_t x) {
 }
 #ifdef __linux__
 #include <x86intrin.h>
-__attribute__((target("avx2")))
+__attribute__((target("bmi2")))
 uint64_t fill_inter_zero(uint64_t x) {
     return _pdep_u64(x, 0x5555555555555555U);
 }
