@@ -28,6 +28,7 @@
 #include <cstring>
 #include <boost/algorithm/string.hpp>
 #include <set>
+#include "OptionIO.h"
 
 using std::to_string;
 
@@ -601,26 +602,6 @@ void Pheno::getMaskBitMale(uint64_t *maskp){
     }
 }
 
-
-
-void Pheno::addOneFileOption(string key_store, string append_string, string key_name,
-                                    map<string, vector<string>> options_in, map<string,string>& options) {
-    if(options_in.find(key_name) != options_in.end()){
-        if(options_in[key_name].size() == 1){
-            options[key_store] = options_in[key_name][0] + append_string;
-        }else if(options_in[key_name].size() > 1){
-            options[key_store] = options_in[key_name][0] + append_string;
-            LOGGER.w(0, "There are multiple " + key_name + ". Only the first one will be used in the analysis" );
-        }else{
-            LOGGER.e(0, "no " + key_name + " parameter found");
-        }
-        std::ifstream f(options[key_store].c_str());
-        if(!f.good()){
-            LOGGER.e(0, key_name + " " + options[key_store] + " not found");
-        }
-        f.close();
-    }
-}
 
 int Pheno::registerOption(map<string, vector<string>>& options_in){
     addOneFileOption("pheno_file", ".fam", "--bfile", options_in, options);

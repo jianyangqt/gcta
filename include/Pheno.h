@@ -14,8 +14,8 @@
    If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef GCTA2_PHENO_H
-#define GCTA2_PHENO_H
+#ifndef gcta2_pheno_h
+#define gcta2_pheno_h
 #include <vector>
 #include <string>
 #include <map>
@@ -55,8 +55,6 @@ public:
     static int registerOption(map<string, vector<string>>& options);
     static void processMain();
     static vector<string> read_sublist(string sublist_file, vector<vector<double>> *phenos = NULL, vector<int> *keep_row = NULL);
-    static void addOneFileOption(string key_store, string append_string, string key_name,
-                                 map<string, vector<string>> options_in, map<string, string>& options);
 
 private:
     vector<string> fid;

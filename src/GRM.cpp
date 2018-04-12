@@ -29,6 +29,7 @@
 #include "AsyncBuffer.hpp"
 #include "utils.hpp"
 #include <omp.h>
+#include "OptionIO.h"
 
 using std::to_string;
 
@@ -1051,8 +1052,8 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
         }
     }
 
-    Pheno::addOneFileOption("keep_file", "", "--keep", options_in, options);
-    Pheno::addOneFileOption("remove_file", "", "--remove", options_in, options);
+    addOneFileOption("keep_file", "", "--keep", options_in, options);
+    addOneFileOption("remove_file", "", "--remove", options_in, options);
 
     int num_parts = 1;
     int cur_part = 1;
