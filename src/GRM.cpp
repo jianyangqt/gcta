@@ -834,7 +834,7 @@ void GRM::deduce_GRM(){
                 w_N[pair2] = (float)sub_N;
 
                 if(sub_N){
-                    w_grm[pair2] = (float)(*po_grm)/sub_N;
+                    w_grm[pair2] = (float)((*po_grm)/sub_N);
                 }else{
                     w_grm[pair2] = 0.0;
                 }
@@ -854,7 +854,7 @@ void GRM::deduce_GRM(){
 
                 if(sub_N){
                     int8_t weight2 = weight1 + geno->pheno->get_sex(pair2);
-                    w_grm[pair2] = (float)weights[weight2] * (*po_grm) /sub_N;
+                    w_grm[pair2] = weights[weight2] * ((*po_grm) /sub_N);
 
                 }else{
                     w_grm[pair2] = 0.0;
