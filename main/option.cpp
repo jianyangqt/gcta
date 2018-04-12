@@ -57,7 +57,7 @@ void option(int option_num, char* option_str[])
 
     // OpenMP
     bool thread_flag = false;
-    int thread_num = 1;
+    int thread_num = omp_get_max_threads();
 
     // raw genotype data
     string RG_fname_file = "", RG_summary_file = "";
