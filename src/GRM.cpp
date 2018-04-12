@@ -26,9 +26,9 @@
 #include <numeric>
 #include <unordered_set>
 #include "utils.hpp"
-#include "ThreadPool.h"
 #include "AsyncBuffer.hpp"
 #include "utils.hpp"
+#include <omp.h>
 
 using std::to_string;
 
@@ -501,7 +501,7 @@ GRM::GRM(Geno *geno) {
     sub_miss = new uint32_t[index_keep.size()]();
 
     //calculate each index in pair thread;
-    int num_thread = THREADS.getThreadCount() + 1;
+    int num_thread = omp_get_max_threads();
     index_grm_pairs.reserve(num_thread);
     vector<uint32_t> thread_parts = divide_parts(part_keep_indices.first, part_keep_indices.second, num_thread);
     if(num_thread != thread_parts.size()){

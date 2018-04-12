@@ -168,6 +168,11 @@ void option(int option_num, char* option_str[])
             thread_num = atoi(argv[++i]);
             LOGGER << "--thread-num " << thread_num << endl;
             if (thread_num < 1 || thread_num > 1000) LOGGER.e(0, "\n  --thread-num should be from 1 to 1000.\n");
+        }
+        else if (strcmp(argv[i], "--threads") == 0) {
+            thread_num = atoi(argv[++i]);
+            LOGGER << "--threads " << thread_num << endl;
+            if (thread_num < 1 || thread_num > 1000) LOGGER.e(0, "\n  --threads should be from 1 to 1000.\n");
         }// raw genotype data
         else if (strcmp(argv[i], "--raw-files") == 0) {
             RG_fname_file = argv[++i];
@@ -1155,16 +1160,6 @@ void option(int option_num, char* option_str[])
     if(!heidi_flag && (heidi_thresh_flag || nsnp_heidi_flag))                 LOGGER.i(0, "The HEIDI-outlier test will be not perfomed, although parameters of the HEIDI-outlier test have been assigned. ");
 
     // OpenMP
-    stringstream ss;
-    ss << thread_num;
-#ifdef _WIN32
-	_putenv_s("OMP_NUM_THREADS", ss.str().c_str());
-#elif defined __linux__ || defined __APPLE__
-	setenv("OMP_NUM_THREADS", ss.str().c_str(), 1);
-#else
-#error Only Windows, Mac and Linux are supported.
-#endif
-    omp_set_num_threads(thread_num);
     if (thread_flag) {
         if (thread_num == 1) LOGGER << "Note: This is a multi-thread program. You could specify the number of threads by the --thread-num option to speed up the computation if there are multiple processors in your machine." << endl;
         else LOGGER << "Note: the program will be running on " << thread_num << " threads." << endl;

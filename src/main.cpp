@@ -23,7 +23,6 @@
 #include "Pheno.h"
 #include "GRM.h"
 #include "FastFAM.h"
-#include "ThreadPool.h"
 #include <functional>
 #include <map>
 #include <vector>
@@ -33,6 +32,7 @@
 #include "main/option.h"
 #include "utils.hpp" 
 #include <omp.h>
+#include <cstdlib>
 
 using std::bind;
 using std::map;
@@ -52,7 +52,7 @@ void out_ver(bool flag_outFile){
 
     log(0, "*******************************************************************", "");
     log(0, "* Genome-wide Complex Trait Analysis (GCTA)", "");
-    log(0, "* version 1.91.4 beta1", "");
+    log(0, "* version 1.91.4 beta2", "");
     log(0, "* (C) 2010-2018, The University of Queensland", "");
     log(0, "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>", "");
     log(0, "*******************************************************************", "");
@@ -114,18 +114,61 @@ int main(int argc, char *argv[]){
     // multi thread mode
     int thread_num = 1;
     int is_threaded = false;
+    char *thread_char = getenv("OMP_NUM_THREADS");
+    try{
+        if(thread_char){
+            string thread_string(thread_char);
+            thread_num = std::stoi(thread_string);
+            is_threaded = true;
+        }
+    }catch(std::invalid_argument&){
+        ;
+    }
+
+    bool is_thread_set = false;
     if(options.find("--thread-num") != options.end()){
         vector<string> thread_nums = options["--thread-num"];
         if(thread_nums.size() == 1) {
             try{
                 thread_num = std::stoi(thread_nums[0]);
                 is_threaded = true;
+                is_thread_set = true;
             }catch(std::invalid_argument&){
-                LOGGER.e(0, "can't get thread number from --thread-num option");
+                LOGGER.e(0, "can't get thread number from --thread-num option.");
             }
+        }else{
+            LOGGER.e(0, "can't set multiple thread number.");
         }
     }
 
+    if(options.find("--threads") != options.end()){
+        vector<string> thread_nums = options["--threads"];
+        if(is_thread_set){
+            LOGGER.e(0,"can't set both --thread-num and --threads");
+        }
+        if(thread_nums.size() == 1) {
+            try{
+                thread_num = std::stoi(thread_nums[0]);
+                is_threaded = true;
+            }catch(std::invalid_argument&){
+                LOGGER.e(0, "can't get thread number from --threads option.");
+            }
+        }else{
+            LOGGER.e(0, "can't set multiple thread number.");
+        }
+    }
+
+    #ifdef _WIN32
+       _putenv_s("OMP_NUM_THREADS", to_string(thread_num).c_str());
+    #elif defined __linux__ || defined __APPLE__
+        setenv("OMP_NUM_THREADS", to_string(thread_num).c_str(), 1);
+    #else
+        #error Only Windows, Mac and Linux are supported.
+    #endif
+    omp_set_num_threads(thread_num);
+
+
+    // end thread;
     map<string, vector<string>> options_total = options;
 
     //start register the options
@@ -180,11 +223,11 @@ int main(int argc, char *argv[]){
 
         if(mains.size() > 1) LOGGER.e(0, "multiple main functions are invalid currently");
         if(is_threaded) {
-            LOGGER.i(0, "The program will be running on " + std::to_string(thread_num) + " threads.");
+            LOGGER.i(0, "The program will be running on " + std::to_string(thread_num) + " threads at most.");
         }
-        ThreadPool *threadPool = ThreadPool::GetPool(thread_num - 1);
+        //ThreadPool *threadPool = ThreadPool::GetPool(thread_num - 1);
         //avoid auto parallel
-        omp_set_num_threads(thread_num);
+
         processMains[mains[0]]();
     }else{
         option(argc, argv);
