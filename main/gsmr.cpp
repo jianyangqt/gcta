@@ -71,9 +71,9 @@ void read_gsmr_file_list(string gsmr_file_list, vector<string> &pheno_name, vect
     meta_list.close();
 }
 
-void gcta::read_gsmrfile(string expo_file_list, string outcome_file_list, double clump_thresh1, double gwas_thresh, bool smpl_overlap_flag) {
+void gcta::read_gsmrfile(string expo_file_list, string outcome_file_list, double clump_thresh1, double gwas_thresh, int nsnp_gsmr, int gsmr_so_alg) {
     int i = 0, j = 0;
-    double pval_thresh =  smpl_overlap_flag ?  1.0 : clump_thresh1;
+    double pval_thresh = gsmr_so_alg >= 0 ?  1.0 : clump_thresh1;
     vector<string> expo_gwas_file, outcome_gwas_file, gwas_data_file, pheno_name_buf;
     vector<double> popu_prev_buf, smpl_prev_buf;
     
@@ -91,8 +91,8 @@ void gcta::read_gsmrfile(string expo_file_list, string outcome_file_list, double
     vector<string> snplist;
     for(i=0; i<_expo_num; i++) {
         snplist=read_snp_metafile(expo_gwas_file[i], pval_thresh);
-        if(i==0) init_meta_snp_map(snplist);
-        else update_meta_snp_map(snplist, _meta_snp_name_map, _meta_snp_name, _meta_remain_snp);
+        if(i==0) init_meta_snp_map(snplist, _meta_snp_name_map, _meta_snp_name, _meta_remain_snp);
+        else update_meta_snp_map(snplist, _meta_snp_name_map, _meta_snp_name, _meta_remain_snp, true);
     }
 
     // Outcome
@@ -106,11 +106,17 @@ void gcta::read_gsmrfile(string expo_file_list, string outcome_file_list, double
 
     _outcome_num = pheno_name_buf.size();
 
+    map<string, int> outcome_snp_name_map;
+    vector<string> outcome_snp_name;
+    vector<int> outcome_remain_snp;
     for(i=0; i<_outcome_num; i++) {
         snplist=read_snp_metafile(outcome_gwas_file[i], -9);
-        update_id_map_kp(snplist, _meta_snp_name_map, _meta_remain_snp);
+        update_meta_snp_list(snplist, _meta_snp_name_map);
+        if(i==0) init_meta_snp_map(snplist, outcome_snp_name_map, outcome_snp_name, outcome_remain_snp);
+        else update_meta_snp_map(snplist, outcome_snp_name_map, outcome_snp_name, outcome_remain_snp, false);
     }
-
+    // SNPs in common between exposures and outcomes
+    update_id_map_kp(outcome_snp_name, _meta_snp_name_map, _meta_remain_snp);
     // Initialization of variables
     int nsnp = _meta_snp_name_map.size(), npheno = _expo_num + _outcome_num;
     vector<vector<string>> snp_a1, snp_a2;
@@ -121,7 +127,8 @@ void gcta::read_gsmrfile(string expo_file_list, string outcome_file_list, double
     // reset SNP variables
     update_meta_snp(_meta_snp_name_map, _meta_snp_name, _meta_remain_snp);
     
-    LOGGER.i(0, to_string(nsnp) + " SNPs are kept from the summary data.");
+    LOGGER.i(0, to_string(nsnp) + " SNPs are kept from the GWAS summary data.");
+    if(nsnp<nsnp_gsmr) LOGGER.e(0, "No enough SNPs to perform GSMR analysis.");
 
     // Reading the summary data
     _meta_vp_trait.resize(npheno);
@@ -143,7 +150,7 @@ void gcta::read_gsmrfile(string expo_file_list, string outcome_file_list, double
         _meta_snp_pval.col(i) = snp_pval_buf;
         _meta_snp_n_o.col(i) = snp_n_buf;
     }
-  
+
     // QC of SNPs
     LOGGER.i(0, "Filtering out SNPs with multiple alleles or missing value ...");
     vector<string>::iterator iter1 = _gwas_trait_name.begin(), iter2 = _gwas_trait_name.end();
@@ -167,31 +174,43 @@ void gcta::read_gsmrfile(string expo_file_list, string outcome_file_list, double
     // Only keep SNPs with p-value < threshold
     pval_thresh =  gwas_thresh < clump_thresh1 ?  gwas_thresh : clump_thresh1;
     vector<string> keptsnps;
-    keptsnps = filter_meta_snp_pval(_meta_snp_name, _meta_remain_snp, _meta_snp_pval, 0, npheno, pval_thresh);
+    keptsnps = filter_meta_snp_pval(_meta_snp_name, _meta_remain_snp, _meta_snp_pval, 0, npheno, _snp_val_flag, pval_thresh);
     if(keptsnps.size()>0) {
         update_id_map_kp(keptsnps, _snp_name_map, _include);
     }
     LOGGER.i(0, to_string(_include.size()) + " significant SNPs are in common with those in the reference sample.\n");
 }
 
-eigenMatrix gcta::rho_sample_overlap(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eigenMatrix snp_se, eigenMatrix snp_n, int nexpo, int noutcome, 
-                vector<string> snp_name, vector<int> snp_remain, string ref_ld_dirt, string w_ld_dirt, vector<string> trait_name, bool smpl_overlap_flag) {
+eigenMatrix gcta::rho_sample_overlap(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eigenMatrix snp_se, eigenMatrix snp_pval, eigenMatrix snp_n, int nexpo, int noutcome, 
+                vector<string> snp_name, vector<int> snp_remain, string ref_ld_dirt, string w_ld_dirt, vector<string> trait_name, int gsmr_so_alg) {
 
-    int i = 0, j = 0, nsnp = snp_remain.size();
+    int i = 0, j = 0;
     eigenMatrix ldsc_intercept(nexpo, noutcome);
     for(i=0; i<nexpo; i++) 
         for(j=0; j<noutcome; j++)
             ldsc_intercept(i,j) = 0.0;
-    if(!smpl_overlap_flag) return ldsc_intercept;
+    switch(gsmr_so_alg) {
+        case 0 : { ldsc_intercept = sample_overlap_ldsc(snp_val_flag, snp_b, snp_se, snp_n, nexpo, noutcome, 
+                                  snp_name, snp_remain, ref_ld_dirt, w_ld_dirt, trait_name);
+                break; }
+        case 1 : { ldsc_intercept = sample_overlap_rb(snp_val_flag, snp_b, snp_se, snp_pval, snp_n, nexpo, noutcome, 
+                                  snp_name, snp_remain, trait_name);
+                break; }
+    }
+    return ldsc_intercept;
+}
 
-    int ttl_mk_num = 0.0, ntrait = nexpo + noutcome;
+eigenMatrix gcta::sample_overlap_ldsc(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eigenMatrix snp_se, eigenMatrix snp_n, int nexpo, int noutcome, 
+                vector<string> snp_name, vector<int> snp_remain, string ref_ld_dirt, string w_ld_dirt, vector<string> trait_name) {
+
+    int i = 0, j = 0, ttl_mk_num = 0.0, ntrait = nexpo + noutcome, nsnp = snp_remain.size();
     vector<int> nsnp_cm_trait(ntrait);    
     vector<double> ref_ld_vec, w_ld_vec;
     vector<string> cm_ld_snps;
     vector<vector<bool>> snp_flag;
     map<string,int> ldsc_snp_name_map;
     eigenVector ref_ld, w_ld;
-    eigenMatrix bhat_z, bhat_n;
+    eigenMatrix bhat_z, bhat_n, ldsc_intercept(nexpo, noutcome);
 
     // Initialize the parameters
     for(i=0; i<nsnp; i++) {
@@ -223,7 +242,7 @@ eigenMatrix gcta::rho_sample_overlap(vector<vector<bool>> snp_val_flag, eigenMat
             trait_indx1[k] = i; trait_indx2[k] = j+nexpo;
         }
     }
-    ldsc_var_rg = ldsc_snp_rg(ldsc_var_h2, bhat_z, bhat_n, ref_ld, w_ld, snp_flag, trait_indx1, trait_indx2, n_cm_ld_snps, ttl_mk_num);
+    ldsc_var_rg = ldsc_snp_rg(ldsc_var_h2, bhat_z, bhat_n, ref_ld, w_ld, snp_flag, trait_indx1, trait_indx2, n_cm_ld_snps, ttl_mk_num, trait_name);
     for( i = 0, k = 0; i < nexpo; i++ ) {
         for( j = 0; j < noutcome; j++, k++) {
             ldsc_intercept(i,j) = ldsc_var_rg(i,0);
@@ -241,6 +260,66 @@ eigenMatrix gcta::rho_sample_overlap(vector<vector<bool>> snp_val_flag, eigenMat
         LOGGER.i(0, ss.str());
     }
     LOGGER.i(0, "LD score regression analysis completed.");
+
+    return ldsc_intercept;
+}
+
+eigenMatrix gcta::sample_overlap_rb(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eigenMatrix snp_se, eigenMatrix snp_pval, eigenMatrix snp_n, int nexpo, int noutcome, 
+                vector<string> snp_name, vector<int> snp_remain, vector<string> trait_name) {
+
+    int i = 0, j = 0, k = 0, nproc = nexpo * noutcome, nsnp = snp_remain.size();
+    double pval_thresh = 0.01;
+    eigenMatrix ldsc_intercept(nexpo, noutcome);
+    vector<int> trait_indx1(nproc), trait_indx2(nproc);
+
+    // Estimate sample overlap
+    LOGGER.i(0, "Correlation of SNP effects to estimate sample overlap between each pair of exposure and outcome ...");
+    // Initialize the variable
+    for( i = 0, k = 0; i < nexpo; i++) {
+        for( j = 0; j < noutcome; j++, k++) {
+            trait_indx1[k] = i; trait_indx2[k] = j+nexpo;
+        }
+    }
+
+    for( i = 0; i < nproc; i++) {
+        // SNPs in common
+        int n_cm_snps_buf = 0;
+        vector<bool> snp_pair_flag(nsnp);
+        for(k = 0; k < nsnp; k++) {
+            snp_pair_flag[k] = (int)((snp_val_flag[trait_indx1[i]][snp_remain[k]] 
+                               + snp_val_flag[trait_indx2[i]][snp_remain[k]])/2);
+            if(!snp_pair_flag[k]) continue;
+            if(snp_pval(snp_remain[k], trait_indx1[i]) < pval_thresh || snp_pval(snp_remain[k], trait_indx2[i]) < pval_thresh)
+                snp_pair_flag[k] = 0;
+            n_cm_snps_buf += snp_pair_flag[k];
+        }
+        // Estimate cor(b1, b2)
+        eigenVector bhat1_zscore(n_cm_snps_buf), bhat2_zscore(n_cm_snps_buf);
+        for(k = 0, j = 0; k<nsnp; k++) {
+            if(!snp_pair_flag[k]) continue;
+            bhat1_zscore(j) = snp_b(snp_remain[k], trait_indx1[i]) / snp_se(snp_remain[k], trait_indx1[i]);
+            bhat2_zscore(j) = snp_b(snp_remain[k], trait_indx2[i]) / snp_se(snp_remain[k], trait_indx2[i]);
+            j++;
+        }
+
+        double average1 = bhat1_zscore.mean(), average2 = bhat2_zscore.mean();
+        bhat1_zscore = bhat1_zscore - average1*VectorXd::Ones(n_cm_snps_buf);
+        bhat2_zscore = bhat2_zscore - average2*VectorXd::Ones(n_cm_snps_buf);
+        double sd1 = bhat1_zscore.norm(), sd2 = bhat2_zscore.norm();
+        ldsc_intercept(trait_indx1[i],trait_indx2[i]-nexpo) = bhat1_zscore.dot(bhat2_zscore)/(sd1*sd2);
+    }
+
+    // Print the correlation
+    stringstream ss;
+    LOGGER.i(0, "Correlation:");
+    for(i=0; i<nexpo; i++) {
+        ss.str("");
+        ss << trait_name[i] <<": ";
+        for(j=0; j<noutcome; j++)
+            ss << ldsc_intercept(i,j) << " ";
+        LOGGER.i(0, ss.str());
+    }
+    LOGGER.i(0, "Correlation computation completed.");
 
     return ldsc_intercept;
 }
@@ -312,7 +391,7 @@ void collect_gsmr_result(stringstream &ss, vector<vector<double>> bxy_est, int g
     }
 }
 
-void collect_snp_instru_effect(stringstream &ss, map<string, int> snp_instru_map, map<string, int> meta_snp_map, vector<string> snp_a1, vector<string> snp_a2, eigenVector snp_freq, eigenMatrix snp_b, eigenMatrix snp_se) {
+void collect_snp_instru_effect(stringstream &ss, vector<vector<bool>> snp_flag, map<string, int> snp_instru_map, map<string, int> meta_snp_map, vector<string> snp_a1, vector<string> snp_a2, eigenVector snp_freq, eigenMatrix snp_b, eigenMatrix snp_se) {
     map<string, int>::iterator iter1, iter2;
     int i = 0, snpindx = 0, npheno = snp_b.cols();
     string snpbuf = "";
@@ -324,14 +403,16 @@ void collect_snp_instru_effect(stringstream &ss, map<string, int> snp_instru_map
         if(iter2 == meta_snp_map.end()) continue;
         snpindx = iter2 -> second;
         ss << snpbuf << " " << snp_a1[snpindx] << " " << snp_a2[snpindx] << " " << snp_freq(snpindx);
-        for( i = 0; i < npheno; i++ ) 
-            ss << " " << snp_b(snpindx, i) << " " << snp_se(snpindx, i);
+        for( i = 0; i < npheno; i++ ) {
+            if(snp_flag[i][snpindx]) ss << " " << snp_b(snpindx, i) << " " << snp_se(snpindx, i);
+            else ss << " nan nan";
+        }
         ss << endl;
     }
     ss << "#effect_end" << endl;
 }
 
-void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double clump_thresh1, double clump_thresh2, double clump_wind_size, double clump_r2_thresh, double gwas_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_heidi, int nsnp_gsmr, bool heidi_flag, bool o_snp_instru_flag, bool smpl_overlap_flag) {
+void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double clump_thresh1, double clump_thresh2, double clump_wind_size, double clump_r2_thresh, double gwas_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_heidi, int nsnp_gsmr, bool heidi_flag, bool o_snp_instru_flag, int gsmr_so_alg) {
     vector<vector<double>> bxy_est;
     map<string, int> snp_instru_map;
     std::stringstream ss, ss_gsmr;
@@ -339,10 +420,10 @@ void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double 
 
     // Calculate allele frequency
    if (_mu.empty()) calcu_mu();
-   
+
     // Estimate intercept from LDSC regression
-    _r_pheno_sample = rho_sample_overlap(_snp_val_flag, _meta_snp_b, _meta_snp_se, _meta_snp_n_o, _expo_num, _outcome_num, 
-                                        _meta_snp_name, _meta_remain_snp, ref_ld_dirt, w_ld_dirt, _gwas_trait_name, smpl_overlap_flag);
+    _r_pheno_sample = rho_sample_overlap(_snp_val_flag, _meta_snp_b, _meta_snp_se, _meta_snp_pval, _meta_snp_n_o, _expo_num, _outcome_num, 
+                                        _meta_snp_name, _meta_remain_snp, ref_ld_dirt, w_ld_dirt, _gwas_trait_name, gsmr_so_alg);
 
    // GSMR analysis
     switch(gsmr_alg_flag) {
@@ -373,7 +454,7 @@ void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double 
         if(nsnp_instru >= nsnp_gsmr) {
             stringstream ss_effect, ss_pheno;
             collect_gsmr_trait(ss_pheno, _gwas_trait_name, _expo_num, _outcome_num);
-            collect_snp_instru_effect(ss_effect, snp_instru_map, _meta_snp_name_map, _meta_snp_a1, _meta_snp_a2, _meta_snp_freq, _meta_snp_b, _meta_snp_se);
+            collect_snp_instru_effect(ss_effect, _snp_val_flag, snp_instru_map, _meta_snp_name_map, _meta_snp_a1, _meta_snp_a2, _meta_snp_freq, _meta_snp_b, _meta_snp_se);
             string output_filename = _out + ".eff_plot.gz";
             LOGGER.i(0, "\nSaving the SNP instruments for the GSMR analysis to [" + output_filename + "] ...");
             gzofstream zofile(output_filename.c_str());
