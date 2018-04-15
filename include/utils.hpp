@@ -35,6 +35,14 @@ std::string getHostName();
 std::string getLocalTime();
 
 template <typename T>
+bool hasVectorDuplicate(const std::vector<T> &v){
+    std::vector<T> t = v;
+    std::sort(t.begin(), t.end());
+    auto last = std::unique(t.begin(), t.end());
+    return last != t.end();
+}
+
+template <typename T>
 std::vector<size_t> sort_indexes(const std::vector<T> &v) {
     std::vector<size_t> index(v.size());
     std::iota(index.begin(), index.end(), 0);

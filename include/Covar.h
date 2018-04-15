@@ -32,9 +32,17 @@ public:
 
     static int registerOption(map<string, vector<string>>& options_in);
     static void processMain();
+    static void read_covar(string filename, vector<string>& sub_list, vector<vector<double>>& covar, vector<map<string, double>>* labels = NULL, vector<int>* keep_row_p = NULL);
 
 private:
     static map<string, string> options;
+    vector<string> sample_id;
+    vector<map<string,double>> labels_covar;
+    vector<map<string,double>> labels_rcovar;
+    vector<vector<double>> covar;
+    vector<vector<double>> qcovar;
+    vector<vector<double>> dcovar;
+    vector<vector<double>> rcovar;
 };
 
 #endif //gcta2_covar_h
