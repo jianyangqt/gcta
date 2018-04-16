@@ -236,13 +236,13 @@ bool Covar::getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector
 
     vector<vector<double>> *covars[] = {&qcovar, &covar, &rcovar};
     vector<uint64_t> base_X_positions = {0, qcovar.size(), qcovar.size() + covar.size()};
-    vector<uint64_t> look_X_positions = {qcovar.size() - 1, qcovar.size() + covar.size() - 1, total_col_covar - 1};
+    vector<uint64_t> look_X_positions = {qcovar.size(), qcovar.size() + covar.size(), total_col_covar};
 
 
     #pragma omp parallel for
     for(int i = 0; i < total_col_covar; i++){
         //get which covar
-        auto const it = std::lower_bound(look_X_positions.begin(), look_X_positions.end(), i);
+        auto const it = std::lower_bound(look_X_positions.begin(), look_X_positions.end(), i + 1);
         int j = std::distance(look_X_positions.begin(), it);
 
         auto &pcovar = *covars[j];
