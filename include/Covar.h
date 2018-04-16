@@ -29,6 +29,7 @@ using std::string;
 class Covar{
 public:
     Covar();
+    bool getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector<int> &keep_index);
 
     static int registerOption(map<string, vector<string>>& options_in);
     static void processMain();

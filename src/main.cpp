@@ -22,6 +22,7 @@
 #include "Marker.h"
 #include "Pheno.h"
 #include "GRM.h"
+#include "Covar.h"
 #include "FastFAM.h"
 #include <functional>
 #include <map>
@@ -64,11 +65,12 @@ void out_ver(bool flag_outFile){
 int main(int argc, char *argv[]){
     out_ver(false);
     LOGGER.ts("main");
-    vector<string> supported_flagsV2 = {"--bfile", "--bim", "--fam", "--bed", "--keep", "--remove", 
+    vector<string> supported_flagsV2 = {"--test-covar",
+        "--bfile", "--bim", "--fam", "--bed", "--keep", "--remove", 
         "--chr", "--autosome-num", "--autosome", "--extract", "--exclude", "--maf", "--max-maf", 
         "--freq", "--out", "--make-grm", "--make-grm-part", "--thread-num", "--threads", "--grm",
         "--grm-cutoff", "--grm-singleton", "--cutoff-detail", "--make-bK-sparse", "--make-bK", "--pheno",
-        "--mpheno", "--ge", "--fastFAM", "--grm-sparse", "--qcovar", "--make-grm-d", "--make-grm-d-part",
+        "--mpheno", "--ge", "--fastFAM", "--grm-sparse", "--qcovar", "--covar", "--rcovar", "--make-grm-d", "--make-grm-d-part",
         "--cg", "--ldlt", "--llt", "--pardiso", "--tcg", "--lscg", "--save-inv", "--load-inv",
         "--update-ref-allele", "--update-freq", "--update-sex", "--mbfile", "--freqx", "--make-grm-xchr", "--make-grm-xchr-part"};
     map<string, vector<string>> options;
@@ -173,11 +175,12 @@ int main(int argc, char *argv[]){
 
     //start register the options
     // Please take care of the order, C++ has few reflation feature, I did in a ugly way.
-    vector<string> module_names = {"phenotype", "marker", "genotype", "GRM", "fastFAM"};
+    vector<string> module_names = {"phenotype", "marker", "genotype", "covar", "GRM", "fastFAM"};
     vector<int (*)(map<string, vector<string>>&)> registers = {
             Pheno::registerOption,
             Marker::registerOption,
             Geno::registerOption,
+            Covar::registerOption,
             GRM::registerOption,
             FastFAM::registerOption
     };
@@ -185,6 +188,7 @@ int main(int argc, char *argv[]){
             Pheno::processMain,
             Marker::processMain,
             Geno::processMain,
+            Covar::processMain,
             GRM::processMain,
             FastFAM::processMain
     };
@@ -195,7 +199,7 @@ int main(int argc, char *argv[]){
         if(num_reg == 1){
             mains.push_back(index);
         }else if(num_reg > 1){
-            LOGGER.e(0, "multiple main functions are invalid currently");
+            LOGGER.e(0, "multiple main functions are not supported currently.");
         }
     }
     bool unKnownFlag = false;
@@ -221,7 +225,7 @@ int main(int argc, char *argv[]){
         }
         LOGGER.i(0, "");
 
-        if(mains.size() > 1) LOGGER.e(0, "multiple main functions are invalid currently");
+        if(mains.size() > 1) LOGGER.e(0, "multiple main functions are not supported currently.");
         if(is_threaded) {
             LOGGER.i(0, "The program will be running on " + std::to_string(thread_num) + " threads at most.");
         }

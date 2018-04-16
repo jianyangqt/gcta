@@ -24,15 +24,16 @@
 #include <numeric>
 #include "utils.hpp"
 
-map<string, string> Pheno::options;
+map<string, string> Covar::options;
 using std::to_string;
 
 bool common_3vector(vector<string> **idListP, vector<vector<double>> **valueP,
         vector<string> *target_id, vector<vector<double>> **targetP){
 
-    vector<string> &s1 = (*idListP)[0];
-    vector<string> &s2 = (*idListP)[1];
-    vector<string> &s3 = (*idListP)[2];
+    // can't be (*idlist)[0], this get the first element 
+    vector<string> &s1 = *(idListP[0]);
+    vector<string> &s2 = *(idListP[1]);
+    vector<string> &s3 = *(idListP[2]);
     if(s1.size() == 0 || s2.size() == 0){
         return false;
     }
@@ -74,12 +75,12 @@ bool common_3vector(vector<string> **idListP, vector<vector<double>> **valueP,
     std::transform(s1_index.begin(), s1_index.end(), target_id->begin(), 
             [&s1](int pos){return s1[pos];});
 
-    auto &value1 = (*valueP)[0];
-    auto &value2 = (*valueP)[1];
-    auto &value3 = (*valueP)[2];
-    auto &targetvalue1 = (*targetP)[0];
-    auto &targetvalue2 = (*targetP)[1];
-    auto &targetvalue3 = (*targetP)[2];
+    auto &value1 = *valueP[0];
+    auto &value2 = *valueP[1];
+    auto &value3 = *valueP[2];
+    auto &targetvalue1 = *targetP[0];
+    auto &targetvalue2 = *targetP[1];
+    auto &targetvalue3 = *targetP[2];
 
     vector<vector<double>> *values[] = {&value1, &value2, &value3};
     vector<int> *indicies[] = {&s1_index, &s2_index, &s3_index};
@@ -212,12 +213,59 @@ Covar::Covar(){
         default:
             LOGGER.e(0, "something impossile happened.");
     }
-    LOGGER.i(0, to_string(sample_id.size()) + " common samples to be included.");
     if(common_3vector(idList, values, &sample_id, targets)){
         LOGGER.i(0, to_string(qcovar.size()) + " qcovar, " + to_string(covar.size()) + " covar and " + to_string(rcovar.size()) + " rcovar to be included.");
     }else{
         LOGGER.e(0, "0 covartiate to be included.");
     }
+    LOGGER.i(0, to_string(sample_id.size()) + " common samples in covariates to be included.");
+}
+
+bool Covar::getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector<int> &keep_index){
+    uint64_t total_col_covar = qcovar.size() + covar.size() + rcovar.size();
+    if(sampleIDs.size() == 0 || sample_id.size() == 0 || total_col_covar == 0){
+        return false;
+    }
+    vector<int> covar_index;
+    vector_commonIndex_sorted1(sampleIDs, sample_id, keep_index, covar_index);
+    if(keep_index.size() == 0){
+        return false;
+    }
+    uint64_t common_sample_size = covar_index.size();
+    X.resize(total_col_covar * common_sample_size);
+
+    vector<vector<double>> *covars[] = {&qcovar, &covar, &rcovar};
+    vector<uint64_t> base_X_positions = {0, qcovar.size(), qcovar.size() + covar.size()};
+    vector<uint64_t> look_X_positions = {qcovar.size() - 1, qcovar.size() + covar.size() - 1, total_col_covar - 1};
+
+
+    #pragma omp parallel for
+    for(int i = 0; i < total_col_covar; i++){
+        //get which covar
+        auto const it = std::lower_bound(look_X_positions.begin(), look_X_positions.end(), i);
+        int j = std::distance(look_X_positions.begin(), it);
+
+        auto &pcovar = *covars[j];
+        int base_pos = i * common_sample_size;
+        auto &t_covar = pcovar[i - base_X_positions[j]];
+        std::transform(covar_index.begin(), covar_index.end(), X.begin() + base_pos, 
+                [&t_covar](int pos){return t_covar[pos];});
+    }
+
+    return true;
+/*  // can't be paralleled
+    for(int j = 0; j < sizeof(covars) / sizeof(covars[0]); j++){
+        auto &pcovar = *covars[j];
+        int base_position = base_X_positions[j] * common_sample_size;
+        #pragma omp parallel for
+        for(int i = 0; i < pcovar.size(); i++){ 
+            auto &t_covar = pcovar[i];
+            int temp_begin_pos = base_position + i * common_sample_size;  
+            std::transform(covar_index.begin(), covar_index.end(), X.begin() + temp_begin_pos, 
+                    [&t_covar](int pos){return t_covar[pos];});
+        }
+    }
+*/
 }
 
 void Covar::read_covar(string filename, vector<string>& sub_list, vector<vector<double>>& covar, vector<map<string, double>>* labels, vector<int>* keep_row_p){
@@ -334,6 +382,26 @@ int Covar::registerOption(map<string, vector<string>>& options_in){
     addOneFileOption("qcovar", "", "--qcovar", options_in, options);
     addOneFileOption("covar", "", "--covar", options_in, options);
     addOneFileOption("rcovar", "", "--rcovar", options_in, options);
+    if(options_in.find("--test-covar") != options_in.end()){
+        string filename = options_in["--test-covar"][0];
+        vector<string> samples;
+        vector<vector<double>> s_covar;
+        Covar::read_covar(filename, samples, s_covar);
+
+        Covar covar;
+        vector<double> X;
+        vector<int> sample_index;
+        covar.getCovarX(samples, X, sample_index);
+        LOGGER<< "samples " << sample_index.size() << std::endl;
+        LOGGER << "X size: " << X.size() << std::endl;
+        for(int j = 0; j < X.size() / sample_index.size(); j++){
+            for(int i = 0; i < sample_index.size(); i++){
+                LOGGER << X[i + j * sample_index.size()] << " ";
+            }
+            LOGGER << std::endl;
+        }
+    }
+
     return 0;
 }
 
