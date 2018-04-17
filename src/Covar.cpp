@@ -111,7 +111,7 @@ Covar::Covar(){
     if(options.find("qcovar") != options.end()){
         string filename = options["qcovar"];
         LOGGER.i(0, "Reading quantitative covariates from [" + filename + "].");
-        read_covar(filename, samples_qcovar, qcovar, NULL, NULL);  
+        read_covar(filename, samples_qcovar, &qcovar, NULL, NULL);  
         if(hasVectorDuplicate(samples_qcovar)){
             LOGGER.e(0, "covariates can't have duplicate FID+IID.");
         }
@@ -121,7 +121,7 @@ Covar::Covar(){
     if(options.find("covar") != options.end()){
         string filename = options["covar"];
         LOGGER.i(0, "Reading discrete covariates from [" + filename + "].");
-        read_covar(filename, samples_covar, covar, &labels_covar, NULL);  
+        read_covar(filename, samples_covar, &covar, &labels_covar, NULL);  
         if(hasVectorDuplicate(samples_covar)){
             LOGGER.e(0, "covariates can't have duplicate FID+IID.");
         }
@@ -132,7 +132,7 @@ Covar::Covar(){
     if(options.find("rcovar") != options.end()){
         string filename = options["rcovar"];
         LOGGER.i(0, "Reading ranked covariates from [" + filename + "].");
-        read_covar(filename, samples_rcovar, rcovar, &labels_rcovar, NULL);  
+        read_covar(filename, samples_rcovar, &rcovar, &labels_rcovar, NULL);  
         if(hasVectorDuplicate(samples_rcovar)){
             LOGGER.e(0, "covariates can't have duplicate FID+IID.");
         }
@@ -268,7 +268,7 @@ bool Covar::getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector
 */
 }
 
-void Covar::read_covar(string filename, vector<string>& sub_list, vector<vector<double>>& covar, vector<map<string, double>>* labels, vector<int>* keep_row_p){
+void Covar::read_covar(string filename, vector<string>& sub_list, vector<vector<double>>* covar, vector<map<string, int>>* labels, vector<int>* keep_row_p){
     string err_string = "[" + filename + "].";
     std::ifstream hcovar(filename.c_str());
     if(!hcovar.good()){
@@ -287,9 +287,16 @@ void Covar::read_covar(string filename, vector<string>& sub_list, vector<vector<
         nkeep = keep_row_p->size();
         last_keep = (*keep_row_p)[nkeep - 1];
     }
+    int least_col = 2;
+    bool has_covar = false;
+    if(covar){
+        least_col = 3;
+        has_covar = true;
+    }
+
     last_keep += 2;
-    if(ncol < 3){
-        LOGGER.e(0, "less than 3 columns in " + err_string);
+    if(ncol < least_col){
+        LOGGER.e(0, "less than " + to_string(least_col) + " columns in " + err_string);
     }
     if(last_keep > ncol){
         LOGGER.e(0, "can't read " + to_string(last_keep) + "th column from " + err_string);
@@ -316,13 +323,17 @@ void Covar::read_covar(string filename, vector<string>& sub_list, vector<vector<
         std::transform(keep_row_p->begin(), keep_row_p->end(), keep_col.begin(), [](int value){return ++value;});
     }
 
-    covar.resize(nkeep);
+    if(has_covar){
+        covar->resize(nkeep);
+    }else{
+        nkeep = 0;
+    }
     bool is_factor = false;
     if(labels){
         is_factor = true;
         labels->resize(nkeep);
         for(int i = 0; i< nkeep; i++){
-            (*labels)[i]["LABEL_MAX_VALUE"] = -1.0;
+            (*labels)[i]["LABEL_MAX_VALUE"] = -1;
         }
     }
     
@@ -336,43 +347,46 @@ void Covar::read_covar(string filename, vector<string>& sub_list, vector<vector<
         }
 
         bool is_skip = false;
-
         vector<double> covar_temp(nkeep);
-
-        // get every column in the keep
-        for(int col_index = 0; col_index < nkeep; col_index++){
-            string temp_string = line_elements[keep_col[col_index]];
-            boost::to_upper(temp_string);
-            double temp_item;
-            if(temp_string == "NA" || temp_string == "NAN"){
-                is_skip = true;
-                break;
-            }
-
-            if(is_factor){
-                auto label_p = &(*labels)[col_index];
-                if(label_p->find(temp_string) != label_p->end()){
-                    temp_item = (*label_p)[temp_string];
-                }else{ // new factor
-                    (*label_p)["LABEL_MAX_VALUE"] += 1.0;
-                    temp_item = (*label_p)["LABEL_MAX_VALUE"];
-                    (*label_p)[temp_string] = temp_item;
+        if(has_covar){
+            // get every column in the keep
+            for(int col_index = 0; col_index < nkeep; col_index++){
+                string temp_string = line_elements[keep_col[col_index]];
+                boost::to_upper(temp_string);
+                int temp_item;
+                if(temp_string == "NA" || temp_string == "NAN"){
+                    is_skip = true;
+                    break;
                 }
-            }else{
-                try{
-                    temp_item = boost::lexical_cast<double>(temp_string);
-                }catch(const boost::bad_lexical_cast &e){
-                    LOGGER.e(0, "line " + to_string(line_number) + " contains non-numeric values in " + err_string);
+
+                if(is_factor){
+                    auto label_p = &(*labels)[col_index];
+                    if(label_p->find(temp_string) != label_p->end()){
+                        temp_item = (*label_p)[temp_string];
+                    }else{ // new factor
+                        (*label_p)["LABEL_MAX_VALUE"] += 1;
+                        temp_item = (*label_p)["LABEL_MAX_VALUE"];
+                        if(temp_item > 22){
+                            LOGGER.e(0, "too many factors in " + to_string(col_index+2) + "th column.");
+                        }
+                        (*label_p)[temp_string] = temp_item;
+                    }
+                }else{
+                    try{
+                        temp_item = boost::lexical_cast<double>(temp_string);
+                    }catch(const boost::bad_lexical_cast &e){
+                        LOGGER.e(0, "line " + to_string(line_number) + " contains non-numeric values in " + err_string);
+                    }
                 }
+                covar_temp[col_index] = temp_item;
             }
-            covar_temp[col_index] = temp_item;
         }
 
         // covar is complete or not
         if(!is_skip){
             sub_list.push_back(line_elements[0] + "\t" + line_elements[1]);
             for(int i = 0; i < nkeep; i++){
-                covar[i].push_back(covar_temp[i]);
+                (*covar)[i].push_back(covar_temp[i]);
             }
         }
     }
@@ -385,8 +399,8 @@ int Covar::registerOption(map<string, vector<string>>& options_in){
     if(options_in.find("--test-covar") != options_in.end()){
         string filename = options_in["--test-covar"][0];
         vector<string> samples;
-        vector<vector<double>> s_covar;
-        Covar::read_covar(filename, samples, s_covar);
+        Covar::read_covar(filename, samples);
+        LOGGER << "template: " << samples.size() << std::endl;
 
         Covar covar;
         vector<double> X;
@@ -408,3 +422,7 @@ int Covar::registerOption(map<string, vector<string>>& options_in){
 void Covar::processMain(){
     LOGGER.e(0, "No main function in covariate yet.");
 }
+
+
+//template void Covar::read_covar(string filename, vector<string>& sub_list, vector<vector<int8_t>>* covar, vector<map<string, int8_t>>* labels, vector<int>* keep_row_p);
+//template void Covar::read_covar(string filename, vector<string>& sub_list, vector<vector<double>>* covar, vector<map<string, double>>* labels, vector<int>* keep_row_p);
