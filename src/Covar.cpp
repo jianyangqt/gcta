@@ -221,7 +221,49 @@ Covar::Covar(){
     LOGGER.i(0, to_string(sample_id.size()) + " common samples in covariates to be included.");
 }
 
+
 bool Covar::getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector<int> &keep_index){
+    int total_col_covar = qcovar.size() + covar.size() + rcovar.size();
+    if(sampleIDs.size() == 0 || sample_id.size() == 0 || total_col_covar == 0){
+        return false;
+    }
+    vector<int> covar_index;
+    vector_commonIndex_sorted1(sampleIDs, sample_id, keep_index, covar_index);
+    if(keep_index.size() == 0){
+        return false;
+    }
+    int common_sample_size = covar_index.size();
+
+    vector<int> start_col_X;
+    start_col_X.push_back(0);
+    int expand_col_covar = qcovar.size();
+    start_col_X.push_back(expand_col_covar);
+    for(auto & label : labels_covar){
+        expand_col_covar += label["LABEL_MAX_VALUE"];
+        start_col_X.push_back(expand_col_covar);
+    }
+
+    for(auto & label : labels_rcovar){
+        expand_col_covar += label["LABEL_MAX_VALUE"];
+    }
+
+    X.resize(expand_col_covar * common_sample_size);
+
+    for(int i = 0; i < qcovar.size(); i++){
+        auto &covarp = this->qcovar[i];
+        int base_pos = i * common_sample_size;
+        std::transform(covar_index.begin(), covar_index.end(), X.begin() + base_pos,
+                [&covarp](int pos){return covarp[pos];});
+    }
+
+    for(int i = 0; i < covar.size(); i++){
+        int base_pos = (start_col_X[1] + i) * common_sample_size;
+    }
+
+    return true;
+}
+
+bool Covar::getCovarXRaw(const vector<string> &sampleIDs, vector<double> &X, vector<int> &keep_index){
     uint64_t total_col_covar = qcovar.size() + covar.size() + rcovar.size();
     if(sampleIDs.size() == 0 || sample_id.size() == 0 || total_col_covar == 0){
         return false;
@@ -405,15 +447,22 @@ int Covar::registerOption(map<string, vector<string>>& options_in){
         Covar covar;
         vector<double> X;
         vector<int> sample_index;
-        covar.getCovarX(samples, X, sample_index);
+        covar.getCovarXRaw(samples, X, sample_index);
         LOGGER<< "samples " << sample_index.size() << std::endl;
         LOGGER << "X size: " << X.size() << std::endl;
+
         for(int j = 0; j < X.size() / sample_index.size(); j++){
             for(int i = 0; i < sample_index.size(); i++){
                 LOGGER << X[i + j * sample_index.size()] << " ";
             }
             LOGGER << std::endl;
         }
+
+        covar.getCovarX(samples, X, sample_index);
+        LOGGER<< "samples " << sample_index.size() << std::endl;
+        LOGGER << "X size: " << X.size() << std::endl;
+
+
     }
 
     return 0;
