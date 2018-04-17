@@ -125,6 +125,7 @@ Covar::Covar(){
         if(hasVectorDuplicate(samples_covar)){
             LOGGER.e(0, "covariates can't have duplicate FID+IID.");
         }
+        setCovarMapping();
         LOGGER.i(0, to_string(covar.size()) + " covariates of " + to_string(samples_covar.size()) + " samples to be included.");
  
     }
@@ -221,6 +222,69 @@ Covar::Covar(){
     LOGGER.i(0, to_string(sample_id.size()) + " common samples in covariates to be included.");
 }
 
+bool Covar::setCovarMapping(vector<vector<string>> *map_order){
+    string err_string = "can't specify inconsistent covariate labels.";
+    if(sample_id.size() == 0 || covar.size() == 0){
+        return false;
+    }
+    if(map_order){
+        if(map_order->size() != covar.size()){
+            LOGGER.e(0, err_string);
+            return false;
+        }
+    }
+
+    int expand_col_covar = 0;
+    vector<int> start_col_X;
+    start_col_X.push_back(0);
+
+    for(auto & label : labels_covar){
+        expand_col_covar += label["LABEL_MAX_VALUE"];
+        start_col_X.push_back(expand_col_covar);
+    }
+
+    labels_covar_mapping.resize(expand_col_covar);
+
+    for(int i = 0; i < covar.size(); i++){
+        auto &map_item = labels_covar[i];
+        vector<string> elements;
+        for(auto const& t_map : map_item){
+            const string &key = t_map.first;
+            if(key != "LABEL_MAX_VALUE"){
+                elements.push_back(key);
+            }
+        }
+        std::sort(elements.begin(), elements.end());
+        if(map_order){
+            vector<string> &pelements = (*map_order)[i];
+            vector<string> mapper;
+            for(auto const &element : pelements){
+                if(std::binary_search(elements.begin(), elements.end(), element)){
+                    mapper.push_back(element);
+                }
+            }
+            if(elements.size() != mapper.size()){
+                LOGGER.e(0, "column " + to_string(i) + ", " + err_string);
+                return false;
+            }
+            elements = mapper;
+        }
+
+        for(int j = 1; j < elements.size(); j++){
+            vector<double> item(elements.size(), 0);
+            item[map_item[elements[j]]] = 1.0;
+            labels_covar_mapping[start_col_X[i] + j - 1] = item;
+        }
+
+    }
+
+
+    return true;
+}
+
+bool Covar::setRCovarMapping(vector<vector<string>> *map_order){
+}
+
 
 bool Covar::getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector<int> &keep_index){
     int total_col_covar = qcovar.size() + covar.size() + rcovar.size();
@@ -236,8 +300,13 @@ bool Covar::getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector
 
     vector<int> start_col_X;
     start_col_X.push_back(0);
-    int expand_col_covar = qcovar.size();
-    start_col_X.push_back(expand_col_covar);
+    int expand_col_covar = 0;
+    
+    for(int i = 0; i < qcovar.size(); i++){
+        expand_col_covar++;
+        start_col_X.push_back(expand_col_covar);
+    }
+
     for(auto & label : labels_covar){
         expand_col_covar += label["LABEL_MAX_VALUE"];
         start_col_X.push_back(expand_col_covar);
@@ -245,6 +314,7 @@ bool Covar::getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector
 
     for(auto & label : labels_rcovar){
         expand_col_covar += label["LABEL_MAX_VALUE"];
+        start_col_X.push_back(expand_col_covar);
     }
 
     X.resize(expand_col_covar * common_sample_size);
@@ -256,8 +326,30 @@ bool Covar::getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector
                 [&covarp](int pos){return covarp[pos];});
     }
 
+    int base_covar = qcovar.size();
+    int map_index = 0;
     for(int i = 0; i < covar.size(); i++){
-        int base_pos = (start_col_X[1] + i) * common_sample_size;
+        auto &covarp = this->covar[i];
+        auto &labelp = this->labels_covar[i];
+        int base_pos = (start_col_X[base_covar + i]) * common_sample_size;
+        for(int j = 0; j < labelp["LABEL_MAX_VALUE"]; j++){
+            auto &cur_table = labels_covar_mapping[map_index];
+            std::transform(covarp.begin(), covarp.end(), X.begin() + base_pos + j * common_sample_size, [&cur_table](double covar){ return cur_table[(int)covar];});
+            map_index++;
+        }
+    }
+
+    int base_rcovar = qcovar.size() + covar.size();
+    int map_rindex = 0;
+    for(int i = 0; i < rcovar.size(); i++){
+        auto &covarp = this->rcovar[i];
+        auto &labelp = this->labels_rcovar[i];
+        int base_pos = (start_col_X[base_rcovar + i]) * common_sample_size;
+        for(int j = 0; j < labelp["LABEL_MAX_VALUE"]; j++){
+            auto &cur_table = labels_rcovar_mapping[map_rindex];
+            std::transform(covarp.begin(), covarp.end(), X.begin() + base_pos + j * common_sample_size, [&cur_table](double covar){ return cur_table[(int)covar];});
+            map_rindex++;
+        }
     }
 
     return true;
@@ -462,6 +554,12 @@ int Covar::registerOption(map<string, vector<string>>& options_in){
         LOGGER<< "samples " << sample_index.size() << std::endl;
         LOGGER << "X size: " << X.size() << std::endl;
 
+        for(int j = 0; j < X.size() / sample_index.size(); j++){
+            for(int i = 0; i < sample_index.size(); i++){
+                LOGGER << X[i + j * sample_index.size()] << " ";
+            }
+            LOGGER << std::endl;
+        }
 
     }
 
