@@ -125,7 +125,6 @@ Covar::Covar(){
         if(hasVectorDuplicate(samples_covar)){
             LOGGER.e(0, "covariates can't have duplicate FID+IID.");
         }
-        setCovarMapping();
         LOGGER.i(0, to_string(covar.size()) + " covariates of " + to_string(samples_covar.size()) + " samples to be included.");
  
     }
@@ -216,6 +215,8 @@ Covar::Covar(){
     }
     if(common_3vector(idList, values, &sample_id, targets)){
         LOGGER.i(0, to_string(qcovar.size()) + " qcovar, " + to_string(covar.size()) + " covar and " + to_string(rcovar.size()) + " rcovar to be included.");
+        setCovarMapping();
+        setRCovarMapping();
     }else{
         LOGGER.e(0, "0 covartiate to be included.");
     }
@@ -334,7 +335,7 @@ bool Covar::getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector
         int base_pos = (start_col_X[base_covar + i]) * common_sample_size;
         for(int j = 0; j < labelp["LABEL_MAX_VALUE"]; j++){
             auto &cur_table = labels_covar_mapping[map_index];
-            std::transform(covarp.begin(), covarp.end(), X.begin() + base_pos + j * common_sample_size, [&cur_table](double covar){ return cur_table[(int)covar];});
+            std::transform(covar_index.begin(), covar_index.end(), X.begin() + base_pos + j * common_sample_size, [&cur_table, &covarp](int pos){ return cur_table[(int)covarp[pos]];});
             map_index++;
         }
     }
