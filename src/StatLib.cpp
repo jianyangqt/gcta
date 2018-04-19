@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <limits>
 #include <boost/math/distributions/chi_squared.hpp>
+#include <mkl.h>
 
 using namespace boost::math;
 
@@ -27,4 +28,68 @@ namespace StatLib{
     double pchisqd1(double x){
         return cdf(complement(dist1, x));
     }
+
+    //n rank size,  Z shall be n * n double memory.
+    // return true, success; false, unsuccess
+    bool rankContrast(int n, double * Z){
+        double mean = 1.0 - (1.0 + n) / 2.0;
+
+        //outer op
+        double* X = new double[n * n];
+        for(int i = 0; i < n; i++){
+            int base_index = i * n;
+            for(int j = 0; j < n; j++){
+                X[base_index + j] = pow(j + mean, i);
+            }
+        }
+
+        double* tau = new double[n];
+        double* work = new double[n];
+        int info = 0;
+        int lda = n;
+        int lwork = n;
+        dgeqrf(&n, &n, X, &lda, tau, work, &lwork, &info);
+        if(info != 0){
+            return false;
+        }
+
+        double *c = Z;
+        for(int i = 0; i < n; i++){
+            int base_index = i * n;
+            for(int j = 0; j < n; j++){
+                int index = base_index + j;
+                if(i != j){
+                    c[index] = 0.0;
+                }else{
+                    c[index] = X[index];
+                }
+            }
+        }
+
+        char side = 'L';
+        char t = 'N';
+
+        dormqr(&side, &t, &n, &n, &n, X, &lda, tau, c, 
+                &lda, work, &lwork, &info);
+
+        if(info != 0){
+            return false;
+        }
+
+        for(int i = 0; i < n; i++){
+            double rdiv = 0;
+            int base_index = i * n;
+            for(int j = 0; j < n; j++){
+                rdiv += c[base_index +j] * c[base_index + j];
+            }
+            rdiv = 1.0 / sqrt(rdiv);
+            for(int j = 0; j < n; j++){
+                c[base_index + j] = c[base_index + j] * rdiv;
+            }
+        }
+
+        return true;
+    }
+
+
 }

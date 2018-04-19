@@ -15,6 +15,8 @@ function(addTestItem test_name source lib_name run_param)
         ${lib_name} 
         libgtest
         libgmock
+        -Wl,-Bstatic z -Wl,--start-group ${MKL_LIB} -Wl,--end-group gomp -Wl,-Bdynamic pthread m dl
+        
     )
     add_test(${test_name} ${test_name} "${run_param}")
 endfunction(addTestItem)
