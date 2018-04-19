@@ -72,7 +72,8 @@ int main(int argc, char *argv[]){
         "--grm-cutoff", "--grm-singleton", "--cutoff-detail", "--make-bK-sparse", "--make-bK", "--pheno",
         "--mpheno", "--ge", "--fastFAM", "--grm-sparse", "--qcovar", "--covar", "--rcovar", "--make-grm-d", "--make-grm-d-part",
         "--cg", "--ldlt", "--llt", "--pardiso", "--tcg", "--lscg", "--save-inv", "--load-inv",
-        "--update-ref-allele", "--update-freq", "--update-sex", "--mbfile", "--freqx", "--make-grm-xchr", "--make-grm-xchr-part"};
+        "--update-ref-allele", "--update-freq", "--update-sex", "--mbfile", "--freqx", "--make-grm-xchr", "--make-grm-xchr-part",
+        "--make-bed"};
     map<string, vector<string>> options;
     vector<string> keys;
     string last_key = "";

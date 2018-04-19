@@ -42,6 +42,7 @@ public:
     void keep_raw_index(const vector<uint32_t>& keep_index);
     void keep_extracted_index(const vector<uint32_t>& keep_index);
     void matchSNPListFile(string filename, int num_min_fields, const vector<int>& field_return, vector<string> &fields, vector<bool>& a_rev, bool update_a_rev = false);
+    void save_marker(string filename);
 
 private:
     vector<uint8_t> chr;

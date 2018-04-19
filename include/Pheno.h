@@ -48,6 +48,7 @@ public:
     uint8_t extract_genobit(uint8_t * const buf, int index_in_keep);
     vector<uint32_t>& get_index_keep();
     void get_pheno(vector<string>& ids, vector<double>& pheno);
+    void save_pheno(string filename);
     void filter_keep_index(vector<uint32_t>& k_index);
     void getMaskBit(uint64_t *maskp);
     void getMaskBitMale(uint64_t *maskp);

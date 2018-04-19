@@ -44,6 +44,8 @@ public:
     void freq(uint8_t *buf, int num_marker);
     void freq2(uint8_t *buf, int num_marker);
     void freq64(uint64_t *buf, int num_marker);
+    void save_bed(uint64_t *buf, int num_marker);
+    void closeOut();
     void freq64_x(uint64_t *buf, int num_marker);
     bool check_bed();
     void out_freq(string filename);
@@ -56,6 +58,7 @@ public:
 private:
     Pheno* pheno;
     Marker* marker;
+    FILE* hOut = NULL;
     vector<string> bed_files;
     int64_t num_byte_per_marker;
     int last_byte_NA_sample;
@@ -88,6 +91,7 @@ private:
     uint64_t num_item_1geno;
     uint64_t num_raw_sample;
     uint64_t num_keep_sample;
+    uint64_t num_byte_keep_geno1;
     uint64_t num_male_keep_sample;
     uint64_t num_item_geno_buffer;
     uint64_t *keep_mask;

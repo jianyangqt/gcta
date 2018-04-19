@@ -224,6 +224,10 @@ Covar::Covar(){
     LOGGER.i(0, to_string(sample_id.size()) + " common samples in covariates to be included.");
 }
 
+const vector<string>& Covar::getSampleID() const{
+    return this->sample_id;
+}
+
 bool Covar::setCovarMapping(bool is_rcovar, vector<vector<string>> *map_order){
     string err_string;
     if(is_rcovar){

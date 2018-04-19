@@ -124,6 +124,7 @@ Geno::Geno(Pheno* pheno, Marker* marker) {
 
     num_keep_sample = pheno->count_keep();
     total_markers = 2 * num_keep_sample;
+    num_byte_keep_geno1 = (num_keep_sample + 3) / 4;
     num_item_1geno = (num_keep_sample + 31) / 32;
     num_item_geno_buffer = num_item_1geno * Constants::NUM_MARKER_READ;
 
@@ -627,6 +628,40 @@ void Geno::freq64_x(uint64_t *buf, int num_marker) {
 
 }
 
+void Geno::save_bed(uint64_t *buf, int num_marker){
+    static string err_string = "can't write to [" + options["out"] + ".bed].";
+    static bool inited = false;
+    if(!inited){
+        hOut = fopen((options["out"] + ".bed").c_str(), "wb");
+        if(hOut == NULL){
+            LOGGER.e(0, err_string);
+        }
+        uint8_t * buffer = new uint8_t[3];
+        buffer[0] = 0x6c;
+        buffer[1] = 0x1b;
+        buffer[2] = 0x01;
+        if(3 != fwrite(buffer, sizeof(uint8_t), 3, hOut)){
+            LOGGER.e(0, err_string);
+        }
+        inited = true;
+        delete[] buffer;
+    }
+
+    uint64_t base_buffer = 0;
+    for(int i = 0; i < num_marker; i++){
+        uint8_t * buffer = (uint8_t *) (buf + base_buffer);
+        if(fwrite(buffer, sizeof(uint8_t), num_byte_keep_geno1,hOut) != num_byte_keep_geno1){
+            LOGGER.e(0, err_string);
+        }
+        base_buffer += num_item_1geno;
+    }
+
+}
+
+void Geno::closeOut(){
+    fclose(hOut);
+}
+
 
 void Geno::freq64(uint64_t *buf, int num_marker) {
     //pheno->mask_geno_keep(buf, num_marker);
@@ -1081,6 +1116,13 @@ int Geno::registerOption(map<string, vector<string>>& options_in) {
         return_value++;
     }
 
+    if(options_in.find("--make-bed") != options_in.end()){
+        processFunctions.push_back("make_bed");
+        options_in.erase("--make-bed");
+        options["out"] = options_in["--out"][0];
+
+        return_value++;
+    }
 
     addOneFileOption("update_freq_file", "", "--update-freq", options_in);
 
@@ -1128,6 +1170,19 @@ void Geno::processMain() {
             callBacks.clear();
         }
 
+        if(process_function == "make_bed"){
+            Pheno pheno;
+            Marker marker;
+            Geno geno(&pheno, &marker);
+            string filename = options["out"];
+            pheno.save_pheno(filename + ".fam");
+            marker.save_marker(filename + ".bim");
+            LOGGER.i(0, "Saving genotype to PLINK format [" + filename + ".bed]...");
+            callBacks.push_back(bind(&Geno::save_bed, &geno, _1, _2));
+            geno.loop_64block(marker.get_extract_index(), callBacks);
+            geno.closeOut();
+            LOGGER.i(0, "Genotype has been saved.");
+        }
 
     }
 

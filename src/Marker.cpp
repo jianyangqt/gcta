@@ -204,6 +204,18 @@ int Marker::getMIndex(uint32_t raw_index){
     LOGGER.e(0, "too large SNP index " + to_string(raw_index));
 }
 
+void Marker::save_marker(string filename){
+    LOGGER.i(0, "Saving SNP information to [" + filename + "]...");
+    std::ofstream out(filename.c_str());
+    for(auto & i : index_extract){
+        out << (int)chr[i] << "\t" << name[i] << "\t" << gd[i] 
+            << "\t" << pd[i] << "\t" << a1[i] << "\t"
+            << a2[i] << std::endl;
+    }
+    LOGGER.i(0, to_string(index_extract.size()) + " SNPs saved.");
+
+}
+
 void Marker::read_bim(string bim_file) {
     LOGGER.i(0, "Reading PLINK BIM file from [" + bim_file + "]...");
     std::ifstream bim(bim_file.c_str());

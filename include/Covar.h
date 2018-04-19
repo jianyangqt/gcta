@@ -32,6 +32,7 @@ public:
     bool getCovarXRaw(const vector<string> &sampleIDs, vector<double> &X, vector<int> &keep_index);
     bool getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector<int> &keep_index);
     bool setCovarMapping(bool is_rcovar, vector<vector<string>> *map_order = NULL);
+    const vector<string>& getSampleID() const;
 
     static int registerOption(map<string, vector<string>>& options_in);
     static void processMain();

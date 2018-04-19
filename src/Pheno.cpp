@@ -288,6 +288,19 @@ vector<uint32_t>& Pheno::get_index_keep() {
     return this->index_keep;
 }
 
+void Pheno::save_pheno(string filename){
+    LOGGER.i(0, "Saving individual information to [" + filename + "]...");
+    std::ofstream out(filename.c_str());
+    if(!out.good()){
+        LOGGER.e(0, "can't write to [" + filename + "].");
+    }
+    for(auto & i : index_keep){
+        out << mark[i] << "\t" << fa_id[i] << "\t" << mo_id[i] << "\t" << (int)sex[i] << "\t" << pheno[i] << std::endl;
+    }
+    LOGGER.i(0, to_string(index_keep.size()) + " individuals have been saved.");
+
+}
+
 void Pheno::get_pheno(vector<string>& ids, vector<double>& pheno){
     ids.clear();
     ids.reserve(index_keep.size());
