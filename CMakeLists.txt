@@ -97,6 +97,7 @@ if(APPLE)
     target_link_libraries(gcta64 ${libs_list} mainV1 z ${MKL_LIB} iomp5 pthread m dl )
 else()
     target_link_libraries(gcta64 mainV1 ${libs_list} -Wl,-Bstatic z -Wl,--start-group ${MKL_LIB} -Wl,--end-group gomp -Wl,-Bdynamic pthread m dl)
+    #target_link_libraries(gcta64 mainV1 ${libs_list} -static z -Wl,--start-group ${MKL_LIB} -Wl,--end-group gomp -Wl,--whole-archive -lpthread -Wl,--no-whole-archive m dl)
 endif()
 #target_link_libraries(gcta64 ${libs_list} mainV1)
 

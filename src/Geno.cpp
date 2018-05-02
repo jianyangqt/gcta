@@ -134,8 +134,9 @@ Geno::Geno(Pheno* pheno, Marker* marker) {
     isX = false;
     if(options.find("sex") != options.end()){
         isX = true;
+        num_male_keep_sample = pheno->count_male();
         total_markers -= pheno->count_male();
-        keep_male_mask = new uint64_t[(num_male_keep_sample + 63)/64]();
+        keep_male_mask = new uint64_t[(num_keep_sample + 63)/64]();
         pheno->getMaskBitMale(keep_male_mask);
     }
 
@@ -291,7 +292,7 @@ bool Geno::check_bed(){
     bool has_error = false;
     FILE *pFile;
     uint64_t f_size;
-    uint8_t * buffer = new uint8_t[3];
+    uint8_t buffer[3];
     string message;
     uint32_t previous_size  = 0;
 
@@ -331,7 +332,7 @@ bool Geno::check_bed(){
         previous_size = cur_size;
     }
 
-    delete[] buffer;
+    //delete[] buffer;
     if(has_error){
         LOGGER.e(0, message);
     }else{

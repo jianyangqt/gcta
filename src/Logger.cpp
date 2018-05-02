@@ -217,11 +217,4 @@ Logger& Logger::operator<<(std::ios_base& (*pf)(std::ios_base&)){
     return *m_pThis;
 }
 
-Logger& Logger::operator<<(_Smanip<std::ostream> &mip){
-    cout << mip;
-    m_logFile << mip;
-    return *m_pThis;
-}
-
-
 
