@@ -45,6 +45,7 @@ public:
     void freq2(uint8_t *buf, int num_marker);
     void freq64(uint64_t *buf, int num_marker);
     void save_bed(uint64_t *buf, int num_marker);
+    void sum_geno(uint64_t *buf, int num_marker);
     void closeOut();
     void freq64_x(uint64_t *buf, int num_marker);
     bool check_bed();

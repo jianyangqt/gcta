@@ -588,6 +588,74 @@ void Geno::freq2(uint8_t *buf, int num_marker) {
 }
 */
 
+void Geno::sum_geno(uint64_t *buf, int num_marker) {
+    static bool inited = false;
+    static std::ofstream out;
+    if(!inited){
+        inited = true;
+        out.open((options["out"] + ".sum").c_str());
+        if (!out) { LOGGER.e(0, "can not open the file [" + options["out"] + ".sum" + "] to write"); }
+        out << "CHR\tSNP\tPOS\tA1\tA2\tAAm\tABm\tBBm\tMm\tAAf\tABf\tBBf\tMf" << std::endl;
+    }
+
+    const static uint64_t MASK = 6148914691236517205UL; 
+    if(num_marker_freq >= marker->count_extract()) return;
+
+    int cur_num_marker_read = num_marker;
+    uint32_t *gender_mask = (uint32_t *)keep_male_mask;
+
+    vector<string> out_contents;
+    out_contents.resize(cur_num_marker_read);
+    
+    #pragma omp parallel for schedule(dynamic) 
+    for(int cur_marker_index = 0; cur_marker_index < cur_num_marker_read; ++cur_marker_index){
+        uint32_t even_ct = 0, odd_ct = 0, both_ct = 0, even_ct_m = 0, odd_ct_m = 0, both_ct_m = 0;
+        uint64_t *p_buf = buf + cur_marker_index * num_item_1geno;
+        for(int index = 0; index < num_item_1geno ; index++){
+            uint64_t mask_gender = *(gender_mask + index);
+            mask_gender = fill_inter_zero(mask_gender);
+            mask_gender += (mask_gender << 1);
+
+            uint64_t g_buf = p_buf[index];
+            uint64_t g_buf_h = MASK & (g_buf >> 1);
+            uint64_t g_buf_l = g_buf & MASK;
+            uint64_t g_buf_b = g_buf & g_buf_h;
+            odd_ct += popcount(g_buf_l);
+            even_ct += popcount(g_buf_h);
+            both_ct += popcount(g_buf_b);
+
+            even_ct_m += popcount(g_buf_h & mask_gender);
+            odd_ct_m += popcount(g_buf_l & mask_gender);
+            both_ct_m += popcount(g_buf_b & mask_gender);
+        }
+
+        int all_BB = both_ct;
+        int all_AB = even_ct - both_ct;
+        int all_miss = odd_ct - both_ct;
+        int all_AA = num_keep_sample - odd_ct - even_ct + both_ct;
+
+        int m_BB = both_ct_m;
+        int m_AB = even_ct_m - both_ct_m;
+        int m_miss = odd_ct_m - both_ct_m;
+        int m_AA = num_male_keep_sample - odd_ct_m - even_ct_m + both_ct_m;
+        
+        std::ostringstream os;
+        int raw_index_marker = num_marker_freq + cur_marker_index;
+        os << marker->get_marker(marker->getExtractIndex(raw_index_marker)) << "\t";
+        os << m_AA << "\t" << m_AB << "\t" << m_BB << "\t" << m_miss << "\t";
+        os << all_AA - m_AA << "\t" << all_AB - m_AB << "\t" << all_BB - m_BB << "\t" << all_miss - m_miss;
+
+        out_contents[cur_marker_index] = os.str();
+ 
+    }
+
+    std::copy(out_contents.begin(), out_contents.end(), std::ostream_iterator<string>(out, "\n"));
+ 
+    num_marker_freq += num_marker;
+
+}
+
+
 void Geno::freq64_x(uint64_t *buf, int num_marker) {
     const static uint64_t MASK = 6148914691236517205UL; 
     if(num_marker_freq >= marker->count_extract()) return;
@@ -1131,6 +1199,18 @@ int Geno::registerOption(map<string, vector<string>>& options_in) {
         options["sex"] = "yes";
     }
 
+    if(options_in.find("--sum-geno") != options_in.end()){
+        processFunctions.push_back("sum_geno");
+        options["sex"] = "yes";
+        std::map<string, vector<string>> t_option;
+        t_option["--chrx"] = {};
+        t_option["--filter-sex"] = {};
+        Pheno::registerOption(t_option);
+        Marker::registerOption(t_option);
+        options["out"] = options_in["--out"][0];
+        return_value++;
+    }
+
     return return_value;
 }
 
@@ -1184,6 +1264,17 @@ void Geno::processMain() {
             geno.closeOut();
             LOGGER.i(0, "Genotype has been saved.");
         }
+
+        if(process_function == "sum_geno"){
+            Pheno pheno;
+            Marker marker;
+            Geno geno(&pheno, &marker);
+            LOGGER.i(0, "Summing genotype with sex"); 
+            callBacks.push_back(bind(&Geno::sum_geno, &geno, _1, _2));
+            geno.loop_64block(marker.get_extract_index(), callBacks);
+            LOGGER.i(0, "Summary has bee saved.");
+        }
+
 
     }
 
