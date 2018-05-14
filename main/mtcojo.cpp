@@ -434,7 +434,7 @@ vector<string> gcta::filter_meta_snp_pval(vector<string> snp_name, vector<int> r
     return kpsnps;
 }
 
-void gcta::read_mtcojofile(string mtcojolist_file, double clump_thresh1, double gwas_thresh, int nsnp_gsmr) {
+void gcta::read_mtcojofile(string mtcojolist_file, double gwas_thresh, int nsnp_gsmr) {
 
     int ncovar=0, i=0, j=0;
     string target_pheno_file="";
@@ -532,7 +532,7 @@ void gcta::read_mtcojofile(string mtcojolist_file, double clump_thresh1, double 
     else LOGGER.i(0, to_string(nsnp) + " SNPs are retained after filtering ...");
 
     // Only keep SNPs with p-value < threshold
-    double pval_thresh =  gwas_thresh < clump_thresh1 ?  gwas_thresh : clump_thresh1;
+    double pval_thresh =  gwas_thresh;
     vector<string> keptsnps; 
     
     keptsnps = filter_meta_snp_pval(_meta_snp_name, _meta_remain_snp, _meta_snp_pval, 1, 1+ncovar, _snp_val_flag, pval_thresh);
@@ -542,7 +542,7 @@ void gcta::read_mtcojofile(string mtcojolist_file, double clump_thresh1, double 
     LOGGER.i(0, to_string(_include.size()) + " significant SNPs are in common with those in the reference sample.\n");
 }
 
-vector<string> gcta::clumping_meta(eigenVector snp_pval, vector<bool> snp_flag, double pval_thresh1, double pval_thresh2, int wind_size, double r2_thresh) {   
+vector<string> gcta::clumping_meta(eigenVector snp_pval, vector<bool> snp_flag, double pval_thresh, int wind_size, double r2_thresh) {   
     wind_size = wind_size*1e3;
     // Only select SNPs that are matched with plink binary file
     vector<pair<double, int>> snp_pvalbuf;
@@ -566,7 +566,7 @@ vector<string> gcta::clumping_meta(eigenVector snp_pval, vector<bool> snp_flag, 
     map<string, bool> clumped_snp;
     for(i=0; i<nsnp_clumped; i++) {
         pvalbuf = snp_pvalbuf[i].first;
-        if( pvalbuf >= pval_thresh1) continue;
+        if( pvalbuf >= pval_thresh) continue;
         indx = snp_pvalbuf[i].second;
         clumped_snp.insert(pair<string,bool>(_meta_snp_name[indx],false));
     }
@@ -705,7 +705,7 @@ void adjust_ld_r_fdr(eigenMatrix &ld_r_mat, vector<pair<double, int>> ld_pval, i
     }
 }
 
-vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eigenVector bzx_se, eigenVector bzx_pval, eigenVector bzy, eigenVector bzy_se, double rho_pheno, vector<bool> snp_flag, double pval_thresh1, double pval_thresh2, int wind_size, double r2_thresh, double gwas_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, int nsnp_heidi, bool heidi_flag) {
+vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eigenVector bzx_se, eigenVector bzx_pval, eigenVector bzy, eigenVector bzy_se, double rho_pheno, vector<bool> snp_flag, double gwas_thresh, int wind_size, double r2_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, int nsnp_heidi, bool heidi_flag) {
     
     int i=0, j=0, k=0, nsnp = _include.size(), nindi=_keep.size();
     vector<string> indices_snp;
@@ -715,7 +715,7 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
     if(nsnp < nsnp_gsmr) return rst;
 
     // clumping analysis
-    indices_snp = clumping_meta(bzx_pval, snp_flag, pval_thresh1, pval_thresh2, wind_size, r2_thresh);
+    indices_snp = clumping_meta(bzx_pval, snp_flag, gwas_thresh, wind_size, r2_thresh);
     int n_indices_snp = indices_snp.size();
 
     LOGGER.i(0, to_string(n_indices_snp) + " index SNPs are obtained from the clumping analysis.");
@@ -1498,7 +1498,7 @@ void mtcojo_cond_output(string output_file, vector<string> snp_name, vector<int>
     ofile.close();
 }
 
-void gcta::mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, double clump_thresh1, double clump_thresh2, int clump_wind_size, double clump_r2_thresh, double gwas_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_heidi, int nsnp_gsmr, bool heidi_flag) {
+void gcta::mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, double gwas_thresh, int clump_wind_size, double clump_r2_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_heidi, int nsnp_gsmr, bool heidi_flag) {
     
     int i=0, j=0, nsnp=_meta_snp_name_map.size(), nsnp_init=_meta_snp_name.size(), ncovar=_covar_pheno_name.size();
     vector<bool> snp_pair_flag(nsnp_init);
@@ -1521,7 +1521,7 @@ void gcta::mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, 
         vector<string> snp_instru;
         LOGGER.i(0, "\nGSMR analysis for covariate #" + to_string(i) + " (" + trait_name[i] + ")" + " ...");
         for(j=0; j<nsnp_init; j++) snp_pair_flag[j] = (int)((_snp_val_flag[0][j]+_snp_val_flag[i][j])/2);
-        gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), _meta_snp_b.col(0), _meta_snp_se.col(0), ldsc_intercept(0, i), snp_pair_flag, clump_thresh1, clump_thresh2, clump_wind_size, clump_r2_thresh, gwas_thresh, heidi_thresh, ld_fdr_thresh, nsnp_heidi, nsnp_gsmr, heidi_flag);
+        gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), _meta_snp_b.col(0), _meta_snp_se.col(0), ldsc_intercept(0, i), snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, heidi_thresh, ld_fdr_thresh, nsnp_gsmr, nsnp_heidi, heidi_flag);
         if(std::isnan(gsmr_rst[3])) 
             LOGGER.e(0, "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required for the GSMR analysis.");
         bxy_est(i-1) = gsmr_rst[0];
