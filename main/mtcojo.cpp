@@ -725,7 +725,11 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
 
     //LOGGER.i(0, to_string(n_indices_snp) + " index SNPs are obtained from the clumping analysis of the " + nsnp + " genome-wide significant SNPs.");
 
+    std::stringstream ss1, ss2;
+    ss1 << std::scientific << std::setprecision(1) << gwas_thresh;
+    ss2 << std::fixed << std::setprecision(2) << r2_thresh;
     if(n_indices_snp < nsnp_gsmr) {
+        LOGGER.i(0, to_string(n_indices_snp) + " index SNPs are obtained from the clumping analysis with p < " + ss1.str() + " and LD r2 < " + ss2.str() + ".");
         err_msg = "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required."; 
         return rst;
     }
@@ -765,9 +769,6 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
     n_indices_snp = kept_ID.size();
     for(i=0; i<n_indices_snp; i++) indices_snp[i] = indices_snp_buf[kept_ID[i]];
 
-    std::stringstream ss1, ss2;
-    ss1 << std::scientific << std::setprecision(1) << gwas_thresh;
-    ss2 << std::fixed << std::setprecision(2) << r2_thresh;
     LOGGER.i(0, to_string(n_indices_snp) + " index SNPs are obtained from the clumping analysis with p < " + ss1.str() + " and LD r2 < " + ss2.str() + ".");
   
     if(n_indices_snp < nsnp_gsmr) {
