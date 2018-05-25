@@ -443,7 +443,7 @@ void gcta::read_mtcojofile(string mtcojolist_file, double gwas_thresh, int nsnp_
     std::map<string,int>::iterator iter;
 
     // Read the summary data
-    LOGGER.i(0, "\nReading GWAS SNPs from [" + mtcojolist_file + "] ...");
+    LOGGER.i(0, "\nReading GWAS summary data from [" + mtcojolist_file + "] ...");
     // Read the file list for mtCOJO analysis
     _covar_pheno_name.clear(); _meta_smpl_prev.clear(); _meta_popu_prev.clear(); 
     read_metafile_list(mtcojolist_file, _target_pheno_name, target_pheno_file, _covar_pheno_name, covar_pheno_file, _meta_popu_prev, _meta_smpl_prev);
@@ -478,7 +478,7 @@ void gcta::read_mtcojofile(string mtcojolist_file, double gwas_thresh, int nsnp_
 //        iter->second = i;
 //        _meta_remain_snp[i] = i;
 //    }
-    LOGGER.i(0, to_string(nsnp) + " SNPs in common between the target trait and the covariate trait(s) ...");
+    LOGGER.i(0, to_string(nsnp) + " SNPs in common between the target trait and the covariate trait(s).");
     // Read the meta analysis
     eigenVector snp_freq_buf(nsnp), snp_b_buf(nsnp), snp_se_buf(nsnp), snp_pval_buf(nsnp), snp_n_buf(nsnp);
 
@@ -489,7 +489,6 @@ void gcta::read_mtcojofile(string mtcojolist_file, double gwas_thresh, int nsnp_
         for(j=0; j<nsnp; j++) _snp_val_flag[i][j] = false;
     }
 
-    LOGGER.i(0, "Reading GWAS summary-level statistics from [" + mtcojolist_file + "] ...");
     // Target trait
     _meta_vp_trait(0) = read_single_metafile(target_pheno_file, _meta_snp_name_map,  snp_a1[0], snp_a2[0], snp_freq_buf, snp_b_buf, snp_se_buf, snp_pval_buf, snp_n_buf, _snp_val_flag[0]);
     
@@ -528,8 +527,8 @@ void gcta::read_mtcojofile(string mtcojolist_file, double gwas_thresh, int nsnp_
     _meta_snp_a1 = snp_a1[0]; _meta_snp_a2 = snp_a2[0];
     _meta_snp_freq = snp_freq.col(0);  
     nsnp = _meta_remain_snp.size();
-    if(nsnp<1) LOGGER.e(0, "None SNPs are retained after filtering ...");
-    else LOGGER.i(0, to_string(nsnp) + " SNPs are retained after filtering ...");
+    if(nsnp<1) LOGGER.e(0, "None SNPs are retained after filtering.");
+    else LOGGER.i(0, to_string(nsnp) + " SNPs are retained after filtering.");
 
     // Only keep SNPs with p-value < threshold
     double pval_thresh =  gwas_thresh;
@@ -539,15 +538,18 @@ void gcta::read_mtcojofile(string mtcojolist_file, double gwas_thresh, int nsnp_
     if(keptsnps.size() < nsnp_gsmr) LOGGER.e(0, "Not enough significant SNPs for mtCOJO analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required.");
  
     update_id_map_kp(keptsnps, _snp_name_map, _include);
-    LOGGER.i(0, to_string(_include.size()) + " significant SNPs are in common with those in the reference sample.\n");
+
+    std::stringstream ss;
+    ss << std::scientific << std::setprecision(1) << gwas_thresh;
+    LOGGER.i(0, "There are " + to_string(_include.size()) + " genome-wide significant SNPs with p < " + ss.str() + ".\n");
 }
 
 vector<string> gcta::clumping_meta(eigenVector snp_pval, vector<bool> snp_flag, double pval_thresh, int wind_size, double r2_thresh) {   
     wind_size = wind_size*1e3;
     // Only select SNPs that are matched with plink binary file
     vector<pair<double, int>> snp_pvalbuf;
-    int i=0, indx = 0, nsnp_plink = _include.size(), nsnp_meta = _meta_remain_snp.size();
-    double pvalbuf;
+    int i = 0, indx = 0, nsnp_plink = _include.size(), nsnp_meta = _meta_remain_snp.size();
+    double pvalbuf = 0.0;
     string snpbuf = "", snpbuf_left="", snpbuf_right="";
     map<string,int>::iterator iter;
 
@@ -705,22 +707,28 @@ void adjust_ld_r_fdr(eigenMatrix &ld_r_mat, vector<pair<double, int>> ld_pval, i
     }
 }
 
-vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eigenVector bzx_se, eigenVector bzx_pval, eigenVector bzy, eigenVector bzy_se, double rho_pheno, vector<bool> snp_flag, double gwas_thresh, int wind_size, double r2_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, int nsnp_heidi, bool heidi_flag) {
+vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eigenVector bzx_se, eigenVector bzx_pval, eigenVector bzy, eigenVector bzy_se, double rho_pheno, vector<bool> snp_flag, double gwas_thresh, int wind_size, double r2_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, bool heidi_flag, string &err_msg) {
     
     int i=0, j=0, k=0, nsnp = _include.size(), nindi=_keep.size();
     vector<string> indices_snp;
     vector<double> rst(4);
     for(i=0; i<4; i++) rst[i] = nan("");
 
-    if(nsnp < nsnp_gsmr) return rst;
+    if(nsnp < nsnp_gsmr) {
+        err_msg = "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required."; 
+        return rst;
+    }
 
     // clumping analysis
     indices_snp = clumping_meta(bzx_pval, snp_flag, gwas_thresh, wind_size, r2_thresh);
     int n_indices_snp = indices_snp.size();
 
-    LOGGER.i(0, to_string(n_indices_snp) + " index SNPs are obtained from the clumping analysis.");
+    //LOGGER.i(0, to_string(n_indices_snp) + " index SNPs are obtained from the clumping analysis of the " + nsnp + " genome-wide significant SNPs.");
 
-    if(n_indices_snp < nsnp_gsmr) return rst;
+    if(n_indices_snp < nsnp_gsmr) {
+        err_msg = "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required."; 
+        return rst;
+    }
 
     // LD r
     MatrixXf x_sub(nindi, n_indices_snp);
@@ -749,10 +757,6 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
     }
    
     // LD pruning
-    std::stringstream ss1, ss2;
-    ss1 << std::fixed << std::setprecision(2) << ld_fdr_thresh;
-    ss2 << std::fixed << std::setprecision(2) << r2_thresh;
-    LOGGER.i(0, "LD clumping with a FDR threshold of " + ss1.str() + " and a LD r2 threshold of " + ss2.str() + " ...");
     vector<int> kept_ID;
     vector<string> indices_snp_buf(indices_snp);
     kept_ID = rm_cor_elements(ld_r_mat, r2_thresh, true);
@@ -760,11 +764,17 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
     int n_rm_snp = n_indices_snp - kept_ID.size();
     n_indices_snp = kept_ID.size();
     for(i=0; i<n_indices_snp; i++) indices_snp[i] = indices_snp_buf[kept_ID[i]];
-    LOGGER.i(0, "After LD clumping, there are " + to_string(n_indices_snp) + " SNPs, " + to_string(n_rm_snp) + " SNPs removed.");
 
-    if(n_indices_snp < nsnp_gsmr) return rst;
-//    if(n_indices_snp < nsnp_gsmr) LOGGER.e(0, "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required.");
-    
+    std::stringstream ss1, ss2;
+    ss1 << std::scientific << std::setprecision(1) << gwas_thresh;
+    ss2 << std::fixed << std::setprecision(2) << r2_thresh;
+    LOGGER.i(0, to_string(n_indices_snp) + " index SNPs are obtained from the clumping analysis with p < " + ss1.str() + " and LD r2 < " + ss2.str() + ".");
+  
+    if(n_indices_snp < nsnp_gsmr) {
+        err_msg = "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required."; 
+        return rst;
+    }
+
     // Adjust LD
     eigenMatrix ld_pval_mat(n_indices_snp, n_indices_snp);
     vector<pair<double,int>> ld_pval(n_indices_snp*(n_indices_snp-1)/2);
@@ -784,7 +794,7 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
         iter = _meta_snp_name_map.find(indices_snp[i]);
         bxy(i) = bzy(iter->second)/bzx(iter->second);
      }
-  
+
     eigenVector zscore_inv1(n_indices_snp), zscore_inv2(n_indices_snp), zscore_inv3(n_indices_snp);
     eigenMatrix cov_bxy(n_indices_snp, n_indices_snp);
     for(i=0; i<n_indices_snp; i++) {
@@ -792,6 +802,7 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
         zscore_inv1(i) = bzx_se(iter->second)/bzx(iter->second);
         zscore_inv2(i) = bzy_se(iter->second)/bzx(iter->second);
     }
+
     for(i=0; i<n_indices_snp; i++) {
         for(j=i; j<n_indices_snp; j++) {
             if(i==j) {
@@ -806,8 +817,10 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
         }
     }
 
-    if(n_indices_snp < nsnp_heidi) return rst;
-//    if(n_indices_snp  < nsnp_heidi) LOGGER.e(0, "Not enough SNPs to perform the HEIDI-outlier analysis. At least " + to_string(nsnp_heidi) + " SNPs are required.");
+    if(n_indices_snp < nsnp_gsmr) {
+        err_msg = "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required."; 
+        return rst;
+    }
 
     // heidi-outlier
     string top_indices_snp = "";
@@ -817,6 +830,7 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
     lower_bounder = quantile(bxy_sort, 0.4);
     upper_bounder = quantile(bxy_sort, 0.6);
     vector<int> heidi_ref_snp_id;
+    bool topsnp_flag = false;
     for(i=0; i<n_indices_snp; i++) {
         if(bxy(i) >= lower_bounder && bxy(i) <= upper_bounder) {
             heidi_ref_snp_id.push_back(i);
@@ -824,18 +838,23 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
             if(bzx_pval(iter->second) < min_bzx_pval) {
                 min_bzx_pval = bzx_pval(iter->second);
                 top_indices_snp=indices_snp[i];
+                topsnp_flag = true;
             }
         }
     }
- 
+    if(!topsnp_flag) {
+        err_msg = "Not enough SNPs remained for the HEIDI-outlier analysis.";
+        return rst;
+    }
+
     // heidi test
-    map<string,int> indices_snp_map;
+    map<string,int> indices_snp_map;   
     vector<int> include_gsmr;
-    int indxbuf = 0;
+    int indxbuf = 0;  
     for(i=0; i<n_indices_snp; i++) indices_snp_map.insert(pair<string,int>(indices_snp[i], i));
-    iter = indices_snp_map.find(top_indices_snp);
+    iter = indices_snp_map.find(top_indices_snp); 
     indxbuf = iter->second;
-    double bxy_diff = 0.0, top_bxy = bxy(indxbuf), var_bxy_diff=0.0, pval_heidi=0.0;
+    double bxy_diff = 0.0, top_bxy = bxy(indxbuf), var_bxy_diff=0.0, pval_heidi=0.0;  
     for( i=0; i<n_indices_snp; i++) {
         if(i==indxbuf) {
             include_gsmr.push_back(i);
@@ -848,12 +867,13 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
             include_gsmr.push_back(i);
         }
     }
-  
     int n_snp_gsmr = include_gsmr.size();
     LOGGER.i(0, to_string(n_snp_gsmr) + " index SNPs are retained after the HEIDI-outlier analysis.");
-    if(n_indices_snp < nsnp_gsmr) return rst;
-//    if(n_snp_gsmr  < nsnp_gsmr) LOGGER.e(0, "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required.");
-    
+    if(n_indices_snp < nsnp_gsmr) {
+        err_msg = "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required.";
+        return rst;
+    }
+   
     // Save the SNPs after HEIDI-outlier test
     snp_instru.clear(); snp_instru.resize(n_snp_gsmr);
     for(i=0; i<n_snp_gsmr; i++)
@@ -874,8 +894,11 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
     if (!comput_inverse_logdet_LU_mkl(cov_bxy_inv, logdet)) LOGGER.e(0, "The variance-covariance matrix of bxy is not invertible.");
 
     // gsmr
-    if(n_indices_snp < nsnp_gsmr) return rst;
-//    if(n_snp_gsmr < nsnp_gsmr) LOGGER.e(0, "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_heidi) + " SNPs are required.");
+    if(n_indices_snp < nsnp_gsmr) {
+        err_msg = "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required.";
+        return rst;
+    }
+
     double bxy_gsmr = 0.0, bxy_gsmr_se = 0.0, bxy_gsmr_pval = 0.0;
     VectorXd vec_1= VectorXd::Ones(n_snp_gsmr);
     eigenMatrix mat_buf;
@@ -1286,7 +1309,7 @@ eigenMatrix gcta::ldsc_snp_h2(eigenMatrix bhat_z, eigenMatrix bhat_n, eigenVecto
         // Remove missing value
         if(nsnp_cm_trait[i] < nsnp_ldsc_thresh) 
             LOGGER.w(0, "Only " + to_string(nsnp_cm_trait[i]) + " are retained in the univariate LD score regression analysis for " 
-                    + trait_name[i] + ". The estimate may be not accurate.");
+                    + trait_name[i] + ". The estimate may not be accurate.");
         int k = 0, nsnp_buf = 0;
         eigenVector chi_val_buf(nsnp_cm_trait[i]), n_buf(nsnp_cm_trait[i]), ref_ld_buf(nsnp_cm_trait[i]), w_ld_buf(nsnp_cm_trait[i]);
         for(j = 0, k = 0; j < n_cm_ld_snps; j++) {
@@ -1325,8 +1348,8 @@ eigenMatrix gcta::ldsc_snp_rg(eigenMatrix ldsc_var_h2, eigenMatrix bhat_z, eigen
             n_cm_snps_buf += snp_pair_flag[k];
         }
         if(n_cm_snps_buf < nsnp_ldsc_thresh) 
-            LOGGER.w(0, "Only " + to_string(n_cm_snps_buf) + " are retained in the univariate LD score regression analysis for " 
-                    + trait_name[trait_indx1[i]] + " and " + trait_name[trait_indx2[i]] + ". The estimate may be not accurate.");
+            LOGGER.w(0, "Only " + to_string(n_cm_snps_buf) + " are retained in the bivariate LD score regression analysis for " 
+                    + trait_name[trait_indx1[i]] + " and " + trait_name[trait_indx2[i]] + ". The estimate may not be accurate.");
         eigenVector gcov_z1z2(n_cm_snps_buf), gcov_n1n2(n_cm_snps_buf), ref_ld_buf(n_cm_snps_buf), w_ld_buf(n_cm_snps_buf), n_buf_i(n_cm_snps_buf), n_buf_j(n_cm_snps_buf);
         int t = 0;
         for(k=0, t=0; k<n_cm_ld_snps; k++) {
@@ -1375,14 +1398,14 @@ void gcta::mtcojo_ldsc(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eig
     // Check the p-value
     for(i=0; i<ntrait; i++) {
         double chi_val_buf = bhat_z.col(i).squaredNorm()/nsnp_cm_trait[i];
-        if(chi_val_buf > 10) LOGGER.e(0, "Please use genome wide SNPs in the LD score regression analysis.");
+        if(chi_val_buf > 10) LOGGER.e(0, "Please use genome-wide SNPs in the LD score regression analysis.");
     }
     // LDSC analysis
     int n_cm_ld_snps = cm_ld_snps.size();
     ldsc_intercept.resize(ntrait, ntrait);
     ldsc_slope.resize(ntrait, ntrait);
     // Estimate SNP h2
-    LOGGER.i(0, "\nLD score regression analysis to estimate SNP heritability ..."); 
+    LOGGER.i(0, "\nUnivariate LD score regression analysis to estimate SNP-based heritability ..."); 
     eigenMatrix ldsc_var_h2;
     ldsc_var_h2 = ldsc_snp_h2(bhat_z, bhat_n, ref_ld, w_ld, snp_flag, nsnp_cm_trait, n_cm_ld_snps, ttl_mk_num, trait_name, ntrait);
     for( i = 0; i < ntrait; i++ ) {
@@ -1390,7 +1413,7 @@ void gcta::mtcojo_ldsc(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eig
         ldsc_slope(i,i) = ldsc_var_h2(i,1);
     }
     // Estimate SNP rg
-    LOGGER.i(0, "LD score regression analysis to estimate genetic correlation between each pair of traits ...");
+    LOGGER.i(0, "Bivariate LD score regression analysis to estimate genetic correlation between each pair of traits ...");
     int k = 0, nproc = ntrait*(ntrait-1)/2;
     eigenMatrix ldsc_var_rg;
     vector<int> trait_indx1(nproc), trait_indx2(nproc);
@@ -1420,7 +1443,7 @@ void gcta::mtcojo_ldsc(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eig
             ss << ldsc_slope(i,j) << " ";
         LOGGER.i(0, ss.str());
     }
-    LOGGER.i(0, "LD score regression analysis completed.");
+    LOGGER.i(0, "The LD score regression analyses completed.");
 }
 
 eigenMatrix mtcojo_cond_single_covar(eigenVector bzy, eigenVector bzy_se,  eigenMatrix bzx, eigenMatrix bzx_se, double bxy, eigenMatrix ldsc_intercept, eigenMatrix ldsc_slope, int nsnp) {
@@ -1498,7 +1521,7 @@ void mtcojo_cond_output(string output_file, vector<string> snp_name, vector<int>
     ofile.close();
 }
 
-void gcta::mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, double gwas_thresh, int clump_wind_size, double clump_r2_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_heidi, int nsnp_gsmr, bool heidi_flag) {
+void gcta::mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, double gwas_thresh, int clump_wind_size, double clump_r2_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, bool heidi_flag) {
     
     int i=0, j=0, nsnp=_meta_snp_name_map.size(), nsnp_init=_meta_snp_name.size(), ncovar=_covar_pheno_name.size();
     vector<bool> snp_pair_flag(nsnp_init);
@@ -1519,11 +1542,13 @@ void gcta::mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, 
     eigenVector bxy_est(ncovar);
     for(i=1; i<=ncovar; i++) {
         vector<string> snp_instru;
+        string err_msg;
         LOGGER.i(0, "\nGSMR analysis for covariate #" + to_string(i) + " (" + trait_name[i] + ")" + " ...");
         for(j=0; j<nsnp_init; j++) snp_pair_flag[j] = (int)((_snp_val_flag[0][j]+_snp_val_flag[i][j])/2);
-        gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), _meta_snp_b.col(0), _meta_snp_se.col(0), ldsc_intercept(0, i), snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, heidi_thresh, ld_fdr_thresh, nsnp_gsmr, nsnp_heidi, heidi_flag);
+        gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), _meta_snp_b.col(0), _meta_snp_se.col(0), 0, snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, heidi_thresh, ld_fdr_thresh, nsnp_gsmr, heidi_flag, err_msg);
+        //gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), _meta_snp_b.col(0), _meta_snp_se.col(0), ldsc_intercept(0, i), snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, heidi_thresh, ld_fdr_thresh, nsnp_gsmr, heidi_flag);
         if(std::isnan(gsmr_rst[3])) 
-            LOGGER.e(0, "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required for the GSMR analysis.");
+            LOGGER.e(0, err_msg);
         bxy_est(i-1) = gsmr_rst[0];
         LOGGER.i(0, "bxy " + to_string(gsmr_rst[0]) + " " + to_string(gsmr_rst[1]));
         LOGGER.i(0, "GSMR analysis for covariate #" + to_string(i) + " (" + trait_name[i] + ") completed.");
@@ -1553,8 +1578,8 @@ void gcta::mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, 
         }
     }
 
-    LOGGER.i(0, "\nmtCOJO analysis to adjust the target trait ...");
-    LOGGER.i(0, "There are " + to_string(nsnp) + " SNPs in common across all the traits.");
+    LOGGER.i(0, "\nmtCOJO analysis ...");
+    LOGGER.i(0, "There are " + to_string(nsnp) + " SNPs in common between the target trait and all the covariate trait(s).");
     if(ncovar==1) {
         mtcojo_est = mtcojo_cond_single_covar(snp_bzy, snp_bzy_se, snp_bzx, snp_bzx_se, bxy_est[0], ldsc_intercept, ldsc_slope, nsnp);
     } else {

@@ -148,9 +148,9 @@ void option(int option_num, char* option_str[])
     // mtCOJO
     char chbuf = '\0';
     string mtcojolist_file="", ref_ld_dirt="", w_ld_dirt="";
-    int nsnp_heidi=10, nsnp_gsmr=10;
+    int nsnp_gsmr=10;
     double gwas_thresh=5e-8, heidi_thresh=0.01, ld_fdr_thresh=0.05, clump_wind_size=10000, clump_r2_thresh=0.05;
-    bool heidi_flag=true, mtcojo_flag=false, heidi_thresh_flag=true, nsnp_heidi_flag=true, ref_ld_flag=false, w_ld_flag=false;
+    bool heidi_flag=true, mtcojo_flag=false, ref_ld_flag=false, w_ld_flag=false;
 
     // GSMR
     bool gsmr_flag = false, o_snp_instru_flag = false, gsmr_so_flag = false;
@@ -162,7 +162,7 @@ void option(int option_num, char* option_str[])
     for (i = 0; i < option_num; i++) argv[i] = option_str[i];
     argv[option_num] = "gcta";
     argv[option_num + 1] = "gcta";
-    LOGGER << "Accepted Options:" << endl;
+    LOGGER << "Accepted options:" << endl;
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--thread-num") == 0) {
             thread_num = atoi(argv[++i]);
@@ -1062,32 +1062,18 @@ void option(int option_num, char* option_str[])
             if(gwas_thresh <0 || gwas_thresh >1)
                 LOGGER.e(0, "--gwas-thresh, Invalid p-value threshold for GWAS summary data.");
             LOGGER<<"--gwas-thresh "<<gwas_thresh<<endl;
-        } else if (strcmp(argv[i], "--heidi") == 0) {
-            int heidi_buf = atoi(argv[++i]);
-            if(heidi_buf==0) {
-                heidi_flag = false;
-            } if(heidi_buf==1) {
-                heidi_flag = true;
-            } else {
-                LOGGER.e(0, "--heidi, Invalid option for HEIDI test.");
-            }
-            LOGGER<<"--heidi "<<heidi_flag<<endl;
         } else if (strcmp(argv[i], "--heidi-thresh") == 0) {
-            heidi_thresh_flag = true;
             heidi_thresh = atof(argv[++i]);
             if(heidi_thresh <0 || heidi_thresh >1)
                 LOGGER.e(0, "--heidi-thresh, Invalid p-value threshold for HEIDI test.");
+            if(CommFunc::FloatEqual(heidi_thresh, 1.0)) heidi_flag =false;    
             LOGGER<<"--heidi-thresh "<<heidi_thresh<<endl;
         } else if (strcmp(argv[i], "--heidi-snp") == 0) {
-            nsnp_heidi_flag = true;
-            nsnp_heidi = atoi(argv[++i]);
-            if(nsnp_heidi < 0 || nsnp_heidi > 1e6)
-                LOGGER.e(0, "--heidi-snp, Invalid SNP number threshold for HEIDI test.");
-            LOGGER<<"--heidi-snp "<<nsnp_heidi<<endl;
+            LOGGER.e(0, "--heidi-snp is discontinued. Please use --gsmr-snp to specify minimum number of SNP instruments for the HEIDI-outlier analysis.");
         } else if (strcmp(argv[i], "--gsmr-snp") == 0) {
             nsnp_gsmr = atoi(argv[++i]);
             if(nsnp_gsmr < 0 || nsnp_gsmr > 1e6)
-                LOGGER.e(0, "--heidi-snp, Invalid SNP number threshold for GSMR.");
+                LOGGER.e(0, "--gsmr-snp, Invalid SNP number threshold for GSMR.");
             LOGGER<<"--gsmr-snp "<<nsnp_gsmr<<endl;
         } else if (strcmp(argv[i], "--gsmr-ld-fdr") == 0) {
             ld_fdr_thresh = atoi(argv[++i]);
@@ -1159,13 +1145,13 @@ void option(int option_num, char* option_str[])
     }
     if(bivar_reml_flag && prevalence_flag) LOGGER.e(0, "--prevalence option is not compatible with --reml-bivar option. Please check the --reml-bivar-prevalence option!");
     if(gsmr_flag || mtcojo_flag){
-        if(!heidi_flag && (heidi_thresh_flag || nsnp_heidi_flag)) LOGGER.i(0, "The HEIDI-outlier test will be not perfomed, although parameters of the HEIDI-outlier test have been assigned. ");
         if(ref_ld_flag && !w_ld_flag) LOGGER.e(0, "--ref-ld-chr, please specify the directory of LD score files.");
         if(!ref_ld_flag && w_ld_flag) LOGGER.e(0, "--w-ld-chr, please specify the directory of LD scores for the regression weights.");
-        if(!gsmr_so_flag && ref_ld_flag && w_ld_flag) { gsmr_so_alg = 0; LOGGER.w(0, "--gsmr-so is not specified. The default value is 0. GSMR analysis will perform LD score regression to estimate sample overlap."); }
-        if(gsmr_so_alg == 1 && ref_ld_flag && w_ld_flag) { gsmr_so_alg = 0; LOGGER.w(0, "The LD score regression instead of correlation method will be used to estimate sample overlap."); }
-        if(gsmr_so_alg == 0 && !ref_ld_flag && !w_ld_flag) LOGGER.e(0, "Please specify the directory of LD score files to perform LD score regression analysis.");
-        if(!gsmr_so_flag && !ref_ld_flag && !w_ld_flag) LOGGER.w(0, "The GSMR analysis will be performed assuming no sample overlap between the GWAS data for exposure and outcome.");
+        if(nsnp_gsmr < 5) LOGGER.w(0, "The number of SNP instruments included in the analysis is too small. There might not be enough SNPs to perform the HEIDI-outlier analysis.");
+        // if(!gsmr_so_flag && ref_ld_flag && w_ld_flag) { gsmr_so_alg = 0; LOGGER.w(0, "--gsmr-so is not specified. The default value is 0. GSMR analysis will perform LD score regression to estimate sample overlap."); }
+        // if(gsmr_so_alg == 1 && ref_ld_flag && w_ld_flag) { gsmr_so_alg = 0; LOGGER.w(0, "The LD score regression instead of correlation method will be used to estimate sample overlap."); }
+        // if(gsmr_so_alg == 0 && !ref_ld_flag && !w_ld_flag) LOGGER.e(0, "Please specify the directory of LD score files to perform LD score regression analysis.");
+        // if(!gsmr_so_flag && !ref_ld_flag && !w_ld_flag) LOGGER.w(0, "The GSMR analysis will be performed assuming no sample overlap between the GWAS data for exposure and outcome.");
     }
     // OpenMP
     if (thread_flag) {
@@ -1270,8 +1256,8 @@ void option(int option_num, char* option_str[])
             else if (massoc_slct_flag | massoc_joint_flag) {pter_gcta->set_massoc_pC_thresh(massoc_out_pC_thresh); pter_gcta->run_massoc_slct(massoc_file, massoc_wind, massoc_p, massoc_collinear, massoc_top_SNPs, massoc_joint_flag, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag, massoc_mld_slct_alg);}
             else if (!massoc_cond_snplist.empty()) {pter_gcta->set_massoc_pC_thresh(massoc_out_pC_thresh); pter_gcta->run_massoc_cond(massoc_file, massoc_cond_snplist, massoc_wind, massoc_collinear, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag);}
             else if (massoc_sblup_flag) pter_gcta->run_massoc_sblup(massoc_file, massoc_wind, massoc_sblup_fac);
-            else if (gsmr_flag) pter_gcta->gsmr(gsmr_alg_flag, ref_ld_dirt, w_ld_dirt, gwas_thresh, clump_wind_size, clump_r2_thresh, heidi_thresh, ld_fdr_thresh, nsnp_heidi, nsnp_gsmr, heidi_flag, o_snp_instru_flag, gsmr_so_alg);
-            else if (mtcojo_flag) pter_gcta->mtcojo(mtcojolist_file, ref_ld_dirt, w_ld_dirt, gwas_thresh, clump_wind_size, clump_r2_thresh, heidi_thresh, ld_fdr_thresh, nsnp_heidi, nsnp_gsmr, heidi_flag);
+            else if (gsmr_flag) pter_gcta->gsmr(gsmr_alg_flag, ref_ld_dirt, w_ld_dirt, gwas_thresh, clump_wind_size, clump_r2_thresh, heidi_thresh, ld_fdr_thresh, nsnp_gsmr, heidi_flag, o_snp_instru_flag, gsmr_so_alg);
+            else if (mtcojo_flag) pter_gcta->mtcojo(mtcojolist_file, ref_ld_dirt, w_ld_dirt, gwas_thresh, clump_wind_size, clump_r2_thresh, heidi_thresh, ld_fdr_thresh, nsnp_gsmr, heidi_flag);
             else if (simu_qt_flag || simu_cc) pter_gcta->GWAS_simu(bfile, simu_rep, simu_causal, simu_case_num, simu_control_num, simu_h2, simu_K, simu_seed, simu_output_causal, simu_emb_flag, simu_eff_mod);
             else if (make_bed_flag) pter_gcta->save_plink();
             else if (fst_flag) pter_gcta->Fst(subpopu_file);

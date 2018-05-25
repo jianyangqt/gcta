@@ -139,7 +139,7 @@ void Logger::i(int level, const string& message, const string& title){
 }
 
 void Logger::w(int level, const string &message, const string& title) {
-    string head = title.empty() ? "Warn: " : (title + " ");
+    string head = title.empty() ? "Warning: " : (title + " ");
     m_pThis->Log(level, WARN, head, message);
 }
 

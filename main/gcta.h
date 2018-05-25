@@ -176,16 +176,16 @@ public:
     
     // GSMR
     void read_gsmrfile(string expo_file_list, string outcome_file_list, double gwas_thresh, int nsnp_gsmr, int gsmr_so_alg);
-    void gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_heidi, int nsnp_gsmr, bool heidi_flag, bool o_snp_instru_flag, int gsmr_so_alg);
-    vector<vector<double>> forward_gsmr(stringstream &ss, map<string,int> &snp_instru_map, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_heidi, int nsnp_gsmr, bool heidi_flag);
-    vector<vector<double>> reverse_gsmr(stringstream &ss, map<string,int> &snp_instru_map, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_heidi, int nsnp_gsmr, bool heidi_flag);
+    void gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, bool heidi_flag, bool o_snp_instru_flag, int gsmr_so_alg);
+    vector<vector<double>> forward_gsmr(stringstream &ss, map<string,int> &snp_instru_map, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, bool heidi_flag);
+    vector<vector<double>> reverse_gsmr(stringstream &ss, map<string,int> &snp_instru_map, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, bool heidi_flag);
     eigenMatrix rho_sample_overlap(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eigenMatrix snp_se, eigenMatrix snp_pval, eigenMatrix snp_n, int nexpo, int noutcome, vector<string> snp_name, vector<int> snp_remain, string ref_ld_dirt, string w_ld_dirt, vector<string> trait_name, int gsmr_so_alg);
 
     eigenMatrix sample_overlap_ldsc(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eigenMatrix snp_se, eigenMatrix snp_n, int nexpo, int noutcome, vector<string> snp_name, vector<int> snp_remain, string ref_ld_dirt, string w_ld_dirt, vector<string> trait_name);
     eigenMatrix sample_overlap_rb(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eigenMatrix snp_se, eigenMatrix snp_pval, eigenMatrix snp_n, int nexpo, int noutcome, vector<string> snp_name, vector<int> snp_remain, vector<string> trait_name);
 
     // mtCOJO
-    void mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, double gwas_thresh, int clump_wind_size, double clump_r2_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_heidi, int nsnp_gsmr, bool heidi_flag);
+    void mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, double gwas_thresh, int clump_wind_size, double clump_r2_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, bool heidi_flag);
     void mtcojo_ldsc(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eigenMatrix snp_se, eigenMatrix snp_n, int ntrait, vector<string> snp_name, vector<int> snp_remain, string ref_ld_dirt, string w_ld_dirt, vector<string> trait_name, eigenMatrix &ldsc_intercept, eigenMatrix &ldsc_slope);
     void read_mtcojofile(string mtcojolist_file, double gwas_thresh, int nsnp_gsmr);
     double read_single_metafile(string metafile, map<string, int> id_map, vector<string> &snp_a1, vector<string> &snp_a2, 
@@ -444,7 +444,7 @@ private:
     void update_meta_snp(map<string,int> &snp_name_map, vector<string> &snp_name, vector<int> &snp_remain);
     vector<string> remove_bad_snps(vector<string> snp_name, vector<int> snp_remain, vector<vector<bool>> snp_flag, vector<vector<string>> &snp_a1, vector<vector<string>> &snp_a2, eigenMatrix &snp_freq,  eigenMatrix &snp_b, eigenMatrix snp_se, eigenMatrix snp_pval, eigenMatrix snp_n, map<string,int> plink_snp_name_map, vector<string> snp_ref_a1, vector<string> snp_ref_a2, vector<string> target_pheno, int ntarget, vector<string> covar_pheno, int ncovar, string outfile_name);
     vector<string> filter_meta_snp_pval(vector<string> snp_name, vector<int> remain_snp_indx,  eigenMatrix snp_pval, int start_indx, int end_indx, vector<vector<bool>> snp_flag, double pval_thresh);
-    vector<double> gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eigenVector bzx_se, eigenVector bzx_pval, eigenVector bzy, eigenVector bzy_se, double rho_pheno, vector<bool> snp_flag, double gwas_thresh, int wind_size, double r2_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, int nsnp_heidi, bool heidi_flag);
+    vector<double> gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eigenVector bzx_se, eigenVector bzx_pval, eigenVector bzy, eigenVector bzy_se, double rho_pheno, vector<bool> snp_flag, double gwas_thresh, int wind_size, double r2_thresh, double heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, bool heidi_flag, string &err_msg);
     vector<string> clumping_meta(eigenVector snp_pval, vector<bool> snp_flag, double pval_thresh, int wind_size, double r2_thresh);
     void update_mtcojo_snp_rm(vector<string> adjsnps, map<string,int> &snp_id_map, vector<int> &remain_snp_indx);
     vector<string> read_snp_ldsc(map<string,int> ldsc_snp_name_map, vector<string> snp_name, vector<int> snp_remain, int &ttl_mk_num, string ref_ld_dirt, string w_ld_dirt, vector<double> &ref_ld_vec, vector<double> &w_ld_vec);
