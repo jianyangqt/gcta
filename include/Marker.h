@@ -21,6 +21,7 @@
 #include <map>
 using std::vector;
 using std::string;
+using std::to_string;
 using std::map;
 
 class Marker {
@@ -47,11 +48,12 @@ public:
 private:
     vector<uint8_t> chr;
     vector<string> name;
-    vector<double> gd;
+    vector<float> gd;
     vector<uint32_t> pd;
     vector<string> a1;
     vector<string> a2;
     vector<bool> A_rev; //effect allele;
+    vector<uint64_t> byte_start;
     vector<uint32_t> raw_limits;
 
     vector<uint32_t> index_extract;
@@ -62,6 +64,7 @@ private:
 
     void read_bim(string bim_file);
     void read_mbim(string bim_file);
+    void read_bgen(string bgen_file);
 
     static map<string, string> options;
     static map<string, int> options_i;

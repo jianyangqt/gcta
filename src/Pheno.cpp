@@ -38,12 +38,21 @@ const uintptr_t k1LU = (uintptr_t)1;
 
 Pheno::Pheno() {
     if(options.find("m_file") != options.end()){
-   }
+    }
             
-        
+    bool has_pheno = false;    
     if(options.find("pheno_file") != options.end()){
         this->read_fam(options["pheno_file"]);
+        has_pheno = true;
     }else{
+    }
+
+    if(options.find("sample_file") != options.end()){
+        has_pheno = true;
+        this->read_sample(options["sample_file"]);
+    }
+
+    if(!has_pheno){
         LOGGER.e(0, "no phenotype file presents");
     }
 
@@ -216,6 +225,57 @@ vector<string> Pheno::read_sublist(string sublist_file, vector<vector<double>> *
     sublist.close();
     return subject_list;
 }
+
+void Pheno::read_sample(string sample_file){
+    LOGGER.i(0, "Reading oxford sample information file from [" + sample_file + "]...");
+    std::ifstream hsample(sample_file.c_str());
+    if(!hsample){
+        LOGGER.e(0, "can not open sample file to read.");
+    }
+    string line;
+    std::getline(hsample, line);
+    vector<string> line_elements;
+    boost::split(line_elements, line, boost::is_any_of("\t "));
+    int col_num = line_elements.size();
+    if(line_elements[0] == "ID_1" && line_elements[1] == "ID_2"
+            && line_elements[2] == "missing"
+            && line_elements[3] == "sex"){
+        std::getline(hsample, line);
+        boost::split(line_elements, line, boost::is_any_of("\t "));
+        if(col_num != line_elements.size() 
+                || line_elements[0] != "0"
+                || line_elements[1] != "0"
+                || line_elements[2] != "0"
+                || line_elements[3] != "D"){
+            LOGGER.e(0, "invalid sample file");
+        }
+    }else{
+        LOGGER.e(0, "invalid sample file");
+    }
+
+    int line_number = 0;
+    while(std::getline(hsample, line)){
+        boost::split(line_elements, line, boost::is_any_of("\t "));
+        if(line_elements.size() == col_num){
+            fid.push_back(line_elements[0]);
+            pid.push_back(line_elements[1]);
+            mark.push_back(line_elements[0] + "\t" + line_elements[1]);
+            sex.push_back(std::stoi(line_elements[3]));
+            pheno.push_back(strtod("nan", NULL)); //5
+        }else{
+            LOGGER.e(0, "Line " + to_string(line_number + 3) + " has different number of columns.");
+        }
+        line_number++;
+    }
+
+    index_keep.resize(fid.size());
+    std::iota(index_keep.begin(), index_keep.end(), 0);
+    num_ind = index_keep.size();
+    num_keep =  index_keep.size();
+    LOGGER.i(0, to_string(num_ind) + " individuals to be included from sample file.");
+    hsample.close();
+}
+
 
 void Pheno::read_fam(string fam_file) {
     LOGGER.i(0, "Reading PLINK FAM file from [" + fam_file + "]...");
@@ -620,6 +680,8 @@ int Pheno::registerOption(map<string, vector<string>>& options_in){
     addOneFileOption("pheno_file", ".fam", "--bfile", options_in, options);
     addOneFileOption("pheno_file", "", "--fam", options_in, options);
     options_in.erase("--fam");
+    addOneFileOption("sample_file", "", "--sample", options_in, options);
+    options_in.erase("--sample");
 
     addOneFileOption("m_file", "", "--mbfile", options_in, options);
     if(options.find("m_file") != options.end()){

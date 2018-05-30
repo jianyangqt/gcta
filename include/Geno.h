@@ -46,6 +46,7 @@ public:
     void freq64(uint64_t *buf, int num_marker);
     void save_bed(uint64_t *buf, int num_marker);
     void sum_geno(uint64_t *buf, int num_marker);
+    void sum_geno_x(uint64_t *buf, int num_marker);
     void closeOut();
     void freq64_x(uint64_t *buf, int num_marker);
     bool check_bed();
@@ -98,6 +99,7 @@ private:
     uint64_t *keep_mask;
     uint64_t *keep_male_mask;
     bool isX;
+    void bgen2bed();
 
     friend class GRM;
     friend class FastFAM;

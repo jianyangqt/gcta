@@ -588,7 +588,7 @@ void Geno::freq2(uint8_t *buf, int num_marker) {
 }
 */
 
-void Geno::sum_geno(uint64_t *buf, int num_marker) {
+void Geno::sum_geno_x(uint64_t *buf, int num_marker) {
     static bool inited = false;
     static std::ofstream out;
     if(!inited){
@@ -696,6 +696,21 @@ void Geno::freq64_x(uint64_t *buf, int num_marker) {
     num_marker_freq += num_marker;
 
 }
+
+void Geno::bgen2bed(){
+    uint64_t *buf;
+    int num_marker;
+// loop 
+    save_bed(buf, num_marker);
+    // end;
+
+
+    closeOut();
+
+
+}
+
+
 
 void Geno::save_bed(uint64_t *buf, int num_marker){
     static string err_string = "can't write to [" + options["out"] + ".bed].";
@@ -1082,6 +1097,7 @@ void Geno::makeMarkerX(uint64_t *buf, int cur_marker, double *w_buf, bool center
 
 }
 
+
 void Geno::addOneFileOption(string key_store, string append_string, string key_name,
                                      map<string, vector<string>> options_in) {
     if(options_in.find(key_name) != options_in.end()){
@@ -1104,6 +1120,7 @@ void Geno::addOneFileOption(string key_store, string append_string, string key_n
 int Geno::registerOption(map<string, vector<string>>& options_in) {
     int return_value = 0;
     addOneFileOption("geno_file", ".bed","--bfile", options_in);
+    addOneFileOption("bgen_file", "", "--bgen", options_in);
     options_in.erase("--bfile");
     if(options_in.find("m_file") != options_in.end()){
         for(auto & item : options_in["m_file"]){
@@ -1186,7 +1203,12 @@ int Geno::registerOption(map<string, vector<string>>& options_in) {
     }
 
     if(options_in.find("--make-bed") != options_in.end()){
-        processFunctions.push_back("make_bed");
+        if(options.find("bgen_file") == options.end()){
+            processFunctions.push_back("make_bed");
+        }else{
+            processFunctions.push_back("make_bed_bgen");
+        } 
+
         options_in.erase("--make-bed");
         options["out"] = options_in["--out"][0];
 
@@ -1199,8 +1221,8 @@ int Geno::registerOption(map<string, vector<string>>& options_in) {
         options["sex"] = "yes";
     }
 
-    if(options_in.find("--sum-geno") != options_in.end()){
-        processFunctions.push_back("sum_geno");
+    if(options_in.find("--sum-geno-x") != options_in.end()){
+        processFunctions.push_back("sum_geno_x");
         options["sex"] = "yes";
         std::map<string, vector<string>> t_option;
         t_option["--chrx"] = {};
@@ -1265,12 +1287,26 @@ void Geno::processMain() {
             LOGGER.i(0, "Genotype has been saved.");
         }
 
-        if(process_function == "sum_geno"){
+        if(process_function == "make_bed_bgen"){
             Pheno pheno;
             Marker marker;
             Geno geno(&pheno, &marker);
-            LOGGER.i(0, "Summing genotype with sex"); 
-            callBacks.push_back(bind(&Geno::sum_geno, &geno, _1, _2));
+            string filename = options["out"];
+            pheno.save_pheno(filename + ".fam");
+            marker.save_marker(filename + ".bim");
+            LOGGER.i(0, "Converting bgen to PLINK format [" + filename + ".bed]...");
+            geno.bgen2bed(filename+".bed");
+            geno.closeOut();
+            LOGGER.i(0, "Genotype has been saved.");
+        }
+
+
+        if(process_function == "sum_geno_x"){
+            Pheno pheno;
+            Marker marker;
+            Geno geno(&pheno, &marker);
+            LOGGER.i(0, "Summing genotype in with sex"); 
+            callBacks.push_back(bind(&Geno::sum_geno_x, &geno, _1, _2));
             geno.loop_64block(marker.get_extract_index(), callBacks);
             LOGGER.i(0, "Summary has bee saved.");
         }

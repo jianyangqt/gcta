@@ -24,6 +24,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include "utils.hpp"
+#include <cstdio>
 
 using std::to_string;
 
@@ -56,9 +57,17 @@ Marker::Marker() {
         has_marker = true;
         read_mbim(options["m_file"]);
     }
+
+    if(options.find("bgen_file") != options.end()){
+        has_marker = true;
+        read_bgen(options["bgen_file"]);
+        raw_limits.push_back(num_marker);
+    }
+
     if(!has_marker){
         LOGGER.e(0, "no marker exist");
     }
+
 
     if(options.find("extract_file") != options.end()){
         vector<string> extractlist = read_snplist(options["extract_file"]);
@@ -254,7 +263,7 @@ void Marker::read_bim(string bim_file) {
         chr.push_back(chr_item);
         name.push_back(line_elements[1]);
         try{
-            gd.push_back(std::stod(line_elements[2]));
+            gd.push_back(std::stof(line_elements[2]));
             pd.push_back(std::stoi(line_elements[3]));
         }catch(std::invalid_argument&){
             LOGGER.e(0, "Line " + to_string(line_number) + " of [" + bim_file +
@@ -265,6 +274,8 @@ void Marker::read_bim(string bim_file) {
         a1.push_back(line_elements[4]);
         a2.push_back(line_elements[5]);
         A_rev.push_back(false);
+        //TODO refractor the code.
+        byte_start.push_back(1);
         last_length = line_elements.size();
         if(chr_item >= options_i["start_chr"] && chr_item <= options_i["end_chr"]){
             index_extract.push_back(line_number - 1);
@@ -277,8 +288,159 @@ void Marker::read_bim(string bim_file) {
         LOGGER.i(0, to_string(num_extract) + " SNPs to be included from valid chromosome number");
     }
     bim.close();
-    if(num_marker == 0){
+    if(num_extract == 0){
         LOGGER.e(0, "0 SNP remain.");
+    }
+}
+
+template <typename T>
+void readBytes(FILE * file, int num_item, T* buffer){
+    if(num_item != fread(buffer, sizeof(T), num_item, file)){
+        LOGGER.e(0, "on reading bgen file on position " + to_string(ftell(file)));
+    }
+}
+
+template <typename T>
+T read1Byte(FILE * file){
+    T buffer;
+    if(1 != fread(&buffer, sizeof(T), 1, file)){
+        LOGGER.e(0, "on reading bgen file on position " + to_string(ftell(file)));
+    }
+    return buffer;
+}
+
+
+void Marker::read_bgen(string bgen_file){
+    LOGGER << "Extracting biallelic SNPs from bgen [" << bgen_file << "]..." << std::endl;
+    FILE* h_bgen = fopen(bgen_file.c_str(), "rb");
+    if(!h_bgen){
+        LOGGER.e(0, "can't open bgen file to read");
+    }
+    uint32_t start_byte = read1Byte<uint32_t>(h_bgen);
+    uint32_t start_data_block = start_byte + 4;
+
+    uint32_t len_header = read1Byte<uint32_t>(h_bgen);
+
+    uint32_t n_variants = read1Byte<uint32_t>(h_bgen);
+    LOGGER << n_variants << " SNPs, ";
+
+    auto n_sample = read1Byte<uint32_t>(h_bgen);
+    LOGGER << n_sample << " samples in the bgen file." << std::endl;
+
+    char magic[4];
+    readBytes<char>(h_bgen, 4, magic);
+
+    int32_t skip_byte = (int32_t)len_header - 20;
+    if(skip_byte > 0){
+        fseek(h_bgen, skip_byte, SEEK_CUR); 
+    }else if(skip_byte < 0){
+        LOGGER.e(0, "strange header length, might be an invalid bgen.");
+    }
+
+    uint32_t flags = read1Byte<uint32_t>(h_bgen);
+    int compress_block = flags & 3; // first 2 bit
+    int layout = (flags >> 2) & 15; //2-5 bit
+    int has_sample = (flags >> 31) & 1;
+
+    LOGGER << "bgen version ";
+    switch(layout){
+        case 1:
+            LOGGER << "1.1, ";
+            break;
+        case 2:
+            LOGGER << "1.2, ";
+            break;
+        default:
+            LOGGER << "unkown, ";
+    }
+    switch(compress_block){
+        case 0:
+            LOGGER << "no compress";
+            break;
+        case 1:
+            LOGGER << "compressed by zlib";
+            break;
+        case 2:
+            LOGGER << "compressed by zstd";
+            break;
+        default:
+            LOGGER << "unknown format";
+    }
+    LOGGER << "." << std::endl;
+               
+    if(compress_block != 1 || layout != 2){
+        LOGGER.e(0, "bgen < 1.2, compress not by zlib is not supported currently");
+    }
+
+    LOGGER << "Looking for bialleric allels..." << std::endl;
+    fseek(h_bgen, start_data_block, SEEK_SET);
+    uint32_t count_chr_error = 0, count_multi_alleles = 0;
+    for(int index = 0; index < n_variants; index++){
+        auto Lid = read1Byte<uint16_t>(h_bgen);
+        fseek(h_bgen, Lid, SEEK_CUR);
+
+        auto len_rs = read1Byte<uint16_t>(h_bgen);
+        char rsid[len_rs];
+        readBytes<char>(h_bgen, len_rs, rsid);
+
+        auto len_chr = read1Byte<uint16_t>(h_bgen);
+        char snp_chr[len_chr];
+        readBytes<char>(h_bgen, len_chr, snp_chr);
+        uint8_t chr_item;
+        try{
+            chr_item = chr_maps.at(snp_chr);
+        }catch(std::out_of_range&){
+            count_chr_error++;
+            continue;
+        }
+
+        if(chr_item < options_i["start_chr"] || chr_item > options_i["end_chr"]){
+            count_chr_error++;
+            continue;
+        }
+
+        auto snp_pos = read1Byte<uint32_t>(h_bgen);
+
+        auto n_alleles = read1Byte<uint16_t>(h_bgen);
+        if(n_alleles != 2){
+            count_multi_alleles++;
+            continue;
+        }
+
+        auto len_a1 = read1Byte<uint32_t>(h_bgen);
+        char snp_a1[len_a1];
+        readBytes<char>(h_bgen, len_a1, snp_a1);
+
+        auto len_a2 = read1Byte<uint32_t>(h_bgen);
+        char snp_a2[len_a2];
+        readBytes<char>(h_bgen, len_a2, snp_a2);
+
+        uint64_t snp_start = ftell(h_bgen);
+
+        auto len_comp = read1Byte<uint32_t>(h_bgen); 
+        fseek(h_bgen, len_comp, SEEK_CUR);
+        
+        chr.push_back(chr_item);
+        name.push_back(rsid);
+        gd.push_back(0);
+        pd.push_back(snp_pos);
+        std::transform(snp_a1, snp_a1 + len_a1, snp_a1, toupper);
+        std::transform(snp_a2, snp_a2 + len_a2, snp_a2, toupper);
+        a1.push_back(snp_a1);
+        a2.push_back(snp_a2);
+        A_rev.push_back(false);
+        byte_start.push_back(snp_start);
+    }
+    num_marker = name.size();
+    index_extract.resize(name.size());
+    std::iota(index_extract.begin(), index_extract.end(), 0);
+    num_extract = index_extract.size();
+    LOGGER.i(0, to_string(num_marker) + " SNPs to be included from bgen file.");
+    LOGGER << count_chr_error << " SNPs excluded due to filter on chromosome." << std::endl;
+    LOGGER << count_multi_alleles << " SNPs excluded due to multiple alleles." << std::endl; 
+    fclose(h_bgen);
+    if(num_extract == 0){
+        LOGGER.e(0, "0 SNP remain for further analysis.");
     }
 }
 
