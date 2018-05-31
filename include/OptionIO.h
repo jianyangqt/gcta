@@ -19,6 +19,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <cstdio>
 using std::map;
 using std::vector;
 using std::string;
@@ -26,4 +27,22 @@ using std::string;
 void addOneFileOption(string key_store, string append_string, string key_name, map<string, vector<string>> options_in, map<string,string>& options);
 
 bool checkFileReadable(string filename);
+
+template <typename T>
+void readBytes(FILE * file, int num_item, T* buffer){
+    if(num_item != fread(buffer, sizeof(T), num_item, file)){
+        LOGGER.e(0, "on reading bgen file on position " + to_string(ftell(file)));
+    }
+}
+
+template <typename T>
+T read1Byte(FILE * file){
+    T buffer;
+    if(1 != fread(&buffer, sizeof(T), 1, file)){
+        LOGGER.e(0, "on reading bgen file on position " + to_string(ftell(file)));
+    }
+    return buffer;
+}
+
+
 #endif  //gcta2_optionio_h

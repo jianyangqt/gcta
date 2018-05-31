@@ -34,6 +34,7 @@ public:
     uint32_t getExtractIndex(uint32_t extractedIndex);
     vector<uint32_t>& get_extract_index();
     int getMIndex(uint32_t raw_index);
+    uint64_t getStartPos(uint32_t raw_index);
     bool isEffecRev(uint32_t extractedIndex);
     string get_marker(int extract_index);
     static int registerOption(map<string, vector<string>>& options_in);

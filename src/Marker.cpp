@@ -24,7 +24,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include "utils.hpp"
-#include <cstdio>
+#include "OptionsIO.h"
 
 using std::to_string;
 
@@ -293,20 +293,8 @@ void Marker::read_bim(string bim_file) {
     }
 }
 
-template <typename T>
-void readBytes(FILE * file, int num_item, T* buffer){
-    if(num_item != fread(buffer, sizeof(T), num_item, file)){
-        LOGGER.e(0, "on reading bgen file on position " + to_string(ftell(file)));
-    }
-}
-
-template <typename T>
-T read1Byte(FILE * file){
-    T buffer;
-    if(1 != fread(&buffer, sizeof(T), 1, file)){
-        LOGGER.e(0, "on reading bgen file on position " + to_string(ftell(file)));
-    }
-    return buffer;
+uint64_t Marker::getStartPos(uint32_t raw_index){
+    return byte_start[raw_index];
 }
 
 

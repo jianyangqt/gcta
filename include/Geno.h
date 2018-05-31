@@ -99,7 +99,7 @@ private:
     uint64_t *keep_mask;
     uint64_t *keep_male_mask;
     bool isX;
-    void bgen2bed();
+    void bgen2bed(const vector<uint32_t> &raw_marker_index);
 
     friend class GRM;
     friend class FastFAM;

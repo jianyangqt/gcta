@@ -33,6 +33,8 @@
 #include "ThreadPool.h"
 #include <cstring>
 #include <boost/algorithm/string.hpp>
+#include "OptionIO.h"
+#include "zlib.h"
 
 #ifdef _WIN64
   #include <intrin.h>
@@ -697,17 +699,93 @@ void Geno::freq64_x(uint64_t *buf, int num_marker) {
 
 }
 
-void Geno::bgen2bed(){
-    uint64_t *buf;
-    int num_marker;
-// loop 
-    save_bed(buf, num_marker);
-    // end;
+void Geno::bgen2bed(const vector<uint32_t> &raw_marker_index){
+    auto buf_size = (num_raw_sample + 31) / 32;
+    size_t buf_size_byte = buf_size * 8;
+    uint64_t *buf = new uint64_t[buf_size];
 
+    int num_marker = 1;
 
+    uint8_t cut_value = 255 * options_d["hard_call_thresh"];
+    uint8_t miss_value = 255 - cut_value;
+    FILE * h_bgen = fopen(options["bgen_file"], "rb");
+    for(auto raw_index : raw_marker_index){
+        memset(buf, 0, buf_size_byte); 
+        uint64_t byte_pos = this->marker->getStartPos(raw_index);
+        fseek(h_bgen, byte_pos, SEEK_SET);
+        auto len_comp = read1Byte<uint32_t>(h_bgen) - 4;
+        auto len_decomp = read1Byte<uint32_t>(h_bgen);
+        uLongf dec_size = len_decomp;
+        
+        char * snp_data = new char[len_comp];
+        readBytes(h_bgen, len_comp, snp_data);
+
+        char * dec_data =  new char[len_decomp];
+        int z_result = uncompress((Bytef*)dec_data, &dec_size, (Bytef*)snp_data, len_comp);
+        if(z_result == Z_MEM_ERROR || z_result == Z_BUF_ERROR || dec_size != len_decomp){
+            LOGGER.e(0, "decompress genotype data error in " + to_string(raw_index) + "th SNP."); 
+        }
+
+        uint32_t n_sample = *(uint32_t *)dec_data;
+        if(n_sample != num_raw_sample){
+            LOGGER.e(0, "inconsistent number of sample in " + to_string(raw_index) + "th SNP." );
+        }
+        uint16_t num_alleles = *(uint16_t *)(dec_data + 4);
+        if(num_alleles != 2){
+            LOGGER.e(0, "multi alleles still detected, the bgen file might be malformed.");
+        }
+
+        uint8_t min_ploidy = *(uint8_t *)(dec_data + 6);//2
+        uint8_t max_ploidy = *(uint8_t *)(dec_data + 7); //2
+        uint8_t * sample_ploidy = (uint8_t *)(dec_data + 8);
+
+        uint8_t *geno_prob = sample_ploidy + n_sample;
+        uint8_t is_phased = *(geno_prob++);
+        uint8_t bits_prob = *(geno_prob++);
+        uint8_t* X_prob = geno_prob;
+        uint32_t len_prob = len_decomp - n_sample - 10;
+        if(is_phased){
+            LOGGER.e(0, "can't support phased data currently.");
+        }
+        if(bits_prob != 8){
+            LOGGER.e(0, "can't support probability bits other than 8.");
+        }
+
+        if(len_prob != 2 * n_sample){
+            LOGGER.e(0, "malformed data in " + to_string(raw_index) + "th SNP.");
+        }
+
+        uint8_t *buf_ptr = buf;
+        for(uint32_t i = 0; i < num_keep_sample; i++){
+            uint32_t item_byte = i / 4;
+            uint32_t move_byte = 2 * (i % 4);
+
+            uint32_t sindex = pheno->get_index_keep()[i];
+            uint8_t item_ploidy = sample_ploidy[sindex];
+
+            uint8_t geno_value = 0;
+            if(item_ploidy > 128){
+                geno_value = 1;
+            }else if(item_ploidy == 2){
+                auto base = sindex * 2;
+                uint16_t t1 = X_prob[base+1];
+                uint16_t t01 = X_prob[base] + t1;
+                if(t1 > prob_cut){
+                    geno_value = 2;
+                }
+                if(t01 > miss_value){
+                    geno_value = 1;
+                }else{
+                    geno_value = 3;
+                }
+            }else{
+                LOGGER.e(0, "multiple alleles detected in " + to_string(raw_index) + "th SNP.");
+            }
+            buf_ptr[item_byte] += geno_value << move_byte;
+        }
+        save_bed(buf, num_marker);
+    }
     closeOut();
-
-
 }
 
 
@@ -1136,6 +1214,7 @@ int Geno::registerOption(map<string, vector<string>>& options_in) {
 
     options_d["min_maf"] = 0.0;
     options_d["max_maf"] = 0.5;
+    options_d["hard_call_thresh"] = 0.1;
 
     if(options_in.find("--maf") != options_in.end()){
         auto option = options_in["--maf"];
@@ -1295,7 +1374,7 @@ void Geno::processMain() {
             pheno.save_pheno(filename + ".fam");
             marker.save_marker(filename + ".bim");
             LOGGER.i(0, "Converting bgen to PLINK format [" + filename + ".bed]...");
-            geno.bgen2bed(filename+".bed");
+            geno.bgen2bed(marker.get_extract_index());
             geno.closeOut();
             LOGGER.i(0, "Genotype has been saved.");
         }
