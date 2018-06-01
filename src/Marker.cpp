@@ -24,7 +24,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include "utils.hpp"
-#include "OptionsIO.h"
+#include "OptionIO.h"
 
 using std::to_string;
 
@@ -374,17 +374,19 @@ void Marker::read_bgen(string bgen_file){
         auto len_chr = read1Byte<uint16_t>(h_bgen);
         char snp_chr[len_chr];
         readBytes<char>(h_bgen, len_chr, snp_chr);
-        uint8_t chr_item;
+        uint8_t chr_item = 0;
+        LOGGER << string(snp_chr) << std::endl;
+        bool keep_snp = true;
         try{
-            chr_item = chr_maps.at(snp_chr);
+            chr_item = chr_maps.at(string(snp_chr));
         }catch(std::out_of_range&){
             count_chr_error++;
-            continue;
+            keep_snp = false;
         }
 
         if(chr_item < options_i["start_chr"] || chr_item > options_i["end_chr"]){
             count_chr_error++;
-            continue;
+            keep_snp = false;
         }
 
         auto snp_pos = read1Byte<uint32_t>(h_bgen);
@@ -392,7 +394,7 @@ void Marker::read_bgen(string bgen_file){
         auto n_alleles = read1Byte<uint16_t>(h_bgen);
         if(n_alleles != 2){
             count_multi_alleles++;
-            continue;
+            keep_snp = false;
         }
 
         auto len_a1 = read1Byte<uint32_t>(h_bgen);
@@ -405,19 +407,26 @@ void Marker::read_bgen(string bgen_file){
 
         uint64_t snp_start = ftell(h_bgen);
 
+        for(int index_allele = 2; index_allele < n_alleles; index_allele++){
+            auto len_allele = read1Byte<uint32_t>(h_bgen);
+            fseek(h_bgen, len_allele, SEEK_CUR);
+        }
+
         auto len_comp = read1Byte<uint32_t>(h_bgen); 
         fseek(h_bgen, len_comp, SEEK_CUR);
         
-        chr.push_back(chr_item);
-        name.push_back(rsid);
-        gd.push_back(0);
-        pd.push_back(snp_pos);
-        std::transform(snp_a1, snp_a1 + len_a1, snp_a1, toupper);
-        std::transform(snp_a2, snp_a2 + len_a2, snp_a2, toupper);
-        a1.push_back(snp_a1);
-        a2.push_back(snp_a2);
-        A_rev.push_back(false);
-        byte_start.push_back(snp_start);
+        if(keep_snp){
+            chr.push_back(chr_item);
+            name.push_back(rsid);
+            gd.push_back(0);
+            pd.push_back(snp_pos);
+            std::transform(snp_a1, snp_a1 + len_a1, snp_a1, toupper);
+            std::transform(snp_a2, snp_a2 + len_a2, snp_a2, toupper);
+            a1.push_back(snp_a1);
+            a2.push_back(snp_a2);
+            A_rev.push_back(false);
+            byte_start.push_back(snp_start);
+        }
     }
     num_marker = name.size();
     index_extract.resize(name.size());
@@ -584,6 +593,7 @@ int Marker::registerOption(map<string, vector<string>>& options_in){
     addOneFileOption("extract_file", "", "--extract", options_in);
     addOneFileOption("exclude_file", "", "--exclude", options_in);
     addOneFileOption("update_ref_allele_file", "", "--update-ref-allele", options_in);
+    addOneFileOption("bgen_file", "", "--bgen", options_in);
 
     if(options_in.find("m_file") != options_in.end()){
         for(auto & item : options_in["m_file"]){

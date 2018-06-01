@@ -20,9 +20,11 @@
 #include <string>
 #include <map>
 #include <cstdio>
+#include "Logger.h"
 using std::map;
 using std::vector;
 using std::string;
+using std::to_string;
 
 void addOneFileOption(string key_store, string append_string, string key_name, map<string, vector<string>> options_in, map<string,string>& options);
 

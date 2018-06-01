@@ -708,7 +708,7 @@ void Geno::bgen2bed(const vector<uint32_t> &raw_marker_index){
 
     uint8_t cut_value = 255 * options_d["hard_call_thresh"];
     uint8_t miss_value = 255 - cut_value;
-    FILE * h_bgen = fopen(options["bgen_file"], "rb");
+    FILE * h_bgen = fopen(options["bgen_file"].c_str(), "rb");
     for(auto raw_index : raw_marker_index){
         memset(buf, 0, buf_size_byte); 
         uint64_t byte_pos = this->marker->getStartPos(raw_index);
@@ -755,7 +755,7 @@ void Geno::bgen2bed(const vector<uint32_t> &raw_marker_index){
             LOGGER.e(0, "malformed data in " + to_string(raw_index) + "th SNP.");
         }
 
-        uint8_t *buf_ptr = buf;
+        uint8_t *buf_ptr = (uint8_t *)buf;
         for(uint32_t i = 0; i < num_keep_sample; i++){
             uint32_t item_byte = i / 4;
             uint32_t move_byte = 2 * (i % 4);
@@ -770,7 +770,7 @@ void Geno::bgen2bed(const vector<uint32_t> &raw_marker_index){
                 auto base = sindex * 2;
                 uint16_t t1 = X_prob[base+1];
                 uint16_t t01 = X_prob[base] + t1;
-                if(t1 > prob_cut){
+                if(t1 > cut_value){
                     geno_value = 2;
                 }
                 if(t01 > miss_value){
