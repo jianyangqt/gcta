@@ -259,6 +259,8 @@ void Pheno::read_sample(string sample_file){
         if(line_elements.size() == col_num){
             fid.push_back(line_elements[0]);
             pid.push_back(line_elements[1]);
+            fa_id.push_back("0");
+            mo_id.push_back("0");
             mark.push_back(line_elements[0] + "\t" + line_elements[1]);
             sex.push_back(std::stoi(line_elements[3]));
             pheno.push_back(strtod("nan", NULL)); //5

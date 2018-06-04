@@ -315,7 +315,7 @@ void Marker::read_bgen(string bgen_file){
     auto n_sample = read1Byte<uint32_t>(h_bgen);
     LOGGER << n_sample << " samples in the bgen file." << std::endl;
 
-    char magic[4];
+    char magic[5];
     readBytes<char>(h_bgen, 4, magic);
 
     int32_t skip_byte = (int32_t)len_header - 20;
@@ -363,22 +363,22 @@ void Marker::read_bgen(string bgen_file){
     LOGGER << "Looking for bialleric allels..." << std::endl;
     fseek(h_bgen, start_data_block, SEEK_SET);
     uint32_t count_chr_error = 0, count_multi_alleles = 0;
+
     for(int index = 0; index < n_variants; index++){
         auto Lid = read1Byte<uint16_t>(h_bgen);
         fseek(h_bgen, Lid, SEEK_CUR);
 
         auto len_rs = read1Byte<uint16_t>(h_bgen);
-        char rsid[len_rs];
+        char rsid[len_rs + 1] = {};
         readBytes<char>(h_bgen, len_rs, rsid);
 
         auto len_chr = read1Byte<uint16_t>(h_bgen);
-        char snp_chr[len_chr];
+        char snp_chr[len_chr+1] = {};
         readBytes<char>(h_bgen, len_chr, snp_chr);
         uint8_t chr_item = 0;
-        LOGGER << string(snp_chr) << std::endl;
         bool keep_snp = true;
         try{
-            chr_item = chr_maps.at(string(snp_chr));
+            chr_item = chr_maps.at(snp_chr);
         }catch(std::out_of_range&){
             count_chr_error++;
             keep_snp = false;
@@ -398,11 +398,11 @@ void Marker::read_bgen(string bgen_file){
         }
 
         auto len_a1 = read1Byte<uint32_t>(h_bgen);
-        char snp_a1[len_a1];
+        char snp_a1[len_a1+1] = {};
         readBytes<char>(h_bgen, len_a1, snp_a1);
 
         auto len_a2 = read1Byte<uint32_t>(h_bgen);
-        char snp_a2[len_a2];
+        char snp_a2[len_a2+1] = {};
         readBytes<char>(h_bgen, len_a2, snp_a2);
 
         uint64_t snp_start = ftell(h_bgen);

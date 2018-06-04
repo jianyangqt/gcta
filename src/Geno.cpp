@@ -111,6 +111,9 @@ Geno::Geno(Pheno* pheno, Marker* marker) {
         std::transform(bed_files.begin(), bed_files.end(), bed_files.begin(), [](string r){return r + ".bed";});
         has_geno = true;
     }
+    if(options.find("bgen_file") != options.end()){
+        has_geno = true;
+    }
 
     if(!has_geno){
         LOGGER.e(0, "No genotype file specified");
@@ -142,7 +145,10 @@ Geno::Geno(Pheno* pheno, Marker* marker) {
         pheno->getMaskBitMale(keep_male_mask);
     }
 
-    check_bed();
+    if(options.find("bed_file") != options.end()
+            || options.find("m_file") != options.end()){
+        check_bed();
+    }
 
     string alleleFileName = "";
     if(options.find("update_freq_file") != options.end()){
@@ -699,6 +705,12 @@ void Geno::freq64_x(uint64_t *buf, int num_marker) {
 
 }
 
+union Geno_prob{
+    char byte[8];
+    uint64_t value = 0;
+};
+
+
 void Geno::bgen2bed(const vector<uint32_t> &raw_marker_index){
     auto buf_size = (num_raw_sample + 31) / 32;
     size_t buf_size_byte = buf_size * 8;
@@ -706,8 +718,6 @@ void Geno::bgen2bed(const vector<uint32_t> &raw_marker_index){
 
     int num_marker = 1;
 
-    uint8_t cut_value = 255 * options_d["hard_call_thresh"];
-    uint8_t miss_value = 255 - cut_value;
     FILE * h_bgen = fopen(options["bgen_file"].c_str(), "rb");
     for(auto raw_index : raw_marker_index){
         memset(buf, 0, buf_size_byte); 
@@ -738,22 +748,29 @@ void Geno::bgen2bed(const vector<uint32_t> &raw_marker_index){
         uint8_t min_ploidy = *(uint8_t *)(dec_data + 6);//2
         uint8_t max_ploidy = *(uint8_t *)(dec_data + 7); //2
         uint8_t * sample_ploidy = (uint8_t *)(dec_data + 8);
+        LOGGER << to_string(min_ploidy) << " " << to_string(max_ploidy) << "" << to_string(*sample_ploidy) << std::endl;
 
         uint8_t *geno_prob = sample_ploidy + n_sample;
-        uint8_t is_phased = *(geno_prob++);
-        uint8_t bits_prob = *(geno_prob++);
-        uint8_t* X_prob = geno_prob;
+        uint8_t is_phased = *(geno_prob);
+        uint8_t bits_prob = *(geno_prob+1);
+        uint8_t* X_prob = geno_prob + 2;
         uint32_t len_prob = len_decomp - n_sample - 10;
         if(is_phased){
             LOGGER.e(0, "can't support phased data currently.");
         }
-        if(bits_prob != 8){
-            LOGGER.e(0, "can't support probability bits other than 8.");
+
+        int byte_per_prob = bits_prob / 8;
+        if(bits_prob % 8 != 0){
+            LOGGER.i(0, "can't support probability bits other than in byte unit.");
         }
 
-        if(len_prob != 2 * n_sample){
+        if(len_prob != 2 * byte_per_prob * n_sample){
             LOGGER.e(0, "malformed data in " + to_string(raw_index) + "th SNP.");
         }
+
+        uint64_t base_value = (1 << bits_prob) - 1;
+        uint64_t cut_value = base_value * (1.0 - options_d["hard_call_thresh"]);
+        uint64_t miss_value = base_value - cut_value;
 
         uint8_t *buf_ptr = (uint8_t *)buf;
         for(uint32_t i = 0; i < num_keep_sample; i++){
@@ -763,20 +780,32 @@ void Geno::bgen2bed(const vector<uint32_t> &raw_marker_index){
             uint32_t sindex = pheno->get_index_keep()[i];
             uint8_t item_ploidy = sample_ploidy[sindex];
 
-            uint8_t geno_value = 0;
+            uint8_t geno_value;
             if(item_ploidy > 128){
                 geno_value = 1;
             }else if(item_ploidy == 2){
-                auto base = sindex * 2;
-                uint16_t t1 = X_prob[base+1];
-                uint16_t t01 = X_prob[base] + t1;
-                if(t1 > cut_value){
-                    geno_value = 2;
+                auto base = sindex * 2 * byte_per_prob;
+                auto base1 = base + byte_per_prob;
+                Geno_prob prob_item;
+                Geno_prob prob_item1;
+                for(int i = 0 ; i != byte_per_prob; i++){
+                    prob_item.byte[i] = X_prob[base + i];
+                    prob_item1.byte[i] = X_prob[base1 + i];
                 }
-                if(t01 > miss_value){
-                    geno_value = 1;
+
+                uint64_t t1 = prob_item.value;
+                uint64_t t2 = prob_item1.value;
+                uint64_t t01 = t2 + t1;
+                if(t1 > cut_value){
+                    geno_value = 0;
+                }else if(t2 > cut_value){
+                    geno_value = 2;
                 }else{
-                    geno_value = 3;
+                    if(t01 > miss_value){
+                        geno_value = 1;
+                    }else{
+                        geno_value = 3;
+                    }
                 }
             }else{
                 LOGGER.e(0, "multiple alleles detected in " + to_string(raw_index) + "th SNP.");
@@ -1375,7 +1404,6 @@ void Geno::processMain() {
             marker.save_marker(filename + ".bim");
             LOGGER.i(0, "Converting bgen to PLINK format [" + filename + ".bed]...");
             geno.bgen2bed(marker.get_extract_index());
-            geno.closeOut();
             LOGGER.i(0, "Genotype has been saved.");
         }
 
