@@ -619,6 +619,7 @@ void Geno::sum_geno_x(uint64_t *buf, int num_marker) {
     for(int cur_marker_index = 0; cur_marker_index < cur_num_marker_read; ++cur_marker_index){
         uint32_t even_ct = 0, odd_ct = 0, both_ct = 0, even_ct_m = 0, odd_ct_m = 0, both_ct_m = 0;
         uint64_t *p_buf = buf + cur_marker_index * num_item_1geno;
+
         for(int index = 0; index < num_item_1geno ; index++){
             uint64_t mask_gender = *(gender_mask + index);
             mask_gender = fill_inter_zero(mask_gender);
@@ -706,32 +707,44 @@ void Geno::freq64_x(uint64_t *buf, int num_marker) {
 }
 
 union Geno_prob{
-    char byte[8];
-    uint64_t value = 0;
+    char byte[4];
+    uint32_t value = 0;
 };
 
 
 void Geno::bgen2bed(const vector<uint32_t> &raw_marker_index){
+    LOGGER.ts("LOOP_BGEN_BED");
+    LOGGER.ts("LOOP_BGEN_TOT");
+    vector<uint32_t>& index_keep = pheno->get_index_keep();
     auto buf_size = (num_raw_sample + 31) / 32;
     size_t buf_size_byte = buf_size * 8;
-    uint64_t *buf = new uint64_t[buf_size];
 
     int num_marker = 1;
+    int num_markers = raw_marker_index.size();
 
     FILE * h_bgen = fopen(options["bgen_file"].c_str(), "rb");
-    for(auto raw_index : raw_marker_index){
-        memset(buf, 0, buf_size_byte); 
+    #pragma omp parallel for schedule(static) ordered
+    for(uint32_t index = 0; index < num_markers; index++){
+        //LOGGER.i(0, to_string(index) + "NUM_thread: " + to_string(omp_get_max_threads()));
+        auto raw_index = raw_marker_index[index];
+        uint64_t *buf = new uint64_t[buf_size]();
         uint64_t byte_pos = this->marker->getStartPos(raw_index);
-        fseek(h_bgen, byte_pos, SEEK_SET);
-        auto len_comp = read1Byte<uint32_t>(h_bgen) - 4;
-        auto len_decomp = read1Byte<uint32_t>(h_bgen);
+        uint32_t len_comp, len_decomp;
+        char * snp_data;
+
+        #pragma omp ordered
+        {
+            fseek(h_bgen, byte_pos, SEEK_SET);
+            len_comp = read1Byte<uint32_t>(h_bgen) - 4;
+            len_decomp = read1Byte<uint32_t>(h_bgen);
+            snp_data = new char[len_comp];
+            readBytes(h_bgen, len_comp, snp_data);
+        }
         uLongf dec_size = len_decomp;
-        
-        char * snp_data = new char[len_comp];
-        readBytes(h_bgen, len_comp, snp_data);
 
         char * dec_data =  new char[len_decomp];
         int z_result = uncompress((Bytef*)dec_data, &dec_size, (Bytef*)snp_data, len_comp);
+        delete[] snp_data;
         if(z_result == Z_MEM_ERROR || z_result == Z_BUF_ERROR || dec_size != len_decomp){
             LOGGER.e(0, "decompress genotype data error in " + to_string(raw_index) + "th SNP."); 
         }
@@ -748,7 +761,6 @@ void Geno::bgen2bed(const vector<uint32_t> &raw_marker_index){
         uint8_t min_ploidy = *(uint8_t *)(dec_data + 6);//2
         uint8_t max_ploidy = *(uint8_t *)(dec_data + 7); //2
         uint8_t * sample_ploidy = (uint8_t *)(dec_data + 8);
-        LOGGER << to_string(min_ploidy) << " " << to_string(max_ploidy) << "" << to_string(*sample_ploidy) << std::endl;
 
         uint8_t *geno_prob = sample_ploidy + n_sample;
         uint8_t is_phased = *(geno_prob);
@@ -760,61 +772,86 @@ void Geno::bgen2bed(const vector<uint32_t> &raw_marker_index){
         }
 
         int byte_per_prob = bits_prob / 8;
+        int double_byte_per_prob = byte_per_prob * 2;
         if(bits_prob % 8 != 0){
-            LOGGER.i(0, "can't support probability bits other than in byte unit.");
+            LOGGER.e(0, "can't support probability bits other than in byte unit.");
         }
 
-        if(len_prob != 2 * byte_per_prob * n_sample){
+        if(len_prob != double_byte_per_prob * n_sample){
             LOGGER.e(0, "malformed data in " + to_string(raw_index) + "th SNP.");
         }
 
-        uint64_t base_value = (1 << bits_prob) - 1;
-        uint64_t cut_value = base_value * (1.0 - options_d["hard_call_thresh"]);
-        uint64_t miss_value = base_value - cut_value;
+        uint32_t base_value = (1 << bits_prob) - 1;
+        uint32_t cut_value = ceil(base_value * options_d["hard_call_thresh"]);
 
         uint8_t *buf_ptr = (uint8_t *)buf;
         for(uint32_t i = 0; i < num_keep_sample; i++){
-            uint32_t item_byte = i / 4;
-            uint32_t move_byte = 2 * (i % 4);
+            uint32_t item_byte = i >> 2;
+            uint32_t move_byte = (i & 3) << 1;
 
-            uint32_t sindex = pheno->get_index_keep()[i];
+            uint32_t sindex = index_keep[i];
             uint8_t item_ploidy = sample_ploidy[sindex];
 
             uint8_t geno_value;
             if(item_ploidy > 128){
                 geno_value = 1;
             }else if(item_ploidy == 2){
-                auto base = sindex * 2 * byte_per_prob;
+                auto base = sindex * double_byte_per_prob;
                 auto base1 = base + byte_per_prob;
                 Geno_prob prob_item;
                 Geno_prob prob_item1;
+                /*
+                memcpy(prob_item.byte, X_prob + base,  byte_per_prob); 
+                memcpy(prob_item1.byte, X_prob + base1, byte_per_prob); 
+                */
                 for(int i = 0 ; i != byte_per_prob; i++){
                     prob_item.byte[i] = X_prob[base + i];
                     prob_item1.byte[i] = X_prob[base1 + i];
                 }
 
-                uint64_t t1 = prob_item.value;
-                uint64_t t2 = prob_item1.value;
-                uint64_t t01 = t2 + t1;
-                if(t1 > cut_value){
+                uint32_t t1 = prob_item.value;
+                uint32_t t2 = prob_item1.value;
+                uint32_t t3 = base_value - t1 - t2;
+                if(t1 >= cut_value){
                     geno_value = 0;
-                }else if(t2 > cut_value){
+                }else if(t2 >= cut_value){
                     geno_value = 2;
+                }else if(t3 >= cut_value){
+                    geno_value = 3;
                 }else{
-                    if(t01 > miss_value){
-                        geno_value = 1;
-                    }else{
-                        geno_value = 3;
-                    }
+                    geno_value = 1;
                 }
             }else{
                 LOGGER.e(0, "multiple alleles detected in " + to_string(raw_index) + "th SNP.");
             }
             buf_ptr[item_byte] += geno_value << move_byte;
         }
+        //LOGGER.i(0, "MIDDLE: " + to_string(index) + "NUM_thread: " + to_string(omp_get_max_threads()));
+
+        #pragma omp ordered
         save_bed(buf, num_marker);
+        delete[] buf;
+        delete[] dec_data;
+        //#pragma omp ordered
+        //LOGGER.i(0, "Finished " + to_string(index) + "NUM_thread: " + to_string(omp_get_max_threads()));
+        if(index % 10000 == 0){
+            float time_p = LOGGER.tp("LOOP_BGEN_BED");
+            if(time_p > 300){
+                LOGGER.ts("LOOP_BGEN_BED");
+                float elapse_time = LOGGER.tp("LOOP_BGEN_TOT");
+                float finished_percent = (float) index / num_markers;
+                float remain_time = (1.0 / finished_percent - 1) * elapse_time / 60;
+
+                std::ostringstream ss;
+                ss << std::fixed << std::setprecision(1) << finished_percent * 100 << "% Estimated time remaining " << remain_time << " min"; 
+                
+                LOGGER.i(1, ss.str());
+            }
+        }
+
     }
     closeOut();
+    fclose(h_bgen);
 }
 
 
@@ -1243,7 +1280,7 @@ int Geno::registerOption(map<string, vector<string>>& options_in) {
 
     options_d["min_maf"] = 0.0;
     options_d["max_maf"] = 0.5;
-    options_d["hard_call_thresh"] = 0.1;
+    options_d["hard_call_thresh"] = 0.9;
 
     if(options_in.find("--maf") != options_in.end()){
         auto option = options_in["--maf"];
