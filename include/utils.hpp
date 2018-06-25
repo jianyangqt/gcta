@@ -125,4 +125,35 @@ void vector_commonIndex_sorted1(const std::vector<T>& v1, const std::vector<T>& 
     k2 = k2_sorted;
 }
 
+/* Permute vector elements to all the combinations
+ * @param elements: vector of each possible values
+ * @param combines: out: combinations of these vectors;
+ * @param temp and col:  only for internal use, don't change these values;
+ * @example
+ *   #include <vector>
+     vector<vector<int>> elements = {
+           {0, 1, 2},
+           {10, 11, 12},
+           {20, 21, 22}
+     };
+     vector<vector<int>> combines;
+     permute_vector(elements, combines);
+ * @depends vector c++11
+ * @Bug report: zhili<zhilizheng@outlook.com>
+ */
+template <typename T>
+void permute_vector(const std::vector<std::vector<T>> &elements, std::vector<std::vector<T>> &combines, std::vector<T> temp = {}, size_t col = 0){
+    size_t e_size = elements.size();
+    temp.resize(e_size);
+    if(col < e_size){
+        for(size_t i = 0; i < elements[col].size(); i++){
+            temp[col] = elements[col][i];
+            permute_vector(elements, combines, temp, col + 1);
+        }
+    }else{
+        combines.emplace_back(temp);
+   }
+}
+
+
 #endif
