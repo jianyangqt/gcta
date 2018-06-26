@@ -41,7 +41,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(MKLIncludeDir);$(IncludePath);D:\Program\eigen-3.3.4;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\include;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\include;D:\Program\zlib-1.2.11;..\include;..\</IncludePath>
+    <IncludePath>$(MKLIncludeDir);$(IncludePath);D:\Program\eigen-3.3.4;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\include;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\include;D:\Program\zlib-1.2.11;..\include;..\;D:\Program\boost_1_66_0;</IncludePath>
     <LibraryPath>$(OmpLibDir);$(LibraryPath);C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\compiler\lib\intel64;C:\Program Files (x86)\IntelSWTools\compilers_and_libraries\windows\mkl\lib\intel64;D:\Program\zlib-1.2.11\contrib\vstudio\vc14\x64\ZlibStatRelease</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -50,24 +50,27 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <InterproceduralOptimization>SingleFile</InterproceduralOptimization>
+      <InterproceduralOptimization>NoIPO</InterproceduralOptimization>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <OptimizeForWindowsApplication>true</OptimizeForWindowsApplication>
+      <OptimizeForWindowsApplication>false</OptimizeForWindowsApplication>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <Parallelization>true</Parallelization>
+      <Parallelization>false</Parallelization>
       <OpenMP>GenerateParallelCode</OpenMP>
       <Cpp0xSupport>true</Cpp0xSupport>
       <AdditionalOptions>/DMKL_LP64 %(AdditionalOptions)</AdditionalOptions>
       <ObjectFileName>$(IntDir)/%(RelativeDir)/</ObjectFileName>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;mkl_intel_lp64.lib;mkl_intel_thread.lib;mkl_core.lib;libiomp5md.lib;zlibstat.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <StackReserveSize>
+      </StackReserveSize>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -91,6 +94,9 @@
     </ClCompile>
     <Link>
       <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;mkl_intel_lp64.lib;mkl_intel_thread.lib;mkl_core.lib;libiomp5md.lib;zlibstat.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <HeapCommitSize>
+      </HeapCommitSize>
+      <StackReserveSize>2097152</StackReserveSize>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -123,12 +129,14 @@
     <ClCompile Include="..\main\StatFunc.cpp" />
     <ClCompile Include="..\main\StrFunc.cpp" />
     <ClCompile Include="..\main\zfstream.cpp" />
+    <ClCompile Include="..\src\Covar.cpp" />
     <ClCompile Include="..\src\FastFAM.cpp" />
     <ClCompile Include="..\src\Geno.cpp" />
     <ClCompile Include="..\src\GRM.cpp" />
     <ClCompile Include="..\src\Logger.cpp" />
     <ClCompile Include="..\src\main.cpp" />
     <ClCompile Include="..\src\Marker.cpp" />
+    <ClCompile Include="..\src\OptionIO.cpp" />
     <ClCompile Include="..\src\Pheno.cpp" />
     <ClCompile Include="..\src\StatLib.cpp" />
     <ClCompile Include="..\src\tables.cpp" />
@@ -138,6 +146,7 @@
   <ItemGroup>
     <ClInclude Include="..\include\AsyncBuffer.hpp" />
     <ClInclude Include="..\include\constants.hpp" />
+    <ClInclude Include="..\include\Covar.h" />
     <ClInclude Include="..\include\FastFAM.h" />
     <ClInclude Include="..\include\Geno.h" />
     <ClInclude Include="..\include\GRM.h" />

@@ -25,8 +25,10 @@
 #include <boost/algorithm/string/join.hpp>
 #include "utils.hpp"
 #include "OptionIO.h"
+#include <memory>
 
 using std::to_string;
+using std::unique_ptr;
 
 map<string, string> Marker::options;
 map<string, int> Marker::options_i;
@@ -34,7 +36,6 @@ map<string, int> Marker::options_i;
 Marker::Marker() {
     for(uint8_t index = 0; index <= options_i["last_chr"]; index++){
         chr_maps[to_string(index)] = index;
-        chr_maps["0" + to_string(index)] = index;
     }
     int last_chr_autosome = options_i["last_chr_autosome"];
     chr_maps["X"] = last_chr_autosome + 1;
@@ -370,17 +371,16 @@ void Marker::read_bgen(string bgen_file){
         fseek(h_bgen, Lid, SEEK_CUR);
 
         auto len_rs = read1Byte<uint16_t>(h_bgen);
-        char rsid[len_rs + 1] = {};
-        readBytes<char>(h_bgen, len_rs, rsid);
+		unique_ptr<char[]> rsid(new char[len_rs + 1]());
+        readBytes(h_bgen, len_rs, rsid.get());
 
         auto len_chr = read1Byte<uint16_t>(h_bgen);
-        char snp_chr[len_chr+1] = {};
-        readBytes<char>(h_bgen, len_chr, snp_chr);
+		unique_ptr<char[]> snp_chr(new char[len_chr + 1]());
+        readBytes(h_bgen, len_chr, snp_chr.get());
         uint8_t chr_item = 0;
         bool keep_snp = true;
-
         try{
-            chr_item = chr_maps.at(snp_chr);
+            chr_item = chr_maps.at(snp_chr.get());
         }catch(std::out_of_range&){
             count_chr_error++;
             keep_snp = false;
@@ -391,7 +391,6 @@ void Marker::read_bgen(string bgen_file){
             keep_snp = false;
         }
 
-
         auto snp_pos = read1Byte<uint32_t>(h_bgen);
 
         auto n_alleles = read1Byte<uint16_t>(h_bgen);
@@ -401,12 +400,12 @@ void Marker::read_bgen(string bgen_file){
         }
 
         auto len_a1 = read1Byte<uint32_t>(h_bgen);
-        char snp_a1[len_a1+1] = {};
-        readBytes<char>(h_bgen, len_a1, snp_a1);
+		unique_ptr<char[]> snp_a1(new char[len_a1 + 1]());
+        readBytes(h_bgen, len_a1, snp_a1.get());
 
         auto len_a2 = read1Byte<uint32_t>(h_bgen);
-        char snp_a2[len_a2+1] = {};
-        readBytes<char>(h_bgen, len_a2, snp_a2);
+		unique_ptr<char[]> snp_a2(new char[len_a2 + 1]());
+        readBytes(h_bgen, len_a2, snp_a2.get());
 
         uint64_t snp_start = ftell(h_bgen);
 
@@ -420,13 +419,13 @@ void Marker::read_bgen(string bgen_file){
         
         if(keep_snp){
             chr.push_back(chr_item);
-            name.push_back(rsid);
+            name.push_back(rsid.get());
             gd.push_back(0);
             pd.push_back(snp_pos);
-            std::transform(snp_a1, snp_a1 + len_a1, snp_a1, toupper);
-            std::transform(snp_a2, snp_a2 + len_a2, snp_a2, toupper);
-            a1.push_back(snp_a1);
-            a2.push_back(snp_a2);
+            std::transform(snp_a1.get(), snp_a1.get() + len_a1, snp_a1.get(), toupper);
+            std::transform(snp_a2.get(), snp_a2.get() + len_a2, snp_a2.get(), toupper);
+            a1.push_back(snp_a1.get());
+            a2.push_back(snp_a2.get());
             A_rev.push_back(false);
             byte_start.push_back(snp_start);
         }
