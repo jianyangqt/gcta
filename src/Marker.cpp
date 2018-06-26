@@ -34,6 +34,7 @@ map<string, int> Marker::options_i;
 Marker::Marker() {
     for(uint8_t index = 0; index <= options_i["last_chr"]; index++){
         chr_maps[to_string(index)] = index;
+        chr_maps["0" + to_string(index)] = index;
     }
     int last_chr_autosome = options_i["last_chr_autosome"];
     chr_maps["X"] = last_chr_autosome + 1;
@@ -377,6 +378,7 @@ void Marker::read_bgen(string bgen_file){
         readBytes<char>(h_bgen, len_chr, snp_chr);
         uint8_t chr_item = 0;
         bool keep_snp = true;
+
         try{
             chr_item = chr_maps.at(snp_chr);
         }catch(std::out_of_range&){
@@ -388,6 +390,7 @@ void Marker::read_bgen(string bgen_file){
             count_chr_error++;
             keep_snp = false;
         }
+
 
         auto snp_pos = read1Byte<uint32_t>(h_bgen);
 
