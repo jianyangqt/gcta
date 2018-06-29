@@ -1671,7 +1671,7 @@ void gcta::mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, 
     vector<string> afsnps;
     // Calculate allele frequency
     if (_mu.empty()) calcu_mu();
-    LOGGER.i(0, "Checking allele frequencies among the GWAS summary data and the reference sample...");
+    LOGGER.i(0, "Checking the difference in allele frequency between the GWAS summary datasets and the LD reference sample...");
     afsnps = remove_freq_diff_snps(_meta_snp_name, _meta_remain_snp, _snp_name_map, _mu, _meta_snp_freq, _snp_val_flag, ncovar+1, freq_thresh, _out);
     // Update SNPs set
     if( afsnps.size()>0 ) {

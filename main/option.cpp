@@ -153,7 +153,7 @@ void option(int option_num, char* option_str[])
     bool heidi_flag=true, mtcojo_flag=false, ref_ld_flag=false, w_ld_flag=false;
 
     // GSMR
-    bool gsmr_flag = false, o_snp_instru_flag = false, gsmr_so_flag = false;
+    bool gsmr_flag = false, o_snp_instru_flag = false, gsmr_so_flag = false, gsmr_snp_update_flag = false;
     int gsmr_alg_flag = 0, gsmr_so_alg = -9;
     string expo_file_list = "", outcome_file_list = "";
     
@@ -1074,12 +1074,13 @@ void option(int option_num, char* option_str[])
             if(CommFunc::FloatEqual(indi_heidi_thresh, 1.0)) heidi_flag =false;    
             LOGGER<<"--heidi-thresh "<<indi_heidi_thresh<<endl;
         } else if (strcmp(argv[i], "--heidi-snp") == 0) {
-            LOGGER.e(0, "--heidi-snp is discontinued. Please use --gsmr-snp to specify minimum number of SNP instruments for the HEIDI-outlier analysis.");
-        } else if (strcmp(argv[i], "--gsmr-snp") == 0) {
+            LOGGER.e(0, "--heidi-snp is discontinued. Please use --gsmr-snp-min to specify minimum number of SNP instruments for the HEIDI-outlier analysis.");
+        } else if ((strcmp(argv[i], "--gsmr-snp") == 0) || (strcmp(argv[i], "--gsmr-snp-min") == 0)) {
+            if(strcmp(argv[i], "--gsmr-snp") == 0) gsmr_snp_update_flag = true;
             nsnp_gsmr = atoi(argv[++i]);
             if(nsnp_gsmr < 0 || nsnp_gsmr > 1e6)
-                LOGGER.e(0, "--gsmr-snp, Invalid SNP number threshold for GSMR.");
-            LOGGER<<"--gsmr-snp "<<nsnp_gsmr<<endl;
+                LOGGER.e(0, "--gsmr-snp-min, Invalid SNP number threshold for GSMR analysis.");
+            LOGGER<<"--gsmr-snp-min "<<nsnp_gsmr<<endl;
         } else if (strcmp(argv[i], "--gsmr-ld-fdr") == 0) {
             ld_fdr_thresh = atoi(argv[++i]);
             if(ld_fdr_thresh < 0 || ld_fdr_thresh > 1)
@@ -1152,6 +1153,7 @@ void option(int option_num, char* option_str[])
     if(gsmr_flag || mtcojo_flag){
         if(ref_ld_flag && !w_ld_flag) LOGGER.e(0, "--ref-ld-chr, please specify the directory of LD score files.");
         if(!ref_ld_flag && w_ld_flag) LOGGER.e(0, "--w-ld-chr, please specify the directory of LD scores for the regression weights.");
+        if(gsmr_snp_update_flag) LOGGER.w(0, "--gsmr-snp has been superseded by --gsmr-snp-min.");
         if(nsnp_gsmr < 5) LOGGER.w(0, "The number of SNP instruments included in the analysis is too small. There might not be enough SNPs to perform the HEIDI-outlier analysis.");
         // if(!gsmr_so_flag && ref_ld_flag && w_ld_flag) { gsmr_so_alg = 0; LOGGER.w(0, "--gsmr-so is not specified. The default value is 0. GSMR analysis will perform LD score regression to estimate sample overlap."); }
         // if(gsmr_so_alg == 1 && ref_ld_flag && w_ld_flag) { gsmr_so_alg = 0; LOGGER.w(0, "The LD score regression instead of correlation method will be used to estimate sample overlap."); }
