@@ -151,7 +151,7 @@ void option(int option_num, char* option_str[])
     string mtcojolist_file="", ref_ld_dirt="", w_ld_dirt="";
     int nsnp_gsmr=10;
     double freq_thresh = 0.2, gwas_thresh=5e-8, global_heidi_thresh = 0.0, indi_heidi_thresh = 0.01, ld_fdr_thresh=0.05, clump_wind_size=10000, clump_r2_thresh=0.05;
-    bool heidi_flag=true, mtcojo_flag=false, ref_ld_flag=false, w_ld_flag=false;
+    bool mtcojo_flag=false, ref_ld_flag=false, w_ld_flag=false;
 
     // GSMR
     bool gsmr_flag = false, o_snp_instru_flag = false, gsmr_so_flag = false, gsmr_snp_update_flag = false;
@@ -1074,9 +1074,13 @@ void option(int option_num, char* option_str[])
         } else if (strcmp(argv[i], "--heidi-thresh") == 0) {
             indi_heidi_thresh = atof(argv[++i]);
             if(indi_heidi_thresh <0 || indi_heidi_thresh >1)
-                LOGGER.e(0, "--heidi-thresh, Invalid p-value threshold for HEIDI test.");
-            if(CommFunc::FloatEqual(indi_heidi_thresh, 1.0)) heidi_flag =false;    
+                LOGGER.e(0, "--heidi-thresh, Invalid p-value threshold for HEIDI-outlier test.");
             LOGGER<<"--heidi-thresh "<<indi_heidi_thresh<<endl;
+        } else if (strcmp(argv[i], "--global-heidi-thresh") == 0) {
+            global_heidi_thresh = atof(argv[++i]);
+            if(global_heidi_thresh <0 || global_heidi_thresh >1)
+                LOGGER.e(0, "--global-heidi-thresh, Invalid p-value threshold for global HEIDI-outlier test.");
+            LOGGER<<"--global-heidi-thresh "<<global_heidi_thresh<<endl;            
         } else if (strcmp(argv[i], "--heidi-snp") == 0) {
             LOGGER.e(0, "--heidi-snp is discontinued. Please use --gsmr-snp-min to specify minimum number of SNP instruments for the HEIDI-outlier analysis.");
         } else if ((strcmp(argv[i], "--gsmr-snp") == 0) || (strcmp(argv[i], "--gsmr-snp-min") == 0)) {
@@ -1277,8 +1281,8 @@ void option(int option_num, char* option_str[])
             else if (massoc_slct_flag | massoc_joint_flag) {pter_gcta->set_massoc_pC_thresh(massoc_out_pC_thresh); pter_gcta->run_massoc_slct(massoc_file, massoc_wind, massoc_p, massoc_collinear, massoc_top_SNPs, massoc_joint_flag, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag, massoc_mld_slct_alg);}
             else if (!massoc_cond_snplist.empty()) {pter_gcta->set_massoc_pC_thresh(massoc_out_pC_thresh); pter_gcta->run_massoc_cond(massoc_file, massoc_cond_snplist, massoc_wind, massoc_collinear, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag);}
             else if (massoc_sblup_flag) pter_gcta->run_massoc_sblup(massoc_file, massoc_wind, massoc_sblup_fac);
-            else if (gsmr_flag) pter_gcta->gsmr(gsmr_alg_flag, ref_ld_dirt, w_ld_dirt, freq_thresh, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, heidi_flag, o_snp_instru_flag, gsmr_so_alg);
-            else if (mtcojo_flag) pter_gcta->mtcojo(mtcojolist_file, ref_ld_dirt, w_ld_dirt, freq_thresh, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, heidi_flag);
+            else if (gsmr_flag) pter_gcta->gsmr(gsmr_alg_flag, ref_ld_dirt, w_ld_dirt, freq_thresh, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, o_snp_instru_flag, gsmr_so_alg);
+            else if (mtcojo_flag) pter_gcta->mtcojo(mtcojolist_file, ref_ld_dirt, w_ld_dirt, freq_thresh, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_thresh, ld_fdr_thresh, nsnp_gsmr);
             else if (simu_qt_flag || simu_cc) pter_gcta->GWAS_simu(bfile, simu_rep, simu_causal, simu_case_num, simu_control_num, simu_h2, simu_K, simu_seed, simu_output_causal, simu_emb_flag, simu_eff_mod);
             else if (make_bed_flag) pter_gcta->save_plink();
             else if (fst_flag) pter_gcta->Fst(subpopu_file);

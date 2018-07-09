@@ -370,14 +370,14 @@ void collect_gsmr_result(stringstream &ss, vector<vector<double>> bxy_est, int g
         case 2 : output_forward=true; output_reverse=true; break;
     }
 
-    ss << "Exposure\tOutcome\tbxy\tse\tp\tnsnp" <<endl;
+    ss << "Exposure\tOutcome\tbxy\tse\tp\tnsnp\tglobal_heidi" <<endl;
     k=0; 
     if(output_forward) {
         for(i=0; i<expo_num_buf; i++) {
             for(j=0; j<outcome_num_buf; j++, k++) {
                 ss << pheno_name[i] << "\t" << pheno_name[expo_num_buf+j] << "\t"
                       << bxy_est[0][k] << "\t" << bxy_est[1][k] << "\t" 
-                      << bxy_est[2][k] << "\t" << bxy_est[3][k] << endl;
+                      << bxy_est[2][k] << "\t" << bxy_est[3][k] << "\t" << bxy_est[4][k] << endl;
             }
         }
     }
@@ -386,7 +386,7 @@ void collect_gsmr_result(stringstream &ss, vector<vector<double>> bxy_est, int g
             for(j=0; j<expo_num_buf; j++, k++) {
                 ss << pheno_name[expo_num_buf+i] << "\t" << pheno_name[j] << "\t"
                       << bxy_est[0][k] << "\t" << bxy_est[1][k] << "\t" 
-                      << bxy_est[2][k] << "\t" << bxy_est[3][k] << endl;
+                      << bxy_est[2][k] << "\t" << bxy_est[3][k] << "\t" << bxy_est[4][k] << endl;
             }
         }
     }
@@ -413,7 +413,7 @@ void collect_snp_instru_effect(stringstream &ss, vector<vector<bool>> snp_flag, 
     ss << "#effect_end" << endl;
 }
 
-void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double freq_thresh, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double indi_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, bool heidi_flag, bool o_snp_instru_flag, int gsmr_so_alg) {
+void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double freq_thresh, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double indi_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, bool o_snp_instru_flag, int gsmr_so_alg) {
     vector<vector<double>> bxy_est;
     map<string, int> snp_instru_map;
     vector<string> afsnps;
@@ -441,17 +441,17 @@ void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double 
    // GSMR analysis
     switch(gsmr_alg_flag) {
         case 0 : { 
-            bxy_est = forward_gsmr(ss, snp_instru_map, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, heidi_flag); 
+            bxy_est = forward_gsmr(ss, snp_instru_map, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_thresh, ld_fdr_thresh, nsnp_gsmr); 
             break;
         }
         case 1 : {
-            bxy_est = reverse_gsmr(ss, snp_instru_map, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, heidi_flag); 
+            bxy_est = reverse_gsmr(ss, snp_instru_map, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_thresh, ld_fdr_thresh, nsnp_gsmr); 
             break;
         }
         case 2 : {
             vector<vector<double>> bxy_est_buf;
-            bxy_est = forward_gsmr(ss, snp_instru_map, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, heidi_flag); 
-            bxy_est_buf = reverse_gsmr(ss, snp_instru_map, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, heidi_flag);
+            bxy_est = forward_gsmr(ss, snp_instru_map, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_thresh, ld_fdr_thresh, nsnp_gsmr);
+            bxy_est_buf = reverse_gsmr(ss, snp_instru_map, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_thresh, ld_fdr_thresh, nsnp_gsmr);
             int i = 0;
             for(i=0; i<4; i++) bxy_est[i].insert(bxy_est[i].end(), bxy_est_buf[i].begin(), bxy_est_buf[i].end());
             break;
@@ -491,16 +491,16 @@ void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double 
     LOGGER.i(0, "\nGSMR analyses completed.");
 }
 
-vector<vector<double>> gcta::forward_gsmr(stringstream &ss, map<string,int> &snp_instru_map, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double indi_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, bool heidi_flag) {
+vector<vector<double>> gcta::forward_gsmr(stringstream &ss, map<string,int> &snp_instru_map, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double indi_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr) {
     int i=0, j=0, k=0, t=0, m=_expo_num*_outcome_num, nsnp = _meta_remain_snp.size();
     vector<bool> snp_pair_flag(nsnp);
     vector<vector<double>> bxy_est;
      
-    bxy_est.resize(4);
-    for(i=0; i<4; i++) bxy_est[i].resize(m);
+    bxy_est.resize(5);
+    for(i=0; i<5; i++) bxy_est[i].resize(m);
     
     // GSMR analysis
-    vector<double> gsmr_rst(3);
+    vector<double> gsmr_rst(5);
     for(i=0, t=0; i<_expo_num; i++) {
         for(j=0; j<_outcome_num; j++, t++) {
             string err_msg;
@@ -508,12 +508,12 @@ vector<vector<double>> gcta::forward_gsmr(stringstream &ss, map<string,int> &snp
             for(k=0; k<nsnp; k++) snp_pair_flag[k] = (int)((_snp_val_flag[i][k] + _snp_val_flag[j+_expo_num][k])/2);
             LOGGER.i(0, "\nForward GSMR analysis for exposure #" + to_string(i+1) + " and outcome #" + to_string(j+1) + " ...");
             gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), 
-                                  _meta_snp_b.col(j+_expo_num), _meta_snp_se.col(j+_expo_num), _r_pheno_sample(i,j), snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, heidi_flag, err_msg);
+                                  _meta_snp_b.col(j+_expo_num), _meta_snp_se.col(j+_expo_num), _r_pheno_sample(i,j), snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, err_msg);
             if(std::isnan(gsmr_rst[3]))
                 LOGGER.w(0, err_msg);
             else
                 LOGGER.i(0, "Forward GSMR analysis for exposure #" + to_string(j+1) + " and outcome #" + to_string(i+1) + " completed.");
-            for(k=0; k<4; k++) bxy_est[k][t] = gsmr_rst[k];
+            for(k=0; k<5; k++) bxy_est[k][t] = gsmr_rst[k];
 
             // Saving the SNP instruments
             collect_snp_instru(ss, snp_instru_map, i+1, j+_expo_num+1, snp_instru); 
@@ -523,16 +523,16 @@ vector<vector<double>> gcta::forward_gsmr(stringstream &ss, map<string,int> &snp
     return bxy_est;
 }
 
-vector<vector<double>> gcta::reverse_gsmr(stringstream &ss, map<string,int> &snp_instru_map, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double indi_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, bool heidi_flag) {   
+vector<vector<double>> gcta::reverse_gsmr(stringstream &ss, map<string,int> &snp_instru_map, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double indi_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr) {   
      int i=0, j=0, k=0, t=0, m=_expo_num*_outcome_num, nsnp = _meta_remain_snp.size();
      vector<bool> snp_pair_flag(nsnp);
      vector<vector<double>> bxy_est;
      
-     bxy_est.resize(4);
-     for(i=0; i<4; i++) bxy_est[i].resize(m);
+     bxy_est.resize(5);
+     for(i=0; i<5; i++) bxy_est[i].resize(m);
     
     // GSMR analysis
-    vector<double> gsmr_rst(4);
+    vector<double> gsmr_rst(5);
     for(i=0, t=0; i<_outcome_num; i++) {
         for(j=0; j<_expo_num; j++, t++) {
             string err_msg;
@@ -540,12 +540,12 @@ vector<vector<double>> gcta::reverse_gsmr(stringstream &ss, map<string,int> &snp
             for(k=0; k<nsnp; k++) snp_pair_flag[k] = (int)((_snp_val_flag[i+_expo_num][k] + _snp_val_flag[j][k])/2);
             LOGGER.i(0, "\nReverse GSMR analysis for exposure #" + to_string(j+1) + " and outcome #" + to_string(i+1) + " ...");
             gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i+_expo_num), _meta_snp_se.col(i+_expo_num), _meta_snp_pval.col(i+_expo_num), 
-                                  _meta_snp_b.col(j), _meta_snp_se.col(j), _r_pheno_sample(j,i), snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, heidi_flag, err_msg);
+                                  _meta_snp_b.col(j), _meta_snp_se.col(j), _r_pheno_sample(j,i), snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, err_msg);
             if(std::isnan(gsmr_rst[3])) 
                 LOGGER.w(0, err_msg);
             else
                 LOGGER.i(0, "Reverse GSMR analysis for exposure #" + to_string(j+1) + " and outcome #" + to_string(i+1) + " completed.");
-            for(k=0; k<4; k++) bxy_est[k][t] = gsmr_rst[k];  
+            for(k=0; k<5; k++) bxy_est[k][t] = gsmr_rst[k];  
 
             // Saving the SNP instruments
             collect_snp_instru(ss, snp_instru_map, i+_expo_num+1, j+1, snp_instru);
