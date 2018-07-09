@@ -1029,37 +1029,39 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
         include_gsmr[i] = i;
     }
 
+    // estimate p-value for global HEIDI-outlier
     // iterative approach
     double pval_global_heidi = 0.0;
+    vector<string> pleio_snps;
+    eigenVector pval_heidi_tmp(pval_heidi);
+    eigenVector::Index outlier_index, removed_index;
+    // Remove the row and column for the top SNP
+    removeElement(pval_heidi_tmp, topindex);
+    removeElement(bxy_diff, topindex);
+    removeRow(var_bxy_diff, topindex);
+    removeColumn(var_bxy_diff, topindex);
+
+    int nsnp_iter = n_indices_snp;     
+    while(1) {
+        // Hotelling test
+        double chival_global_heidi = bxy_diff.transpose()*(var_bxy_diff.ldlt().solve(bxy_diff));
+        pval_global_heidi = StatFunc::pchisq( chival_global_heidi, nsnp_iter-1 );
+        if(!global_heidi_flag) break;
+        // Remove the SNP with the smallest heidi p-value
+        if(pval_global_heidi >= global_heidi_thresh) break;
+        double outlier_pval = pval_heidi.minCoeff(&outlier_index);
+        double removed_pval = pval_heidi_tmp.minCoeff(&removed_index);
+        pval_heidi(outlier_index) = 1.0;
+        pleio_snps.push_back(indices_snp[kept_ID[outlier_index]]);
+        removeElement(pval_heidi_tmp, removed_index);
+        removeElement(bxy_diff, removed_index);
+        removeRow(var_bxy_diff, removed_index);
+        removeColumn(var_bxy_diff, removed_index);
+        nsnp_iter--;
+    }
+
+    // update SNPs
     if(global_heidi_flag) {
-        vector<string> pleio_snps;
-        eigenVector pval_heidi_tmp(pval_heidi);
-        eigenVector::Index outlier_index, removed_index;
-        // Remove the row and column for the top SNP
-        removeElement(pval_heidi_tmp, topindex);
-        removeElement(bxy_diff, topindex);
-        removeRow(var_bxy_diff, topindex);
-        removeColumn(var_bxy_diff, topindex);
-
-        int nsnp_iter = n_indices_snp;     
-        while(1) {
-            // Hotelling test
-            double chival_global_heidi = bxy_diff.transpose()*(var_bxy_diff.ldlt().solve(bxy_diff));
-            pval_global_heidi = StatFunc::pchisq( chival_global_heidi, nsnp_iter-1 );
-            // Remove the SNP with the smallest heidi p-value
-            if(pval_global_heidi >= global_heidi_thresh) break;
-            double outlier_pval = pval_heidi.minCoeff(&outlier_index);
-            double removed_pval = pval_heidi_tmp.minCoeff(&removed_index);
-            pval_heidi(outlier_index) = 1.0;
-            pleio_snps.push_back(indices_snp[kept_ID[outlier_index]]);
-            removeElement(pval_heidi_tmp, removed_index);
-            removeElement(bxy_diff, removed_index);
-            removeRow(var_bxy_diff, removed_index);
-            removeColumn(var_bxy_diff, removed_index);
-            nsnp_iter--;
-        }
-
-        // update SNPs
         update_id_map_rm(pleio_snps, indices_snp_map, kept_ID);
         update_id_map_rm(pleio_snps, heidi_snp_map, include_gsmr);
         n_indices_snp = kept_ID.size();
