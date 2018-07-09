@@ -30,6 +30,8 @@
 #include "utils.hpp"
 #include <omp.h>
 #include "OptionIO.h"
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/join.hpp>
 
 using std::to_string;
 
@@ -51,46 +53,188 @@ uint64_t numByteGRMFile(FILE * file) {
 }
 
 GRM::GRM(){
-    if(options.find("grm_file") == options.end()){
-        LOGGER.e(0, "You must specify --grm to invoke this function");
+    bool has_single_grm = false;
+    if(options.find("grm_file") != options.end()){
+        has_single_grm = true;
     }
-    this->grm_file = options["grm_file"];
-    grm_ids = Pheno::read_sublist(grm_file + ".grm.id");
-    num_subjects = grm_ids.size();
+    if(has_single_grm){
+        this->grm_file = options["grm_file"];
+        grm_ids = Pheno::read_sublist(grm_file + ".grm.id");
+        num_subjects = grm_ids.size();
 
-    uint64_t num_grm = num_subjects * (num_subjects + 1) / 2;
-    FILE *file = fopen((grm_file + ".grm.bin").c_str(), "rb");
-    if(num_grm * 4 != numByteGRMFile(file)){
-        LOGGER.e(0, "The GRM id and GRM binary is not matching [" + grm_file + "]");
+        uint64_t num_grm = num_subjects * (num_subjects + 1) / 2;
+        FILE *file = fopen((grm_file + ".grm.bin").c_str(), "rb");
+        if(num_grm * 4 != numByteGRMFile(file)){
+            LOGGER.e(0, "The GRM id and GRM binary is not matching [" + grm_file + "]");
+        }
+        fclose(file);
+
+        uint64_t num_grm_byte = num_grm * 4;
+        uint64_t num_parts = (num_grm_byte + num_byte_GRM_read - 1) / num_byte_GRM_read;
+        vector<uint32_t> parts = divide_parts(0, num_subjects - 1, num_parts);
+        index_grm_pairs.reserve(parts.size());
+        byte_part_grms.reserve(parts.size());
+
+        index_grm_pairs.push_back(std::make_pair(0, parts[0]));
+        byte_part_grms.push_back((0 + parts[0] + 2) * (parts[0] + 1) / 2);
+        for(int index = 1; index != parts.size(); index++){
+            index_grm_pairs.push_back(std::make_pair(parts[index - 1] + 1, parts[index]));
+            byte_part_grms.push_back(((uint64_t)parts[index - 1] + parts[index] + 3) * (parts[index] - parts[index - 1]) / 2);
+        }
+
+        num_byte_buffer = *std::max_element(byte_part_grms.begin(), byte_part_grms.end());
+
+        index_keep.resize(num_subjects);
+        std::iota(index_keep.begin(), index_keep.end(), 0);
+
+        if(options.find("keep_file") != options.end()){
+            vector<string> keep_lists = Pheno::read_sublist(options["keep_file"]);
+            Pheno::set_keep(keep_lists, grm_ids, index_keep, true);
+        }
+
+        if(options.find("remove_file") != options.end()){
+            vector<string> rm_lists = Pheno::read_sublist(options["remove_file"]);
+            Pheno::set_keep(rm_lists, grm_ids, index_keep, false);
+        }
     }
-    fclose(file);
-
-    uint64_t num_grm_byte = num_grm * 4;
-    uint64_t num_parts = (num_grm_byte + num_byte_GRM_read - 1) / num_byte_GRM_read;
-    vector<uint32_t> parts = divide_parts(0, num_subjects - 1, num_parts);
-    index_grm_pairs.reserve(parts.size());
-    byte_part_grms.reserve(parts.size());
-
-    index_grm_pairs.push_back(std::make_pair(0, parts[0]));
-    byte_part_grms.push_back((0 + parts[0] + 2) * (parts[0] + 1) / 2);
-    for(int index = 1; index != parts.size(); index++){
-        index_grm_pairs.push_back(std::make_pair(parts[index - 1] + 1, parts[index]));
-        byte_part_grms.push_back(((uint64_t)parts[index - 1] + parts[index] + 3) * (parts[index] - parts[index - 1]) / 2);
+    if(options.find("mgrm") != options.end()){
     }
 
-    num_byte_buffer = *std::max_element(byte_part_grms.begin(), byte_part_grms.end());
 
-    index_keep.resize(num_subjects);
-    std::iota(index_keep.begin(), index_keep.end(), 0);
+}
 
+void GRM::unify_grm(string mgrm_file, string out_file){
+    std::ifstream mgrm(mgrm_file.c_str());
+    if(!mgrm){
+        LOGGER.e(0, "can't open " + mgrm_file + " to read.");
+    }
+    string line;
+    vector<string> files;
+    vector<string> err_files;
+    while(getline(mgrm, line)){
+        boost::trim(line);
+        if(!line.empty()){
+            if(checkFileReadable(line+".grm.id") && checkFileReadable(line+".grm.bin")){
+                files.push_back(line);
+            }else{
+                err_files.push_back(line);
+            }
+        }
+    }
+
+    if(err_files.size() != 0){
+        string out_err = "can't read GRM (*.grm.id, *.grm.bin) in ";
+        out_err += boost::algorithm::join(err_files, ", ");
+        out_err += ".";
+        LOGGER.e(0, out_err);
+    }
+    if(files.size() < 2){
+        LOGGER.e(0, "not enough valid GRM in to unify");
+    }
+
+    LOGGER.i(0, "Reading " + files[0] + ".grm.id ...");
+    vector<string> common_id = Pheno::read_sublist(files[0] + ".grm.id");
+    LOGGER << common_id.size() << " samples have been read." << std::endl;
+    vector<vector<string>> ids;
+    ids.resize(files.size());
+    
+    ids[0] = common_id;
+    for(int i = 1; i < files.size(); i++){
+        string cur_file = files[i] + ".grm.id";
+        LOGGER.i(0, "Reading " + cur_file + " ...");
+        ids[i] = Pheno::read_sublist(cur_file);
+        LOGGER << ids[i].size() << " samples have been read." << std::endl;
+        vector<uint32_t> index1, index2;
+        vector_commonIndex_sorted1(common_id, ids[i], index1, index2); 
+        vector<string> temp_common_id(index1.size());
+        std::transform(index1.begin(), index1.end(),temp_common_id.begin(), [&common_id](uint32_t v){
+                return common_id[v];});
+        common_id = temp_common_id;
+        LOGGER << common_id.size() << " common samples in GRMs" << std::endl;
+    }
     if(options.find("keep_file") != options.end()){
-        vector<string> keep_lists = Pheno::read_sublist(options["keep_file"]);
-        Pheno::set_keep(keep_lists, grm_ids, index_keep, true);
+        LOGGER.i(0, "Keeping sample in " + options["keep_file"] + " ...");
+        vector<string> keep_id = Pheno::read_sublist(options["keep_file"]);
+        LOGGER << keep_id.size() << " samples have been read." << std::endl;
+        vector<uint32_t> index1, index2;
+        vector_commonIndex_sorted1(common_id, keep_id, index1, index2);
+        vector<string> temp_common_id(index1.size());
+        std::transform(index1.begin(), index1.end(), temp_common_id.begin(), [&common_id](uint32_t v){
+                return common_id[v];});
+        common_id = temp_common_id;
+        LOGGER << common_id.size() << " common samples after merging." << std::endl;
+    }
+    if(options.find("remove_file") != options.end()){
+        LOGGER.i(0, "Excluding samples in " + options["remove_file"] + " ...");
+        vector<string> remove_id = Pheno::read_sublist(options["remove_file"]);
+        LOGGER << remove_id.size() << " samples have been read." << std::endl;
+        vector<uint32_t> index1, index2;
+        vector_commonIndex_sorted1(common_id, remove_id, index1, index2);
+        vector<uint32_t> keeps(common_id.size());
+        std::iota(keeps.begin(), keeps.end(), 0);
+        vector<uint32_t> remain_index;
+        std::set_difference(keeps.begin(), keeps.end(), index1.begin(), index1.end(), std::back_inserter(remain_index));
+        vector<string> remain_ids(remain_index.size());
+        std::transform(remain_index.begin(), remain_index.end(), remain_ids.begin(), [&common_id](uint32_t v){
+                return common_id[v];});
+        common_id = remain_ids;
+        LOGGER << common_id.size() << " common samples after merging." << std::endl;
+    }
+    vector<vector<uint32_t>> grm_indices(files.size());
+    #pragma omp for
+    for(int i = 0; i < files.size(); i++){
+        string id_file_name = files[i] + "_" + options["out"] + ".grm.id";
+        vector<uint32_t> index1;
+        vector_commonIndex_sorted1(common_id, ids[i], index1, grm_indices[i]);
+        std::ofstream out_id(id_file_name.c_str());
+        for(auto & index: grm_indices[i]){
+            out_id << ids[i][index] << std::endl;
+        }
+        out_id.close();
+        LOGGER.i(0, "Unified indididual IDs have been saved to [" + id_file_name + "].");
     }
 
-    if(options.find("remove_file") != options.end()){
-        vector<string> rm_lists = Pheno::read_sublist(options["remove_file"]);
-        Pheno::set_keep(rm_lists, grm_ids, index_keep, false);
+    LOGGER.i(0, "Writing unified GRM in binary format...");
+    #pragma omp for
+    for(int i = 0; i < grm_indices.size(); i++){
+        vector<uint32_t> &p_index = grm_indices[i];
+        uint32_t size_grm = p_index.size();
+        uint32_t largest_grm_size = ids[i].size();
+        string file_name = files[i] + ".grm.bin";
+        string wfile_name = files[i] + "_" + options["out"] + ".grm.bin";
+        FILE *h_grm = fopen(file_name.c_str(), "rb");
+        if(!h_grm){
+            LOGGER.e(0, "can't read " + file_name + ".");
+        }
+
+        FILE *h_wgrm = fopen(wfile_name.c_str(), "wb");
+        if(!h_wgrm){
+            LOGGER.e(0, "can't write to " + wfile_name + ".");
+        }
+
+        float *buf = new float[largest_grm_size];
+        float *wbuf = new float[size_grm];
+        for(int j = 0; j < size_grm; j++){
+            uint64_t grm_index = p_index[j];
+            uint64_t num_grm = grm_index + 1;
+            uint64_t byte_start_grm = (1 + grm_index) * grm_index / 2 * sizeof(float);
+            fseek(h_grm, byte_start_grm, SEEK_SET);
+            if(fread(buf, sizeof(float), num_grm, h_grm) != num_grm){
+                LOGGER.e(0, "Error reading " + file_name);
+            }
+            for(int k = 0; k <= j; k++){
+                *(wbuf+k) = *(buf + p_index[k]);
+            }
+            uint64_t size_write = j + 1;
+            if(size_write != fwrite(wbuf, sizeof(float), size_write, h_wgrm)){
+                LOGGER.e(0, "writing to " + wfile_name + ", pos: " + std::to_string(ftell(h_wgrm)) + "."); 
+            }
+        }
+        delete[] buf;
+        delete[] wbuf;
+        fclose(h_grm);
+        fclose(h_wgrm);
+        LOGGER.i(0, "GRM has been written to [" + wfile_name + "].");
     }
 
 }
@@ -1054,6 +1198,7 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
 
     addOneFileOption("keep_file", "", "--keep", options_in, options);
     addOneFileOption("remove_file", "", "--remove", options_in, options);
+    addOneFileOption("mgrm", "", "--mgrm", options_in, options);
 
     int num_parts = 1;
     int cur_part = 1;
@@ -1150,6 +1295,13 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
         t_option["--autosome"] = {};
         Marker::registerOption(t_option);
 
+        return_value++;
+    }
+
+    string op_grm_unify = "--unify-grm";
+    if(options_in.find(op_grm_unify) != options_in.end()){
+        processFunctions.push_back("unify_grm");
+        options_in.erase(op_grm_unify);
         return_value++;
     }
 
@@ -1281,6 +1433,11 @@ void GRM::processMain() {
         if(process_function == "make_fam"){
             GRM grm;
             grm.prune_fam(options_d["grm_cutoff"], options_b["sparse"]);
+        }
+
+        if(process_function == "unify_grm"){
+            GRM grm;
+            grm.unify_grm(options["mgrm"], options["out"]);
         }
     }
 

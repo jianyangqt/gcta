@@ -55,6 +55,7 @@ public:
                     = vector<function<void (double *buf, int num_block)>>());
     void cut_rel(float thresh, bool no_grm = false);
     void prune_fam(float thresh, bool isSparse = true);
+    void unify_grm(string mgrm_file, string out_file);
 
 private:
     Geno *geno;
