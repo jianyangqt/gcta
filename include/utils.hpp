@@ -33,6 +33,9 @@
 
 std::string getHostName();
 std::string getLocalTime();
+std::string getFileName(const std::string & path);
+std::string getPathName(const std::string & path);
+std::string joinPath(const std::string & dir, const std::string & path);
 
 template <typename T>
 bool hasVectorDuplicate(const std::vector<T> &v){

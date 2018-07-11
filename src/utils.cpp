@@ -42,3 +42,35 @@ std::string getLocalTime(){
     oss << tm;
     return oss.str();
 }
+
+std::string getFileName(const std::string & path){
+    auto index = path.find_last_of("\\/");
+    if(index == std::string::npos){
+        return path;
+    }else{
+        return path.substr(index + 1);
+    }
+}
+
+// get the path without the last slash
+std::string getPathName(const std::string & path){
+    auto index = path.find_last_of("\\/");
+    if(index == std::string::npos){
+        return "";
+    }else{
+        return path.substr(0, index);
+    }
+}
+
+std::string joinPath(const std::string & dir, const std::string & path){
+    #ifdef WIN32
+    std::string sep = "\\";
+    #else
+    std::string sep="/";
+    #endif
+    if(dir.empty()){
+        return path;
+    }else{
+        return dir + path;
+    }
+}

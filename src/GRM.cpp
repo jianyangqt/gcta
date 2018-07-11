@@ -132,7 +132,7 @@ void GRM::unify_grm(string mgrm_file, string out_file){
         LOGGER.e(0, "not enough valid GRM in to unify");
     }
 
-    LOGGER.i(0, "Reading " + files[0] + ".grm.id ...");
+    LOGGER.i(0, "Reading [" + files[0] + ".grm.id]...");
     vector<string> common_id = Pheno::read_sublist(files[0] + ".grm.id");
     LOGGER << common_id.size() << " samples have been read." << std::endl;
     vector<vector<string>> ids;
@@ -141,7 +141,7 @@ void GRM::unify_grm(string mgrm_file, string out_file){
     ids[0] = common_id;
     for(int i = 1; i < files.size(); i++){
         string cur_file = files[i] + ".grm.id";
-        LOGGER.i(0, "Reading " + cur_file + " ...");
+        LOGGER.i(0, "Reading [" + cur_file + "]...");
         ids[i] = Pheno::read_sublist(cur_file);
         LOGGER << ids[i].size() << " samples have been read." << std::endl;
         vector<uint32_t> index1, index2;
@@ -153,7 +153,7 @@ void GRM::unify_grm(string mgrm_file, string out_file){
         LOGGER << common_id.size() << " common samples in GRMs" << std::endl;
     }
     if(options.find("keep_file") != options.end()){
-        LOGGER.i(0, "Keeping sample in " + options["keep_file"] + " ...");
+        LOGGER.i(0, "Keeping samples in [" + options["keep_file"] + "]...");
         vector<string> keep_id = Pheno::read_sublist(options["keep_file"]);
         LOGGER << keep_id.size() << " samples have been read." << std::endl;
         vector<uint32_t> index1, index2;
@@ -165,7 +165,7 @@ void GRM::unify_grm(string mgrm_file, string out_file){
         LOGGER << common_id.size() << " common samples after merging." << std::endl;
     }
     if(options.find("remove_file") != options.end()){
-        LOGGER.i(0, "Excluding samples in " + options["remove_file"] + " ...");
+        LOGGER.i(0, "Excluding samples in [" + options["remove_file"] + "]...");
         vector<string> remove_id = Pheno::read_sublist(options["remove_file"]);
         LOGGER << remove_id.size() << " samples have been read." << std::endl;
         vector<uint32_t> index1, index2;
@@ -181,9 +181,19 @@ void GRM::unify_grm(string mgrm_file, string out_file){
         LOGGER << common_id.size() << " common samples after merging." << std::endl;
     }
     vector<vector<uint32_t>> grm_indices(files.size());
+    //produce output file names
+    vector<string> output_fileNames;
+    string out_string = options["out"];
+    string basename_out = getFileName(out_string);
+    string path_out = getPathName(out_string);
+    for(auto & filename : files){
+        string basename = getFileName(filename);
+        output_fileNames.push_back(joinPath(path_out, basename + "_" + basename_out));
+    }
+
     #pragma omp for
     for(int i = 0; i < files.size(); i++){
-        string id_file_name = files[i] + "_" + options["out"] + ".grm.id";
+        string id_file_name = output_fileNames[i] + ".grm.id";
         vector<uint32_t> index1;
         vector_commonIndex_sorted1(common_id, ids[i], index1, grm_indices[i]);
         std::ofstream out_id(id_file_name.c_str());
@@ -195,13 +205,13 @@ void GRM::unify_grm(string mgrm_file, string out_file){
     }
 
     LOGGER.i(0, "Writing unified GRM in binary format...");
-    #pragma omp for
+    #pragma omp parallel for
     for(int i = 0; i < grm_indices.size(); i++){
         vector<uint32_t> &p_index = grm_indices[i];
         uint32_t size_grm = p_index.size();
         uint32_t largest_grm_size = ids[i].size();
         string file_name = files[i] + ".grm.bin";
-        string wfile_name = files[i] + "_" + options["out"] + ".grm.bin";
+        string wfile_name = output_fileNames[i] + ".grm.bin";
         FILE *h_grm = fopen(file_name.c_str(), "rb");
         if(!h_grm){
             LOGGER.e(0, "can't read " + file_name + ".");
@@ -214,20 +224,42 @@ void GRM::unify_grm(string mgrm_file, string out_file){
 
         float *buf = new float[largest_grm_size];
         float *wbuf = new float[size_grm];
+
+        vector<uint64_t> start_pos(largest_grm_size);
+        for(int j = 0; j < largest_grm_size; j++){
+            uint64_t byte_start_grm = (1 + j) * j / 2 * sizeof(float);
+            start_pos[j] = byte_start_grm;
+        }
+
         for(int j = 0; j < size_grm; j++){
             uint64_t grm_index = p_index[j];
             uint64_t num_grm = grm_index + 1;
-            uint64_t byte_start_grm = (1 + grm_index) * grm_index / 2 * sizeof(float);
+            uint64_t byte_start_grm = start_pos[grm_index];
             fseek(h_grm, byte_start_grm, SEEK_SET);
             if(fread(buf, sizeof(float), num_grm, h_grm) != num_grm){
-                LOGGER.e(0, "Error reading " + file_name);
-            }
-            for(int k = 0; k <= j; k++){
-                *(wbuf+k) = *(buf + p_index[k]);
+                LOGGER.e(0, "Error reading [" + file_name + "], in position " + to_string(ftell(h_grm)), ".");
             }
             uint64_t size_write = j + 1;
+            for(int k = 0; k < size_write; k++){
+                uint32_t cur_index = p_index[k];
+                float grm_value;
+                if(cur_index < num_grm){
+                    grm_value = *(buf + cur_index);
+                }else{
+                    //fill the other parts
+                    auto bytes_offset = start_pos[cur_index] + grm_index * sizeof(float);
+                    fseek(h_grm, bytes_offset, SEEK_SET); 
+                    if(fread(&grm_value, sizeof(float), 1, h_grm) != 1){
+                        LOGGER.e(0, "Error reading [" + file_name + "], in position " + to_string(bytes_offset), ".");
+                    }
+                }
+                *(wbuf + k) = grm_value;
+            }
+            //last element
+            //*(wbuf + j) = *(buf + grm_index);
+
             if(size_write != fwrite(wbuf, sizeof(float), size_write, h_wgrm)){
-                LOGGER.e(0, "writing to " + wfile_name + ", pos: " + std::to_string(ftell(h_wgrm)) + "."); 
+                LOGGER.e(0, "writing to [" + wfile_name + "], pos: " + std::to_string(ftell(h_wgrm)) + "."); 
             }
         }
         delete[] buf;
