@@ -263,13 +263,12 @@ void gcta::update_mtcojo_snp_rm(vector<string> adjsnps, map<string,int> &snp_id_
     stable_sort(remain_snp_indx.begin(), remain_snp_indx.end());
 }
 
-vector<string> gcta::read_snp_metafile(string metafile, double thresh) {
+vector<string> gcta::read_snp_metafile(string metafile, map<string,int> &gws_snp_name_map, double thresh) {
     ifstream meta_snp(metafile.c_str());
     if (!meta_snp)
          LOGGER.e(0, "Cannot open the file [" + metafile + "] to read.");
     
     string strbuf="", valbuf = "";
-    double pval_buf = 0.0;
     vector<string> snplist;
     int line_number=0;
 
@@ -283,14 +282,14 @@ vector<string> gcta::read_snp_metafile(string metafile, double thresh) {
             LOGGER.e(0, "The GWAS summary data file [" + metafile + "] should be GCTA-COJO format, line " + to_string(line_number) + ".");
         }
         if(line_number==1) continue;
-        // Only read significant SNPs
-        if( thresh > 0 ) {
-            valbuf = line_elements[6];
-            if(valbuf!="." && valbuf!="NA" && valbuf!="NAN") pval_buf = atof(valbuf.c_str());
-            if(pval_buf < thresh) snplist.push_back(line_elements[0]);
-            else continue;
-        } else {
-            snplist.push_back(line_elements[0]);
+        // keep significant SNPs
+        snplist.push_back(line_elements[0]);
+        valbuf = line_elements[6];
+        double pval_buf = 1.0;
+        if(valbuf!="." && valbuf!="NA" && valbuf!="NAN") pval_buf = atof(valbuf.c_str());
+        if( pval_buf < thresh && (gws_snp_name_map.find(line_elements[0]) == gws_snp_name_map.end()) ) {
+            int size = gws_snp_name_map.size();
+            gws_snp_name_map.insert(pair<string,int>(line_elements[0], size));
         }
     }
     meta_snp.close();
@@ -453,7 +452,7 @@ vector<string> gcta::remove_bad_snps(vector<string> snp_name, vector<int> snp_re
 }
 
 vector<string> gcta::remove_freq_diff_snps(vector<string> meta_snp_name, vector<int> meta_snp_remain, map<string,int> snp_name_map, vector<double> ref_freq, eigenMatrix meta_freq, vector<vector<bool>> snp_flag, int ntrait, double freq_thresh, string outfile_name) {
-    int i = 0, nsnp = meta_snp_remain.size();
+    int i = 0, nsnp = meta_snp_remain.size(), nsnp_ttl = meta_snp_remain.size();
     string snpbuf="";
     vector<string> afsnps;
     map<string,int>::iterator iter_ref;
@@ -497,6 +496,8 @@ vector<string> gcta::remove_freq_diff_snps(vector<string> meta_snp_name, vector<
         for (i = 0; i < nafsnps; i++) oafsnp << afsnps[i] << endl;
         oafsnp.close();
         LOGGER.i(0,  to_string(nafsnps) + " SNP(s) have large difference of allele frequency among the GWAS summary data and the reference sample. These SNPs have been saved in [" + afsnpfile + "].");
+        if(nafsnps > nsnp_ttl*0.05) 
+            LOGGER.e(0, "There are too many SNP that have large difference of allele frequency. Please check your summary datasets.");
     }
 
     return(afsnps);
@@ -534,15 +535,16 @@ void gcta::read_mtcojofile(string mtcojolist_file, double gwas_thresh, int nsnp_
 
     // Read the SNPs
     // Covariates
+    map<string,int> gws_snp_name_map;
     ncovar = _covar_pheno_name.size();
     for( i=0; i<ncovar; i++) {
-        snplist=read_snp_metafile(covar_pheno_file[i], -9);
+        snplist=read_snp_metafile(covar_pheno_file[i], gws_snp_name_map, -9);
         if( i == 0 ) init_meta_snp_map(snplist, _meta_snp_name_map, _meta_snp_name, _meta_remain_snp);
         else update_meta_snp_map(snplist, _meta_snp_name_map, _meta_snp_name, _meta_remain_snp, true);
     }
 
     // Target trait
-    snplist=read_snp_metafile(target_pheno_file, -9);
+    snplist=read_snp_metafile(target_pheno_file, gws_snp_name_map, -9);
     update_id_map_kp(snplist, _meta_snp_name_map, _meta_remain_snp);
 
     // Initialization of variables
@@ -625,6 +627,33 @@ void gcta::read_mtcojofile(string mtcojolist_file, double gwas_thresh, int nsnp_
     std::stringstream ss;
     ss << std::scientific << std::setprecision(1) << gwas_thresh;
     LOGGER.i(0, "There are " + to_string(_include.size()) + " genome-wide significant SNPs with p < " + ss.str() + ".\n");
+}
+
+eigenVector read_external_bxy(string filestr, vector<string> covar_pheno_name) {
+    // Read the external bxy
+    int i = 0, ncovar = covar_pheno_name.size();
+    string strbuf="";
+    eigenVector bxy_est(ncovar);
+    map<string,int> covar_pheno_map;
+    bxy_est.setConstant(-9.0);
+
+    ifstream extern_bxy(filestr.c_str());
+    if (!extern_bxy) LOGGER.e(0, "Cannot open the file [" + filestr + "] to read.");
+
+    for(i=0; i<ncovar; i++) covar_pheno_map.insert(pair<string,int>(covar_pheno_name[i], i));
+    
+    while(std::getline(extern_bxy, strbuf)) {
+        std::istringstream linebuf(strbuf);
+        std::istream_iterator<string> begin(linebuf), end;
+        vector<string> line_elements(begin, end);
+        if(line_elements.size() != 2) LOGGER.e(0, "Format of file [" + filestr + "] is not correct.");
+        string phenobuf = line_elements[0].c_str();
+        map<string,int>::iterator iter = covar_pheno_map.find(phenobuf);
+        if(iter==covar_pheno_map.end()) continue;
+        bxy_est(iter->second) = atof(line_elements[1].c_str());
+    }
+
+    return(bxy_est);
 }
 
 vector<string> gcta::clumping_meta(eigenVector snp_pval, vector<bool> snp_flag, double pval_thresh, int wind_size, double r2_thresh) {   
@@ -994,6 +1023,7 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
         pval_heidi(i)=StatFunc::pchisq(snp_chival, 1.0);
     }
 
+    vector<string> heidi_snps;
     // traditional heidi-outlier
     if(indi_heidi_flag) {     
         vector<string> pleio_snps;
@@ -1006,11 +1036,23 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
         // update SNPs
         update_id_map_rm(pleio_snps, indices_snp_map, kept_ID);
         n_indices_snp = kept_ID.size();
+        heidi_snps.insert(heidi_snps.end(), pleio_snps.begin(), pleio_snps.end());
+
+        if(n_indices_snp < nsnp_gsmr) {
+            LOGGER.i(0, to_string(n_indices_snp) + " index SNPs are retained after the HEIDI-outlier analysis.");
+            err_msg = "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required.";
+            return rst;
+        }
 
         // find the top SNP
+        bool top_remain_flag = false;
         for(i=0; i<n_indices_snp; i++) {
             if(indices_snp[kept_ID[i]]!=top_indices_snp) continue;
-            topindex = i; break;
+            topindex = i; top_remain_flag = true; break;
+        }
+        if(!top_remain_flag) {
+            err_msg = "Not enough SNPs remained for the HEIDI-outlier analysis.";
+            return rst;
         }
     }
 
@@ -1043,6 +1085,7 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
 
     int nsnp_iter = n_indices_snp;     
     while(1) {
+        if(nsnp_iter<=2) break;
         // Hotelling test
         double chival_global_heidi = bxy_diff.transpose()*(var_bxy_diff.ldlt().solve(bxy_diff));
         pval_global_heidi = StatFunc::pchisq( chival_global_heidi, nsnp_iter-1 );
@@ -1065,8 +1108,20 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
         update_id_map_rm(pleio_snps, indices_snp_map, kept_ID);
         update_id_map_rm(pleio_snps, heidi_snp_map, include_gsmr);
         n_indices_snp = kept_ID.size();
+        heidi_snps.insert(heidi_snps.end(), pleio_snps.begin(), pleio_snps.end());
     }
 
+    // save the pleiotropic SNPs filtered by HEIDI-outlier
+    if (!heidi_snps.empty() && (indi_heidi_flag || global_heidi_flag)) {
+        string pleio_snpfile = _out + ".pleio_snps";
+        ofstream o_pleio_snp(pleio_snpfile.c_str());
+        if(!o_pleio_snp) LOGGER.e(0, "Cannot open file [" + pleio_snpfile + "] to write pleiotropic SNPs.");
+        int nheidisnps = heidi_snps.size();
+        for (i = 0; i < nheidisnps; i++) 
+            o_pleio_snp << heidi_snps[i] << endl;
+        o_pleio_snp.close();
+        LOGGER.i(0,  to_string(nheidisnps) + " pleiotropic SNPs are filtered by HEIDI-outlier analysis. These SNPs have been saved in [" + pleio_snpfile + "].");
+    }
     // check the number of SNPs
     if(indi_heidi_flag || global_heidi_flag) {
         LOGGER.i(0, to_string(n_indices_snp) + " index SNPs are retained after the HEIDI-outlier analysis.");
@@ -1722,11 +1777,17 @@ void mtcojo_cond_output(string output_file, vector<string> snp_name, vector<int>
     ofile.close();
 }
 
-void gcta::mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, double freq_thresh, double gwas_thresh, int clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double indi_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr) {
+void gcta::mtcojo(string mtcojo_bxy_file, string ref_ld_dirt, string w_ld_dirt, double freq_thresh, double gwas_thresh, int clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double indi_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr) {
 
     int i=0, j=0, nsnp=_meta_snp_name_map.size(), nsnp_init=_meta_snp_name.size(), ncovar=_covar_pheno_name.size();
     vector<bool> snp_pair_flag(nsnp_init);
     vector<string> afsnps;
+    eigenVector bxy_est(ncovar);
+    bxy_est.setConstant(-9.0);
+
+    // Read the bxy
+    if (!mtcojo_bxy_file.empty()) bxy_est = read_external_bxy(mtcojo_bxy_file, _covar_pheno_name);
+
     // Calculate allele frequency
     if (_mu.empty()) calcu_mu();
     LOGGER.i(0, "Checking the difference in allele frequency between the GWAS summary datasets and the LD reference sample...");
@@ -1761,8 +1822,8 @@ void gcta::mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, 
 
     // GSMR analysis
     vector<double> gsmr_rst(5);
-    eigenVector bxy_est(ncovar);
     for(i=1; i<=ncovar; i++) {
+        if(bxy_est(i-1)>=0) continue; 
         vector<string> snp_instru;
         string err_msg;
         LOGGER.i(0, "\nGSMR analysis for covariate #" + to_string(i) + " (" + trait_name[i] + ")" + " ...");
@@ -1803,7 +1864,7 @@ void gcta::mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, 
     LOGGER.i(0, "\nmtCOJO analysis ...");
     LOGGER.i(0, "There are " + to_string(nsnp) + " SNPs in common between the target trait and all the covariate trait(s).");
     if(ncovar==1) {
-        mtcojo_est = mtcojo_cond_single_covar(snp_bzy, snp_bzy_se, snp_bzx, snp_bzx_se, bxy_est[0], ldsc_intercept, ldsc_slope, nsnp);
+        mtcojo_est = mtcojo_cond_single_covar(snp_bzy, snp_bzy_se, snp_bzx, snp_bzx_se, bxy_est(0), ldsc_intercept, ldsc_slope, nsnp);
     } else {
         mtcojo_est = mtcojo_cond_multiple_covars(snp_bzy, snp_bzy_se, snp_bzx, snp_bzx_se, bxy_est, ldsc_intercept, ldsc_slope, _meta_vp_trait, nsnp, ncovar);
     }

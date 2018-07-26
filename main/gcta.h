@@ -186,12 +186,12 @@ public:
     eigenMatrix sample_overlap_rb(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eigenMatrix snp_se, eigenMatrix snp_pval, eigenMatrix snp_n, int nexpo, int noutcome, vector<string> snp_name, vector<int> snp_remain, vector<string> trait_name);
 
     // mtCOJO
-    void mtcojo(string mtcojolist_file, string ref_ld_dirt, string w_ld_dirt, double freq_thresh, double gwas_thresh, int clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double indi_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr);
+    void mtcojo(string mtcojo_bxy_file, string ref_ld_dirt, string w_ld_dirt, double freq_thresh, double gwas_thresh, int clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double indi_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr);
     bool mtcojo_ldsc(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eigenMatrix snp_se, eigenMatrix snp_n, int ntrait, vector<string> snp_name, vector<int> snp_remain, string ref_ld_dirt, string w_ld_dirt, vector<string> trait_name, eigenMatrix &ldsc_intercept, eigenMatrix &ldsc_slope);
     void read_mtcojofile(string mtcojolist_file, double gwas_thresh, int nsnp_gsmr);
     double read_single_metafile(string metafile, map<string, int> id_map, vector<string> &snp_a1, vector<string> &snp_a2, 
                                 eigenVector &snp_freq, eigenVector &snp_b, eigenVector &snp_se, eigenVector &snp_pval, eigenVector &snp_n, vector<bool> &snpflag);
-    vector<string> read_snp_metafile(string metafile, double thresh);
+    vector<string> read_snp_metafile(string metafile, map<string,int> &gws_snp_name_map, double thresh);
 
     /////////////////////////
     // gene expresion data
