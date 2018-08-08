@@ -231,7 +231,18 @@ void GRM::unify_grm(string mgrm_file, string out_file){
             start_pos[j] = byte_start_grm;
         }
 
+        vector<uint64_t> w_start_pos(p_index.size());
+        for(int j = 0; j < p_index.size(); j++){
+            w_start_pos[j] = (1 + j) * j / 2 * sizeof(float);
+        }
+
+        //create size of file
+        uint64_t w_total_size = (1 + p_index.size()) * p_index.size() / 2 * sizeof(float);
+        fseek(h_wgrm, w_total_size - 1, SEEK_SET);
+        fputs("\0", h_wgrm);
+
         for(int j = 0; j < size_grm; j++){
+            int64_t random = 0;
             uint64_t grm_index = p_index[j];
             uint64_t num_grm = grm_index + 1;
             uint64_t byte_start_grm = start_pos[grm_index];
@@ -240,30 +251,22 @@ void GRM::unify_grm(string mgrm_file, string out_file){
                 LOGGER.e(0, "Error reading [" + file_name + "], in position " + to_string(ftell(h_grm)), ".");
             }
             uint64_t size_write = j + 1;
-            for(int k = 0; k < size_write; k++){
+            uint64_t base_pos =  w_start_pos[j];
+            for(int k = 0; k < num_grm; k++){
                 uint32_t cur_index = p_index[k];
                 float grm_value;
                 if(cur_index < num_grm){
                     grm_value = *(buf + cur_index);
-                }else{
-                    //fill the other parts
-                    auto bytes_offset = start_pos[cur_index] + grm_index * sizeof(float);
-                    fseek(h_grm, bytes_offset, SEEK_SET); 
-                    if(fread(&grm_value, sizeof(float), 1, h_grm) != 1){
-                        LOGGER.e(0, "Error reading [" + file_name + "], in position " + to_string(bytes_offset), ".");
+                    fseek(h_wgrm, base_pos + k, SEEK_SET);
+                    if(fwrite(&grm_value, sizeof(float), 1, h_wgrm) != 1){
+                        LOGGER.e(0, "Write ERROR");
                     }
                 }
-                *(wbuf + k) = grm_value;
+
             }
             //last element
-            //*(wbuf + j) = *(buf + grm_index);
-
-            if(size_write != fwrite(wbuf, sizeof(float), size_write, h_wgrm)){
-                LOGGER.e(0, "writing to [" + wfile_name + "], pos: " + std::to_string(ftell(h_wgrm)) + "."); 
-            }
         }
         delete[] buf;
-        delete[] wbuf;
         fclose(h_grm);
         fclose(h_wgrm);
         LOGGER.i(0, "GRM has been written to [" + wfile_name + "].");

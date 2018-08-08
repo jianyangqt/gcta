@@ -1448,6 +1448,7 @@ void gcta::calcu_tr_PA(eigenMatrix &P, eigenVector &tr_PA) {
             memset(d_bufs, 0, _n * sizeof(double));
             #pragma omp parallel for
             for (int k = 0; k < _n; k++) {
+                // BUG shall be _A...(l, k)
                 for (int l = 0; l < _n; l++) d_bufs[k] += P(k, l)*(_A[_r_indx[i]])(k, l);
             }
             for(int k = 0; k < _n; k++){
