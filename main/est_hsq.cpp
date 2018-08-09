@@ -23,6 +23,10 @@ void gcta::set_reml_force_converge()
     _reml_force_converge = true;
 }
 
+void gcta::set_cv_blup(bool cv_blup){
+    _cv_blup = cv_blup;
+}
+
 void gcta::set_reml_no_converge()
 {
     _reml_no_converge = true;
@@ -813,6 +817,47 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
         }
         LOGGER << "\nBLUP solutions of the genetic effects for " << _keep.size() << " individuals has been saved in the file [" + rand_eff_file + "]." << endl;
     }
+
+    if(_cv_blup){
+        string rand_eff_file = _out + ".indi.cvblp";
+        ofstream o_rand_eff(rand_eff_file.c_str());
+
+        eigenMatrix xt_vi_x_i_xtvi = Xt_Vi_X_i * Vi_X.transpose();
+        _b = xt_vi_x_i_xtvi * _y; 
+        eigenMatrix Xproj = _X * xt_vi_x_i_xtvi;
+        eigenVector diag_Xproj = Xproj.diagonal();
+        eigenVector y_fix_eff = Xproj * _y;
+        eigenVector y_fix_eff_loo = (y_fix_eff - diag_Xproj.cwiseProduct(_y)).array() / (1.0 - diag_Xproj.array()).array();
+        eigenVector y_tilde = _y - y_fix_eff_loo;
+        eigenVector y_tilde_centered = y_tilde.array() - y_tilde.mean();
+        eigenVector bBlup_base = (_Vi * y_tilde_centered);
+
+        int col_num = _r_indx.size();
+        eigenMatrix bBlups(bBlup_base.size(),  col_num);
+        eigenMatrix cvBlups(bBlup_base.size(), col_num);
+
+        for(int i = 0; i < col_num; i++){
+            bBlups.col(i) = bBlup_base * varcmp[i];
+            eigenVector gBlup_fix_eff_loo = _A[_r_indx[i]] * bBlups.col(i);
+            int _y_size = _y.size();
+            eigenVector diag_H(_y_size);
+            for(int j = 0; j < _y_size; j++){
+                diag_H[j] = (_A[_r_indx[i]].col(j).array() * _Vi.col(j).array()).sum() * varcmp[i];
+            }
+            cvBlups.col(i) = (gBlup_fix_eff_loo.array() - diag_H.array() * y_tilde_centered.array()).array() / (1.0 - diag_H.array()).array();
+        }
+
+        // output the effects
+        for(int i = 0; i < _keep.size(); i++){
+            o_rand_eff << _fid[_keep[i]] << "\t" << _pid[_keep[i]] << "\t";
+            for(int j = 0; j < col_num; j++){
+                o_rand_eff << setprecision(6) << bBlups(i, j) << "\t" << cvBlups(i, j) << "\t";
+            }
+            o_rand_eff << endl;
+        }
+        LOGGER << "\ncvBLUP solutions of the genetic effects for " << _keep.size() << " individuals has been saved in the file [" + rand_eff_file + "]." << endl;
+    }
+
 }
 
 void gcta::init_varcomp(vector<double> &reml_priors_var, vector<double> &reml_priors, eigenVector &varcmp) {

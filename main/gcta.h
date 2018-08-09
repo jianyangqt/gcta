@@ -123,6 +123,7 @@ public:
     void blup_snp_dosage();
     void set_reml_force_inv();
     void set_reml_force_converge();
+    void set_cv_blup(bool cv_blup);
     void set_reml_no_converge();
     void set_reml_fixed_var();
     void set_reml_mtd(int reml_mtd);
@@ -528,6 +529,7 @@ private:
     int _reml_max_iter;
     int _reml_mtd;
     int _reml_inv_mtd;
+    bool _cv_blup;
     eigenMatrix _X;
     vector<eigenMatrix> _A;
     eigenVector _y;

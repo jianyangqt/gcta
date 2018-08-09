@@ -111,15 +111,17 @@ void gcta::read_metafile(string metafile, bool GC, double GC_val) {
     _beta.resize(_include.size());
     _beta_se.resize(_include.size());
     _pval.resize(_include.size());
+    _chisq.resize(_include.size());
     _N_o.resize(_include.size());
     for (i = 0; i < _include.size(); i++) {
         _freq[i] = freq_buf[indx[i]];
         _beta[i] = beta_buf[indx[i]];
         _beta_se[i] = beta_se_buf[indx[i]];
+        chi_buf = _beta[i] / _beta_se[i];
+        _chisq[i] = chi_buf * chi_buf;
         if (GC) {
-            chi_buf = _beta[i] / _beta_se[i];
-            _pval[i] = StatFunc::pchisq(chi_buf * chi_buf / _GC_val, 1);
-        } else _pval[i] = pval_buf[indx[i]];
+            _pval[i] = StatFunc::pchisq(_chisq[i] / _GC_val, 1);
+        } else _pval[i] = StatFunc::pchisq(_chisq[i], 1);
         _N_o[i] = N_o_buf[indx[i]];
     }
     _jma_Ve = _jma_Vp;
@@ -326,10 +328,10 @@ void gcta::massoc_cond_output(vector<int> &remain, eigenVector &bC, eigenVector 
 void gcta::stepwise_slct(vector<int> &slct, vector<int> &remain, eigenVector &bC, eigenVector &bC_se, eigenVector &pC, int mld_slct_alg, uint64_t top_SNPs)
 {
     int i = 0, i_buf = 0;
-    vector<double> p_buf;
-    eigenVector2Vector(_pval, p_buf);
-    int m = min_element(p_buf.begin(), p_buf.end()) - p_buf.begin();
-    if (p_buf[m] >= _jma_p_cutoff) return;
+    vector<double> p_buf, chisq;
+    eigenVector2Vector(_chisq, chisq);
+    int m = max_element(chisq.begin(), chisq.end()) - chisq.begin();
+    if (_pval[m] >= _jma_p_cutoff) return;
     slct.push_back(m);
     for (i = 0; i < _include.size(); i++) {
         if (i != m) remain.push_back(i);
