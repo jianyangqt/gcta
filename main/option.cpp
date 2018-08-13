@@ -161,8 +161,8 @@ void option(int option_num, char* option_str[])
     int argc = option_num;
     vector<char *> argv(option_num + 2);
     for (i = 0; i < option_num; i++) argv[i] = option_str[i];
-    argv[option_num] = "gcta";
-    argv[option_num + 1] = "gcta";
+    argv[option_num] = const_cast<char*>("gcta");
+    argv[option_num + 1] = const_cast<char*>("gcta");
     LOGGER << "Accepted options:" << endl;
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--thread-num") == 0) {

@@ -598,8 +598,8 @@ private:
     eigenVector _MSX_B;
     eigenSparseMat _B_N;
     eigenSparseMat _B;
-    eigenMatrix _B_N_i;
-    eigenMatrix _B_i;
+    eigenSparseMat _B_N_i;
+    eigenSparseMat _B_i;
     eigenVector _D_N;
     eigenSparseMat _Z_N;
     eigenSparseMat _Z;

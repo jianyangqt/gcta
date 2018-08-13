@@ -516,14 +516,18 @@ bool gcta::init_B(const vector<int> &indx)
     _B.finalize();
     _B_N.finalize();
 
-    LDLT<eigenMatrix> ldlt_B(_B);
+    SimplicialLDLT<eigenSparseMat> ldlt_B(_B);
+
     if (ldlt_B.vectorD().minCoeff() < 0 || sqrt(ldlt_B.vectorD().maxCoeff() / ldlt_B.vectorD().minCoeff()) > 30) return false;
-    _B_i = eigenMatrix::Identity(indx.size(), indx.size());
-    ldlt_B.solveInPlace(_B_i);
+
+    _B_i.resize(indx.size(), indx.size());
+    _B_i.setIdentity();
+    _B_i = ldlt_B.solve(_B_i).eval();
     if ((1 - eigenVector::Constant(indx.size(), 1).array() / (diagB.array() * _B_i.diagonal().array())).maxCoeff() > _jma_collinear) return false;
-    LDLT<eigenMatrix> ldlt_B_N(_B_N);
-    _B_N_i = eigenMatrix::Identity(indx.size(), indx.size());
-    ldlt_B_N.solveInPlace(_B_N_i);
+    SimplicialLDLT<eigenSparseMat> ldlt_B_N(_B_N);
+    _B_N_i.resize(indx.size(), indx.size());
+    _B_N_i.setIdentity();
+    _B_N_i = ldlt_B_N.solve(_B_N_i).eval();
     return true;
 }
 
@@ -593,18 +597,20 @@ bool gcta::insert_B_and_Z(const vector<int> &indx, int insert_indx)
     }
     _B.finalize();
     _B_N.finalize();
-    LDLT<eigenMatrix> ldlt_B(_B);
-    _B_i = eigenMatrix::Identity(ix.size(), ix.size());
-    ldlt_B.solveInPlace(_B_i);
+    SimplicialLDLT<eigenSparseMat> ldlt_B(_B);
+    _B_i.resize(ix.size(), ix.size());
+    _B_i.setIdentity();
+    _B_i = ldlt_B.solve(_B_i).eval();
     if (ldlt_B.vectorD().minCoeff() < 0 || sqrt(ldlt_B.vectorD().maxCoeff() / ldlt_B.vectorD().minCoeff()) > 30 || (1 - eigenVector::Constant(ix.size(), 1).array() / (diagB.array() * _B_i.diagonal().array())).maxCoeff() > _jma_collinear) {
         _jma_snpnum_collienar++;
         _B = B_buf;
         _B_N = B_N_buf;
         return false;
     }
-    LDLT<eigenMatrix> ldlt_B_N(_B_N);
-    _B_N_i = eigenMatrix::Identity(ix.size(), ix.size());
-    ldlt_B_N.solveInPlace(_B_N_i);
+    SimplicialLDLT<eigenSparseMat> ldlt_B_N(_B_N);
+    _B_N_i.resize(ix.size(), ix.size());
+    _B_N_i.setIdentity();
+    _B_N_i = ldlt_B_N.solve(_B_N_i).eval();
     _D_N.resize(ix.size());
     for (j = 0; j < ix.size(); j++) {
         _D_N[j] = _MSX[ix[j]] * _Nd[ix[j]];
@@ -675,12 +681,15 @@ void gcta::erase_B_and_Z(const vector<int> &indx, int erase_indx) {
 
     if (_Z_N.cols() < 1) return;
 
-    LDLT<eigenMatrix> ldlt_B(_B);
-    _B_i = eigenMatrix::Identity(indx.size() - 1, indx.size() - 1);
-    ldlt_B.solveInPlace(_B_i);
-    LDLT<eigenMatrix> ldlt_B_N(_B_N);
-    _B_N_i = eigenMatrix::Identity(indx.size() - 1, indx.size() - 1);
-    ldlt_B_N.solveInPlace(_B_N_i);
+    SimplicialLDLT<eigenSparseMat> ldlt_B(_B);
+    _B_i.resize(indx.size() - 1, indx.size() - 1);
+    _B_i.setIdentity();
+
+    _B_i = ldlt_B.solve(_B_i).eval();
+    SimplicialLDLT<eigenSparseMat> ldlt_B_N(_B_N);
+    _B_N_i.resize(indx.size() - 1, indx.size() - 1);
+    _B_N_i.setIdentity();
+    _B_N_i = ldlt_B_N.solve(_B_N_i).eval();
 
     eigenSparseMat Z_buf(_Z), Z_N_buf(_Z_N);
     _Z.resize(indx.size() - 1, _include.size());
