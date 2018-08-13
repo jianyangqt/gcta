@@ -3,6 +3,8 @@
 #include <sstream>
 #include <iterator>
 
+int n_gsmr_rst_item = 6;
+
 bool determine_gwas_file(string input_file) {
     int nelements = 0;
     bool file_type = false;
@@ -390,14 +392,14 @@ void collect_gsmr_result(stringstream &ss, vector<vector<double>> bxy_est, int g
         case 2 : output_forward=true; output_reverse=true; break;
     }
 
-    ss << "Exposure\tOutcome\tbxy\tse\tp\tnsnp\tglobal_heidi" <<endl;
+    ss << "Exposure\tOutcome\tbxy\tse\tp\tnsnp\tglobal_heidi(hotelling)\tglobal_heidi(pchisqsum)" <<endl;
     k=0; 
     if(output_forward) {
         for(i=0; i<expo_num_buf; i++) {
             for(j=0; j<outcome_num_buf; j++, k++) {
                 ss << pheno_name[i] << "\t" << pheno_name[expo_num_buf+j] << "\t"
                       << bxy_est[0][k] << "\t" << bxy_est[1][k] << "\t" 
-                      << bxy_est[2][k] << "\t" << bxy_est[3][k] << "\t" << bxy_est[4][k] << endl;
+                      << bxy_est[2][k] << "\t" << bxy_est[3][k] << "\t" << bxy_est[4][k] << "\t" << bxy_est[5][k] << endl;
             }
         }
     }
@@ -406,7 +408,7 @@ void collect_gsmr_result(stringstream &ss, vector<vector<double>> bxy_est, int g
             for(j=0; j<expo_num_buf; j++, k++) {
                 ss << pheno_name[expo_num_buf+i] << "\t" << pheno_name[j] << "\t"
                       << bxy_est[0][k] << "\t" << bxy_est[1][k] << "\t" 
-                      << bxy_est[2][k] << "\t" << bxy_est[3][k] << "\t" << bxy_est[4][k] << endl;
+                      << bxy_est[2][k] << "\t" << bxy_est[3][k] << "\t" << bxy_est[4][k] << "\t" << bxy_est[5][k] << endl;
             }
         }
     }
@@ -473,7 +475,7 @@ void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double 
             bxy_est = forward_gsmr(ss, snp_instru_map, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_thresh, ld_fdr_thresh, nsnp_gsmr);
             bxy_est_buf = reverse_gsmr(ss, snp_instru_map, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_thresh, ld_fdr_thresh, nsnp_gsmr);
             int i = 0;
-            for(i=0; i<5; i++) bxy_est[i].insert(bxy_est[i].end(), bxy_est_buf[i].begin(), bxy_est_buf[i].end());
+            for(i=0; i<n_gsmr_rst_item; i++) bxy_est[i].insert(bxy_est[i].end(), bxy_est_buf[i].begin(), bxy_est_buf[i].end());
             break;
         }
     }
@@ -516,11 +518,11 @@ vector<vector<double>> gcta::forward_gsmr(stringstream &ss, map<string,int> &snp
     vector<bool> snp_pair_flag(nsnp);
     vector<vector<double>> bxy_est;
      
-    bxy_est.resize(5);
-    for(i=0; i<5; i++) bxy_est[i].resize(m);
+    bxy_est.resize(n_gsmr_rst_item);
+    for(i=0; i<n_gsmr_rst_item; i++) bxy_est[i].resize(m);
     
     // GSMR analysis
-    vector<double> gsmr_rst(5);
+    vector<double> gsmr_rst(n_gsmr_rst_item);
     for(i=0, t=0; i<_expo_num; i++) {
         for(j=0; j<_outcome_num; j++, t++) {
             string err_msg;
@@ -533,7 +535,7 @@ vector<vector<double>> gcta::forward_gsmr(stringstream &ss, map<string,int> &snp
                 LOGGER.w(0, err_msg);
             else
                 LOGGER.i(0, "Forward GSMR analysis for exposure #" + to_string(i+1) + " and outcome #" + to_string(j+1) + " completed.");
-            for(k=0; k<5; k++) bxy_est[k][t] = gsmr_rst[k];
+            for(k=0; k<n_gsmr_rst_item; k++) bxy_est[k][t] = gsmr_rst[k];
 
             // Saving the SNP instruments
             collect_snp_instru(ss, snp_instru_map, i+1, j+_expo_num+1, snp_instru); 
@@ -548,11 +550,11 @@ vector<vector<double>> gcta::reverse_gsmr(stringstream &ss, map<string,int> &snp
      vector<bool> snp_pair_flag(nsnp);
      vector<vector<double>> bxy_est;
      
-     bxy_est.resize(5);
-     for(i=0; i<5; i++) bxy_est[i].resize(m);
+     bxy_est.resize(n_gsmr_rst_item);
+     for(i=0; i<n_gsmr_rst_item; i++) bxy_est[i].resize(m);
     
     // GSMR analysis
-    vector<double> gsmr_rst(5);
+    vector<double> gsmr_rst(n_gsmr_rst_item);
     for(i=0, t=0; i<_outcome_num; i++) {
         for(j=0; j<_expo_num; j++, t++) {
             string err_msg;
@@ -565,8 +567,8 @@ vector<vector<double>> gcta::reverse_gsmr(stringstream &ss, map<string,int> &snp
                 LOGGER.w(0, err_msg);
             else
                 LOGGER.i(0, "Reverse GSMR analysis for exposure #" + to_string(j+1) + " and outcome #" + to_string(i+1) + " completed.");
-            for(k=0; k<5; k++) bxy_est[k][t] = gsmr_rst[k]; 
-
+            for(k=0; k<n_gsmr_rst_item; k++) bxy_est[k][t] = gsmr_rst[k]; 
+            
             // Saving the SNP instruments
             collect_snp_instru(ss, snp_instru_map, i+_expo_num+1, j+1, snp_instru);
         }

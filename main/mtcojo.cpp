@@ -1066,9 +1066,9 @@ eigenVector indi_heidi_pvalue(double bxy_hat, double bxy_hat_se, eigenVector vec
     return(indi_heidi_pval);
 }
 
-double global_heidi_pvalue(double bxy_hat, double bxy_hat_se, eigenVector bzx, eigenVector bzx_se, eigenVector bzy, eigenVector bzy_se, 
+vector<double> global_heidi_pvalue(double bxy_hat, double bxy_hat_se, eigenVector bzx, eigenVector bzx_se, eigenVector bzy, eigenVector bzy_se, 
                            eigenMatrix ld_r_mat, eigenVector vec_1t_v, vector<string> indices_snp, vector<int> kept_ID, map<string, int> meta_snp_name_map) {
-    int i = 0, n_indices_snp = kept_ID.size();
+    int i = 0, j = 0, n_indices_snp = kept_ID.size();
 
     // d = bxy_i - bxy_gsmr
     eigenVector d = est_diff_bxy(bxy_hat, indices_snp, kept_ID, bzx, bzy, meta_snp_name_map);
@@ -1079,15 +1079,29 @@ double global_heidi_pvalue(double bxy_hat, double bxy_hat_se, eigenVector bzx, e
     eigenMatrix var_d = est_var_diff_bxy(cov_bxy, cov_bxy_bgsmr, bxy_hat_se, n_indices_snp);
 
     // inverse Vd matrix
-    var_d = var_d + 1e-3*eigenMatrix::Identity(n_indices_snp, n_indices_snp);
+    vector<double> global_heidi_pval(2);
+    var_d = var_d + eps*eigenMatrix::Identity(n_indices_snp, n_indices_snp);
+    // Hotelling method
     LDLT<eigenMatrix> ldlt_var_d(var_d);
-    if( ldlt_var_d.vectorD().minCoeff() < 0 )
-        LOGGER.e(0, "The variance-covariance matrix for difference of bxy is not invertible.");
-    eigenMatrix var_d_inv = eigenMatrix::Identity(n_indices_snp, n_indices_snp);
-    ldlt_var_d.solveInPlace(var_d_inv);
- 
-    double global_heidi_chival = d.transpose()*var_d_inv*d;
-    double global_heidi_pval = StatFunc::pchisq(global_heidi_chival, n_indices_snp);
+    if( ldlt_var_d.vectorD().minCoeff() < 0 ) {
+        global_heidi_pval[0] = nan("");
+        //LOGGER.e(0, "The variance-covariance matrix for difference of bxy is not invertible.");
+    } else {
+        eigenMatrix var_d_inv = eigenMatrix::Identity(n_indices_snp, n_indices_snp);
+        ldlt_var_d.solveInPlace(var_d_inv);
+    
+        double global_heidi_chival = d.transpose()*var_d_inv*d;
+        global_heidi_pval[0] = StatFunc::pchisq(global_heidi_chival, n_indices_snp);
+    }
+    // pchisqsum method
+    eigenMatrix corr_d(n_indices_snp, n_indices_snp);
+    corr_d.setIdentity(n_indices_snp, n_indices_snp);
+    for(i=0; i<(n_indices_snp-1); i++) 
+        for(j=i+1; j<n_indices_snp; j++) 
+            corr_d(i,j) = corr_d(j,i) = var_d(i,j) / sqrt(var_d(i,i)*var_d(j,j));
+    double chival = (d.array()*d.array()/var_d.diagonal().array()).sum();
+    SelfAdjointEigenSolver<eigenMatrix> saes(corr_d);
+    global_heidi_pval[1] = StatFunc::pchisqsum(chival, saes.eigenvalues().cast<double>());
 
     return(global_heidi_pval);  
 }
@@ -1096,7 +1110,7 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
    
     int i=0, j=0, nsnp = _include.size(), nindi=_keep.size();    
     vector<string> indices_snp;
-    vector<double> rst(5);
+    vector<double> rst(6);
     for(i=0; i<4; i++) rst[i] = nan("");
 
     if(nsnp < nsnp_gsmr) {
@@ -1221,7 +1235,8 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
     }
 
     // HEIDI-outlier step 2
-    double global_heidi_pval = 0.0;
+    vector<double> global_heidi_pval(2);
+    global_heidi_pval[0] = global_heidi_pval[1] = nan("");
     while(1) {
         // bxy by GSMR
         bxy_sort.resize(n_indices_snp);
@@ -1240,7 +1255,7 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
                                 ld_r_mat, vec_1t_v, indices_snp, kept_ID, _meta_snp_name_map);
                             
         if(!global_heidi_flag) break;
-        if(global_heidi_pval >= global_heidi_thresh) break;
+        if(global_heidi_pval[1] >= global_heidi_thresh) break;
 
         // find the SNP with the minimal p-value
         double min_pval = 1.0;
@@ -1268,7 +1283,7 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
         snp_instru[i] = indices_snp[kept_ID[i]];
 
     double bxy_hat_pval = StatFunc::pchisq(bxy_hat*bxy_hat/(bxy_hat_se*bxy_hat_se), 1);
-    rst[0] = bxy_hat; rst[1] = bxy_hat_se; rst[2] = bxy_hat_pval; rst[3] = n_indices_snp; rst[4] = global_heidi_pval;
+    rst[0] = bxy_hat; rst[1] = bxy_hat_se; rst[2] = bxy_hat_pval; rst[3] = n_indices_snp; rst[4] = global_heidi_pval[0]; rst[5] = global_heidi_pval[1];
     return rst;
 }
 
@@ -1891,7 +1906,7 @@ void gcta::mtcojo(string mtcojo_bxy_file, string ref_ld_dirt, string w_ld_dirt, 
     vector<bool> snp_pair_flag(nsnp_init);
     vector<string> afsnps;
     eigenVector bxy_est(ncovar);
-    bxy_est.setConstant(-9.0);
+    bxy_est.setConstant(-999999.0);
 
     // Read the bxy
     if (!mtcojo_bxy_file.empty()) bxy_est = read_external_bxy(mtcojo_bxy_file, _covar_pheno_name);
@@ -1929,9 +1944,9 @@ void gcta::mtcojo(string mtcojo_bxy_file, string ref_ld_dirt, string w_ld_dirt, 
     } 
 
     // GSMR analysis
-    vector<double> gsmr_rst(5);
+    vector<double> gsmr_rst(6);
     for(i=1; i<=ncovar; i++) {
-        if(bxy_est(i-1)>=0) continue; 
+        if(fabs(bxy_est(i-1))<100) continue; 
         vector<string> snp_instru;
         string err_msg;
         LOGGER.i(0, "\nGSMR analysis for covariate #" + to_string(i) + " (" + trait_name[i] + ")" + " ...");
