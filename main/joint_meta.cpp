@@ -1,6 +1,10 @@
 #include "gcta.h"
 
+void gcta::set_diff_freq(double freq_diff){
+    _diff_freq = freq_diff;
+}
 void gcta::read_metafile(string metafile, bool GC, double GC_val) {
+    double freq_diff_thresh = _diff_freq;
     LOGGER << "\nReading GWAS summary-level statistics from [" + metafile + "] ..." << endl;
     ifstream Meta(metafile.c_str());
     if (!Meta) LOGGER.e(0, "can not open the file [" + metafile + "] to read.");
@@ -85,23 +89,56 @@ void gcta::read_metafile(string metafile, bool GC, double GC_val) {
 
     LOGGER << "Matching the GWAS meta-analysis results to the genotype data ..." << endl;
     update_id_map_kp(snplist, _snp_name_map, _include);
-    vector<int> indx(_include.size());
+    if (_mu.empty()) calcu_mu();
+
+    vector<int> indx;
+    vector<string> snplist_freq;
+    vector<string> bad_snp_freq, bad_A1_freq, bad_A2_freq, bad_refA_freq;
+    vector<double> bad_freq_value, bad_freq_ma;
     map<string, int> id_map;
     for (i = 0; i < snplist.size(); i++) id_map.insert(pair<string, int>(snplist[i], i));
     for (i = 0; i < _include.size(); i++) {
-        iter = id_map.find(_snp_name[_include[i]]);
-        indx[i] = iter->second;
-        _ref_A[_include[i]] = ref_A_buf[iter->second];
-        if (!_mu.empty() && ref_A_buf[iter->second] == _allele2[_include[i]]) _mu[_include[i]] = 2.0 - _mu[_include[i]];
+        int include_i = _include[i];
+        string cur_snp_name = _snp_name[include_i];
+        iter = id_map.find(cur_snp_name);
+        _ref_A[include_i] = ref_A_buf[iter->second];
+        if (!_mu.empty() && ref_A_buf[iter->second] == _allele2[include_i]){
+            _mu[include_i] = 2.0 - _mu[include_i];
+        }
+        double cur_freq_value =  _mu[include_i] / 2.0;
+        double freq_diff = abs(cur_freq_value - freq_buf[iter->second]);
+        if(freq_diff < freq_diff_thresh){
+            snplist_freq.push_back(cur_snp_name);
+            indx.push_back(iter->second);
+        }else{
+            bad_snp_freq.push_back(cur_snp_name);
+            bad_A1_freq.push_back(_allele1[include_i]);
+            bad_A2_freq.push_back(_allele2[include_i]);
+            bad_refA_freq.push_back(_ref_A[include_i]);
+            bad_freq_value.push_back(cur_freq_value);
+            bad_freq_ma.push_back(freq_buf[iter->second]);
+        }
+        
     }
+    update_id_map_kp(snplist_freq, _snp_name_map, _include);
+
     if (!bad_snp.empty()) {
         string badsnpfile = _out + ".badsnps";
         ofstream obadsnp(badsnpfile.c_str());
         obadsnp << "SNP\tA1\tA2\tRefA" << endl;
         for (i = 0; i < bad_snp.size(); i++) obadsnp << bad_snp[i] << "\t" << bad_A1[i] << "\t" << bad_A2[i] << "\t" << bad_refA[i] << endl;
         obadsnp.close();
-        LOGGER << "Warning: can't match the reference alleles of " << bad_snp.size() << " SNPs to those in the genotype data. These SNPs have been saved in [" + badsnpfile + "]." << endl;
+        LOGGER << "Warning: can't match the reference alleles or of " << bad_snp.size() << " SNPs to those in the genotype data. These SNPs have been saved in [" + badsnpfile + "]." << endl;
     }
+    if(!bad_snp_freq.empty()){
+        string badsnpfile = _out + ".freq.badsnps";
+        ofstream obadsnp(badsnpfile.c_str());
+        obadsnp << "SNP\tA1\tA2\tRefA\tgeno_freq\tfreq" << endl;
+        for (int i = 0; i < bad_snp_freq.size(); i++) obadsnp << bad_snp_freq[i] << "\t" << bad_A1_freq[i] << "\t" << bad_A2_freq[i] << "\t" << bad_refA_freq[i] << "\t" << bad_freq_value[i] << "\t" << bad_freq_ma[i]<< endl;
+        obadsnp.close();
+        LOGGER << bad_snp_freq.size() << " SNP(s) have large difference of allele frequency among the GWAS summary data and the reference sample. These SNPs have been saved in [" << badsnpfile << "]." << endl; 
+    }
+
     if (_include.empty()) LOGGER.e(0, "all the SNPs in the GWAS meta-analysis results can't be found in the genotype data.");
     else LOGGER << _include.size() << " SNPs are matched to the genotype data." << endl;
 

@@ -145,6 +145,7 @@ public:
     void GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, int control_num, double hsq, double K, int seed, bool output_causal, bool simu_emb_flag, int eff_mod=0);
     //void simu_geno_unlinked(int N, int M, double maf);
 
+    void set_diff_freq(double freq_diff);
     void run_massoc_slct(string metafile, int wind_size, double p_cutoff, double collinear, int64_t top_SNPs, bool joint_only, bool GC, double GC_val, bool actual_geno, int mld_slct_alg);
     void run_massoc_cond(string metafile, string snplistfile, int wind_size, double collinear, bool GC, double GC_val, bool actual_geno);
     void run_massoc_sblup(string metafile, int wind_size, double lambda);
@@ -604,6 +605,7 @@ private:
     eigenSparseMat _Z_N;
     eigenSparseMat _Z;
     double g_massoc_out_thresh = -1.0;
+    double _diff_freq = 0.2;
     
     // GSMR analysis
     int _expo_num;
