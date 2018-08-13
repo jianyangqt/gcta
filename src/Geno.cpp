@@ -1275,6 +1275,7 @@ int Geno::registerOption(map<string, vector<string>>& options_in) {
             file_item.close();
         }
         options["m_file"] = boost::algorithm::join(options_in["m_file"], "\t");
+        boost::replace_all(options["m_file"], "\r", "");
     }
     options_in.erase("m_file");
 

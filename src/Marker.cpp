@@ -113,15 +113,18 @@ void Marker::matchSNPListFile(string filename, int num_min_fields, const vector<
     while(std::getline(allele_file, line)){
         num_line++;
         vector<string> line_elements;
+        uint16_t num_elements;
         boost::split(line_elements, line, boost::is_any_of("\t "));
-        if(line_elements.size() < require_fields){
+        num_elements = line_elements.size();
+        boost::replace_all(line_elements[num_elements - 1], "\r", "");
+        if(num_elements < require_fields){
             bad_lines.push_back(num_line);
         }
-        if(line_elements.size() >= 1){
+        if(num_elements >= 1){
             marker_name.push_back(line_elements[0]);
         }
 
-        if(line_elements.size() >= 2){
+        if(num_elements >= 2){
             ref_allele.push_back(line_elements[1]);
         }
         for(auto index : field_return){
@@ -246,6 +249,7 @@ void Marker::read_bim(string bim_file) {
         vector<string> line_elements;
         //vector<string> line_elements(begin, end);
         boost::split(line_elements, line, boost::is_any_of("\t "));
+        boost::replace_all(line_elements[line_elements.size() - 1], "\r", "");
         if(line_elements.size() < Constants::NUM_BIM_COL) {
             LOGGER.e(0, "the bim file [" + bim_file + "], line " + to_string(line_number)
                    + " has elements less than " + to_string(Constants::NUM_BIM_COL));
@@ -553,6 +557,7 @@ vector<string> Marker::read_snplist(string snplist_file) {
         //std::istream_iterator<string> begin(line_buf), end;
         vector<string> line_elements;
         boost::split(line_elements, line, boost::is_any_of("\t "));
+        boost::replace_all(line_elements[line_elements.size() - 1], "\r", "");
         if(line_elements.size() < 1){
             LOGGER.e(0, "the SNP list file [" + snplist_file + "], line " + to_string(line_number) +
                         " has elements less than 1");
@@ -606,6 +611,7 @@ int Marker::registerOption(map<string, vector<string>>& options_in){
             file_item.close();
         }
         options["m_file"] = boost::algorithm::join(options_in["m_file"], "\t");
+        boost::replace_all(options["m_file"], "\r", "");
     }
 
     if(options_in.find("--autosome-num") != options_in.end()){

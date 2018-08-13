@@ -460,6 +460,7 @@ void Covar::read_covar(string filename, vector<string>& sub_list, vector<vector<
 
     boost::split(line_elements, line, boost::is_any_of("\t "));
     int ncol = line_elements.size();
+    boost::replace_all(line_elements[ncol - 1], "\r", "");
     int nkeep = 0;
     int last_keep = 0;
     if(keep_row_p){
@@ -519,6 +520,7 @@ void Covar::read_covar(string filename, vector<string>& sub_list, vector<vector<
     while(std::getline(hcovar, line)){
         line_number++;
         boost::split(line_elements, line, boost::is_any_of("\t "));
+        boost::replace_all(line_elements[line_elements.size() - 1], "\r", "");
         if(line_elements.size() < last_keep){
             LOGGER.e(0, "can't read " + to_string(last_keep) + "th column of line " + to_string(line_number) + " from " + err_string);
         }else if(line_elements.size() != ncol){

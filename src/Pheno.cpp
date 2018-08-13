@@ -176,6 +176,7 @@ vector<string> Pheno::read_sublist(string sublist_file, vector<vector<double>> *
         vector<string> line_elements;
         boost::split(line_elements, line, boost::is_any_of("\t "));
         int num_elements = line_elements.size();
+        boost::replace_all(line_elements[num_elements - 1], "\r", "");
         if(num_elements < 2){
             LOGGER.e(0, err_file + ", line " + to_string(line_number) +
                         " has elements less than 2");
@@ -237,11 +238,13 @@ void Pheno::read_sample(string sample_file){
     vector<string> line_elements;
     boost::split(line_elements, line, boost::is_any_of("\t "));
     int col_num = line_elements.size();
+    boost::replace_all(line_elements[col_num - 1], "\r", "");
     if(line_elements[0] == "ID_1" && line_elements[1] == "ID_2"
             && line_elements[2] == "missing"
             && line_elements[3] == "sex"){
         std::getline(hsample, line);
         boost::split(line_elements, line, boost::is_any_of("\t "));
+        boost::replace_all(line_elements[line_elements.size() - 1], "\r", "");
         if(col_num != line_elements.size() 
                 || line_elements[0] != "0"
                 || line_elements[1] != "0"
@@ -256,6 +259,7 @@ void Pheno::read_sample(string sample_file){
     int line_number = 0;
     while(std::getline(hsample, line)){
         boost::split(line_elements, line, boost::is_any_of("\t "));
+        boost::replace_all(line_elements[line_elements.size() - 1], "\r", "");
         if(line_elements.size() == col_num){
             fid.push_back(line_elements[0]);
             pid.push_back(line_elements[1]);
@@ -293,6 +297,7 @@ void Pheno::read_fam(string fam_file) {
         line_number++;
         vector<string> line_elements;
         boost::split(line_elements, line, boost::is_any_of("\t ")); 
+        boost::replace_all(line_elements[line_elements.size() - 1], "\r", "");
         if(line_elements.size() < Constants::NUM_FAM_COL) {
             LOGGER.e(0, "the fam file [" + fam_file + "], line " + to_string(line_number)
                    + " has elements less than " + to_string(Constants::NUM_FAM_COL));
@@ -695,6 +700,7 @@ int Pheno::registerOption(map<string, vector<string>>& options_in){
         while(std::getline(m_file,line)){
             vector<string> line_elements;
             boost::split(line_elements, line, boost::is_any_of("\t "));
+            boost::replace_all(line_elements[line_elements.size() - 1], "\r", "");
             for(auto elements : line_elements){
                 if(!elements.empty()){
                     vector<string> ids = read_sublist(elements+".fam");
