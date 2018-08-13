@@ -500,10 +500,12 @@ void gcta::manipulate_grm(string grm_file, string keep_indi_file, string remove_
             for (j = 0; j <= i; j++) _grm(i, j) = grm_buf(_keep[i], _keep[j]);
         }
         grm_buf.resize(0,0);
-        MatrixXf grm_N_buf = _grm_N;
-        _grm_N.resize(_keep.size(), _keep.size());
-        for (i = 0; i < _keep.size(); i++) {
-            for (j = 0; j <= i; j++) _grm_N(i, j) = grm_N_buf(_keep[i], _keep[j]);
+        if(!dont_read_N){
+            MatrixXf grm_N_buf = _grm_N;
+            _grm_N.resize(_keep.size(), _keep.size());
+            for (i = 0; i < _keep.size(); i++) {
+                for (j = 0; j <= i; j++) _grm_N(i, j) = grm_N_buf(_keep[i], _keep[j]);
+            }
         }
     }
 }
