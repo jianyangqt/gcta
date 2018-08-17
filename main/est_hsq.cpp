@@ -821,12 +821,25 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
     if(_cv_blup){
         string rand_eff_file = _out + ".indi.cvblp";
         ofstream o_rand_eff(rand_eff_file.c_str());
+        double logdet; 
+        int iter;
+        // Other function changed the _Vi and some variables, thus need recalculate
+        calcu_Vi(_Vi, varcmp, logdet, iter);
+        calcu_P(_Vi, Vi_X, Xt_Vi_X_i, _P);
 
         eigenMatrix xt_vi_x_i_xtvi = Xt_Vi_X_i * Vi_X.transpose();
+        // same above
+        //eigenMatrix xt_vi_x_i_xtvi = Xt_Vi_X_i * (_X.transpose() * _Vi);
         _b = xt_vi_x_i_xtvi * _y; 
         eigenMatrix Xproj = _X * xt_vi_x_i_xtvi;
         eigenVector diag_Xproj = Xproj.diagonal();
         eigenVector y_fix_eff = Xproj * _y;
+
+        // For test BLUP
+        //eigenVector yFeResid = _y - y_fix_eff;
+        //eigenMatrix H = varcmp[0] * _A[_r_indx[0]] * _Vi;
+        //eigenVector gBlup = H * yFeResid;
+
         eigenVector y_fix_eff_loo = (y_fix_eff - diag_Xproj.cwiseProduct(_y)).array() / (1.0 - diag_Xproj.array()).array();
         eigenVector y_tilde = _y - y_fix_eff_loo;
         eigenVector y_tilde_centered = y_tilde.array() - y_tilde.mean();
@@ -835,6 +848,11 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
         int col_num = _r_indx.size();
         eigenMatrix bBlups(bBlup_base.size(),  col_num);
         eigenMatrix cvBlups(bBlup_base.size(), col_num);
+
+        // use the raw formula to calculate cvBLUP
+        //eigenVector gBlupFeLoo = H * y_tilde_centered;
+        //eigenVector cvBlups1 = (gBlupFeLoo.array() - H.diagonal().array() * y_tilde_centered.array()) / (1.0 - H.diagonal().array());
+        
 
         for(int i = 0; i < col_num; i++){
             bBlups.col(i) = bBlup_base * varcmp[i];
@@ -853,6 +871,8 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
             for(int j = 0; j < col_num; j++){
                 o_rand_eff << setprecision(6) << bBlups(i, j) << "\t" << cvBlups(i, j) << "\t";
             }
+            //o_rand_eff << gBlup(i) << "\t" << cvBlups1(i);
+
             o_rand_eff << endl;
         }
         LOGGER << "\ncvBLUP solutions of the genetic effects for " << _keep.size() << " individuals has been saved in the file [" + rand_eff_file + "]." << endl;
