@@ -1106,7 +1106,68 @@ vector<double> global_heidi_pvalue(double bxy_hat, double bxy_hat_se, eigenVecto
     return(global_heidi_pval);  
 }
 
-vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eigenVector bzx_se, eigenVector bzx_pval, eigenVector bzy, eigenVector bzy_se, double rho_pheno, vector<bool> snp_flag, double gwas_thresh, int wind_size, double r2_thresh, double global_heidi_thresh, double indi_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, string &err_msg) {
+// Excluding SNPs based on HEIDI-outlier p-value at individual SNP
+vector<int> indi_heidi_outlier(eigenVector bxy, eigenVector bzx, eigenVector bzx_se, eigenVector bzy, eigenVector bzy_se, 
+                               eigenMatrix ld_r_mat, map<string,int> meta_snp_name_map, vector<string> indices_snp, vector<int> kept_ID) {
+    
+    int i = 0, n_indices_snp = kept_ID.size();
+    eigenVector bxy_sort(n_indices_snp);
+    for(i=0; i<n_indices_snp; i++) bxy_sort(i) = bxy(kept_ID[i]);
+    std::stable_sort(bxy_sort.data(), bxy_sort.data()+n_indices_snp);
+    vector<int> ci_index = init_interval_bxy(bxy_sort, bxy, kept_ID, 0.1, 0.9);
+    if(ci_index.size() == 0) return(ci_index);
+
+    eigenVector vec_1t_v;
+    vector<double> gsmr_rst = est_bxy_gsmr(bxy_sort, bxy, indices_snp, ci_index, bzx, bzx_se, bzy, bzy_se, ld_r_mat, meta_snp_name_map, vec_1t_v);    
+    double bxy_hat = gsmr_rst[0], bxy_hat_se = gsmr_rst[1];
+
+    eigenVector indi_het_pval;
+    indi_het_pval = indi_heidi_pvalue(bxy_hat, bxy_hat_se, vec_1t_v, bzx, bzx_se, bzy, bzy_se, 
+                                    ld_r_mat, meta_snp_name_map, indices_snp, kept_ID, ci_index);
+
+    vector<int> kept_ID_buf(kept_ID);
+    kept_ID.clear();
+    double indi_heidi_thresh = min(0.01, 0.05/(double)n_indices_snp);
+    for(i=0; i<n_indices_snp; i++) {
+        if(indi_het_pval(i) < indi_heidi_thresh) continue;
+        kept_ID.push_back(kept_ID_buf[i]); 
+    }
+
+    return(kept_ID);
+}
+
+vector<int> indi_heidi_outlier_iter(eigenVector bxy, eigenVector bzx, eigenVector bzx_se, eigenVector bzy, eigenVector bzy_se, 
+                               eigenMatrix ld_r_mat, map<string,int> meta_snp_name_map, vector<string> indices_snp, vector<int> kept_ID) {
+    
+    int i = 0, n_indices_snp = kept_ID.size();
+    eigenVector bxy_sort(n_indices_snp);
+    for(i=0; i<n_indices_snp; i++) bxy_sort(i) = bxy(kept_ID[i]);
+    std::stable_sort(bxy_sort.data(), bxy_sort.data()+n_indices_snp);
+    vector<int> ci_index = init_interval_bxy(bxy_sort, bxy, kept_ID, 0.1, 0.9);
+    if(ci_index.size() == 0) return(ci_index);
+
+    eigenVector vec_1t_v;
+    vector<double> gsmr_rst = est_bxy_gsmr(bxy_sort, bxy, indices_snp, ci_index, bzx, bzx_se, bzy, bzy_se, ld_r_mat, meta_snp_name_map, vec_1t_v);    
+    double bxy_hat = gsmr_rst[0], bxy_hat_se = gsmr_rst[1];
+
+    eigenVector indi_het_pval;
+    indi_het_pval = indi_heidi_pvalue(bxy_hat, bxy_hat_se, vec_1t_v, bzx, bzx_se, bzy, bzy_se, 
+                                    ld_r_mat, meta_snp_name_map, indices_snp, kept_ID, ci_index);
+
+    double indi_heidi_thresh = min(0.01, 0.05/(double)n_indices_snp);
+    double min_pval = 1.0;
+    int min_index = 0;
+    for(i=0; i<n_indices_snp; i++) {
+        if(indi_het_pval(i) >= min_pval) continue;
+        min_pval = indi_het_pval(i);
+        min_index = i;
+    }
+    if(min_pval < indi_heidi_thresh) kept_ID.erase(kept_ID.begin()+min_index);
+    
+    return(kept_ID);
+}
+
+vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eigenVector bzx_se, eigenVector bzx_pval, eigenVector bzy, eigenVector bzy_se, double rho_pheno, vector<bool> snp_flag, double gwas_thresh, int wind_size, double r2_thresh, double global_heidi_thresh, int indi_heidi_mtd, double ld_fdr_thresh, int nsnp_gsmr, string &err_msg) {
    
     int i=0, j=0, nsnp = _include.size(), nindi=_keep.size();    
     vector<string> indices_snp;
@@ -1193,80 +1254,70 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
         bxy(kept_ID[i]) = bzy(iter->second)/bzx(iter->second);
     }
 
-    // estimate bxy(GSMR)
-    eigenVector bxy_sort(n_indices_snp);
-    for(i=0; i<n_indices_snp; i++) bxy_sort(i) = bxy(kept_ID[i]);
-    std::stable_sort(bxy_sort.data(), bxy_sort.data()+n_indices_snp);
-    vector<int> ci_index = init_interval_bxy(bxy_sort, bxy, kept_ID, 0.1, 0.9);
-
-    if(ci_index.size() == 0) {
-        err_msg = "Not enough SNPs remained for the HEIDI-outlier analysis.";
-        return rst;
-    }
-    eigenVector vec_1t_v;
-    vector<double> gsmr_rst = est_bxy_gsmr(bxy_sort, bxy, indices_snp, ci_index, bzx, bzx_se, bzy, bzy_se, ld_r_mat, _meta_snp_name_map, vec_1t_v);    
-    double bxy_hat = gsmr_rst[0], bxy_hat_se = gsmr_rst[1];
-
     // HEIDI-outlier step 1
-    vector<string> pleio_snps;
-    bool indi_heidi_flag = CommFunc::FloatNotEqual(indi_heidi_thresh, 0) ? true : false;
-    bool global_heidi_flag = CommFunc::FloatNotEqual(global_heidi_thresh, 0) ? true : false;
-
-    eigenVector indi_het_pval;
-    if(indi_heidi_flag) {
-        indi_het_pval = indi_heidi_pvalue(bxy_hat, bxy_hat_se, vec_1t_v, bzx, bzx_se, bzy, bzy_se, 
-                                        ld_r_mat, _meta_snp_name_map, indices_snp, kept_ID, ci_index);
-
-        vector<int> kept_ID_buf(kept_ID);
-        kept_ID.clear();  
-        for(i=0; i<n_indices_snp; i++) {
-            if(indi_het_pval(i) < indi_heidi_thresh)
-                pleio_snps.push_back(indices_snp[kept_ID_buf[i]]);
-            else { kept_ID.push_back(kept_ID_buf[i]); }
-        }
+    vector<int> remain_index(kept_ID);
+    bool heidi_flag = CommFunc::FloatNotEqual(global_heidi_thresh, 0) ? true : false;
+    if(!heidi_flag) indi_heidi_mtd = 2;
+    if(indi_heidi_mtd == 0) {
+        kept_ID = indi_heidi_outlier(bxy, bzx, bzx_se, bzy, bzy_se, 
+                                ld_r_mat, _meta_snp_name_map, indices_snp, kept_ID);
 
         // check
         n_indices_snp = kept_ID.size();
         if(n_indices_snp < nsnp_gsmr) {
-            LOGGER.i(0, to_string(n_indices_snp) + " index SNPs are retained.");
-            err_msg = "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required.";
+            err_msg = "Not enough SNPs to perform GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required.";
             return rst;
+        }
+    } else if (indi_heidi_mtd == 1) {
+        int n_kept_snp = 0;
+        while(1) {
+            n_kept_snp = kept_ID.size();
+            kept_ID = indi_heidi_outlier_iter(bxy, bzx, bzx_se, bzy, bzy_se, 
+                                    ld_r_mat, _meta_snp_name_map, indices_snp, kept_ID);                         
+            n_indices_snp = kept_ID.size();
+            if(n_kept_snp - n_indices_snp == 0 ) break;
+            // check
+            if(n_indices_snp < nsnp_gsmr) {
+                err_msg = "Not enough SNPs to perform GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required.";
+                return rst;
+            }
         }
     }
 
     // HEIDI-outlier step 2
+    double bxy_hat = 0.0, bxy_hat_se = 0.0;
     vector<double> global_heidi_pval(2);
     global_heidi_pval[0] = global_heidi_pval[1] = nan("");
     while(1) {
         // bxy by GSMR
-        bxy_sort.resize(n_indices_snp);
+        eigenVector bxy_sort(n_indices_snp);
         for(i=0; i<n_indices_snp; i++) bxy_sort(i) = bxy(kept_ID[i]);
-        std::stable_sort(bxy_sort.data(), bxy_sort.data()+n_indices_snp);
-        gsmr_rst = est_bxy_gsmr(bxy_sort, bxy, indices_snp, kept_ID, bzx, bzx_se, bzy, bzy_se, 
+        std::stable_sort(bxy_sort.data(), bxy_sort.data()+n_indices_snp);   
+        eigenVector vec_1t_v;
+        vector<double> gsmr_rst = est_bxy_gsmr(bxy_sort, bxy, indices_snp, kept_ID, bzx, bzx_se, bzy, bzy_se, 
                                 ld_r_mat, _meta_snp_name_map, vec_1t_v);
         bxy_hat = gsmr_rst[0]; bxy_hat_se = gsmr_rst[1];
-
+        
         // HEIDI-outlier for individual SNPs
-        indi_het_pval = indi_heidi_pvalue(bxy_hat, bxy_hat_se, vec_1t_v, bzx, bzx_se, bzy, bzy_se, 
+        eigenVector indi_het_pval = indi_heidi_pvalue(bxy_hat, bxy_hat_se, vec_1t_v, bzx, bzx_se, bzy, bzy_se, 
                                         ld_r_mat, _meta_snp_name_map, indices_snp, kept_ID, kept_ID);
-                                  
+        
         // HEIDI-outlier for global SNPs                                   
         global_heidi_pval = global_heidi_pvalue(bxy_hat, bxy_hat_se, bzx, bzx_se, bzy, bzy_se, 
                                 ld_r_mat, vec_1t_v, indices_snp, kept_ID, _meta_snp_name_map);
-                            
-        if(!global_heidi_flag) break;
+        if(!heidi_flag) break;
         if(global_heidi_pval[1] >= global_heidi_thresh) break;
-
+        
         // find the SNP with the minimal p-value
         double min_pval = 1.0;
         int min_index = 0;
         for(i = 0; i < n_indices_snp; i++) {
             if(indi_het_pval[i] < min_pval) {
-                min_pval = indi_het_pval[i];
+                min_pval = indi_het_pval(i);
                 min_index = i;
             }
         }
-      
+
         kept_ID.erase(kept_ID.begin()+min_index);
         // check
         n_indices_snp = kept_ID.size();
@@ -1277,10 +1328,32 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
         }
     }
 
+    // save pleiotropic SNPs
+    int npleio = remain_index.size() - n_indices_snp;
+    vector<string> pleio_snps;
+    if(npleio > 0) {
+        int nsnp_kept = remain_index.size();
+        for(i=0, j=0; i<nsnp_kept && j<n_indices_snp; i++) {
+            if(remain_index[i] == kept_ID[j]) { j++; continue; }
+            pleio_snps.push_back(indices_snp[remain_index[i]]);
+        }
+        if(i < nsnp_kept) {
+            for(; i < nsnp_kept; i++) pleio_snps.push_back(indices_snp[remain_index[i]]);
+        }
+        string pleio_snpfile = _out + ".pleio_snps";	
+        ofstream o_pleio_snp(pleio_snpfile.c_str());	
+        if(!o_pleio_snp) LOGGER.e(0, "Cannot open file [" + pleio_snpfile + "] to write pleiotropic SNPs.");
+        for (i = 0; i < npleio; i++) 	
+            o_pleio_snp << pleio_snps[i] << endl;	
+        o_pleio_snp.close();	
+        LOGGER.i(0,  to_string(npleio) + " pleiotropic SNPs are filtered by HEIDI-outlier analysis. These SNPs have been saved in [" + pleio_snpfile + "].");	
+    }
+
     // save the SNPs after HEIDI-outlier
     snp_instru.clear(); snp_instru.resize(n_indices_snp);
     for(i=0; i<n_indices_snp; i++)
         snp_instru[i] = indices_snp[kept_ID[i]];
+    LOGGER.i(0, to_string(n_indices_snp) + " index SNPs are retained after HEIDI-outlier analysis.");
 
     double bxy_hat_pval = StatFunc::pchisq(bxy_hat*bxy_hat/(bxy_hat_se*bxy_hat_se), 1);
     rst[0] = bxy_hat; rst[1] = bxy_hat_se; rst[2] = bxy_hat_pval; rst[3] = n_indices_snp; rst[4] = global_heidi_pval[0]; rst[5] = global_heidi_pval[1];
@@ -1900,7 +1973,7 @@ void mtcojo_cond_output(string output_file, vector<string> snp_name, vector<int>
     ofile.close();
 }
 
-void gcta::mtcojo(string mtcojo_bxy_file, string ref_ld_dirt, string w_ld_dirt, double freq_thresh, double gwas_thresh, int clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double indi_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr) {
+void gcta::mtcojo(string mtcojo_bxy_file, string ref_ld_dirt, string w_ld_dirt, double freq_thresh, double gwas_thresh, int clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, int indi_heidi_mtd, double ld_fdr_thresh, int nsnp_gsmr) {
 
     int i=0, j=0, nsnp=_meta_snp_name_map.size(), nsnp_init=_meta_snp_name.size(), ncovar=_covar_pheno_name.size();
     vector<bool> snp_pair_flag(nsnp_init);
@@ -1951,7 +2024,7 @@ void gcta::mtcojo(string mtcojo_bxy_file, string ref_ld_dirt, string w_ld_dirt, 
         string err_msg;
         LOGGER.i(0, "\nGSMR analysis for covariate #" + to_string(i) + " (" + trait_name[i] + ")" + " ...");
         for(j=0; j<nsnp_init; j++) snp_pair_flag[j] = (int)((_snp_val_flag[0][j]+_snp_val_flag[i][j])/2);
-        gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), _meta_snp_b.col(0), _meta_snp_se.col(0), 0, snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, err_msg);
+        gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), _meta_snp_b.col(0), _meta_snp_se.col(0), 0, snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_mtd, ld_fdr_thresh, nsnp_gsmr, err_msg);
         //gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), _meta_snp_b.col(0), _meta_snp_se.col(0), ldsc_intercept(0, i), snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, heidi_thresh, ld_fdr_thresh, nsnp_gsmr);
         if(std::isnan(gsmr_rst[3])) 
             LOGGER.e(0, err_msg);
