@@ -3,7 +3,7 @@
 #include <sstream>
 #include <iterator>
 
-int n_gsmr_rst_item = 6;
+int n_gsmr_rst_item = 5;
 
 bool determine_gwas_file(string input_file) {
     int nelements = 0;
@@ -309,8 +309,7 @@ eigenMatrix gcta::sample_overlap_rb(vector<vector<bool>> snp_val_flag, eigenMatr
         int n_cm_snps_buf = 0;
         vector<bool> snp_pair_flag(nsnp);
         for(k = 0; k < nsnp; k++) {
-            snp_pair_flag[k] = (int)((snp_val_flag[trait_indx1[i]][snp_remain[k]] 
-                               + snp_val_flag[trait_indx2[i]][snp_remain[k]])/2);
+            snp_pair_flag[k] = snp_val_flag[trait_indx1[i]][snp_remain[k]] && snp_val_flag[trait_indx2[i]][snp_remain[k]];
             if(!snp_pair_flag[k]) continue;
             if(snp_pval(snp_remain[k], trait_indx1[i]) < pval_thresh || snp_pval(snp_remain[k], trait_indx2[i]) < pval_thresh)
                 snp_pair_flag[k] = 0;
@@ -392,14 +391,14 @@ void collect_gsmr_result(stringstream &ss, vector<vector<double>> bxy_est, int g
         case 2 : output_forward=true; output_reverse=true; break;
     }
 
-    ss << "Exposure\tOutcome\tbxy\tse\tp\tnsnp\tglobal_heidi(hotelling)\tglobal_heidi(pchisqsum)" <<endl;
+    ss << "Exposure\tOutcome\tbxy\tse\tp\tnsnp\tglobal_heidi_outlier" <<endl;
     k=0; 
     if(output_forward) {
         for(i=0; i<expo_num_buf; i++) {
             for(j=0; j<outcome_num_buf; j++, k++) {
                 ss << pheno_name[i] << "\t" << pheno_name[expo_num_buf+j] << "\t"
                       << bxy_est[0][k] << "\t" << bxy_est[1][k] << "\t" 
-                      << bxy_est[2][k] << "\t" << bxy_est[3][k] << "\t" << bxy_est[4][k] << "\t" << bxy_est[5][k] << endl;
+                      << bxy_est[2][k] << "\t" << bxy_est[3][k] << "\t" << bxy_est[4][k] << endl;
             }
         }
     }
@@ -408,7 +407,7 @@ void collect_gsmr_result(stringstream &ss, vector<vector<double>> bxy_est, int g
             for(j=0; j<expo_num_buf; j++, k++) {
                 ss << pheno_name[expo_num_buf+i] << "\t" << pheno_name[j] << "\t"
                       << bxy_est[0][k] << "\t" << bxy_est[1][k] << "\t" 
-                      << bxy_est[2][k] << "\t" << bxy_est[3][k] << "\t" << bxy_est[4][k] << "\t" << bxy_est[5][k] << endl;
+                      << bxy_est[2][k] << "\t" << bxy_est[3][k] << "\t" << bxy_est[4][k] << endl;
             }
         }
     }
@@ -435,11 +434,11 @@ void collect_snp_instru_effect(stringstream &ss, vector<vector<bool>> snp_flag, 
     ss << "#effect_end" << endl;
 }
 
-void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double freq_thresh, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, int indi_heidi_mtd, double ld_fdr_thresh, int nsnp_gsmr, bool o_snp_instru_flag, int gsmr_so_alg) {
+void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double freq_thresh, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, bool o_snp_instru_flag, int gsmr_so_alg) {
     vector<vector<double>> bxy_est;
     map<string, int> snp_instru_map;
     vector<string> afsnps;
-    std::stringstream ss, ss_gsmr;
+    std::stringstream ss, ss_gsmr, ss_pleio;
     ss << "#marker_begin" <<endl;
     int ntrait = _expo_num + _outcome_num;
 
@@ -452,6 +451,15 @@ void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double 
         update_id_map_rm(afsnps, _snp_name_map, _include);
         update_mtcojo_snp_rm(afsnps, _meta_snp_name_map, _meta_remain_snp);
     }
+
+    // Remove monomorphic SNPs
+    afsnps = remove_mono_snps(_snp_name_map, _mu, _out);
+    // Update SNPs set
+    if( afsnps.size()>0 ) {
+        update_id_map_rm(afsnps, _snp_name_map, _include);
+        update_mtcojo_snp_rm(afsnps, _meta_snp_name_map, _meta_remain_snp);
+    }
+
     // Only keep the AF for the target trait
     int nsnp_freq = _meta_snp_name_map.size();
     _meta_snp_freq.conservativeResize(nsnp_freq,1);
@@ -463,23 +471,35 @@ void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double 
    // GSMR analysis
     switch(gsmr_alg_flag) {
         case 0 : { 
-            bxy_est = forward_gsmr(ss, snp_instru_map, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_mtd, ld_fdr_thresh, nsnp_gsmr); 
+            bxy_est = forward_gsmr(ss, snp_instru_map, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, ss_pleio); 
             break;
         }
         case 1 : {
-            bxy_est = reverse_gsmr(ss, snp_instru_map, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_mtd, ld_fdr_thresh, nsnp_gsmr); 
+            bxy_est = reverse_gsmr(ss, snp_instru_map, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, ss_pleio);
             break;
         }
         case 2 : {
             vector<vector<double>> bxy_est_buf;
-            bxy_est = forward_gsmr(ss, snp_instru_map, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_mtd, ld_fdr_thresh, nsnp_gsmr);
-            bxy_est_buf = reverse_gsmr(ss, snp_instru_map, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_mtd, ld_fdr_thresh, nsnp_gsmr);
+            bxy_est = forward_gsmr(ss, snp_instru_map, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, ss_pleio);
+            bxy_est_buf = reverse_gsmr(ss, snp_instru_map, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, ss_pleio);
             int i = 0;
             for(i=0; i<n_gsmr_rst_item; i++) bxy_est[i].insert(bxy_est[i].end(), bxy_est_buf[i].begin(), bxy_est_buf[i].end());
             break;
         }
     }
     ss << "#marker_end" << endl;
+    LOGGER.i(0, "");
+
+    // Save pleiotropic SNPs
+    bool pleio_flag = ss_pleio.str().size() > 0 ? true : false;   
+    if(pleio_flag) {
+        string pleio_snpfile = _out + ".pleio_snps";	
+        ofstream o_pleio_snp(pleio_snpfile.c_str());	
+        if(!o_pleio_snp) LOGGER.e(0, "Cannot open file [" + pleio_snpfile + "] to write pleiotropic SNPs.");
+        o_pleio_snp << ss_pleio.str();            
+        o_pleio_snp.close();	
+        LOGGER.i(0,  "The pleiotropic SNPs filtered by HEIDI-outlier analysis have been saved in [" + pleio_snpfile + "].");
+    }
 
     // Output GSMR result
     collect_gsmr_result(ss_gsmr, bxy_est, gsmr_alg_flag, _gwas_trait_name, _expo_num, _outcome_num);
@@ -491,20 +511,20 @@ void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double 
             collect_gsmr_trait(ss_pheno, _gwas_trait_name, _expo_num, _outcome_num);
             collect_snp_instru_effect(ss_effect, _snp_val_flag, snp_instru_map, _meta_snp_name_map, _meta_snp_a1, _meta_snp_a2, _meta_snp_freq, _meta_snp_b, _meta_snp_se);
             string output_filename = _out + ".eff_plot.gz";
-            LOGGER.i(0, "\nSaving the SNP instruments for the GSMR plots to [" + output_filename + "] ...");
+            LOGGER.i(0, "Saving the SNP instruments for the GSMR plots to [" + output_filename + "] ...");
             gzofstream zofile(output_filename.c_str());
             if (!zofile) LOGGER.e(0, "Cannot open the file [" + output_filename + "] to write.");
             zofile << ss_pheno.str() << "#gsmr_begin" << endl << ss_gsmr.str() 
                    << "#gsmr_end" << endl << ss_effect.str() << ss.str();
             zofile.close();
         } else {
-            LOGGER.w(0, "\nNot enough SNP instruments to be saved in the compressed text file.");
+            LOGGER.w(0, "Not enough SNP instruments to be saved in the compressed text file.");
         }
     }
 
     // Output GSMR results
     string output_filename = _out + ".gsmr";
-    LOGGER.i(0, "\nSaving the GSMR analyses results of " + to_string(_expo_num) + " exposure(s) and "
+    LOGGER.i(0, "Saving the GSMR analyses results of " + to_string(_expo_num) + " exposure(s) and "
                  + to_string(_outcome_num) + " outcome(s) to [" + output_filename + "] ...");
     ofstream ofile(output_filename.c_str());
     if (!ofile) LOGGER.e(0, "Cannot open the file [" + output_filename + "] to write.");             
@@ -513,7 +533,7 @@ void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double 
     LOGGER.i(0, "\nGSMR analyses completed.");
 }
 
-vector<vector<double>> gcta::forward_gsmr(stringstream &ss, map<string,int> &snp_instru_map, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, int indi_heidi_mtd, double ld_fdr_thresh, int nsnp_gsmr) {
+vector<vector<double>> gcta::forward_gsmr(stringstream &ss, map<string,int> &snp_instru_map, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, stringstream &ss_pleio) {
     int i=0, j=0, k=0, t=0, m=_expo_num*_outcome_num, nsnp = _meta_remain_snp.size();
     vector<bool> snp_pair_flag(nsnp);
     vector<vector<double>> bxy_est;
@@ -525,27 +545,32 @@ vector<vector<double>> gcta::forward_gsmr(stringstream &ss, map<string,int> &snp
     vector<double> gsmr_rst(n_gsmr_rst_item);
     for(i=0, t=0; i<_expo_num; i++) {
         for(j=0; j<_outcome_num; j++, t++) {
-            string err_msg;
+            string err_msg = "";
+            string pleio_snps = "";
             vector<string> snp_instru;
-            for(k=0; k<nsnp; k++) snp_pair_flag[k] = (int)((_snp_val_flag[i][k] + _snp_val_flag[j+_expo_num][k])/2);
+            for(k=0; k<nsnp; k++) snp_pair_flag[k] = _snp_val_flag[i][_meta_remain_snp[k]] && _snp_val_flag[j+_expo_num][_meta_remain_snp[k]];
             LOGGER.i(0, "\nForward GSMR analysis for exposure #" + to_string(i+1) + " and outcome #" + to_string(j+1) + " ...");
             gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), 
-                                  _meta_snp_b.col(j+_expo_num), _meta_snp_se.col(j+_expo_num), _r_pheno_sample(i,j), snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_mtd, ld_fdr_thresh, nsnp_gsmr, err_msg);
+                                  _meta_snp_b.col(j+_expo_num), _meta_snp_se.col(j+_expo_num), _r_pheno_sample(i,j), snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, pleio_snps, err_msg);
             if(std::isnan(gsmr_rst[3]))
                 LOGGER.w(0, err_msg);
             else
                 LOGGER.i(0, "Forward GSMR analysis for exposure #" + to_string(i+1) + " and outcome #" + to_string(j+1) + " completed.");
             for(k=0; k<n_gsmr_rst_item; k++) bxy_est[k][t] = gsmr_rst[k];
-
+            // Saving pleiotropic SNPs
+            if(pleio_snps.size() > 0) {
+                ss_pleio << _gwas_trait_name[i] << " " << _gwas_trait_name[j+_expo_num] << " " << pleio_snps << endl;
+            }
             // Saving the SNP instruments
             collect_snp_instru(ss, snp_instru_map, i+1, j+_expo_num+1, snp_instru); 
         }
     }
 
+
     return bxy_est;
 }
 
-vector<vector<double>> gcta::reverse_gsmr(stringstream &ss, map<string,int> &snp_instru_map, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, int indi_heidi_mtd, double ld_fdr_thresh, int nsnp_gsmr) {   
+vector<vector<double>> gcta::reverse_gsmr(stringstream &ss, map<string,int> &snp_instru_map, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, stringstream &ss_pleio) {
      int i=0, j=0, k=0, t=0, m=_expo_num*_outcome_num, nsnp = _meta_remain_snp.size();
      vector<bool> snp_pair_flag(nsnp);
      vector<vector<double>> bxy_est;
@@ -558,17 +583,21 @@ vector<vector<double>> gcta::reverse_gsmr(stringstream &ss, map<string,int> &snp
     for(i=0, t=0; i<_outcome_num; i++) {
         for(j=0; j<_expo_num; j++, t++) {
             string err_msg;
+            string pleio_snps = "";
             vector<string> snp_instru;
-            for(k=0; k<nsnp; k++) snp_pair_flag[k] = (int)((_snp_val_flag[i+_expo_num][k] + _snp_val_flag[j][k])/2);
+            for(k=0; k<nsnp; k++) snp_pair_flag[k] = _snp_val_flag[i+_expo_num][_meta_remain_snp[k]] + _snp_val_flag[j][_meta_remain_snp[k]];
             LOGGER.i(0, "\nReverse GSMR analysis for exposure #" + to_string(j+1) + " and outcome #" + to_string(i+1) + " ...");
             gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i+_expo_num), _meta_snp_se.col(i+_expo_num), _meta_snp_pval.col(i+_expo_num), 
-                                  _meta_snp_b.col(j), _meta_snp_se.col(j), _r_pheno_sample(j,i), snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_mtd, ld_fdr_thresh, nsnp_gsmr, err_msg);
+                                  _meta_snp_b.col(j), _meta_snp_se.col(j), _r_pheno_sample(j,i), snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, pleio_snps, err_msg);
             if(std::isnan(gsmr_rst[3])) 
                 LOGGER.w(0, err_msg);
             else
                 LOGGER.i(0, "Reverse GSMR analysis for exposure #" + to_string(j+1) + " and outcome #" + to_string(i+1) + " completed.");
             for(k=0; k<n_gsmr_rst_item; k++) bxy_est[k][t] = gsmr_rst[k]; 
-            
+            // Saving pleiotropic SNPs
+            if(pleio_snps.size() > 0) {
+                ss_pleio << _gwas_trait_name[i+_expo_num] << " " << _gwas_trait_name[j] << " " << pleio_snps << endl;
+            }            
             // Saving the SNP instruments
             collect_snp_instru(ss, snp_instru_map, i+_expo_num+1, j+1, snp_instru);
         }

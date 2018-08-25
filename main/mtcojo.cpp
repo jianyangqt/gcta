@@ -558,6 +558,33 @@ vector<string> gcta::remove_freq_diff_snps(vector<string> meta_snp_name, vector<
     return(afsnps);
 }
 
+vector<string> gcta::remove_mono_snps(map<string,int> snp_name_map, vector<double> ref_snpfreq, string outfile_name) {
+    int i = 0, n_raresnp = 0;
+    vector<string> afsnps;
+    map<string,int>::iterator iter;
+
+    for(iter=snp_name_map.begin(); iter!=snp_name_map.end(); iter++) {
+        double af = ref_snpfreq[iter->second]/2;
+        if(af > 0.5) af = 1.0 - af;
+        if(CommFunc::FloatEqual(af, 0.0)) afsnps.push_back(iter->first);
+        if(af < 0.01) n_raresnp++;
+    }
+
+    if(n_raresnp > 0) LOGGER.w(0,  "There are " + to_string(n_raresnp) + " SNP(s) with MAF < 0.01 in the reference sample.");
+
+    if (!afsnps.empty()) {
+        string afsnpfile = outfile_name + ".mono.badsnps", strbuf="";
+        ofstream oafsnp(afsnpfile.c_str());
+        if(!oafsnp) LOGGER.e(0, "Cannot open file [" + afsnpfile + "] to write bad SNPs.");
+        int nafsnps = afsnps.size();
+        for (i = 0; i < nafsnps; i++) oafsnp << afsnps[i] << endl;
+        oafsnp.close();
+        LOGGER.i(0,  to_string(nafsnps) + " monomorphic SNP(s) have been saved in [" + afsnpfile + "].");
+    }
+
+    return(afsnps);
+}
+
 vector<string> gcta::filter_meta_snp_pval(vector<string> snp_name, vector<int> remain_snp_indx,  eigenMatrix snp_pval, int start_indx, int end_indx, vector<vector<bool>> snp_flag, double pval_thresh) {
     
     int i=0, j=0, nsnpbuf = remain_snp_indx.size();
@@ -722,7 +749,7 @@ vector<string> gcta::clumping_meta(eigenVector snp_pval, vector<bool> snp_flag, 
 
     // Sort the p-value
     for(i=0; i<nsnp_meta; i++) {
-        if(!snp_flag[_meta_remain_snp[i]]) continue;
+        if(!snp_flag[i]) continue;
         iter = _snp_name_map.find(_meta_snp_name[_meta_remain_snp[i]]);
         if(iter==_snp_name_map.end()) continue;
         snp_pvalbuf.push_back(make_pair(snp_pval(_meta_remain_snp[i]), _meta_remain_snp[i]));
@@ -1066,7 +1093,7 @@ eigenVector indi_heidi_pvalue(double bxy_hat, double bxy_hat_se, eigenVector vec
     return(indi_heidi_pval);
 }
 
-vector<double> global_heidi_pvalue(double bxy_hat, double bxy_hat_se, eigenVector bzx, eigenVector bzx_se, eigenVector bzy, eigenVector bzy_se, 
+double global_heidi_pvalue(double bxy_hat, double bxy_hat_se, eigenVector bzx, eigenVector bzx_se, eigenVector bzy, eigenVector bzy_se, 
                            eigenMatrix ld_r_mat, eigenVector vec_1t_v, vector<string> indices_snp, vector<int> kept_ID, map<string, int> meta_snp_name_map) {
     int i = 0, j = 0, n_indices_snp = kept_ID.size();
 
@@ -1079,20 +1106,9 @@ vector<double> global_heidi_pvalue(double bxy_hat, double bxy_hat_se, eigenVecto
     eigenMatrix var_d = est_var_diff_bxy(cov_bxy, cov_bxy_bgsmr, bxy_hat_se, n_indices_snp);
 
     // inverse Vd matrix
-    vector<double> global_heidi_pval(2);
+    double global_heidi_pval;
     var_d = var_d + eps*eigenMatrix::Identity(n_indices_snp, n_indices_snp);
-    // Hotelling method
-    LDLT<eigenMatrix> ldlt_var_d(var_d);
-    if( ldlt_var_d.vectorD().minCoeff() < 0 ) {
-        global_heidi_pval[0] = nan("");
-        //LOGGER.e(0, "The variance-covariance matrix for difference of bxy is not invertible.");
-    } else {
-        eigenMatrix var_d_inv = eigenMatrix::Identity(n_indices_snp, n_indices_snp);
-        ldlt_var_d.solveInPlace(var_d_inv);
-    
-        double global_heidi_chival = d.transpose()*var_d_inv*d;
-        global_heidi_pval[0] = StatFunc::pchisq(global_heidi_chival, n_indices_snp);
-    }
+
     // pchisqsum method
     eigenMatrix corr_d(n_indices_snp, n_indices_snp);
     corr_d.setIdentity(n_indices_snp, n_indices_snp);
@@ -1101,7 +1117,7 @@ vector<double> global_heidi_pvalue(double bxy_hat, double bxy_hat_se, eigenVecto
             corr_d(i,j) = corr_d(j,i) = var_d(i,j) / sqrt(var_d(i,i)*var_d(j,j));
     double chival = (d.array()*d.array()/var_d.diagonal().array()).sum();
     SelfAdjointEigenSolver<eigenMatrix> saes(corr_d);
-    global_heidi_pval[1] = StatFunc::pchisqsum(chival, saes.eigenvalues().cast<double>());
+    global_heidi_pval = StatFunc::pchisqsum(chival, saes.eigenvalues().cast<double>());
 
     return(global_heidi_pval);  
 }
@@ -1167,7 +1183,7 @@ vector<int> indi_heidi_outlier_iter(eigenVector bxy, eigenVector bzx, eigenVecto
     return(kept_ID);
 }
 
-vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eigenVector bzx_se, eigenVector bzx_pval, eigenVector bzy, eigenVector bzy_se, double rho_pheno, vector<bool> snp_flag, double gwas_thresh, int wind_size, double r2_thresh, double global_heidi_thresh, int indi_heidi_mtd, double ld_fdr_thresh, int nsnp_gsmr, string &err_msg) {
+vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eigenVector bzx_se, eigenVector bzx_pval, eigenVector bzy, eigenVector bzy_se, double rho_pheno, vector<bool> snp_flag, double gwas_thresh, int wind_size, double r2_thresh, double global_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, string &pleio_snps, string &err_msg) {
    
     int i=0, j=0, nsnp = _include.size(), nindi=_keep.size();    
     vector<string> indices_snp;
@@ -1257,18 +1273,7 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
     // HEIDI-outlier step 1
     vector<int> remain_index(kept_ID);
     bool heidi_flag = CommFunc::FloatNotEqual(global_heidi_thresh, 0) ? true : false;
-    if(!heidi_flag) indi_heidi_mtd = 2;
-    if(indi_heidi_mtd == 0) {
-        kept_ID = indi_heidi_outlier(bxy, bzx, bzx_se, bzy, bzy_se, 
-                                ld_r_mat, _meta_snp_name_map, indices_snp, kept_ID);
-
-        // check
-        n_indices_snp = kept_ID.size();
-        if(n_indices_snp < nsnp_gsmr) {
-            err_msg = "Not enough SNPs to perform GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required.";
-            return rst;
-        }
-    } else if (indi_heidi_mtd == 1) {
+    if (heidi_flag) {
         int n_kept_snp = 0;
         while(1) {
             n_kept_snp = kept_ID.size();
@@ -1286,8 +1291,7 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
 
     // HEIDI-outlier step 2
     double bxy_hat = 0.0, bxy_hat_se = 0.0;
-    vector<double> global_heidi_pval(2);
-    global_heidi_pval[0] = global_heidi_pval[1] = nan("");
+    double global_heidi_pval = 0.0;
     while(1) {
         // bxy by GSMR
         eigenVector bxy_sort(n_indices_snp);
@@ -1306,7 +1310,7 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
         global_heidi_pval = global_heidi_pvalue(bxy_hat, bxy_hat_se, bzx, bzx_se, bzy, bzy_se, 
                                 ld_r_mat, vec_1t_v, indices_snp, kept_ID, _meta_snp_name_map);
         if(!heidi_flag) break;
-        if(global_heidi_pval[1] >= global_heidi_thresh) break;
+        if(global_heidi_pval >= global_heidi_thresh) break;
         
         // find the SNP with the minimal p-value
         double min_pval = 1.0;
@@ -1330,23 +1334,17 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
 
     // save pleiotropic SNPs
     int npleio = remain_index.size() - n_indices_snp;
-    vector<string> pleio_snps;
     if(npleio > 0) {
         int nsnp_kept = remain_index.size();
         for(i=0, j=0; i<nsnp_kept && j<n_indices_snp; i++) {
             if(remain_index[i] == kept_ID[j]) { j++; continue; }
-            pleio_snps.push_back(indices_snp[remain_index[i]]);
+            pleio_snps += indices_snp[remain_index[i]] + ",";
         }
         if(i < nsnp_kept) {
-            for(; i < nsnp_kept; i++) pleio_snps.push_back(indices_snp[remain_index[i]]);
+            for(; i < nsnp_kept; i++) pleio_snps += indices_snp[remain_index[i]] + ",";
         }
-        string pleio_snpfile = _out + ".pleio_snps";	
-        ofstream o_pleio_snp(pleio_snpfile.c_str());	
-        if(!o_pleio_snp) LOGGER.e(0, "Cannot open file [" + pleio_snpfile + "] to write pleiotropic SNPs.");
-        for (i = 0; i < npleio; i++) 	
-            o_pleio_snp << pleio_snps[i] << endl;	
-        o_pleio_snp.close();	
-        LOGGER.i(0,  to_string(npleio) + " pleiotropic SNPs are filtered by HEIDI-outlier analysis. These SNPs have been saved in [" + pleio_snpfile + "].");	
+        pleio_snps = pleio_snps.substr(0, pleio_snps.size()-1);
+        LOGGER.i(0,  to_string(npleio) + " pleiotropic SNPs are filtered by HEIDI-outlier analysis.");	
     }
 
     // save the SNPs after HEIDI-outlier
@@ -1356,7 +1354,7 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
     LOGGER.i(0, to_string(n_indices_snp) + " index SNPs are retained after HEIDI-outlier analysis.");
 
     double bxy_hat_pval = StatFunc::pchisq(bxy_hat*bxy_hat/(bxy_hat_se*bxy_hat_se), 1);
-    rst[0] = bxy_hat; rst[1] = bxy_hat_se; rst[2] = bxy_hat_pval; rst[3] = n_indices_snp; rst[4] = global_heidi_pval[0]; rst[5] = global_heidi_pval[1];
+    rst[0] = bxy_hat; rst[1] = bxy_hat_se; rst[2] = bxy_hat_pval; rst[3] = n_indices_snp; rst[4] = global_heidi_pval;
     return rst;
 }
 
@@ -1791,7 +1789,7 @@ eigenMatrix gcta::ldsc_snp_rg(eigenMatrix ldsc_var_h2, eigenMatrix bhat_z, eigen
         int k = 0, n_cm_snps_buf = 0;
         vector<bool> snp_pair_flag(n_cm_ld_snps);
         for(k=0; k<n_cm_ld_snps; k++) {
-            snp_pair_flag[k] = (int)((snp_flag[trait_indx1[i]][k] + snp_flag[trait_indx2[i]][k])/2);
+            snp_pair_flag[k] = snp_flag[trait_indx1[i]][k] && snp_flag[trait_indx2[i]][k];
             n_cm_snps_buf += snp_pair_flag[k];
         }
         if(n_cm_snps_buf < nsnp_ldsc_thresh) 
@@ -1973,7 +1971,7 @@ void mtcojo_cond_output(string output_file, vector<string> snp_name, vector<int>
     ofile.close();
 }
 
-void gcta::mtcojo(string mtcojo_bxy_file, string ref_ld_dirt, string w_ld_dirt, double freq_thresh, double gwas_thresh, int clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, int indi_heidi_mtd, double ld_fdr_thresh, int nsnp_gsmr) {
+void gcta::mtcojo(string mtcojo_bxy_file, string ref_ld_dirt, string w_ld_dirt, double freq_thresh, double gwas_thresh, int clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr) {
 
     int i=0, j=0, nsnp=_meta_snp_name_map.size(), nsnp_init=_meta_snp_name.size(), ncovar=_covar_pheno_name.size();
     vector<bool> snp_pair_flag(nsnp_init);
@@ -1993,7 +1991,15 @@ void gcta::mtcojo(string mtcojo_bxy_file, string ref_ld_dirt, string w_ld_dirt, 
         update_id_map_rm(afsnps, _snp_name_map, _include);
         update_mtcojo_snp_rm(afsnps, _meta_snp_name_map, _meta_remain_snp);
     }
-    
+
+    // Remove monomorphic SNPs
+    afsnps = remove_mono_snps(_snp_name_map, _mu, _out);
+    // Update SNPs set
+    if( afsnps.size()>0 ) {
+        update_id_map_rm(afsnps, _snp_name_map, _include);
+        update_mtcojo_snp_rm(afsnps, _meta_snp_name_map, _meta_remain_snp);
+    }
+
     // Only keep the AF for the target trait
     int nsnp_freq=_meta_snp_freq.size();
     _meta_snp_freq.conservativeResize(nsnp_freq,1);
@@ -2018,19 +2024,35 @@ void gcta::mtcojo(string mtcojo_bxy_file, string ref_ld_dirt, string w_ld_dirt, 
 
     // GSMR analysis
     vector<double> gsmr_rst(6);
+    std::stringstream ss_pleio;
+    bool pleio_flag = false;
     for(i=1; i<=ncovar; i++) {
-        if(fabs(bxy_est(i-1))<100) continue; 
+        if(fabs(bxy_est(i-1))<100) continue;
+        string pleio_snps = "";
         vector<string> snp_instru;
         string err_msg;
         LOGGER.i(0, "\nGSMR analysis for covariate #" + to_string(i) + " (" + trait_name[i] + ")" + " ...");
-        for(j=0; j<nsnp_init; j++) snp_pair_flag[j] = (int)((_snp_val_flag[0][j]+_snp_val_flag[i][j])/2);
-        gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), _meta_snp_b.col(0), _meta_snp_se.col(0), 0, snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, indi_heidi_mtd, ld_fdr_thresh, nsnp_gsmr, err_msg);
+        for(j=0; j<nsnp_init; j++) snp_pair_flag[j] = _snp_val_flag[0][_meta_remain_snp[j]] && _snp_val_flag[i][_meta_remain_snp[j]];
+        gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), _meta_snp_b.col(0), _meta_snp_se.col(0), 0, snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, pleio_snps, err_msg);
         //gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), _meta_snp_b.col(0), _meta_snp_se.col(0), ldsc_intercept(0, i), snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, heidi_thresh, ld_fdr_thresh, nsnp_gsmr);
         if(std::isnan(gsmr_rst[3])) 
             LOGGER.e(0, err_msg);
+        // Saving pleiotropic SNPs
+        if(pleio_snps.size() > 0) {
+            ss_pleio << _covar_pheno_name[i-1] << " " << _target_pheno_name << " " << pleio_snps << endl;
+            pleio_flag = true;
+        }
         bxy_est(i-1) = gsmr_rst[0];
         LOGGER.i(0, "bxy " + to_string(gsmr_rst[0]) + " " + to_string(gsmr_rst[1]));
         LOGGER.i(0, "GSMR analysis for covariate #" + to_string(i) + " (" + trait_name[i] + ") completed.");
+    }
+    if(pleio_flag) {
+        string pleio_snpfile = _out + ".pleio_snps";	
+        ofstream o_pleio_snp(pleio_snpfile.c_str());	
+        if(!o_pleio_snp) LOGGER.e(0, "Cannot open file [" + pleio_snpfile + "] to write pleiotropic SNPs.");
+        o_pleio_snp << ss_pleio.str();            
+        o_pleio_snp.close();	
+        LOGGER.i(0,  "The pleiotropic SNPs filtered by HEIDI-outlier analysis have been saved in [" + pleio_snpfile + "].");
     }
 
     // mtcojo analysis
