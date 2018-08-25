@@ -717,7 +717,7 @@ eigenVector read_external_bxy(string filestr, vector<string> covar_pheno_name) {
     string strbuf="";
     eigenVector bxy_est(ncovar);
     map<string,int> covar_pheno_map;
-    bxy_est.setConstant(-9.0);
+    bxy_est.setConstant(-999999.0);
 
     ifstream extern_bxy(filestr.c_str());
     if (!extern_bxy) LOGGER.e(0, "Cannot open the file [" + filestr + "] to read.");
@@ -1187,8 +1187,8 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
    
     int i=0, j=0, nsnp = _include.size(), nindi=_keep.size();    
     vector<string> indices_snp;
-    vector<double> rst(6);
-    for(i=0; i<4; i++) rst[i] = nan("");
+    vector<double> rst(_n_gsmr_rst_item);
+    for(i=0; i<_n_gsmr_rst_item; i++) rst[i] = nan("");
 
     if(nsnp < nsnp_gsmr) {
         err_msg = "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required."; 
@@ -2023,7 +2023,7 @@ void gcta::mtcojo(string mtcojo_bxy_file, string ref_ld_dirt, string w_ld_dirt, 
     } 
 
     // GSMR analysis
-    vector<double> gsmr_rst(6);
+    vector<double> gsmr_rst(_n_gsmr_rst_item);
     std::stringstream ss_pleio;
     bool pleio_flag = false;
     for(i=1; i<=ncovar; i++) {
