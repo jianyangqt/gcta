@@ -217,8 +217,9 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
         }
 
         for(int i = 3 * grm_files.size(); i < _r_indx.size(); i++){
-            std::fill(n_element.begin(), n_element.begin() + n1, n1_elements[i - 3]);
-            std::fill(n_element.begin() + n1, n_element.end(), n2_elements[i - 3]);
+            int index_element = i - 3 * grm_files.size() + 3;
+            std::fill(n_element.begin(), n_element.begin() + n1, n1_elements[index_element]);
+            std::fill(n_element.begin() + n1, n_element.end(), n2_elements[index_element]);
             _Asp[i].reserve(n_element);
         }
        
