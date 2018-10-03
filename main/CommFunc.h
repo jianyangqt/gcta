@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <ctime>
 #include <fstream>
+#include <Eigen/StdVector>
 using namespace std;
 
 namespace CommFunc
@@ -26,6 +27,8 @@ namespace CommFunc
 	double sum(const vector<double> &x);
     double mean(const vector<double> &x);
     double median(const vector<double> &x);
+    double quantile(const Eigen::Ref<const Eigen::VectorXd> &vals, double prob);
+    double quantile(const std::vector<double> &vals, double prob);
     double var(const vector<double> &x);
     double cov(const vector<double> &x, const vector<double> &y);
 	bool FloatEqual(double lhs, double rhs);
