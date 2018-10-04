@@ -897,7 +897,10 @@ void option(int option_num, char* option_str[])
             LOGGER << "--mlma-loco " << endl;
         } else if (strcmp(argv[i], "--mlma-no-adj-covar") == 0) {
             mlma_no_adj_covar = true;
-            LOGGER << "--mlma-no-adj-covar " << endl;
+            LOGGER << "--mlma-no-adj-covar (use --mlma-no-preadj-covar instead)" << endl;
+        } else if (strcmp(argv[i], "--mlma-no-preadj-covar") == 0) {	        } else if (strcmp(argv[i], "--fst") == 0) {
+            mlma_no_adj_covar = true;	
+            LOGGER << "--mlma-no-preadj-covar " << endl;	
         } else if (strcmp(argv[i], "--fst") == 0) {
             fst_flag = true;
             LOGGER << "--fst " << endl;

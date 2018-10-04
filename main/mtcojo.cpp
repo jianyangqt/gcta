@@ -340,7 +340,7 @@ double gcta::read_single_metafile_txt(string metafile, map<string, int> id_map,
     double pval_thresh = 0.5, h_buf = 0.0, vp_buf = 0.0, median_vp = 0.0;
     bool missing_flag = false;
     vector<double> vec_vp_buf;
-int i_buf = 0;      
+     
     while(std::getline(meta_raw, strbuf)) {
         missing_flag = false;
         line_number++;
@@ -354,7 +354,7 @@ int i_buf = 0;
         if(line_number==1) continue;
         iter = id_map.find(line_elements[0]);      
         if(iter == id_map.end()) continue;     
-i_buf ++;        
+    
         snp_indx = iter->second;         
         snp_a1[snp_indx] = line_elements[1]; snp_a2[snp_indx] = line_elements[2];
         StrFunc::to_upper(snp_a1[snp_indx]); StrFunc::to_upper(snp_a2[snp_indx]);
