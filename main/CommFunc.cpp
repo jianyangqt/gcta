@@ -47,6 +47,19 @@ double CommFunc::median(const vector<double> &x)
     else return (b[size/2]+b[size/2-1])/2;
 }
 
+double CommFunc::quantile(const Eigen::Ref<const Eigen::VectorXd> &vals, double prob) {
+    if (prob < 0 || prob > 1) LOGGER.e(0, "Requested quantile probability is invalid");
+    if (vals.size() == 0) return std::numeric_limits<double>::quiet_NaN();
+    double index = prob * (vals.size()-1);
+    unsigned below = std::floor(index), above = std::ceil(index);
+    if (below == above) return vals[above];
+    return (above - index) * vals[below] + (index - below) * vals[above];
+}
+
+double CommFunc::quantile(const std::vector<double> &vals, double prob) {
+    return quantile(Eigen::Map<const Eigen::VectorXd>(vals.data(), vals.size()), prob);
+}
+
 double CommFunc::var(const vector<double> &x)
 {
     int size = x.size();

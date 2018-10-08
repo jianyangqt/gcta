@@ -158,6 +158,11 @@ void option(int option_num, char* option_str[])
     int gsmr_alg_flag = 0, gsmr_so_alg = -9;
     string expo_file_list = "", outcome_file_list = "";
     
+    // Adjustment for PC
+    bool gwas_data_flag = false, gwas_adj_pc_flag = false;
+    int pc_adj_wind_size = 10000;
+    string pcadjust_list_file = "";
+
     int argc = option_num;
     vector<char *> argv(option_num + 2);
     for (i = 0; i < option_num; i++) argv[i] = option_str[i];
@@ -1104,6 +1109,11 @@ void option(int option_num, char* option_str[])
             if(clump_r2_thresh <0 || clump_r2_thresh >1)
                 LOGGER.e(0, "--clump-r2, Invalid LD r2 threshold for clumping analysis.");
             LOGGER<<"--clump-r2 "<<clump_r2_thresh<<endl;
+        } else if (strcmp(argv[i], "--gwas-adj-pc") == 0) {
+            gwas_data_flag = true;
+            pcadjust_list_file  = argv[++i];
+            LOGGER << "--gwas-adj-pc " << pcadjust_list_file << endl;
+            CommFunc::FileExist(pcadjust_list_file);
         } else if (strcmp(argv[i], "gcta") == 0) break;
         else {
             stringstream errmsg;
@@ -1175,6 +1185,9 @@ void option(int option_num, char* option_str[])
         // if(gsmr_so_alg == 1 && ref_ld_flag && w_ld_flag) { gsmr_so_alg = 0; LOGGER.w(0, "The LD score regression instead of correlation method will be used to estimate sample overlap."); }
         // if(gsmr_so_alg == 0 && !ref_ld_flag && !w_ld_flag) LOGGER.e(0, "Please specify the directory of LD score files to perform LD score regression analysis.");
         // if(!gsmr_so_flag && !ref_ld_flag && !w_ld_flag) LOGGER.w(0, "The GSMR analysis will be performed assuming no sample overlap between the GWAS data for exposure and outcome.");
+    }
+    if(pcl_flag && gwas_data_flag) {
+        pcl_flag = false; gwas_adj_pc_flag = true; thread_flag = false;
     }
     // OpenMP
     if (thread_flag) {
@@ -1289,6 +1302,7 @@ void option(int option_num, char* option_str[])
                 else if(!sbat_snpset_file.empty()) pter_gcta->sbat(sbat_sAssoc_file, sbat_snpset_file, sbat_ld_cutoff, sbat_write_snpset);
                 else if(sbat_seg_flag) pter_gcta->sbat_seg(sbat_sAssoc_file, sbat_seg_size, sbat_ld_cutoff, sbat_write_snpset);
             }
+            else if(gwas_adj_pc_flag) { pcl_flag=false; pter_gcta->pc_adjust(pcadjust_list_file, pc_file, freq_thresh, pc_adj_wind_size); }
             else if(pcl_flag) pter_gcta->snp_pc_loading(pc_file);
             else if(project_flag) pter_gcta->project_loading(project_file, project_N);
         }

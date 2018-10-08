@@ -107,7 +107,10 @@ void gcta::read_gsmrfile(string expo_file_list, string outcome_file_list, double
     vector<string> snplist;
     map<string, int> gws_snp_name_map;
     for(i=0; i<_expo_num; i++) {
-        snplist=read_snp_metafile(expo_gwas_file[i], gws_snp_name_map, pval_thresh);
+        if(expo_gwas_file[i].substr(expo_gwas_file[i].length()-3,3)!=".gz")
+            snplist=read_snp_metafile_txt(expo_gwas_file[i], gws_snp_name_map, pval_thresh);
+        else
+            snplist=read_snp_metafile_gz(expo_gwas_file[i], gws_snp_name_map, pval_thresh);
         if(i==0) init_meta_snp_map(snplist, _meta_snp_name_map, _meta_snp_name, _meta_remain_snp);
         else update_meta_snp_map(snplist, _meta_snp_name_map, _meta_snp_name, _meta_remain_snp, true);
     }
@@ -127,7 +130,10 @@ void gcta::read_gsmrfile(string expo_file_list, string outcome_file_list, double
     vector<string> outcome_snp_name;
     vector<int> outcome_remain_snp;
     for(i=0; i<_outcome_num; i++) {
-        snplist=read_snp_metafile(outcome_gwas_file[i], gws_snp_name_map, pval_thresh);
+        if(outcome_gwas_file[i].substr(outcome_gwas_file[i].length()-3,3)!=".gz")
+            snplist=read_snp_metafile_txt(outcome_gwas_file[i], gws_snp_name_map, pval_thresh);
+        else
+            snplist=read_snp_metafile_gz(outcome_gwas_file[i], gws_snp_name_map, pval_thresh);
         update_meta_snp_list(snplist, _meta_snp_name_map);
         if(i==0) init_meta_snp_map(snplist, outcome_snp_name_map, outcome_snp_name, outcome_remain_snp);
         else update_meta_snp_map(snplist, outcome_snp_name_map, outcome_snp_name, outcome_remain_snp, false);
@@ -161,7 +167,9 @@ void gcta::read_gsmrfile(string expo_file_list, string outcome_file_list, double
     // Summary data
     for(i=0; i<npheno; i++) {
         eigenVector snp_freq_buf(nsnp), snp_b_buf(nsnp), snp_se_buf(nsnp), snp_pval_buf(nsnp), snp_n_buf(nsnp);
-        _meta_vp_trait[i] = read_single_metafile(gwas_data_file[i], _meta_snp_name_map,  snp_a1[i], snp_a2[i], snp_freq_buf, snp_b_buf, snp_se_buf, snp_pval_buf, snp_n_buf, _snp_val_flag[i]);
+        if(gwas_data_file[i].substr(gwas_data_file[i].length()-3,3)!=".gz")
+            _meta_vp_trait[i] = read_single_metafile_txt(gwas_data_file[i], _meta_snp_name_map,  snp_a1[i], snp_a2[i], snp_freq_buf, snp_b_buf, snp_se_buf, snp_pval_buf, snp_n_buf, _snp_val_flag[i]);
+        else _meta_vp_trait[i] = read_single_metafile_gz(gwas_data_file[i], _meta_snp_name_map,  snp_a1[i], snp_a2[i], snp_freq_buf, snp_b_buf, snp_se_buf, snp_pval_buf, snp_n_buf, _snp_val_flag[i]);
         if(_meta_vp_trait[i] < 0) LOGGER.e(0, "Negative phenotypic variance of trait " + _gwas_trait_name[i] + ".");
         snp_freq.col(i) = snp_freq_buf;
         _meta_snp_b.col(i) = snp_b_buf;
@@ -172,10 +180,9 @@ void gcta::read_gsmrfile(string expo_file_list, string outcome_file_list, double
 
     // QC of SNPs
     LOGGER.i(0, "Filtering out SNPs with multiple alleles or missing value ...");
-    vector<string>::iterator iter1 = _gwas_trait_name.begin(), iter2 = _gwas_trait_name.end();
-    vector<string> badsnps, expo_pheno_name(iter1, iter1+_expo_num-1), outcome_pheno_name(iter1+_expo_num, iter2);
+    vector<string> badsnps;
     badsnps = remove_bad_snps(_meta_snp_name, _meta_remain_snp, _snp_val_flag, snp_a1, snp_a2, snp_freq,  _meta_snp_b, _meta_snp_se, _meta_snp_pval, _meta_snp_n_o, 
-                              _snp_name_map, _allele1, _allele2, outcome_pheno_name, _outcome_num, expo_pheno_name, _expo_num, _out);
+                              _snp_name_map, _allele1, _allele2, _outcome_num, _expo_num, _out);
 
     if(badsnps.size()>0) {
         update_id_map_rm(badsnps, _snp_name_map, _include);
@@ -547,7 +554,7 @@ vector<vector<double>> gcta::forward_gsmr(stringstream &ss, map<string,int> &snp
             string pleio_snps = "";
             vector<string> snp_instru;
             for(k=0; k<nsnp; k++) snp_pair_flag[k] = _snp_val_flag[i][_meta_remain_snp[k]] && _snp_val_flag[j+_expo_num][_meta_remain_snp[k]];
-            LOGGER.i(0, "\nForward GSMR analysis for exposure #" + to_string(i+1) + " and outcome #" + to_string(j+1) + " ...");
+            LOGGER.i(0, "\nForward GSMR analysis for exposure #" + to_string(i+1) + " and outcome #" + to_string(j+1) + " ...");         
             gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), 
                                   _meta_snp_b.col(j+_expo_num), _meta_snp_se.col(j+_expo_num), _r_pheno_sample(i,j), snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, pleio_snps, err_msg);
             if(std::isnan(gsmr_rst[3]))
@@ -583,7 +590,7 @@ vector<vector<double>> gcta::reverse_gsmr(stringstream &ss, map<string,int> &snp
             string err_msg = "";
             string pleio_snps = "";
             vector<string> snp_instru;
-            for(k=0; k<nsnp; k++) snp_pair_flag[k] = _snp_val_flag[i+_expo_num][_meta_remain_snp[k]] + _snp_val_flag[j][_meta_remain_snp[k]];
+            for(k=0; k<nsnp; k++) snp_pair_flag[k] = _snp_val_flag[i+_expo_num][_meta_remain_snp[k]] && _snp_val_flag[j][_meta_remain_snp[k]];
             LOGGER.i(0, "\nReverse GSMR analysis for exposure #" + to_string(j+1) + " and outcome #" + to_string(i+1) + " ...");
             gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i+_expo_num), _meta_snp_se.col(i+_expo_num), _meta_snp_pval.col(i+_expo_num), 
                                   _meta_snp_b.col(j), _meta_snp_se.col(j), _r_pheno_sample(j,i), snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, pleio_snps, err_msg);

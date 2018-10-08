@@ -189,9 +189,16 @@ public:
     void mtcojo(string mtcojo_bxy_file, string ref_ld_dirt, string w_ld_dirt, double freq_thresh, double gwas_thresh, int clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr);
     bool mtcojo_ldsc(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eigenMatrix snp_se, eigenMatrix snp_n, int ntrait, vector<string> snp_name, vector<int> snp_remain, string ref_ld_dirt, string w_ld_dirt, vector<string> trait_name, eigenMatrix &ldsc_intercept, eigenMatrix &ldsc_slope);
     void read_mtcojofile(string mtcojolist_file, double gwas_thresh, int nsnp_gsmr);
-    double read_single_metafile(string metafile, map<string, int> id_map, vector<string> &snp_a1, vector<string> &snp_a2, 
+    double read_single_metafile_txt(string metafile, map<string, int> id_map, vector<string> &snp_a1, vector<string> &snp_a2, 
                                 eigenVector &snp_freq, eigenVector &snp_b, eigenVector &snp_se, eigenVector &snp_pval, eigenVector &snp_n, vector<bool> &snpflag);
-    vector<string> read_snp_metafile(string metafile, map<string,int> &gws_snp_name_map, double thresh);
+    double read_single_metafile_gz(string metafile, map<string, int> id_map, vector<string> &snp_a1, vector<string> &snp_a2, 
+                                eigenVector &snp_freq, eigenVector &snp_b, eigenVector &snp_se, eigenVector &snp_pval, eigenVector &snp_n, vector<bool> &snpflag);
+    vector<string> read_snp_metafile_txt(string metafile, map<string,int> &gws_snp_name_map, double thresh);
+    vector<string> read_snp_metafile_gz(string metafile, map<string,int> &gws_snp_name_map, double thresh);
+    
+    // Adjusted for PC
+    void pc_adjust(string pcadjust_list_file, string eigenvalue_file, double freq_thresh, int wind_size);
+    void read_pc_adjust_file(string pcadjust_list_file, string pc_file);
 
     /////////////////////////
     // gene expresion data
@@ -443,17 +450,20 @@ private:
     void update_meta_snp_list(vector<string> &snplist, map<string, int> snp_id_map);
     void update_meta_snp_map(vector<string> snplist, map<string, int> &snp_id_map, vector<string> &snp_id, vector<int> &snp_indx, bool indx_flag);
     void update_meta_snp(map<string,int> &snp_name_map, vector<string> &snp_name, vector<int> &snp_remain);
-    vector<string> remove_bad_snps(vector<string> snp_name, vector<int> snp_remain, vector<vector<bool>> snp_flag, vector<vector<string>> &snp_a1, vector<vector<string>> &snp_a2, eigenMatrix &snp_freq,  eigenMatrix &snp_b, eigenMatrix snp_se, eigenMatrix snp_pval, eigenMatrix snp_n, map<string,int> plink_snp_name_map, vector<string> snp_ref_a1, vector<string> snp_ref_a2, vector<string> target_pheno, int ntarget, vector<string> covar_pheno, int ncovar, string outfile_name);
+    vector<string> remove_bad_snps(vector<string> snp_name, vector<int> snp_remain, vector<vector<bool>> snp_flag, vector<vector<string>> &snp_a1, vector<vector<string>> &snp_a2, eigenMatrix &snp_freq,  eigenMatrix &snp_b, eigenMatrix snp_se, eigenMatrix snp_pval, eigenMatrix snp_n, map<string,int> plink_snp_name_map, vector<string> snp_ref_a1, vector<string> snp_ref_a2, int ntarget, int ncovar, string outfile_name);
     vector<string> remove_freq_diff_snps(vector<string> meta_snp_name, vector<int> meta_snp_remain, map<string,int> snp_name_map, vector<double> ref_freq, eigenMatrix meta_freq, vector<vector<bool>> snp_flag, int ntrait, double freq_thresh, string outfile_name);
     vector<string> remove_mono_snps(map<string,int> snp_name_map, vector<double> ref_snpfreq, string outfile_name);
     vector<string> filter_meta_snp_pval(vector<string> snp_name, vector<int> remain_snp_indx,  eigenMatrix snp_pval, int start_indx, int end_indx, vector<vector<bool>> snp_flag, double pval_thresh);
     vector<double> gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eigenVector bzx_se, eigenVector bzx_pval, eigenVector bzy, eigenVector bzy_se, double rho_pheno, vector<bool> snp_flag, double gwas_thresh, int wind_size, double r2_thresh, double global_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, string &pleio_snps, string &err_msg);
-    vector<string> clumping_meta(eigenVector snp_pval, vector<bool> snp_flag, double pval_thresh, int wind_size, double r2_thresh);
+    vector<string> clumping_meta(eigenVector snp_chival, vector<bool> snp_flag, double pval_thresh, int wind_size, double r2_thresh);
     void update_mtcojo_snp_rm(vector<string> adjsnps, map<string,int> &snp_id_map, vector<int> &remain_snp_indx);
     vector<string> read_snp_ldsc(map<string,int> ldsc_snp_name_map, vector<string> snp_name, vector<int> snp_remain, int &ttl_mk_num, string ref_ld_dirt, string w_ld_dirt, vector<double> &ref_ld_vec, vector<double> &w_ld_vec);
     void reorder_snp_effect(vector<int> snp_remain, eigenMatrix &bhat_z, eigenMatrix &bhat_n, eigenMatrix snp_b, eigenMatrix snp_se, eigenMatrix snp_n, vector<vector<bool>> &snp_flag, vector<vector<bool>> snp_val_flag, vector<int> &nsnp_cm_trait, vector<string> cm_ld_snps, map<string,int> ldsc_snp_name_map, eigenVector &ref_ld, eigenVector &w_ld, vector<double> ref_ld_vec, vector<double> w_ld_vec, int ntrait);
     eigenMatrix ldsc_snp_h2(eigenMatrix bhat_z, eigenMatrix bhat_n, eigenVector ref_ld, eigenVector w_ld, vector<vector<bool>> snp_flag, vector<int> nsnp_cm_trait, int n_cm_ld_snps, int ttl_mk_num, vector<string> trait_name, int ntrait);
     eigenMatrix ldsc_snp_rg(eigenMatrix ldsc_var_h2, eigenMatrix bhat_z, eigenMatrix bhat_n, eigenVector ref_ld, eigenVector w_ld, vector<vector<bool>> snp_flag, vector<int> trait_indx1, vector<int> trait_indx2, int n_cm_ld_snps, int ttl_mk_num, vector<string> trait_name);
+
+    // Ajust summarydata for PC
+    void adjust_snp_effect_for_pc(eigenVector bzy_delta, eigenVector msx, int wind_size);
 
     // inline functions
     template<typename ElemType>
@@ -647,6 +657,10 @@ private:
     eigenMatrix _ecojo_wholeR;
     double _ecojo_p_cutoff;
     double _ecojo_collinear;
+
+    // PC adjustment
+    double _ttl_mk_num;
+    vector<double> _eigen_value;
 };
 
 class locus_bp {
