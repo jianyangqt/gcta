@@ -133,6 +133,9 @@
     <ClCompile Include="..\src\Covar.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\main\pc_adjust.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\main\cdflib.h">

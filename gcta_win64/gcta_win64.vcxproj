@@ -122,6 +122,7 @@
     <ClCompile Include="..\main\mlm_assoc.cpp" />
     <ClCompile Include="..\main\mtcojo.cpp" />
     <ClCompile Include="..\main\option.cpp" />
+    <ClCompile Include="..\main\pc_adjust.cpp" />
     <ClCompile Include="..\main\popu_genet.cpp" />
     <ClCompile Include="..\main\raw_geno.cpp" />
     <ClCompile Include="..\main\reml_within_family.cpp" />
