@@ -407,7 +407,7 @@ double gcta::read_single_metafile_txt(string metafile, map<string, int> id_map,
         if(line_number==1) continue;
         iter = id_map.find(line_elements[0]);      
         if(iter == id_map.end()) continue;     
-    
+
         snp_indx = iter->second;         
         snp_a1[snp_indx] = line_elements[1]; snp_a2[snp_indx] = line_elements[2];
         StrFunc::to_upper(snp_a1[snp_indx]); StrFunc::to_upper(snp_a2[snp_indx]);
@@ -1053,45 +1053,35 @@ int topsnp_bxy(eigenVector bxy, eigenVector bzx_pval, map<string, int> meta_snp_
 
 void est_cov_bxy(eigenMatrix &cov_bxy_p1, eigenMatrix &cov_bxy_p2, eigenVector bzx, eigenVector bzx_se, eigenVector bzy_se, eigenMatrix ld_r_mat,
             map<string, int> meta_snp_name_map, vector<string> indices_snp, vector<int> kept_ID) {
-//LOGGER<<"cov_bxy1"<<endl;
+
     int i = 0, j = 0, n_indices_snp = kept_ID.size();
     eigenVector zscore_inv1(n_indices_snp), zscore_inv2(n_indices_snp);
     map<string, int>::iterator iter;
-//LOGGER<<"cov_bxy2"<<endl;
-//LOGGER<<"n_indices_snp "<<n_indices_snp<<endl;
+
     for(i=0; i<n_indices_snp; i++) {
         iter = meta_snp_name_map.find(indices_snp[kept_ID[i]]);
-//        LOGGER << "i " << i<<" "<<iter->second<<endl;
         zscore_inv1(i) = bzx_se(iter->second)/bzx(iter->second);
         zscore_inv2(i) = bzy_se(iter->second)/bzx(iter->second);
     }
-//LOGGER<<"cov_bxy3"<<endl;
-//LOGGER<<"n_indices_snp "<<n_indices_snp<<endl;
+
     for(i=0; i<n_indices_snp; i++) {
         for(j=i; j<n_indices_snp; j++) {
-//            LOGGER << "i-j "<<i<<" "<<j<<endl;
             cov_bxy_p1(i,j) = cov_bxy_p1(j,i) = ld_r_mat(kept_ID[i],kept_ID[j])*zscore_inv2(i)*zscore_inv2(j);
             cov_bxy_p2(i,j) = cov_bxy_p2(j,i) = ld_r_mat(kept_ID[i],kept_ID[j])*zscore_inv1(i)*zscore_inv1(j);
         }
     }
-//LOGGER<<"cov_bxy4"<<endl;    
 }
 
-eigenMatrix est_cov_bxy_gsmr(double bxy_hat, eigenVector bzx, eigenVector bzx_se, eigenVector bzy_se, eigenMatrix ld_r_mat,
+void est_cov_bxy_gsmr(eigenMatrix &cov_bxy, double bxy_hat, eigenVector bzx, eigenVector bzx_se, eigenVector bzy_se, eigenMatrix ld_r_mat,
                             map<string, int> meta_snp_name_map, vector<string> indices_snp, vector<int> kept_ID) {
     int n_indices_snp = kept_ID.size();
-//LOGGER<<"bxy_gsmr1"<<endl;
     eigenMatrix cov_bxy_p1(n_indices_snp, n_indices_snp), cov_bxy_p2(n_indices_snp, n_indices_snp);
-//LOGGER<<"bxy_gsmr2"<<endl;    
     est_cov_bxy(cov_bxy_p1, cov_bxy_p2, bzx, bzx_se, bzy_se, ld_r_mat,
                    meta_snp_name_map, indices_snp, kept_ID);
-//LOGGER<<"bxy_gsmr3"<<endl;                   
-    eigenMatrix cov_bxy = cov_bxy_p1 + cov_bxy_p2*(bxy_hat*bxy_hat);
-//LOGGER<<"bxy_gsmr4"<<endl;
-    return(cov_bxy);
+    cov_bxy = cov_bxy_p1 + cov_bxy_p2*(bxy_hat*bxy_hat);
 }
 
-eigenMatrix est_cov_bxy_heidi(double bxy_hat, eigenVector bzx, eigenVector bzx_se, eigenVector bzy, eigenVector bzy_se, eigenMatrix ld_r_mat,
+void est_cov_bxy_heidi(eigenMatrix &cov_bxy, double bxy_hat, eigenVector bzx, eigenVector bzx_se, eigenVector bzy, eigenVector bzy_se, eigenMatrix ld_r_mat,
                             map<string, int> meta_snp_name_map, vector<string> indices_snp, vector<int> kept_ID) {
     int i = 0, n_indices_snp = kept_ID.size();
     eigenMatrix cov_bxy_p1(n_indices_snp, n_indices_snp), cov_bxy_p2(n_indices_snp, n_indices_snp);
@@ -1104,19 +1094,18 @@ eigenMatrix est_cov_bxy_heidi(double bxy_hat, eigenVector bzx, eigenVector bzx_s
         double bxy_i = bzy(iter->second)/bzx(iter->second);
         cov_bxy_p2.col(i) = cov_bxy_p2.col(i)*bxy_i*bxy_hat;
     }
-    eigenMatrix cov_bxy = cov_bxy_p1 + cov_bxy_p2.transpose();
-
-    return(cov_bxy);
+    cov_bxy = cov_bxy_p1 + cov_bxy_p2.transpose();
 }
 
 vector<double> est_bxy_gsmr(eigenVector bxy_sort, eigenVector bxy, vector<string> indices_snp, vector<int> kept_ID, eigenVector bzx, eigenVector bzx_se, eigenVector bzy, eigenVector bzy_se, eigenMatrix ld_r_mat, map<string, int> meta_snp_name_map, eigenVector &vec_1t_v) {
     double bxy_median = CommFunc::quantile(bxy_sort, 0.50);
 
     // cov(bxy_i, bxy_j)
-    eigenMatrix cov_bxy = est_cov_bxy_gsmr(bxy_median, bzx, bzx_se, bzy_se, ld_r_mat,
-                          meta_snp_name_map, indices_snp, kept_ID);
-
     int i = 0, n_indices_snp = kept_ID.size();
+    eigenMatrix cov_bxy(n_indices_snp, n_indices_snp);
+    est_cov_bxy_gsmr(cov_bxy, bxy_median, bzx, bzx_se, bzy_se, ld_r_mat,
+                    meta_snp_name_map, indices_snp, kept_ID);
+
     eigenVector bxy_kept(n_indices_snp);
     for(i = 0; i < n_indices_snp; i++) bxy_kept(i) = bxy(kept_ID[i]);
 
@@ -1124,59 +1113,47 @@ vector<double> est_bxy_gsmr(eigenVector bxy_sort, eigenVector bxy, vector<string
     VectorXd vec_1= VectorXd::Ones(n_indices_snp);
     cov_bxy = cov_bxy + eps*eigenMatrix::Identity(n_indices_snp, n_indices_snp);
     LDLT<eigenMatrix> ldlt_cov_bxy(cov_bxy);
-//LOGGER<<"inverse_cov_bxy "<<ldlt_cov_bxy.vectorD().minCoeff() << endl;
+
     if( ldlt_cov_bxy.vectorD().minCoeff() <= 0 )
         LOGGER.e(0, "The variance-covariance matrix of bxy is not invertible.");
     eigenMatrix cov_bxy_inv = eigenMatrix::Identity(n_indices_snp, n_indices_snp);
     ldlt_cov_bxy.solveInPlace(cov_bxy_inv);
-//LOGGER << "before is ok"<<endl;    
-    vec_1t_v = (vec_1.transpose()*cov_bxy_inv).transpose();
-//LOGGER << "vec size " << vec_1t_v.size()<<endl;
-    eigenMatrix mat_buf = vec_1t_v.transpose()*vec_1;
-    double bxy_gsmr_se  = 1/mat_buf(0,0);
-    mat_buf = vec_1t_v.transpose()*bxy_kept;
-    double bxy_gsmr = bxy_gsmr_se*mat_buf(0,0);
+    vec_1t_v = vec_1.transpose()*cov_bxy_inv;
+    double mat_buf = vec_1t_v.dot(vec_1);
+    double bxy_gsmr_se  = 1/mat_buf;
+    mat_buf = vec_1t_v.dot(bxy_kept);
+    double bxy_gsmr = bxy_gsmr_se*mat_buf;
     double bxy_gsmr_pval = StatFunc::pchisq( bxy_gsmr*bxy_gsmr/bxy_gsmr_se, 1);
     bxy_gsmr_se = sqrt(bxy_gsmr_se);
-//LOGGER << "ok"<<endl;
     // save the result
     vector<double> rst(4);
-//LOGGER << rst.size()<<endl;
     rst[0] = bxy_gsmr; rst[1] = bxy_gsmr_se; rst[2] = bxy_gsmr_pval; rst[3] = (double)n_indices_snp;
-//LOGGER << "ok2"<<endl; 
     return rst;
 }
 
-eigenVector est_var_bxy(eigenVector bzx, eigenVector bzx_se, eigenVector bzy, eigenVector bzy_se,
+void est_var_bxy(eigenVector &var_bxy, eigenVector bzx, eigenVector bzx_se, eigenVector bzy, eigenVector bzy_se,
                         vector<string> indices_snp, vector<int> kept_ID, map<string,int> meta_snp_name_map) {
     int i = 0, n_indices_snp = kept_ID.size();
-    eigenVector var_bxy(n_indices_snp);
     map<string, int>::iterator iter;
 
     for( i = 0; i < n_indices_snp; i++) {
         iter = meta_snp_name_map.find(indices_snp[kept_ID[i]]);
         var_bxy(i) = pow(bzx_se(iter->second),2.0)*pow(bzy(iter->second), 2.0)/pow(bzx(iter->second), 4.0) + pow(bzy_se(iter->second), 2.0)/pow(bzx(iter->second), 2.0);
     }                        
-    
-    return(var_bxy);
 }
 
-eigenVector est_diff_bxy(double bxy_est, vector<string> indices_snp, vector<int> kept_ID, 
+void est_diff_bxy(eigenVector &bxy_diff, double bxy_est, vector<string> indices_snp, vector<int> kept_ID, 
                              eigenVector bzx, eigenVector bzy, map<string,int> meta_snp_name_map) {
     int i = 0, n_indices_snp = kept_ID.size(); 
-    eigenVector bxy_diff(n_indices_snp);
 
     for( i=0; i<n_indices_snp; i++ ) {
         map<string,int>::iterator iter = meta_snp_name_map.find(indices_snp[kept_ID[i]]);
         bxy_diff(i) = bzy(iter->second)/bzx(iter->second) - bxy_est;
     }
-
-    return(bxy_diff);
 }
 
-eigenMatrix est_var_diff_bxy(eigenMatrix cov_bxy, eigenVector cov_bxy_bgsmr, double bxy_hat_se, int n_indices_snp) {
+void est_var_diff_bxy(eigenMatrix &var_d, eigenMatrix cov_bxy, eigenVector cov_bxy_bgsmr, double bxy_hat_se, int n_indices_snp) {
     int i = 0, j = 0;
-    eigenMatrix var_d(n_indices_snp, n_indices_snp);
     var_d.setZero(n_indices_snp, n_indices_snp);
 
     for( i=0; i<n_indices_snp; i++ ) {
@@ -1184,7 +1161,6 @@ eigenMatrix est_var_diff_bxy(eigenMatrix cov_bxy, eigenVector cov_bxy_bgsmr, dou
             var_d(i,j) = var_d(j,i) = cov_bxy(i,j) + bxy_hat_se*bxy_hat_se - cov_bxy_bgsmr(i) - cov_bxy_bgsmr(j);
         }
     }
-    return(var_d);
 }
 
 vector<double> indi_heidi_pvalue(double bxy_hat, double bxy_hat_se, eigenVector vec_1t_v, eigenVector bzx, eigenVector bzx_se, eigenVector bzy, eigenVector bzy_se, 
@@ -1192,9 +1168,11 @@ vector<double> indi_heidi_pvalue(double bxy_hat, double bxy_hat_se, eigenVector 
     int i = 0, j = 0, n_indices_snp = kept_ID.size();
 
     // var(bxy)
-    eigenVector var_bxy = est_var_bxy(bzx, bzx_se, bzy, bzy_se, indices_snp, kept_ID, meta_snp_name_map);
+    eigenVector var_bxy(n_indices_snp);
+    est_var_bxy(var_bxy, bzx, bzx_se, bzy, bzy_se, indices_snp, kept_ID, meta_snp_name_map);
     // cov(bxy_i, bxy_j)
-    eigenMatrix cov_bxy = est_cov_bxy_heidi(bxy_hat, bzx, bzx_se, bzy, bzy_se, ld_r_mat, meta_snp_name_map, indices_snp, kept_ID);
+    eigenMatrix cov_bxy(n_indices_snp, n_indices_snp);
+    est_cov_bxy_heidi(cov_bxy, bxy_hat, bzx, bzx_se, bzy, bzy_se, ld_r_mat, meta_snp_name_map, indices_snp, kept_ID);
 
     vector<int> slct_index(remain_index.size());
     for(i=0, j=0; i<n_indices_snp; i++) {
@@ -1209,7 +1187,8 @@ vector<double> indi_heidi_pvalue(double bxy_hat, double bxy_hat_se, eigenVector 
         cov_bxy_bgsmr(i) = bxy_hat_se*bxy_hat_se*vec_1t_v.dot(cov_bxy.row(i));
     
     // d = bxy_i - bxy_gsmr
-    eigenVector d = est_diff_bxy(bxy_hat, indices_snp, kept_ID, bzx, bzy, meta_snp_name_map);
+    eigenVector d(n_indices_snp);
+    est_diff_bxy(d, bxy_hat, indices_snp, kept_ID, bzx, bzy, meta_snp_name_map);
 
     eigenVector var_d = var_bxy + bxy_hat_se*bxy_hat_se*eigenVector::Ones(n_indices_snp) - 2*cov_bxy_bgsmr;
     vector<double> indi_heidi_pval(n_indices_snp);
@@ -1224,12 +1203,15 @@ double global_heidi_pvalue(double bxy_hat, double bxy_hat_se, eigenVector bzx, e
     int i = 0, j = 0, n_indices_snp = kept_ID.size();
 
     // d = bxy_i - bxy_gsmr
-    eigenVector d = est_diff_bxy(bxy_hat, indices_snp, kept_ID, bzx, bzy, meta_snp_name_map);
+    eigenVector d(n_indices_snp);
+    est_diff_bxy(d, bxy_hat, indices_snp, kept_ID, bzx, bzy, meta_snp_name_map);
     // V matrix
-    eigenMatrix cov_bxy = est_cov_bxy_gsmr(bxy_hat, bzx, bzx_se, bzy_se, ld_r_mat, meta_snp_name_map, indices_snp, kept_ID);
+    eigenMatrix cov_bxy(n_indices_snp, n_indices_snp);
+    est_cov_bxy_gsmr(cov_bxy, bxy_hat, bzx, bzx_se, bzy_se, ld_r_mat, meta_snp_name_map, indices_snp, kept_ID);
     eigenVector cov_bxy_bgsmr(n_indices_snp);
     for(i=0; i<n_indices_snp; i++) cov_bxy_bgsmr(i) = bxy_hat_se*bxy_hat_se*vec_1t_v.dot(cov_bxy.col(i));
-    eigenMatrix var_d = est_var_diff_bxy(cov_bxy, cov_bxy_bgsmr, bxy_hat_se, n_indices_snp);
+    eigenMatrix var_d(n_indices_snp, n_indices_snp);
+    est_var_diff_bxy(var_d, cov_bxy, cov_bxy_bgsmr, bxy_hat_se, n_indices_snp);
 
     // inverse Vd matrix
     double global_heidi_pval;
@@ -1280,24 +1262,23 @@ vector<int> indi_heidi_outlier(eigenVector bxy, eigenVector bzx, eigenVector bzx
 
 vector<int> indi_heidi_outlier_iter(eigenVector bxy, eigenVector bzx, eigenVector bzx_se, eigenVector bzy, eigenVector bzy_se, 
                                eigenMatrix ld_r_mat, map<string,int> meta_snp_name_map, vector<string> indices_snp, vector<int> kept_ID) {
-//LOGGER << "indi1" <<endl;    
     int i = 0, n_indices_snp = kept_ID.size();
     eigenVector bxy_sort(n_indices_snp);
     for(i=0; i<n_indices_snp; i++) bxy_sort(i) = bxy(kept_ID[i]);
     std::stable_sort(bxy_sort.data(), bxy_sort.data()+n_indices_snp);
     vector<int> ci_index = init_interval_bxy(bxy_sort, bxy, kept_ID, 0.1, 0.9);
-//    LOGGER << ci_index.size() << endl;
+
     if(ci_index.size() == 0) return(ci_index);
-//LOGGER << "indi2" <<endl;
+
     eigenVector vec_1t_v;
     vector<double> gsmr_rst = est_bxy_gsmr(bxy_sort, bxy, indices_snp, ci_index, bzx, bzx_se, bzy, bzy_se, ld_r_mat, meta_snp_name_map, vec_1t_v);    
-//LOGGER << "indi3" <<endl;
+
     double bxy_hat = gsmr_rst[0], bxy_hat_se = gsmr_rst[1];
-//LOGGER << "bxy " << bxy_hat << " "<< bxy_hat_se << endl;
+
     vector<double> indi_het_pval;
     indi_het_pval = indi_heidi_pvalue(bxy_hat, bxy_hat_se, vec_1t_v, bzx, bzx_se, bzy, bzy_se, 
                                     ld_r_mat, meta_snp_name_map, indices_snp, kept_ID, ci_index);
-//LOGGER << "indi4" << endl;
+
     double indi_heidi_thresh = min(0.01, 0.05/(double)n_indices_snp);
     double min_pval = 1.0;
     int min_index = 0;
@@ -1306,11 +1287,9 @@ vector<int> indi_heidi_outlier_iter(eigenVector bxy, eigenVector bzx, eigenVecto
         min_pval = indi_het_pval[i];
         min_index = i;
     }
-//LOGGER << "indi5" << endl;
-//LOGGER << "min "<< min_pval <<" "<< min_index<< endl;
-//LOGGER <<"kept_ID "<< kept_ID.size() << endl;    
+
     if(min_pval < indi_heidi_thresh) kept_ID.erase(kept_ID.begin()+min_index);
-//LOGGER << "indi6" << endl;    
+
     return(kept_ID);
 }
 
@@ -1379,22 +1358,21 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
         err_msg = "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required."; 
         return rst;
     }
-//LOGGER<<"1"<<endl;
+
     // Adjust LD
     int k = 0;
     eigenMatrix ld_pval_mat(n_indices_snp, n_indices_snp);
     vector<pair<double,int>> ld_pval(n_indices_snp*(n_indices_snp-1)/2);
-//LOGGER<<"2"<<endl;
+
     for(i=0, k=0; i<(n_indices_snp-1); i++) {
         for(j=(i+1); j<n_indices_snp; j++) {
             ld_pval[k++] = make_pair(StatFunc::chi_prob(1, ld_r_mat(kept_ID[i],kept_ID[j])*ld_r_mat(kept_ID[i],kept_ID[j])*(double)nindi), i*n_indices_snp+j); 
         }
     }
-//LOGGER<<"3"<<endl;
+
     stable_sort(ld_pval.begin(), ld_pval.end(), [](const pair<double,int> a, const pair<double,int> b) {return a.first > b.first;});
     adjust_ld_r_fdr(ld_r_mat, kept_ID, ld_pval, n_indices_snp, ld_fdr_thresh);
 
-//LOGGER<<"4"<<endl;
     // estimate bxy
     eigenVector bxy(indices_snp.size());
     bxy.setZero();
@@ -1402,36 +1380,26 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
         iter = _meta_snp_name_map.find(indices_snp[kept_ID[i]]);
         bxy(kept_ID[i]) = bzy(iter->second)/bzx(iter->second);
     }
-//LOGGER<<"5"<<endl;
+
     // HEIDI-outlier step 1
     vector<int> remain_index(kept_ID);
     bool heidi_flag = CommFunc::FloatNotEqual(global_heidi_thresh, 0) ? true : false;
     if (heidi_flag) {
         int n_kept_snp = 0;
-//        LOGGER<<"5.1"<<endl;
         while(1) {
-//            LOGGER<<"5.2"<<endl;
             n_kept_snp = kept_ID.size();
-//            LOGGER<<"5.3"<<endl;
-//            LOGGER<<"n_kept_snp "<<n_kept_snp<<endl;
             kept_ID = indi_heidi_outlier_iter(bxy, bzx, bzx_se, bzy, bzy_se, 
                                     ld_r_mat, _meta_snp_name_map, indices_snp, kept_ID);                         
-//            LOGGER<<"5.4"<<endl;                        
             n_indices_snp = kept_ID.size();
-//            LOGGER<<"n_indices_snp "<<n_indices_snp<<endl;
-//            LOGGER<<"5.5"<<endl;
             if(n_kept_snp - n_indices_snp == 0 ) break;
             // check
-//            LOGGER<<"nsnp "<<n_indices_snp << " "<<nsnp_gsmr<<endl;
             if(n_indices_snp < nsnp_gsmr) {
                 err_msg = "Not enough SNPs to perform GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required.";
                 return rst;
             }
-//            LOGGER<<"5.6"<<endl;
         }
     }
 
-//LOGGER<<"6"<<endl;
     // HEIDI-outlier step 2
     double bxy_hat = 0.0, bxy_hat_se = 0.0;
     double global_heidi_pval = 0.0;
@@ -1464,7 +1432,6 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
                 min_index = i;
             }
         }
-//LOGGER<<"7"<<endl;
         kept_ID.erase(kept_ID.begin()+min_index);
         // check
         n_indices_snp = kept_ID.size();
@@ -1475,7 +1442,6 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
         }
     }
  
-//LOGGER<<"8"<<endl;
     // save pleiotropic SNPs
     int npleio = remain_index.size() - n_indices_snp;
     if(npleio > 0) {
@@ -1490,13 +1456,11 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
         pleio_snps = pleio_snps.substr(0, pleio_snps.size()-1);
         LOGGER.i(0,  to_string(npleio) + " pleiotropic SNPs are filtered by HEIDI-outlier analysis.");	
     }
-//LOGGER<<"9"<<endl;
     // save the SNPs after HEIDI-outlier
     snp_instru.clear(); snp_instru.resize(n_indices_snp);
     for(i=0; i<n_indices_snp; i++)
         snp_instru[i] = indices_snp[kept_ID[i]];
     LOGGER.i(0, to_string(n_indices_snp) + " index SNPs are retained after HEIDI-outlier analysis.");
-//LOGGER<<"10"<<endl;
     double bxy_hat_pval = StatFunc::pchisq(bxy_hat*bxy_hat/(bxy_hat_se*bxy_hat_se), 1);
     rst[0] = bxy_hat; rst[1] = bxy_hat_se; rst[2] = bxy_hat_pval; rst[3] = n_indices_snp; rst[4] = global_heidi_pval;
     return rst;
