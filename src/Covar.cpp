@@ -343,7 +343,7 @@ bool Covar::getCommonSampleIndex(const vector<string> &sampleIDs, vector<uint32_
 
 
 bool Covar::getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector<uint32_t> &keep_index){
-    vector<int> covar_index;
+    vector<uint32_t> covar_index;
     if(!getCommonSampleIndex(sampleIDs, keep_index, covar_index)){
         return false;
     }
@@ -408,8 +408,8 @@ bool Covar::getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector
     return true;
 }
 
-bool Covar::getCovarXRaw(const vector<string> &sampleIDs, vector<double> &X, vector<int> &keep_index){
-    vector<int> covar_index;
+bool Covar::getCovarXRaw(const vector<string> &sampleIDs, vector<double> &X, vector<uint32_t> &keep_index){
+    vector<uint32_t> covar_index;
     if(!getCommonSampleIndex(sampleIDs, keep_index, covar_index)){
         return false;
     }
@@ -590,7 +590,7 @@ int Covar::registerOption(map<string, vector<string>>& options_in){
 
         Covar covar;
         vector<double> X;
-        vector<int> sample_index;
+        vector<uint32_t> sample_index;
         covar.getCovarXRaw(samples, X, sample_index);
         LOGGER<< "samples " << sample_index.size() << std::endl;
         LOGGER << "X size: " << X.size() << std::endl;

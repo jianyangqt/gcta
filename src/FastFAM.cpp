@@ -239,21 +239,22 @@ double FastFAM::HEreg(const Ref<const SpMat> fam, const Ref<const VectorXd> phen
         auto fam_block = fam.block(0, i, i, 1);
         auto pheno_block = pheno.head(i) * temp_pheno;
         SSy += pheno_block.dot(pheno_block);
-        XtY(0) += pheno_block.sum();
-        XtY(1) += fam_block.dot(pheno_block);
+        XtY[0] += pheno_block.sum();
+        XtY[1] += (pheno_block.transpose() * fam_block)[0];
         XtX(0,1) += fam_block.sum();
-        XtX(1,1) += fam_block.dot(fam_block);
+        XtX(1,1) += (fam_block.cwiseProduct(fam_block)).sum();
     }
 
-    MatrixXd XtXi = XtX.selfadjointView<Eigen::Upper>().inverse();
+    //MatrixXd XtXi = XtX.selfadjointView<Eigen::Upper>().inverse();
+    MatrixXd XtXi = XtX.inverse();
     VectorXd betas = XtXi * XtY;
 
     double sse = (SSy - betas.dot(XtY)) / (size - col_X);
 
     VectorXd SDs = sse * XtXi.diagonal();
 
-    double hsq = betas(betas.size() - 1);
-    double SD = SDs(SDs.size() - 1);
+    double hsq = betas[betas.size() - 1];
+    double SD = SDs[SDs.size() - 1];
     double Zsq = hsq * hsq / SD;
     double p = StatLib::pchisqd1(Zsq);
 
