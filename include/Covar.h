@@ -29,6 +29,7 @@ using std::string;
 class Covar{
 public:
     Covar();
+    bool getCommonSampleIndex(const vector<string> &sampleIDs, vector<int> &keep_index, vector<int> &covar_index);
     bool getCovarXRaw(const vector<string> &sampleIDs, vector<double> &X, vector<int> &keep_index);
     bool getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector<int> &keep_index);
     bool setCovarMapping(bool is_rcovar, vector<vector<string>> *map_order = NULL);

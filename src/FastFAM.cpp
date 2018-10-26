@@ -69,14 +69,11 @@ FastFAM::FastFAM(Geno *geno){
 
     // read covar
     vector<uint32_t> remain_index, remain_index_covar;
-    vector<vector<double>> v_covar;
     bool has_qcovar = false;
-    if(options.find("concovar") != options.end()){
-        has_qcovar = true;
-        LOGGER.i(0, "Reading covariance data from [" + options["concovar"] + "]...");
-        vector<string> v_covar_id = Pheno::read_sublist(options["concovar"], &v_covar); 
-        vector_commonIndex(ids, v_covar_id, remain_index, remain_index_covar);
-        LOGGER.i(0, to_string(remain_index.size()) + " overlapped individuals with non-missing data to be included from the covariance file.");
+    Covar covar;
+    if(covar.getCommonSampleIndex(ids, remain_index, remain_index_covar){
+        has_covar = true;
+        LOGGER.i(0, to_string(remain_index.size()) + " overlapped individuals with non-missing data to be included from the covariate file(s).");
     }else{
         remain_index.resize(ids.size());
         std::iota(remain_index.begin(), remain_index.end(), 0);
@@ -109,40 +106,27 @@ FastFAM::FastFAM(Geno *geno){
 
     //reorder phenotype, covar
     vector<double> remain_phenos(n_remain_index_fam);
+    vector<string> remain_ids_fam(n_remain_index_fam);
     for(int i = 0; i != n_remain_index_fam; i++){
         remain_phenos[i] = phenos[remain_index[remain_index_fam[i]]];
+        remain_ids_fam[i] = ids[remain_index[remain_index_fam[i]]];
     }
     LOGGER.i(0, "After matching all the files, " + to_string(remain_phenos.size()) + " individuals to be included in the analysis.");
 
     vector<double> remain_covar;
-    if(has_qcovar){
-        vector<uint32_t> remain_index_covar_fam(n_remain_index_fam, 0);
-        int n_v_covar = v_covar.size();
-        std::transform(remain_index_fam.begin(), remain_index_fam.end(), remain_index_covar_fam.begin(), 
-            [&remain_index, &remain_index_covar](size_t pos){
-                ptrdiff_t vector_pos = std::find(remain_index.begin(), remain_index.end(), pos) - remain_index.begin();
-                return remain_index_covar[vector_pos];
-            });
-
-        remain_covar.resize(n_remain_index_fam * (n_v_covar + 1));
-
-        for(int j = 0; j != n_v_covar; j++){
-            int base_index = (j + 1) * n_remain_index_fam;
-            for(int i = 0; i != n_remain_index_fam; i++){
-                remain_covar[base_index + i] = v_covar[j][remain_index_covar_fam[i]];
-            }
-        }
-
-        for(int i = 0; i != n_remain_index_fam; i++){
-            remain_covar[i] = 1.0;
-        }
+    vector<int> remain_inds_index;
+    if(has_covar){
+        covar.getCovarX(remain_ids_fam, remain_covar, remain_inds_index);
+        remain_covar.resize(remain_covar.size() + n_remain_index_fam);
+        std::fill(remain_covar.end() - n_remain_index_fam, remain_covar.end(), 1.0);
     }
 
     // standerdize the phenotype, and condition the covar
     phenoVec = Map<VectorXd> (remain_phenos.data(), remain_phenos.size());
     // condition the covar
     if(has_qcovar){
-        MatrixXd concovar = Map<Matrix<double, Dynamic, Dynamic, Eigen::ColMajor>>(remain_covar.data(), remain_phenos.size(), v_covar.size() + 1);
+        MatrixXd concovar = Map<Matrix<double, Dynamic, Dynamic, Eigen::ColMajor>>(remain_covar.data(), remain_phenos.size(), 
+                remain_covar.size() / remain_phenos.size());
         conditionCovarReg(phenoVec, concovar);
     }
 
@@ -165,17 +149,22 @@ FastFAM::FastFAM(Geno *geno){
             vector<double> Zij;
 
             if(flag_est_GE){
-                LOGGER.i(0, "Estimating the genetic variance (Vg) by HE regression");
-                for(int k = 0; k < fam.outerSize(); ++k){
-                    for(SpMat::InnerIterator it(fam, k); it; ++it){
-                        if(it.row() < it.col()){
-                            Aij.push_back(it.value());
-                            Zij.push_back(phenoVec[it.row()] * phenoVec[it.col()]);
+                LOGGER.i(0, "Estimating the genetic variance (Vg) by HE regression...");
+                if(options["rel_only"] == "yes"){
+                    LOGGER.i(0, "Use related pairs only.");
+                    for(int k = 0; k < fam.outerSize(); ++k){
+                        for(SpMat::InnerIterator it(fam, k); it; ++it){
+                            if(it.row() < it.col()){
+                                Aij.push_back(it.value());
+                                Zij.push_back(phenoVec[it.row()] * phenoVec[it.col()]);
+                            }
                         }
                     }
-                }
 
-                VG = HEreg(Zij, Aij);
+                    VG = HEreg(Zij, Aij);
+                }else{
+                    VG = HEreg(fam, phenoVec);
+                }
                 VR = Vpheno - VG;
                 LOGGER.i(2, "Ve = " + to_string(VR));
                 LOGGER.i(2, "Heritablity = " + to_string(VG/Vpheno));
@@ -225,12 +214,54 @@ FastFAM::FastFAM(Geno *geno){
 void FastFAM::conditionCovarReg(VectorXd &pheno, MatrixXd &covar){
     MatrixXd t_covar = covar.transpose();
     VectorXd beta = (t_covar * covar).ldlt().solve(t_covar * pheno);
-    std::cout << "DEBUG: betas" << std::endl;
-    std::cout << beta << std::endl;
+    LOGGER.i(0, "DEBUG: condition betas:");
+    LOGGER << beta << std::endl;
     //VectorXd beta = covar.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(pheno);
     pheno -= covar * beta;
     //double pheno_mean = pheno.mean();
     //pheno -= (VectorXd::Ones(pheno.size())) * pheno_mean;
+}
+
+double FastFAM::HEreg(const Ref(const SpMat) fam, const Ref(const VectorXd) pheno){
+    int num_covar = 1;
+    int num_components = 1;
+    int col_X = num_covar + num_components;
+    MatrixXd XtX = MatrixXd::Zero(col_X, col_X);
+    VectorXd XtY = VectorXd::Zero(col_X);
+    double SSy = 0;
+
+    uint64_t size = fam.cols();
+    XtX(0, 0) = size;
+
+    for(int i = 1; i < size; i++){
+        double temp_pheno = pheno[i];
+        auto fam_block = fam.block(0, i, i, 1);
+        auto pheno_block = pheno.block(0, i);
+        SSy += (pheno_block * temp_pheno).sum();
+
+
+    }
+
+    MatrixXd XtXi = XtX.inverse();
+    VectorXd betas = XtXi * XtY;
+
+    double sse = (SSy - betas.dot(XtY)) / (size - col_X);
+
+    VectorXd SDs = sse * XtXi.diagonal();
+
+    double hsq = betas(betas.size() - 1);
+    double SD = SDs(SDs.size() - 1);
+    double Zsq = hsq^2 / SD;
+    double p = StatLib::pchisqd1(Zsq);
+
+    LOGGER.i(2, "Vg = " + to_string(hsq) + ", se = " + to_string(sqrt(SD)) +  ", P = " + to_string(p));
+
+    if(p > 0.05){
+        LOGGER.e(0, "The estimate of Vg is not statistically significant. "
+                "This is likely because the number of relatives is not large enough. "
+                "We do not recommend to run fastFAM in this case.");
+    }
+    return hsq;
 }
 
 double FastFAM::HEreg(vector<double> &Zij, vector<double> &Aij){
@@ -582,6 +613,7 @@ int FastFAM::registerOption(map<string, vector<string>>& options_in){
         options_in.erase(curFlag);
     }
 
+    /*
     curFlag = "--qcovar";
     if(options_in.find(curFlag) != options_in.end()){
         if(options_in[curFlag].size() == 1){
@@ -590,6 +622,7 @@ int FastFAM::registerOption(map<string, vector<string>>& options_in){
             LOGGER.e(0, curFlag + "can't deal with covar other than 1");
         }
     }
+    */
 
     options["inv_method"] = "ldlt";
     vector<string> flags = {"--cg", "--ldlt", "--llt", "--pardiso", "--tcg", "--lscg"};
@@ -614,6 +647,14 @@ int FastFAM::registerOption(map<string, vector<string>>& options_in){
         }else{
             LOGGER.e(0, "can't load multiple --load-inv files");
         }
+    }
+
+    curFlag = "--rel-only";
+    if(options_in.find(curFlag) != options_in.end()){
+        options["rel_only"] = "yes";
+        options_in.erase(curFlag);
+    }else{
+        options["rel_only"] = "no";
     }
 
     return returnValue;

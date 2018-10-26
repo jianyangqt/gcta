@@ -328,18 +328,26 @@ bool Covar::setCovarMapping(bool is_rcovar, vector<vector<string>> *map_order){
     return true;
 }
 
-
-
-bool Covar::getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector<int> &keep_index){
+bool Covar::getCommonSampleIndex(const vector<string> &sampleIDs, vector<int> &keep_index, vector<int> &covar_index){
     int total_col_covar = qcovar.size() + covar.size() + rcovar.size();
     if(sampleIDs.size() == 0 || sample_id.size() == 0 || total_col_covar == 0){
         return false;
     }
-    vector<int> covar_index;
     vector_commonIndex_sorted1(sampleIDs, sample_id, keep_index, covar_index);
     if(keep_index.size() == 0){
         return false;
     }
+    return true;
+}
+
+
+
+bool Covar::getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector<int> &keep_index){
+    vector<int> covar_index;
+    if(!getCommonSampleIndex(sampleIDs, keep_index, covar_index)){
+        return false;
+    }
+
     int common_sample_size = covar_index.size();
 
     vector<int> start_col_X;
@@ -401,16 +409,13 @@ bool Covar::getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector
 }
 
 bool Covar::getCovarXRaw(const vector<string> &sampleIDs, vector<double> &X, vector<int> &keep_index){
-    uint64_t total_col_covar = qcovar.size() + covar.size() + rcovar.size();
-    if(sampleIDs.size() == 0 || sample_id.size() == 0 || total_col_covar == 0){
-        return false;
-    }
     vector<int> covar_index;
-    vector_commonIndex_sorted1(sampleIDs, sample_id, keep_index, covar_index);
-    if(keep_index.size() == 0){
+    if(!getCommonSampleIndex(sampleIDs, keep_index, covar_index)){
         return false;
     }
+
     uint64_t common_sample_size = covar_index.size();
+    uint64_t total_col_covar = qcovar.size() + covar.size() + rcovar.size();
     X.resize(total_col_covar * common_sample_size);
 
     vector<vector<double>> *covars[] = {&qcovar, &covar, &rcovar};
