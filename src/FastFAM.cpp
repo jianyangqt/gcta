@@ -32,6 +32,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 #include <iomanip>
+#include "Covar.h"
 
 #include <iostream>
 
@@ -69,9 +70,9 @@ FastFAM::FastFAM(Geno *geno){
 
     // read covar
     vector<uint32_t> remain_index, remain_index_covar;
-    bool has_qcovar = false;
+    bool has_covar = false;
     Covar covar;
-    if(covar.getCommonSampleIndex(ids, remain_index, remain_index_covar){
+    if(covar.getCommonSampleIndex(ids, remain_index, remain_index_covar)){
         has_covar = true;
         LOGGER.i(0, to_string(remain_index.size()) + " overlapped individuals with non-missing data to be included from the covariate file(s).");
     }else{
@@ -114,7 +115,7 @@ FastFAM::FastFAM(Geno *geno){
     LOGGER.i(0, "After matching all the files, " + to_string(remain_phenos.size()) + " individuals to be included in the analysis.");
 
     vector<double> remain_covar;
-    vector<int> remain_inds_index;
+    vector<uint32_t> remain_inds_index;
     if(has_covar){
         covar.getCovarX(remain_ids_fam, remain_covar, remain_inds_index);
         remain_covar.resize(remain_covar.size() + n_remain_index_fam);
@@ -124,7 +125,7 @@ FastFAM::FastFAM(Geno *geno){
     // standerdize the phenotype, and condition the covar
     phenoVec = Map<VectorXd> (remain_phenos.data(), remain_phenos.size());
     // condition the covar
-    if(has_qcovar){
+    if(has_covar){
         MatrixXd concovar = Map<Matrix<double, Dynamic, Dynamic, Eigen::ColMajor>>(remain_covar.data(), remain_phenos.size(), 
                 remain_covar.size() / remain_phenos.size());
         conditionCovarReg(phenoVec, concovar);
@@ -222,7 +223,7 @@ void FastFAM::conditionCovarReg(VectorXd &pheno, MatrixXd &covar){
     //pheno -= (VectorXd::Ones(pheno.size())) * pheno_mean;
 }
 
-double FastFAM::HEreg(const Ref(const SpMat) fam, const Ref(const VectorXd) pheno){
+double FastFAM::HEreg(const Ref<const SpMat> fam, const Ref<const VectorXd> pheno){
     int num_covar = 1;
     int num_components = 1;
     int col_X = num_covar + num_components;
@@ -236,13 +237,15 @@ double FastFAM::HEreg(const Ref(const SpMat) fam, const Ref(const VectorXd) phen
     for(int i = 1; i < size; i++){
         double temp_pheno = pheno[i];
         auto fam_block = fam.block(0, i, i, 1);
-        auto pheno_block = pheno.block(0, i);
-        SSy += (pheno_block * temp_pheno).sum();
-
-
+        auto pheno_block = pheno.head(i) * temp_pheno;
+        SSy += pheno_block.dot(pheno_block);
+        XtY(0) += pheno_block.sum();
+        XtY(1) += fam_block.dot(pheno_block);
+        XtX(0,1) += fam_block.sum();
+        XtX(1,1) += fam_block.dot(fam_block);
     }
 
-    MatrixXd XtXi = XtX.inverse();
+    MatrixXd XtXi = XtX.selfadjointView<Eigen::Upper>().inverse();
     VectorXd betas = XtXi * XtY;
 
     double sse = (SSy - betas.dot(XtY)) / (size - col_X);
@@ -251,7 +254,7 @@ double FastFAM::HEreg(const Ref(const SpMat) fam, const Ref(const VectorXd) phen
 
     double hsq = betas(betas.size() - 1);
     double SD = SDs(SDs.size() - 1);
-    double Zsq = hsq^2 / SD;
+    double Zsq = hsq * hsq / SD;
     double p = StatLib::pchisqd1(Zsq);
 
     LOGGER.i(2, "Vg = " + to_string(hsq) + ", se = " + to_string(sqrt(SD)) +  ", P = " + to_string(p));

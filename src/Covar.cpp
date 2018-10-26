@@ -328,7 +328,7 @@ bool Covar::setCovarMapping(bool is_rcovar, vector<vector<string>> *map_order){
     return true;
 }
 
-bool Covar::getCommonSampleIndex(const vector<string> &sampleIDs, vector<int> &keep_index, vector<int> &covar_index){
+bool Covar::getCommonSampleIndex(const vector<string> &sampleIDs, vector<uint32_t> &keep_index, vector<uint32_t> &covar_index){
     int total_col_covar = qcovar.size() + covar.size() + rcovar.size();
     if(sampleIDs.size() == 0 || sample_id.size() == 0 || total_col_covar == 0){
         return false;
@@ -342,7 +342,7 @@ bool Covar::getCommonSampleIndex(const vector<string> &sampleIDs, vector<int> &k
 
 
 
-bool Covar::getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector<int> &keep_index){
+bool Covar::getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector<uint32_t> &keep_index){
     vector<int> covar_index;
     if(!getCommonSampleIndex(sampleIDs, keep_index, covar_index)){
         return false;
