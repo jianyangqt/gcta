@@ -53,7 +53,7 @@ void out_ver(bool flag_outFile){
 
     log(0, "*******************************************************************", "");
     log(0, "* Genome-wide Complex Trait Analysis (GCTA)", "");
-    log(0, "* version 1.91.7 beta1", "");
+    log(0, "* version 1.91.8 beta1", "");
     log(0, "* (C) 2010-2018, The University of Queensland", "");
     log(0, "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>", "");
     log(0, "*******************************************************************", "");
@@ -209,6 +209,12 @@ int main(int argc, char *argv[]){
             unKnownFlag = true;
             break;
         }
+    }
+    // other cases of not handle;
+    // can't handle --mgrm --make-grm currently.
+    if(std::find(keys.begin(), keys.end(), "--make-grm") != keys.end() && 
+            std::find(keys.begin(), keys.end(), "--mgrm") != keys.end()){
+        unKnownFlag = true;
     }
 
     LOGGER.open(options["out"][0] + ".log");

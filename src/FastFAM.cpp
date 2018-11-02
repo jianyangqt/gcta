@@ -225,16 +225,17 @@ void FastFAM::conditionCovarReg(VectorXd &pheno, MatrixXd &covar){
 
 double FastFAM::HEreg(const Ref<const SpMat> fam, const Ref<const VectorXd> pheno){
     int num_covar = 1;
-    int num_components = 1;
-    int col_X = num_covar + num_components;
+    int num_component = 1;
+    int col_X = num_covar + num_component;
     MatrixXd XtX = MatrixXd::Zero(col_X, col_X);
     VectorXd XtY = VectorXd::Zero(col_X);
     double SSy = 0;
 
-    uint64_t size = fam.cols();
+    uint64_t size = fam.cols() * fam.rows();
     XtX(0, 0) = size;
+    LOGGER << "size: " << size << std::endl;
 
-    for(int i = 1; i < size; i++){
+    for(int i = 1; i < fam.cols(); i++){
         double temp_pheno = pheno[i];
         auto fam_block = fam.block(0, i, i, 1);
         auto pheno_block = pheno.head(i) * temp_pheno;
@@ -246,12 +247,20 @@ double FastFAM::HEreg(const Ref<const SpMat> fam, const Ref<const VectorXd> phen
     }
 
     //MatrixXd XtXi = XtX.selfadjointView<Eigen::Upper>().inverse();
+    XtX(1,0) = XtX(0,1);
+    LOGGER << "XtX" << endl;
+    LOGGER << XtX << endl;
+
     MatrixXd XtXi = XtX.inverse();
     VectorXd betas = XtXi * XtY;
+    LOGGER << "beta" << endl;
+    LOGGER << betas << endl;
 
     double sse = (SSy - betas.dot(XtY)) / (size - col_X);
+    LOGGER << "SSE: " << sse << endl;
 
     VectorXd SDs = sse * XtXi.diagonal();
+    LOGGER << "SD: " << SDs << endl;
 
     double hsq = betas[betas.size() - 1];
     double SD = SDs[SDs.size() - 1];
@@ -263,7 +272,7 @@ double FastFAM::HEreg(const Ref<const SpMat> fam, const Ref<const VectorXd> phen
     if(p > 0.05){
         LOGGER.e(0, "The estimate of Vg is not statistically significant. "
                 "This is likely because the number of relatives is not large enough. "
-                "We do not recommend to run fastFAM in this case.");
+                "\nWe do not recommend to run fastFAM in this case, simple regression via removing --grm-sparse may be better.");
     }
     return hsq;
 }
