@@ -76,7 +76,7 @@ private:
     //vector<uint32_t> countA1A2;
     //vector<uint32_t> countA2A2;
     vector<uint32_t> countMarkers;
-    vector<double> RDev;
+    //vector<double> RDev;
     uint32_t total_markers;
 
     static map<string, string> options;

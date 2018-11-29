@@ -196,14 +196,14 @@ void Geno::filter_MAF(){
         //vector<uint32_t> countA1A2o = countA1A2;
         //vector<uint32_t> countA2A2o = countA2A2;
         vector<uint32_t> countMarkerso = countMarkers;
-        vector<double> RDevo = RDev;
+        //vector<double> RDevo = RDev;
 
         AFA1.resize(extract_index.size());
         //countA1A1.resize(extract_index.size());
         //countA1A2.resize(extract_index.size());
         //countA2A2.resize(extract_index.size());
         countMarkers.resize(extract_index.size());
-        RDev.resize(extract_index.size());
+        //RDev.resize(extract_index.size());
 
         #pragma omp parallel for
         for(uint32_t index = 0; index < extract_index.size(); index++){
@@ -213,7 +213,7 @@ void Geno::filter_MAF(){
             //countA1A2[index] = countA1A2[cur_index];
             //countA2A2[index] = countA2A2[cur_index];
             countMarkers[index] = countMarkerso[cur_index];
-            RDev[index] = RDevo[cur_index];
+            //RDev[index] = RDevo[cur_index];
         }
 
         marker->keep_extracted_index(extract_index);
@@ -232,7 +232,7 @@ void Geno::init_AF(string alleleFileName) {
     //countA1A1.clear();
     //countA2A2.clear();
     countMarkers.clear();
-    RDev.clear();
+    //RDev.clear();
     if(!alleleFileName.empty()){
         LOGGER.i(0, "Reading frequencies from [" + alleleFileName + "]...");
         vector<int> field_return = {2};
@@ -265,7 +265,7 @@ void Geno::init_AF(string alleleFileName) {
     //countA1A2.resize(num_marker);
     //countA2A2.resize(num_marker);
     countMarkers.resize(num_marker);
-    RDev = vector<double>(num_marker, 0.0); 
+    //RDev = vector<double>(num_marker, 0.0); 
     num_blocks = num_marker / Constants::NUM_MARKER_READ +
                  (num_marker % Constants::NUM_MARKER_READ != 0);
     LOGGER.d(0, "The program will run in " + to_string(num_blocks) + " blocks");
@@ -700,6 +700,7 @@ void Geno::freq64_x(uint64_t *buf, int num_marker) {
             cur_af = 1.0 - cur_af;
         }
         AFA1[raw_index_marker] = cur_af;
+        //RDev[raw_index_marker] = 2.0 * cur_af * (1.0 - cur_af);
         countMarkers[raw_index_marker] = cur_total_markers;
     }
     num_marker_freq += num_marker;
@@ -926,6 +927,7 @@ void Geno::freq64(uint64_t *buf, int num_marker) {
             cur_af = 1.0 - cur_af;
         }
         AFA1[raw_index_marker] = cur_af;
+        //RDev[raw_index_marker] = 2.0 * cur_af * (1.0 - cur_af);
         countMarkers[raw_index_marker] = cur_total_markers;
     }
     num_marker_freq += num_marker;
@@ -1189,7 +1191,7 @@ void Geno::makeMarkerX(uint64_t *buf, int cur_marker, double *w_buf, bool center
     double rdev = 1.0;
     if(std){
         rdev = 1.0 / sqrt(mu * (1.0 - af));
-        RDev[cur_raw_marker] = rdev; 
+        //use RDev
     }
 
     double g1_lookup[4];

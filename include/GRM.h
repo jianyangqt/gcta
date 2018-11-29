@@ -116,6 +116,7 @@ private:
     void outBinFile(FILE *sFile, FILE *dFile);
 
     bool isDominance = false;
+    bool isMtd = false;
 
     //Just for testing
 #ifndef NDEBUG

@@ -694,6 +694,10 @@ GRM::GRM(Geno *geno) {
         isDominance = options_b["isDominance"];
     }
 
+    if(options_b.find("isMtd") != options_b.end()){
+        isMtd = true;
+    }
+
     //t_print(begin, "  INIT finished");
     string com_string = string("Computing the ") + (isDominance ? "dominance " : "") + "genetic relationship matrix (GRM) ...";
     LOGGER.i(0, com_string);
@@ -731,6 +735,7 @@ void GRM::output_id() {
 void GRM::calculate_GRM(uint64_t *buf, int num_marker) {
     //LOGGER.i(0, "GRM: ", "logged " + to_string(num_marker));
     //prepare the 7 freq arrays in current range;
+    double * devs = new double[num_marker];
     if(!isDominance){
         #pragma omp parallel for schedule(dynamic)
         for (int index_marker = 0; index_marker < num_marker; index_marker++) {
@@ -738,6 +743,7 @@ void GRM::calculate_GRM(uint64_t *buf, int num_marker) {
             double mu = af * 2.0;
             double dev = mu * (1.0 - af);
             double rdev = (dev < 1.0e-50) ? 0 : (1.0 / dev);
+            rdev = isMtd? 1.0 : rdev;
             GRM_table[index_marker][0] = (2.0 - mu) * (2.0 - mu) * rdev;  // 00 00
             GRM_table[index_marker][2] = (2.0 - mu) * (1.0 - mu) * rdev;  // 00 10
             GRM_table[index_marker][3] = (2.0 - mu) * (0.0 - mu) * rdev;  // 00 11
@@ -754,6 +760,7 @@ void GRM::calculate_GRM(uint64_t *buf, int num_marker) {
             double dev = mu * (1.0 - af);
             double rdev = (dev < 1.0e-50) ? 0 : (1.0 / dev);
             double rdev2 = rdev * rdev; 
+            rdev2 = isMtd ? 1.0 : rdev2;
             double psq = 0.5 * mu * mu;
             double A00 = 2.0 * mu - 2 - psq;
             double A10 = mu - psq;
@@ -991,10 +998,30 @@ void GRM::deduce_GRM(){
         LOGGER.e(0, "can't open " + o_name + ".grm.bin or .grm.N.bin to write");
     }
 
+    float mtd_weight = 1.0;
+    if(options_b["isMtd"]){
+        float weight = 0;
+        if(!isDominance){
+            for(int i = 0; i < finished_marker; i++){
+                float af = geno->AFA1[i];
+                float sd = 2.0 * af * (1.0 - af); 
+                weight += sd;
+            }
+        }else{
+            for(int i = 0; i < finished_marker; i++){
+                float af = geno->AFA1[i];
+                float sd = 2.0 * af * (1.0 - af); 
+                weight += sd * sd;
+            }
+        }
+        mtd_weight = 1.0 / (weight / finished_marker);
+    }
+
+ 
     float weights[5];
-    weights[2] = 0.5;
-    weights[3] = sqrt(0.5);
-    weights[4] = 1;
+    weights[2] = 0.5 * mtd_weight;
+    weights[3] = sqrt(0.5) * mtd_weight;
+    weights[4] = 1.0 * mtd_weight;
 
     uint32_t num_sample = index_keep.size();
     float *w_grm = new float[num_sample];
@@ -1002,7 +1029,8 @@ void GRM::deduce_GRM(){
 
     double *po_grm = grm;
     uint32_t *po_N = N;
-    if(!options_b["xchr"]){
+
+   if(!options_b["xchr"]){
         for(int pair1 = part_keep_indices.first; pair1 != part_keep_indices.second + 1; pair1++){
             uint32_t sub_miss1 = finished_marker - sub_miss[pair1];
             for(int pair2 = 0; pair2 != pair1 + 1; pair2++){
@@ -1010,7 +1038,7 @@ void GRM::deduce_GRM(){
                 w_N[pair2] = (float)sub_N;
 
                 if(sub_N){
-                    w_grm[pair2] = (float)((*po_grm)/sub_N);
+                    w_grm[pair2] = (float)((*po_grm)/sub_N) * mtd_weight;
                 }else{
                     w_grm[pair2] = 0.0;
                 }
@@ -1329,6 +1357,11 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
 
         return_value++;
     }
+    string op_grm_mtd = "--make-grm-alg";
+    if(options_in.find(op_grm_mtd) != options_in.end()){
+        if(std::stoi(options_in[op_grm_mtd][0]) > 0)
+        options_b["isMtd"] = true;
+    }
 
     string op_grm_unify = "--unify-grm";
     if(options_in.find(op_grm_unify) != options_in.end()){
@@ -1444,7 +1477,7 @@ void GRM::processMain() {
             callBacks.push_back(bind(&Geno::freq64_x, &geno, _1, _2));
             callBacks.push_back(bind(&GRM::calculate_GRM, &grm, _1, _2));
             geno.loop_64block(marker.get_extract_index(), callBacks);
-            geno.out_freq("test.frq");
+            //geno.out_freq("test.frq");
             grm.deduce_GRM();
 
             return;
