@@ -588,13 +588,10 @@ vector<double> StatFunc::ControlFDR_BH(const vector<double> p_value) {
     for( i = 0; i < n; i++ ) pval_buf[i] = make_pair(p_value[i], i);
     stable_sort(pval_buf.begin(), pval_buf.end(), [](const pair<double,int> a, const pair<double,int> b) {return a.first > b.first; });
 
-    for( i = 0; i < n; i++ ) indx_buf[i] = make_pair(pval_buf[i].second, i);
-    stable_sort(indx_buf.begin(), indx_buf.end());
-
     for( i = 0; i < n; i++ ) {
         c = (double) n / (double) (n-i) * pval_buf[i].first;
         if(c < min_val) min_val = c;
-        fdr[indx_buf[i].second] = CommFunc::Min(1.0, min_val);
+        fdr[pval_buf[i].second] = CommFunc::Min(1.0, min_val);
     }
 
     return (fdr);
