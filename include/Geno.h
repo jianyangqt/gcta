@@ -103,6 +103,7 @@ private:
 
     friend class GRM;
     friend class FastFAM;
+    friend class LD;
  };
 
 

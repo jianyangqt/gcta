@@ -45,6 +45,7 @@ public:
     void keep_extracted_index(const vector<uint32_t>& keep_index);
     void matchSNPListFile(string filename, int num_min_fields, const vector<int>& field_return, vector<string> &fields, vector<bool>& a_rev, bool update_a_rev = false);
     void save_marker(string filename);
+    vector<uint32_t> getNextWindowIndex(uint32_t cur_marker_index, uint32_t window, bool& chr_ends);
 
 private:
     vector<uint8_t> chr;

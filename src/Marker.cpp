@@ -209,6 +209,33 @@ vector<uint32_t>& Marker::get_extract_index(){
     return this->index_extract;
 }
 
+//cur_marker_index:  is the index point to position of index_extract
+vector<uint32_t> Marker::getNextWindowIndex(uint32_t cur_marker_index, uint32_t window, bool& chr_ends){
+    if(cur_marker_index >= index_extract.size()){
+        LOGGER.e(0, "Too large marker index.");
+    }
+    uint32_t cur_index = pd[index_extract[cur_marker_index]];
+
+    uint32_t cur_pd = pd[cur_index];
+    uint8_t cur_chr = chr[cur_index];
+    uint32_t final_pd = window + cur_pd;
+    vector<uint32_t> indices;
+
+    chr_ends = false;
+
+    for(uint32_t marker_index = cur_marker_index; marker_index < index_extract.size(); marker_index++){
+        uint32_t temp_index = index_extract[marker_index];
+        if(chr[temp_index] != cur_chr){
+            chr_ends = true;
+            break;
+        }
+        if(pd[temp_index] <= final_pd){
+            indices.push_back(temp_index);
+        }
+    }
+    return indices;
+}
+
 int Marker::getMIndex(uint32_t raw_index){
     for(int i = 0; i < raw_limits.size(); i++){
         if(raw_index < raw_limits[i]){
@@ -216,6 +243,7 @@ int Marker::getMIndex(uint32_t raw_index){
         }
     }
     LOGGER.e(0, "too large SNP index " + to_string(raw_index));
+    return 0;
 }
 
 void Marker::save_marker(string filename){
@@ -635,6 +663,9 @@ int Marker::registerOption(map<string, vector<string>>& options_in){
     }
 
     bool filterChrFlag = false;
+    static map<string, string> options;
+    static map<string, int> options_i;
+    
     static bool specifiedChrFlag = false;
 
     if(options_in.find("--autosome") != options_in.end()){
