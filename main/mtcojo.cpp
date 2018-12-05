@@ -626,11 +626,12 @@ vector<string> gcta::remove_freq_diff_snps(vector<string> meta_snp_name, vector<
             refsnp_index = iter_ref -> second;
             snpfreq.push_back(ref_freq[refsnp_index]/2);
         }
-       
+
         // AF from the GWAS summary
         int j = 0;
         for( j=0; j<ntrait; j++ ) {
             if(!snp_flag[j][meta_snp_remain[i]]) continue;
+            if(std::isnan(meta_freq(meta_snp_remain[i],j))) continue;
             snpfreq.push_back(meta_freq(meta_snp_remain[i],j));
         }
 
@@ -643,7 +644,7 @@ vector<string> gcta::remove_freq_diff_snps(vector<string> meta_snp_name, vector<
                 if(max_freq_dev < freq_dev) max_freq_dev = freq_dev;
             }
         }
-        if(max_freq_dev > freq_thresh) afsnps.push_back(snpbuf);
+        if(max_freq_dev > freq_thresh) afsnps.push_back(snpbuf);     
     }  
 
     if (!afsnps.empty()) {
@@ -655,9 +656,8 @@ vector<string> gcta::remove_freq_diff_snps(vector<string> meta_snp_name, vector<
         oafsnp.close();
         LOGGER.i(0,  to_string(nafsnps) + " SNP(s) have large difference of allele frequency among the GWAS summary data and the reference sample. These SNPs have been saved in [" + afsnpfile + "].");
         if(nafsnps > nsnp_ttl*0.05) 
-            LOGGER.e(0, "There are too many SNP that have large difference of allele frequency. Please check your summary datasets.");
+            LOGGER.e(0, "There are too many SNPs that have large difference of allele frequency. Please check your summary datasets.");
     }
-
     return(afsnps);
 }
 
@@ -1054,18 +1054,20 @@ int topsnp_bxy(eigenVector bxy, eigenVector bzx_pval, map<string, int> meta_snp_
 void est_cov_bxy(eigenMatrix &cov_bxy_p1, eigenMatrix &cov_bxy_p2, eigenVector bzx, eigenVector bzx_se, eigenVector bzy_se, eigenMatrix ld_r_mat,
             map<string, int> meta_snp_name_map, vector<string> indices_snp, vector<int> kept_ID) {
 
-    int i = 0, j = 0, n_indices_snp = kept_ID.size();
+    int n_indices_snp = kept_ID.size();
     eigenVector zscore_inv1(n_indices_snp), zscore_inv2(n_indices_snp);
-    map<string, int>::iterator iter;
 
-    for(i=0; i<n_indices_snp; i++) {
+    #pragma omp parallel for
+    for(int i=0; i<n_indices_snp; i++) {
+        map<string, int>::iterator iter;
         iter = meta_snp_name_map.find(indices_snp[kept_ID[i]]);
         zscore_inv1(i) = bzx_se(iter->second)/bzx(iter->second);
         zscore_inv2(i) = bzy_se(iter->second)/bzx(iter->second);
     }
 
-    for(i=0; i<n_indices_snp; i++) {
-        for(j=i; j<n_indices_snp; j++) {
+    #pragma omp parallel for
+    for(int i=0; i<n_indices_snp; i++) {
+        for(int j=i; j<n_indices_snp; j++) {
             cov_bxy_p1(i,j) = cov_bxy_p1(j,i) = ld_r_mat(kept_ID[i],kept_ID[j])*zscore_inv2(i)*zscore_inv2(j);
             cov_bxy_p2(i,j) = cov_bxy_p2(j,i) = ld_r_mat(kept_ID[i],kept_ID[j])*zscore_inv1(i)*zscore_inv1(j);
         }
@@ -1083,16 +1085,18 @@ void est_cov_bxy_gsmr(eigenMatrix &cov_bxy, double bxy_hat, eigenVector bzx, eig
 
 void est_cov_bxy_heidi(eigenMatrix &cov_bxy, double bxy_hat, eigenVector bzx, eigenVector bzx_se, eigenVector bzy, eigenVector bzy_se, eigenMatrix ld_r_mat,
                             map<string, int> meta_snp_name_map, vector<string> indices_snp, vector<int> kept_ID) {
-    int i = 0, n_indices_snp = kept_ID.size();
+    int n_indices_snp = kept_ID.size();
     eigenMatrix cov_bxy_p1(n_indices_snp, n_indices_snp), cov_bxy_p2(n_indices_snp, n_indices_snp);
 
     est_cov_bxy(cov_bxy_p1, cov_bxy_p2, bzx, bzx_se, bzy_se, ld_r_mat,
                    meta_snp_name_map, indices_snp, kept_ID);
     
-    for(i=0; i<n_indices_snp; i++) {
+    eigenMatrix cov_bxy_buf(cov_bxy_p2);
+    #pragma omp parallel for
+    for(int i=0; i<n_indices_snp; i++) {
         map<string,int>::iterator iter = meta_snp_name_map.find(indices_snp[kept_ID[i]]);
         double bxy_i = bzy(iter->second)/bzx(iter->second);
-        cov_bxy_p2.col(i) = cov_bxy_p2.col(i)*bxy_i*bxy_hat;
+        cov_bxy_p2.col(i) = cov_bxy_buf.col(i)*(bxy_i*bxy_hat);
     }
     cov_bxy = cov_bxy_p1 + cov_bxy_p2.transpose();
 }
@@ -1133,32 +1137,37 @@ vector<double> est_bxy_gsmr(eigenVector bxy_sort, eigenVector bxy, vector<string
 
 void est_var_bxy(eigenVector &var_bxy, eigenVector bzx, eigenVector bzx_se, eigenVector bzy, eigenVector bzy_se,
                         vector<string> indices_snp, vector<int> kept_ID, map<string,int> meta_snp_name_map) {
-    int i = 0, n_indices_snp = kept_ID.size();
-    map<string, int>::iterator iter;
-
-    for( i = 0; i < n_indices_snp; i++) {
+    int n_indices_snp = kept_ID.size();
+    
+    #pragma omp parallel for
+    for(int i = 0; i < n_indices_snp; i++) {
+        map<string, int>::iterator iter;
         iter = meta_snp_name_map.find(indices_snp[kept_ID[i]]);
-        var_bxy(i) = pow(bzx_se(iter->second),2.0)*pow(bzy(iter->second), 2.0)/pow(bzx(iter->second), 4.0) + pow(bzy_se(iter->second), 2.0)/pow(bzx(iter->second), 2.0);
+        double d_buf = pow(bzx_se(iter->second),2.0)*pow(bzy(iter->second), 2.0)/pow(bzx(iter->second), 4.0) + pow(bzy_se(iter->second), 2.0)/pow(bzx(iter->second), 2.0);
+        var_bxy(i) = d_buf;
     }                        
 }
 
 void est_diff_bxy(eigenVector &bxy_diff, double bxy_est, vector<string> indices_snp, vector<int> kept_ID, 
                              eigenVector bzx, eigenVector bzy, map<string,int> meta_snp_name_map) {
-    int i = 0, n_indices_snp = kept_ID.size(); 
+    int n_indices_snp = kept_ID.size(); 
 
-    for( i=0; i<n_indices_snp; i++ ) {
+    #pragma omp parallel for
+    for(int i=0; i<n_indices_snp; i++ ) {
         map<string,int>::iterator iter = meta_snp_name_map.find(indices_snp[kept_ID[i]]);
-        bxy_diff(i) = bzy(iter->second)/bzx(iter->second) - bxy_est;
+        double d_buf = bzy(iter->second)/bzx(iter->second) - bxy_est;
+        bxy_diff(i) = d_buf;
     }
 }
 
 void est_var_diff_bxy(eigenMatrix &var_d, eigenMatrix cov_bxy, eigenVector cov_bxy_bgsmr, double bxy_hat_se, int n_indices_snp) {
-    int i = 0, j = 0;
     var_d.setZero(n_indices_snp, n_indices_snp);
 
-    for( i=0; i<n_indices_snp; i++ ) {
-        for( j=i; j<n_indices_snp; j++) {
-            var_d(i,j) = var_d(j,i) = cov_bxy(i,j) + bxy_hat_se*bxy_hat_se - cov_bxy_bgsmr(i) - cov_bxy_bgsmr(j);
+    #pragma omp parallel for
+    for(int i=0; i<n_indices_snp; i++ ) {
+        for(int j=i; j<n_indices_snp; j++) {
+            double d_buf = cov_bxy(i,j) + bxy_hat_se*bxy_hat_se - cov_bxy_bgsmr(i) - cov_bxy_bgsmr(j);
+            var_d(i,j) = var_d(j,i) = d_buf;
         }
     }
 }
@@ -1183,8 +1192,9 @@ vector<double> indi_heidi_pvalue(double bxy_hat, double bxy_hat_se, eigenVector 
     extractCol(cov_bxy, slct_index);
 
     eigenVector cov_bxy_bgsmr(n_indices_snp);
-    for(i=0; i<n_indices_snp; i++)
-        cov_bxy_bgsmr(i) = bxy_hat_se*bxy_hat_se*vec_1t_v.dot(cov_bxy.row(i));
+    #pragma omp parallel for
+    for(int k=0; k<n_indices_snp; k++)
+        cov_bxy_bgsmr(k) = bxy_hat_se*bxy_hat_se*vec_1t_v.dot(cov_bxy.row(k));
     
     // d = bxy_i - bxy_gsmr
     eigenVector d(n_indices_snp);
@@ -1200,7 +1210,7 @@ vector<double> indi_heidi_pvalue(double bxy_hat, double bxy_hat_se, eigenVector 
 
 double global_heidi_pvalue(double bxy_hat, double bxy_hat_se, eigenVector bzx, eigenVector bzx_se, eigenVector bzy, eigenVector bzy_se, 
                            eigenMatrix ld_r_mat, eigenVector vec_1t_v, vector<string> indices_snp, vector<int> kept_ID, map<string, int> meta_snp_name_map) {
-    int i = 0, j = 0, n_indices_snp = kept_ID.size();
+    int n_indices_snp = kept_ID.size();
 
     // d = bxy_i - bxy_gsmr
     eigenVector d(n_indices_snp);
@@ -1209,7 +1219,8 @@ double global_heidi_pvalue(double bxy_hat, double bxy_hat_se, eigenVector bzx, e
     eigenMatrix cov_bxy(n_indices_snp, n_indices_snp);
     est_cov_bxy_gsmr(cov_bxy, bxy_hat, bzx, bzx_se, bzy_se, ld_r_mat, meta_snp_name_map, indices_snp, kept_ID);
     eigenVector cov_bxy_bgsmr(n_indices_snp);
-    for(i=0; i<n_indices_snp; i++) cov_bxy_bgsmr(i) = bxy_hat_se*bxy_hat_se*vec_1t_v.dot(cov_bxy.col(i));
+    #pragma omp parallel for
+    for(int i=0; i<n_indices_snp; i++) cov_bxy_bgsmr(i) = bxy_hat_se*bxy_hat_se*vec_1t_v.dot(cov_bxy.col(i));
     eigenMatrix var_d(n_indices_snp, n_indices_snp);
     est_var_diff_bxy(var_d, cov_bxy, cov_bxy_bgsmr, bxy_hat_se, n_indices_snp);
 
@@ -1220,8 +1231,9 @@ double global_heidi_pvalue(double bxy_hat, double bxy_hat_se, eigenVector bzx, e
     // pchisqsum method
     eigenMatrix corr_d(n_indices_snp, n_indices_snp);
     corr_d.setIdentity(n_indices_snp, n_indices_snp);
-    for(i=0; i<(n_indices_snp-1); i++) 
-        for(j=i+1; j<n_indices_snp; j++) 
+    #pragma omp parallel for
+    for(int i=0; i<(n_indices_snp-1); i++) 
+        for(int j=i+1; j<n_indices_snp; j++) 
             corr_d(i,j) = corr_d(j,i) = var_d(i,j) / sqrt(var_d(i,i)*var_d(j,j));
     double chival = (d.array()*d.array()/var_d.diagonal().array()).sum();
     SelfAdjointEigenSolver<eigenMatrix> saes(corr_d);
@@ -1280,6 +1292,7 @@ vector<int> indi_heidi_outlier_iter(eigenVector bxy, eigenVector bzx, eigenVecto
                                     ld_r_mat, meta_snp_name_map, indices_snp, kept_ID, ci_index);
 
     double indi_heidi_thresh = min(0.01, 0.05/(double)n_indices_snp);
+//    double indi_heidi_thresh = 0.01;
     double min_pval = 1.0;
     int min_index = 0;
     for(i=0; i<n_indices_snp; i++) {
@@ -1412,14 +1425,15 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
         vector<double> gsmr_rst = est_bxy_gsmr(bxy_sort, bxy, indices_snp, kept_ID, bzx, bzx_se, bzy, bzy_se, 
                                 ld_r_mat, _meta_snp_name_map, vec_1t_v);
         bxy_hat = gsmr_rst[0]; bxy_hat_se = gsmr_rst[1];
-        
+
         // HEIDI-outlier for individual SNPs
         vector<double> indi_het_pval = indi_heidi_pvalue(bxy_hat, bxy_hat_se, vec_1t_v, bzx, bzx_se, bzy, bzy_se, 
                                         ld_r_mat, _meta_snp_name_map, indices_snp, kept_ID, kept_ID);
-        
+
         // HEIDI-outlier for global SNPs                                   
         global_heidi_pval = global_heidi_pvalue(bxy_hat, bxy_hat_se, bzx, bzx_se, bzy, bzy_se, 
                                 ld_r_mat, vec_1t_v, indices_snp, kept_ID, _meta_snp_name_map);
+
         if(!heidi_flag) break;
         if(global_heidi_pval >= global_heidi_thresh) break;
         
@@ -1829,11 +1843,11 @@ void gcta::reorder_snp_effect(vector<int> snp_remain, eigenMatrix &bhat_z, eigen
     // Re-order the variables
     int i = 0, j = 0, n_cm_ld_snps = cm_ld_snps.size(), indxbuf = 0;
     map<string,int>::iterator iter;
-    
-    ref_ld.resize(n_cm_ld_snps);
-    w_ld.resize(n_cm_ld_snps);
-    bhat_z.resize(n_cm_ld_snps, ntrait);
-    bhat_n.resize(n_cm_ld_snps, ntrait);
+
+    ref_ld.resize(n_cm_ld_snps); ref_ld.setZero(n_cm_ld_snps);
+    w_ld.resize(n_cm_ld_snps); w_ld.setZero(n_cm_ld_snps);
+    bhat_z.resize(n_cm_ld_snps, ntrait); bhat_z.setZero(n_cm_ld_snps, ntrait);
+    bhat_n.resize(n_cm_ld_snps, ntrait); bhat_n.setZero(n_cm_ld_snps, ntrait);
     snp_flag.clear(); snp_flag.resize(ntrait);
     for(i=0; i<ntrait; i++) snp_flag[i].resize(n_cm_ld_snps);
     for(i=0; i<n_cm_ld_snps; i++) {
@@ -2081,8 +2095,8 @@ void mtcojo_cond_output(string output_file, vector<string> snp_name, vector<int>
 
 void gcta::mtcojo(string mtcojo_bxy_file, string ref_ld_dirt, string w_ld_dirt, double freq_thresh, double gwas_thresh, int clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr) {
 
-    int i=0, j=0, nsnp=_meta_snp_name_map.size(), nsnp_init=_meta_snp_name.size(), ncovar=_covar_pheno_name.size();
-    vector<bool> snp_pair_flag(nsnp_init);
+    int i=0, j=0, nsnp=_meta_remain_snp.size(), ncovar=_covar_pheno_name.size();
+    vector<bool> snp_pair_flag(nsnp);
     vector<string> afsnps;
     eigenVector bxy_est(ncovar);
     bxy_est.setConstant(-999999.0);
@@ -2139,7 +2153,7 @@ void gcta::mtcojo(string mtcojo_bxy_file, string ref_ld_dirt, string w_ld_dirt, 
         vector<string> snp_instru;
         string err_msg;
         LOGGER.i(0, "\nGSMR analysis for covariate #" + to_string(i) + " (" + trait_name[i] + ")" + " ...");
-        for(j=0; j<nsnp_init; j++) snp_pair_flag[j] = _snp_val_flag[0][_meta_remain_snp[j]] && _snp_val_flag[i][_meta_remain_snp[j]];
+        for(j=0; j<nsnp; j++) snp_pair_flag[j] = _snp_val_flag[0][_meta_remain_snp[j]] && _snp_val_flag[i][_meta_remain_snp[j]];
         gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), _meta_snp_b.col(0), _meta_snp_se.col(0), 0, snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, pleio_snps, err_msg);
         //gsmr_rst =  gsmr_meta(snp_instru, _meta_snp_b.col(i), _meta_snp_se.col(i), _meta_snp_pval.col(i), _meta_snp_b.col(0), _meta_snp_se.col(0), ldsc_intercept(0, i), snp_pair_flag, gwas_thresh, clump_wind_size, clump_r2_thresh, heidi_thresh, ld_fdr_thresh, nsnp_gsmr);
         if(std::isnan(gsmr_rst[3])) {

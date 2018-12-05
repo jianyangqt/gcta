@@ -464,7 +464,7 @@ private:
     eigenMatrix ldsc_snp_rg(eigenMatrix ldsc_var_h2, eigenMatrix bhat_z, eigenMatrix bhat_n, eigenVector ref_ld, eigenVector w_ld, vector<vector<bool>> snp_flag, vector<int> trait_indx1, vector<int> trait_indx2, int n_cm_ld_snps, int ttl_mk_num, vector<string> trait_name);
 
     // Ajust summarydata for PC
-    void adjust_snp_effect_for_pc(eigenVector bzy_delta, eigenVector msx, int wind_size);
+    void adjust_snp_effect_for_pc(eigenVector &bzy_adj, eigenVector &bzx_hat, eigenVector bzy, eigenVector bxy_hat, int wind_size);
 
     // inline functions
     template<typename ElemType>

@@ -1117,7 +1117,11 @@ void option(int option_num, char* option_str[])
             pcadjust_list_file  = argv[++i];
             LOGGER << "--gwas-adj-pc " << pcadjust_list_file << endl;
             CommFunc::FileExist(pcadjust_list_file);
-        } else if (strcmp(argv[i], "gcta") == 0) break;
+        } else if (strcmp(argv[i], "--gwas-adj-pc-wind") == 0) {
+            pc_adj_wind_size = atoi(argv[++i]);
+            LOGGER << "--gwas-adj-pc-wind " << pc_adj_wind_size << endl;
+        } 
+        else if (strcmp(argv[i], "gcta") == 0) break;
         else {
             stringstream errmsg;
             errmsg << "\n  invalid option \"" << argv[i] << "\".\n";
