@@ -6,18 +6,105 @@
 #include <numeric>
 #include <string>
 #include <functional>
+#include <omp.h>
+#include <mkl.h>
+#include <cstdio>
+#include <algorithm>
 
 map<string, string> LD::options;
 map<string, int> LD::options_i;
 vector<string> LD::processFunctions;
-bool chr_ends;
-unique_ptr<double[]> geno_buffer[2];
-int cur_buffer = 0;
-uint64_t cur_buffer_offset[2] = {0, 0};
+bool LD::chr_ends = false;
+unique_ptr<double[]> LD::geno_buffer[2];
+int LD::cur_buffer = 0;
+uint64_t LD::cur_buffer_offset[2] = {0, 0};
+uint32_t LD::num_indi = 0;
 
 LD::LD(Geno * geno){
     this->geno = geno;
     num_indi = geno->pheno->count_keep();
+    ld_window = options_i["ld_window"] * 1000;
+    is_r2 = false;
+    cur_process_marker_index = 0;
+    if(options["method"] == "r2"){
+        is_r2 = true;
+    }
+
+    h_ld = fopen(options["out"].c_str(), "wb");
+    if(!h_ld){
+        LOGGER.e(0, "can't open " + options["out"] + " for writing.");
+    }
+}
+
+LD::~LD(){
+    fclose(h_ld);
+}
+
+template <typename T>
+struct static_cast_func
+{
+  template <typename T1> 
+  T operator()(const T1& x) const { return static_cast<T>(x); }
+};
+
+void LD::calcLD(){
+    // the current buffer
+    const char *trans = "T", *notrans = "N", *uplo = "L";
+    double zero = 0.0;
+    int nr = num_indi;
+    int nc1 = cur_buffer_offset[cur_buffer] / nr;
+    double alpha = 1.0 / (nr - 1);
+    double *ptr1 = geno_buffer[cur_buffer].get();
+    double *res1 = new double[nc1 * nc1];
+    dsyrk(uplo, trans, &nc1, &nr, &alpha, ptr1, &nr, &zero, res1, &nc1);
+
+    double *res2 = nullptr;
+    // is previous buffer active?
+    int nc2 = 0;
+    if(geno_buffer[!cur_buffer]){
+        //TODO: reduce half calculation
+        nc2 = cur_buffer_offset[!cur_buffer] / nr;
+        double *ptr2 = geno_buffer[!cur_buffer].get();
+        res2 = new double[nc2 * nc1];
+        dgemm(trans, notrans, &nc2, &nc1, &nr, &alpha, ptr2, &nr, ptr1, &nr, &zero, res2, &nc2);
+    }
+    
+    for(int i = 0; i < nc1; i++){
+        uint32_t cur_size;
+        float *buffer;
+        if(res2){ 
+            cur_size = geno->marker->getNextWindowSize(cur_process_marker_index, ld_window);
+            buffer = new float[cur_size];
+            uint32_t cur_size1 = cur_size - i;
+            uint32_t cur_size2 = cur_size - cur_size1;
+            double* temp_ptr = res1 + i + i*nc1;
+            double* temp_ptr2 = res2 + i * nc2;
+            std::transform(temp_ptr, temp_ptr + cur_size1, buffer, static_cast_func<float>());
+            std::transform(temp_ptr2, temp_ptr2 + cur_size2, buffer + cur_size1, static_cast_func<float>());
+        }else{
+            cur_size = nc1 - i;
+            buffer = new float[cur_size];
+            double* temp_ptr = res1 + i + i * nc1;
+            std::transform(temp_ptr, temp_ptr + cur_size, buffer, static_cast_func<float>());
+        }
+        // write to file
+        if(fwrite(&cur_size, sizeof(uint32_t), 1, h_ld) != 1){
+            LOGGER.e(0, "can't write to " + options["out"] + ".");
+        }
+        if(fwrite(buffer, sizeof(float), cur_size, h_ld) != cur_size){
+            LOGGER.e(0, "can't write to " + options["out"] + ".");
+        }
+        delete[] buffer;
+        cur_process_marker_index++;
+    }
+    //clean 
+    if(res1){
+        delete[] res1;
+    }
+    if(res2){
+        delete[] res2;
+    }
+    fflush(h_ld);
 }
 
 void LD::readGeno(uint64_t *buf, int num_marker){

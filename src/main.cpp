@@ -24,6 +24,7 @@
 #include "GRM.h"
 #include "Covar.h"
 #include "FastFAM.h"
+#include "LD.h"
 #include <functional>
 #include <map>
 #include <vector>
@@ -73,7 +74,8 @@ int main(int argc, char *argv[]){
         "--mpheno", "--ge", "--fastFAM", "--grm-sparse", "--qcovar", "--covar", "--rcovar", "--make-grm-d", "--make-grm-d-part",
         "--cg", "--ldlt", "--llt", "--pardiso", "--tcg", "--lscg", "--save-inv", "--load-inv",
         "--update-ref-allele", "--update-freq", "--update-sex", "--mbfile", "--freqx", "--make-grm-xchr", "--make-grm-xchr-part", "--make-grm-alg",
-        "--make-bed", "--sum-geno-x", "--sample", "--bgen", "--mgrm", "--unify-grm", "--rel-only"};
+        "--make-bed", "--sum-geno-x", "--sample", "--bgen", "--mgrm", "--unify-grm", "--rel-only", 
+        "--ld-matrix", "--r", "--ld-window", "--r2"};
     map<string, vector<string>> options;
     vector<string> keys;
     string last_key = "";
@@ -176,14 +178,15 @@ int main(int argc, char *argv[]){
 
     //start register the options
     // Please take care of the order, C++ has few reflation feature, I did in a ugly way.
-    vector<string> module_names = {"phenotype", "marker", "genotype", "covar", "GRM", "fastFAM"};
+    vector<string> module_names = {"phenotype", "marker", "genotype", "covar", "GRM", "fastFAM", "LD"};
     vector<int (*)(map<string, vector<string>>&)> registers = {
             Pheno::registerOption,
             Marker::registerOption,
             Geno::registerOption,
             Covar::registerOption,
             GRM::registerOption,
-            FastFAM::registerOption
+            FastFAM::registerOption,
+            LD::registerOption
     };
     vector<void (*)()> processMains = {
             Pheno::processMain,
@@ -191,7 +194,8 @@ int main(int argc, char *argv[]){
             Geno::processMain,
             Covar::processMain,
             GRM::processMain,
-            FastFAM::processMain
+            FastFAM::processMain,
+            LD::processMain
     };
 
     vector<int> mains;

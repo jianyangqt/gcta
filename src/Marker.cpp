@@ -211,15 +211,16 @@ vector<uint32_t>& Marker::get_extract_index(){
 
 //cur_marker_index:  is the index point to position of index_extract
 vector<uint32_t> Marker::getNextWindowIndex(uint32_t cur_marker_index, uint32_t window, bool& chr_ends){
+    vector<uint32_t> indices;
     if(cur_marker_index >= index_extract.size()){
-        LOGGER.e(0, "Too large marker index.");
+        chr_ends = true;
+        return indices;
     }
     uint32_t cur_index = pd[index_extract[cur_marker_index]];
 
     uint32_t cur_pd = pd[cur_index];
     uint8_t cur_chr = chr[cur_index];
     uint32_t final_pd = window + cur_pd;
-    vector<uint32_t> indices;
 
     chr_ends = false;
 
@@ -231,10 +232,39 @@ vector<uint32_t> Marker::getNextWindowIndex(uint32_t cur_marker_index, uint32_t 
         }
         if(pd[temp_index] <= final_pd){
             indices.push_back(temp_index);
+        }else{
+            break;
         }
     }
     return indices;
 }
+
+uint32_t Marker::getNextWindowSize(uint32_t cur_marker_index, uint32_t window){
+    if(cur_marker_index >= index_extract.size()){
+        return 0;
+    }
+    uint32_t cur_index = pd[index_extract[cur_marker_index]];
+
+    uint32_t cur_pd = pd[cur_index];
+    uint8_t cur_chr = chr[cur_index];
+    uint32_t final_pd = window + cur_pd;
+
+    uint32_t count = 0;
+
+    for(uint32_t marker_index = cur_marker_index; marker_index < index_extract.size(); marker_index++){
+        uint32_t temp_index = index_extract[marker_index];
+        if(chr[temp_index] != cur_chr){
+            break;
+        }
+        if(pd[temp_index] <= final_pd){
+            count++;
+        }else{
+            break;
+        }
+    }
+    return count;
+}
+
 
 int Marker::getMIndex(uint32_t raw_index){
     for(int i = 0; i < raw_limits.size(); i++){

@@ -46,6 +46,7 @@ public:
     void matchSNPListFile(string filename, int num_min_fields, const vector<int>& field_return, vector<string> &fields, vector<bool>& a_rev, bool update_a_rev = false);
     void save_marker(string filename);
     vector<uint32_t> getNextWindowIndex(uint32_t cur_marker_index, uint32_t window, bool& chr_ends);
+    uint32_t getNextWindowSize(uint32_t cur_marker_index, uint32_t window);
 
 private:
     vector<uint8_t> chr;

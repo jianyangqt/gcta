@@ -13,7 +13,7 @@ using std::vector;
 using std::unique_ptr;
 
 struct LDHeader{
-    char[3] magic; // GLD
+    char magic[3]; // ZLD
     uint8_t version; //0: orignal version
     uint8_t valueType; //0: r; 1: r2;
     uint8_t matrixType; // 0: triangular;  1: full
@@ -29,11 +29,11 @@ struct LDHeader{
     // For check the data corrupted or not
     uint32_t headerCRC; // the CRC of above bytes
     uint32_t resourceCRC;  // the CRC from the 256byte to end;
-}
+};
 
 struct LDBlockInfo{
     uint32_t index;
-}
+};
     
 
 struct LDInfoStart{
@@ -45,7 +45,7 @@ struct LDInfoStart{
     uint64_t startByte; // the byte of start
     uint64_t compressSize; // compressed size;
     uint64_t decompressSize; // decompressed size;
-}
+};
 
 class LD{
 public:
@@ -67,8 +67,14 @@ private:
     static unique_ptr<double[]> geno_buffer[2];
     static int cur_buffer;
     static uint64_t cur_buffer_offset[2];
+    void calcLD();
+    uint32_t ld_window;
+    bool is_r2;
+    uint32_t cur_process_marker_index;
 
-}
+    FILE *h_ld;
+
+};
     
     
 
