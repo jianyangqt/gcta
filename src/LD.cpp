@@ -23,7 +23,7 @@ uint32_t LD::num_indi = 0;
 LD::LD(Geno * geno){
     this->geno = geno;
     num_indi = geno->pheno->count_keep();
-    ld_window = options_i["ld_window"] * 1000;
+    ld_window = options_i["LD_window"] * 1000;
     is_r2 = false;
     cur_process_marker_index = 0;
     if(options["method"] == "r2"){
@@ -75,7 +75,7 @@ void LD::calcLD(){
         if(res2){ 
             cur_size = geno->marker->getNextWindowSize(cur_process_marker_index, ld_window);
             buffer = new float[cur_size];
-            uint32_t cur_size1 = cur_size - i;
+            uint32_t cur_size1 = nc1 - i;
             uint32_t cur_size2 = cur_size - cur_size1;
             double* temp_ptr = res1 + i + i*nc1;
             double* temp_ptr2 = res2 + i * nc2;
@@ -104,7 +104,7 @@ void LD::calcLD(){
     if(res2){
         delete[] res2;
     }
-    fflush(h_ld);
+    //fflush(h_ld);
 }
 
 void LD::readGeno(uint64_t *buf, int num_marker){
@@ -112,7 +112,7 @@ void LD::readGeno(uint64_t *buf, int num_marker){
     uint64_t cur_offset = cur_buffer_offset[cur_buffer];
     ptr += cur_offset;
 
-    #pragma omp parallel for schedule(dynamic) 
+    //pragma omp parallel for schedule(dynamic) 
     for(int i = 0; i < num_marker; i++){
         geno->makeMarkerX(buf, i, ptr + i * num_indi, true, true);
     }
@@ -151,7 +151,7 @@ int LD::registerOption(map<string, vector<string>>& options_in){
     if(options_in.find(curFlag) != options_in.end()){
         if(options_in[curFlag].size() == 1){
             try{
-                options_i["ld_window"] = std::stoi(options_in[curFlag][0]);
+                options_i["LD_window"] = std::stoi(options_in[curFlag][0]);
             }catch(std::invalid_argument&){
                 LOGGER.e(0, "LD window is not an integer.");
             }
@@ -173,7 +173,7 @@ void LD::processMain(){
             LD ld(&geno);
 
             LOGGER.i(0, "Generating LD matrix...");
-            uint32_t window = options_i["ld_window"] * 1000;
+            uint32_t window = options_i["LD_window"] * 1000;
             uint32_t total_num_marker = marker.count_extract(); 
             uint32_t cur_index_marker = 0;
             callBacks.push_back(std::bind(&Geno::freq64, &geno, _1, _2));
@@ -187,7 +187,8 @@ void LD::processMain(){
                 geno.loop_64block(indices1, callBacks);
                 cur_index_marker += indices1.size();
 
-                if((!chr_ends) && cur_index_marker < total_num_marker){
+                // if another buffer is NA,  not chr ends and still in range;
+                if((!geno_buffer[!cur_buffer]) && (!chr_ends) && cur_index_marker < total_num_marker){
                     cur_buffer = !cur_buffer;
                     vector<uint32_t> indices2 = marker.getNextWindowIndex(cur_index_marker, window, chr_ends);
                     geno_buffer[cur_buffer].reset(new double[indices2.size() * num_indi]);
@@ -198,6 +199,7 @@ void LD::processMain(){
                     geno_buffer[!cur_buffer].reset(nullptr);
                 }
                 //ld.deduceLD();
+                ld.calcLD();
             }
         }
     }

@@ -216,7 +216,7 @@ vector<uint32_t> Marker::getNextWindowIndex(uint32_t cur_marker_index, uint32_t 
         chr_ends = true;
         return indices;
     }
-    uint32_t cur_index = pd[index_extract[cur_marker_index]];
+    uint32_t cur_index = index_extract[cur_marker_index];
 
     uint32_t cur_pd = pd[cur_index];
     uint8_t cur_chr = chr[cur_index];
@@ -243,7 +243,7 @@ uint32_t Marker::getNextWindowSize(uint32_t cur_marker_index, uint32_t window){
     if(cur_marker_index >= index_extract.size()){
         return 0;
     }
-    uint32_t cur_index = pd[index_extract[cur_marker_index]];
+    uint32_t cur_index = index_extract[cur_marker_index];
 
     uint32_t cur_pd = pd[cur_index];
     uint8_t cur_chr = chr[cur_index];

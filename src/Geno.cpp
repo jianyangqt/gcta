@@ -1125,17 +1125,18 @@ void Geno::loop_64block(const vector<uint32_t> &raw_marker_index, vector<functio
 
     LOGGER.ts("LOOP_GENO_TOT");
     LOGGER.ts("LOOP_GENO_PRE");
+    int cur_num_blocks = (raw_marker_index.size() + Constants::NUM_MARKER_READ - 1) / Constants::NUM_MARKER_READ;
 
-    for(int cur_block = 0; cur_block < num_blocks; ++cur_block){
+    for(int cur_block = 0; cur_block < cur_num_blocks; ++cur_block){
         std::tie(r_buf, isEOF) = asyncBuffer->start_read();
         //LOGGER.i(0, "time get buffer: " + to_string(LOGGER.tp("LOOP_GENO_PRE")));
 
         LOGGER.d(0, "Process block " + std::to_string(cur_block));
-        if(isEOF && cur_block != (num_blocks - 1)){
+        if(isEOF && cur_block != (cur_num_blocks - 1)){
             LOGGER.e(0, "read to the end of the BED file, but still didn't finish.");
         }
         //correct the marker read;
-        if(cur_block == (num_blocks - 1)){
+        if(cur_block == (cur_num_blocks - 1)){
             cur_num_marker_read = raw_marker_index.size() - Constants::NUM_MARKER_READ * cur_block;
         }else{
             cur_num_marker_read = Constants::NUM_MARKER_READ;
@@ -1159,7 +1160,7 @@ void Geno::loop_64block(const vector<uint32_t> &raw_marker_index, vector<functio
             if(time_p > 300){
                 LOGGER.ts("LOOP_GENO_PRE");
                 float elapse_time = LOGGER.tp("LOOP_GENO_TOT");
-                float finished_percent = (float) cur_block / num_blocks;
+                float finished_percent = (float) cur_block / cur_num_blocks;
                 float remain_time = (1.0 / finished_percent - 1) * elapse_time / 60;
 
                 std::ostringstream ss;
