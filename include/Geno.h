@@ -40,7 +40,7 @@ class Geno {
 public:
     Geno(Pheno* pheno, Marker* marker);
     ~Geno();
-    void loop_64block(const vector<uint32_t>& raw_marker_index, vector<function<void (uint64_t *buf, int num_marker)>> callbacks = vector<function<void (uint64_t *buf, int num_marker)>>());
+    void loop_64block(const vector<uint32_t>& raw_marker_index, vector<function<void (uint64_t *buf, int num_marker)>> callbacks = vector<function<void (uint64_t *buf, int num_marker)>>(), bool showLog = true);
     void freq(uint8_t *buf, int num_marker);
     void freq2(uint8_t *buf, int num_marker);
     void freq64(uint64_t *buf, int num_marker);

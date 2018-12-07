@@ -49,22 +49,28 @@ struct static_cast_func
 
 void LD::calcLD(){
     // the current buffer
+    int cacl_index_buffer;
+    if(geno_buffer[!cur_buffer]){
+        cacl_index_buffer = !cur_buffer;
+    }else{
+        cacl_index_buffer = cur_buffer;
+    }
     const char *trans = "T", *notrans = "N", *uplo = "L";
     double zero = 0.0;
     int nr = num_indi;
-    int nc1 = cur_buffer_offset[cur_buffer] / nr;
+    int nc1 = cur_buffer_offset[cacl_index_buffer] / nr;
     double alpha = 1.0 / (nr - 1);
-    double *ptr1 = geno_buffer[cur_buffer].get();
+    double *ptr1 = geno_buffer[cacl_index_buffer].get();
     double *res1 = new double[nc1 * nc1];
     dsyrk(uplo, trans, &nc1, &nr, &alpha, ptr1, &nr, &zero, res1, &nc1);
 
     double *res2 = nullptr;
     // is previous buffer active?
     int nc2 = 0;
-    if(geno_buffer[!cur_buffer]){
+    if(geno_buffer[!cacl_index_buffer]){
         //TODO: reduce half calculation
-        nc2 = cur_buffer_offset[!cur_buffer] / nr;
-        double *ptr2 = geno_buffer[!cur_buffer].get();
+        nc2 = cur_buffer_offset[!cacl_index_buffer] / nr;
+        double *ptr2 = geno_buffer[!cacl_index_buffer].get();
         res2 = new double[nc2 * nc1];
         dgemm(trans, notrans, &nc2, &nc1, &nr, &alpha, ptr2, &nr, ptr1, &nr, &zero, res2, &nc2);
     }
@@ -104,7 +110,8 @@ void LD::calcLD(){
     if(res2){
         delete[] res2;
     }
-    //fflush(h_ld);
+    geno_buffer[cacl_index_buffer].reset(nullptr);
+    fflush(h_ld);
 }
 
 void LD::readGeno(uint64_t *buf, int num_marker){
@@ -112,7 +119,7 @@ void LD::readGeno(uint64_t *buf, int num_marker){
     uint64_t cur_offset = cur_buffer_offset[cur_buffer];
     ptr += cur_offset;
 
-    //pragma omp parallel for schedule(dynamic) 
+    #pragma omp parallel for schedule(dynamic) 
     for(int i = 0; i < num_marker; i++){
         geno->makeMarkerX(buf, i, ptr + i * num_indi, true, true);
     }
@@ -163,6 +170,7 @@ int LD::registerOption(map<string, vector<string>>& options_in){
     return ret_val;
 }
 
+
 void LD::processMain(){
     vector<function<void (uint64_t *, int)>> callBacks;
     for(auto &process_function : processFunctions){
@@ -184,21 +192,19 @@ void LD::processMain(){
                 vector<uint32_t> indices1 = marker.getNextWindowIndex(cur_index_marker, window, chr_ends);
                 geno_buffer[cur_buffer].reset(new double[indices1.size() * num_indi]);
                 cur_buffer_offset[cur_buffer] = 0;
-                geno.loop_64block(indices1, callBacks);
+                geno.loop_64block(indices1, callBacks, false);
                 cur_index_marker += indices1.size();
 
                 // if another buffer is NA,  not chr ends and still in range;
-                if((!geno_buffer[!cur_buffer]) && (!chr_ends) && cur_index_marker < total_num_marker){
-                    cur_buffer = !cur_buffer;
-                    vector<uint32_t> indices2 = marker.getNextWindowIndex(cur_index_marker, window, chr_ends);
-                    geno_buffer[cur_buffer].reset(new double[indices2.size() * num_indi]);
-                    cur_buffer_offset[cur_buffer] = 0;
-                    geno.loop_64block(indices2, callBacks);
-                    cur_index_marker += indices2.size();
-                }else{
-                    geno_buffer[!cur_buffer].reset(nullptr);
+                if((!geno_buffer[!cur_buffer]) && (!chr_ends)){
+                    continue;
                 }
                 //ld.deduceLD();
+                ld.calcLD();
+                LOGGER.p(0, to_string_precision(cur_index_marker * 100.0 / total_num_marker, 2) + "% finished.");
+            }
+            //last block if not chr ends;
+            if(geno_buffer[cur_buffer]){
                 ld.calcLD();
             }
         }

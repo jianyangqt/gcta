@@ -30,6 +30,7 @@
 #include <vector>
 #include <numeric>
 #include <algorithm>
+#include <sstream>
 
 std::string getHostName();
 std::string getLocalTime();
@@ -158,5 +159,13 @@ void permute_vector(const std::vector<std::vector<T>> &elements, std::vector<std
    }
 }
 
-
+template <typename T>
+std::string to_string_precision(const T value, const int n = 0){
+    std::ostringstream out;
+    if(n > 0){
+        out.precision(n);
+    }
+    out << std::fixed << value;
+    return out.str();
+} 
 #endif

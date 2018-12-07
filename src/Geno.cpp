@@ -350,7 +350,6 @@ bool Geno::check_bed(){
 }
 
 void Geno::read_bed(const vector<uint32_t> &raw_marker_index){
-    LOGGER.i(0, "Reading PLINK BED file(s) in SNP-major format...");
 
     // init start index for each file
     vector<int32_t> pos;
@@ -1114,7 +1113,8 @@ void Geno::move_geno(uint8_t *buf, uint64_t *keep_list, uint32_t num_raw_sample,
     }
 }
 
-void Geno::loop_64block(const vector<uint32_t> &raw_marker_index, vector<function<void (uint64_t *buf, int num_marker)>> callbacks) {
+void Geno::loop_64block(const vector<uint32_t> &raw_marker_index, vector<function<void (uint64_t *buf, int num_marker)>> callbacks, bool showLog) {
+    if(showLog){LOGGER.i(0, "Reading PLINK BED file(s) in SNP-major format...");}
     num_finished_markers = 0;
     thread read_thread([this, &raw_marker_index](){this->read_bed(raw_marker_index);});
     read_thread.detach();
@@ -1123,8 +1123,10 @@ void Geno::loop_64block(const vector<uint32_t> &raw_marker_index, vector<functio
     bool isEOF = false;
     int cur_num_marker_read;
 
-    LOGGER.ts("LOOP_GENO_TOT");
-    LOGGER.ts("LOOP_GENO_PRE");
+    if(showLog){
+        LOGGER.ts("LOOP_GENO_TOT");
+        LOGGER.ts("LOOP_GENO_PRE");
+    }
     int cur_num_blocks = (raw_marker_index.size() + Constants::NUM_MARKER_READ - 1) / Constants::NUM_MARKER_READ;
 
     for(int cur_block = 0; cur_block < cur_num_blocks; ++cur_block){
@@ -1155,7 +1157,7 @@ void Geno::loop_64block(const vector<uint32_t> &raw_marker_index, vector<functio
         delete[] geno_buf;
 
         num_finished_markers += cur_num_marker_read;
-        if(cur_block % 100 == 0){
+        if(showLog && cur_block % 100 == 0){
             float time_p = LOGGER.tp("LOOP_GENO_PRE");
             if(time_p > 300){
                 LOGGER.ts("LOOP_GENO_PRE");
@@ -1170,9 +1172,11 @@ void Geno::loop_64block(const vector<uint32_t> &raw_marker_index, vector<functio
             }
         }
     }
-    std::ostringstream ss;
-    ss << std::fixed << std::setprecision(1) << "100% Finished in " << LOGGER.tp("LOOP_GENO_TOT") / 60 << " min";
-    LOGGER.i(1, ss.str());
+    if(showLog){
+        std::ostringstream ss;
+        ss << std::fixed << std::setprecision(1) << "100% Finished in " << LOGGER.tp("LOOP_GENO_TOT") / 60 << " min";
+        LOGGER.i(1, ss.str());
+    }
 }
 
 
