@@ -268,6 +268,7 @@ void Geno::init_AF(string alleleFileName) {
     //RDev = vector<double>(num_marker, 0.0); 
     num_blocks = num_marker / Constants::NUM_MARKER_READ +
                  (num_marker % Constants::NUM_MARKER_READ != 0);
+    num_finished_markers = 0; 
     LOGGER.d(0, "The program will run in " + to_string(num_blocks) + " blocks");
 }
 
@@ -1114,8 +1115,10 @@ void Geno::move_geno(uint8_t *buf, uint64_t *keep_list, uint32_t num_raw_sample,
 }
 
 void Geno::loop_64block(const vector<uint32_t> &raw_marker_index, vector<function<void (uint64_t *buf, int num_marker)>> callbacks, bool showLog) {
-    if(showLog){LOGGER.i(0, "Reading PLINK BED file(s) in SNP-major format...");}
-    num_finished_markers = 0;
+    if(showLog){
+        LOGGER.i(0, "Reading PLINK BED file(s) in SNP-major format...");
+        num_finished_markers = 0;
+    }
     thread read_thread([this, &raw_marker_index](){this->read_bed(raw_marker_index);});
     read_thread.detach();
 
