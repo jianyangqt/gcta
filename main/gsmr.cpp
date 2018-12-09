@@ -385,9 +385,9 @@ void collect_gsmr_trait(stringstream &ss, vector<string> pheno_str, int nexpo, i
     ss << "#trait_end" <<endl;
 }
 
-void collect_gsmr_result(stringstream &ss, vector<vector<double>> bxy_est, int gsmr_alg_flag, vector<string> pheno_name, int expo_num_buf, int outcome_num_buf) {
+void collect_gsmr_result(stringstream &ss, vector<vector<double>> bxy_est, int gsmr_alg_flag, vector<string> pheno_name, int expo_num_buf, int outcome_num_buf, int gsmr_beta_version, int n_gsmr_rst_item) {
     bool output_forward = false, output_reverse = false;
-    int i=0, j=0, k=0;
+    int i=0, j=0, k=0, t=0;
 
     switch(gsmr_alg_flag) {
         case 0 : output_forward=true; break;
@@ -395,23 +395,30 @@ void collect_gsmr_result(stringstream &ss, vector<vector<double>> bxy_est, int g
         case 2 : output_forward=true; output_reverse=true; break;
     }
 
-    ss << "Exposure\tOutcome\tbxy\tse\tp\tnsnp\tglobal_heidi_outlier" <<endl;
+    if(gsmr_beta_version) {
+        ss << "Exposure\tOutcome\tbxy\tse\tp\tnsnp\tglobal_heidi_outlier" <<endl;
+    } else {
+        ss << "Exposure\tOutcome\tbxy\tse\tp\tnsnp" <<endl;
+    }
+    
     k=0; 
     if(output_forward) {
         for(i=0; i<expo_num_buf; i++) {
             for(j=0; j<outcome_num_buf; j++, k++) {
-                ss << pheno_name[i] << "\t" << pheno_name[expo_num_buf+j] << "\t"
-                      << bxy_est[0][k] << "\t" << bxy_est[1][k] << "\t" 
-                      << bxy_est[2][k] << "\t" << bxy_est[3][k] << "\t" << bxy_est[4][k] << endl;
+                ss << pheno_name[i] << "\t" << pheno_name[expo_num_buf+j];
+                for(t=0; t<n_gsmr_rst_item; t++) 
+                    ss << '\t' << bxy_est[t][k];
+                ss << endl;
             }
         }
     }
     if(output_reverse) {
         for(i=0; i<outcome_num_buf; i++) {
             for(j=0; j<expo_num_buf; j++, k++) {
-                ss << pheno_name[expo_num_buf+i] << "\t" << pheno_name[j] << "\t"
-                      << bxy_est[0][k] << "\t" << bxy_est[1][k] << "\t" 
-                      << bxy_est[2][k] << "\t" << bxy_est[3][k] << "\t" << bxy_est[4][k] << endl;
+                ss << pheno_name[expo_num_buf+i] << "\t" << pheno_name[j];
+                for(t=0; t<n_gsmr_rst_item; t++) 
+                    ss << "\t" << bxy_est[t][k];
+                ss << endl;
             }
         }
     }
@@ -439,6 +446,9 @@ void collect_snp_instru_effect(stringstream &ss, vector<vector<bool>> snp_flag, 
 }
 
 void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double freq_thresh, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, bool o_snp_instru_flag, int gsmr_so_alg) {
+    if(_gsmr_beta_version) _n_gsmr_rst_item = 5;
+    else _n_gsmr_rst_item = 4;
+    
     vector<vector<double>> bxy_est;
     map<string, int> snp_instru_map;
     vector<string> afsnps;
@@ -506,7 +516,7 @@ void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double 
     }
 
     // Output GSMR result
-    collect_gsmr_result(ss_gsmr, bxy_est, gsmr_alg_flag, _gwas_trait_name, _expo_num, _outcome_num);
+    collect_gsmr_result(ss_gsmr, bxy_est, gsmr_alg_flag, _gwas_trait_name, _expo_num, _outcome_num, _gsmr_beta_version, _n_gsmr_rst_item);
     // Output the SNP instruments
     if(o_snp_instru_flag) {
         int nsnp_instru = snp_instru_map.size();

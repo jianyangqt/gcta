@@ -622,6 +622,7 @@ private:
     int _expo_num;
     int _outcome_num;
     int _n_gsmr_rst_item = 5;
+    int _gsmr_beta_version = 0;
     eigenMatrix _r_pheno_sample;
     vector<string> _gwas_trait_name;
     vector<vector<bool>> _snp_val_flag;
