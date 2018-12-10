@@ -1309,8 +1309,6 @@ vector<int> indi_heidi_outlier_iter(eigenVector bxy, eigenVector bzx, eigenVecto
 }
 
 vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eigenVector bzx_se, eigenVector bzx_pval, eigenVector bzy, eigenVector bzy_se, double rho_pheno, vector<bool> snp_flag, double gwas_thresh, int wind_size, double r2_thresh, double global_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, string &pleio_snps, string &err_msg) {
-    if(_gsmr_beta_version) _n_gsmr_rst_item = 5;
-    else _n_gsmr_rst_item = 4;
 
     int i=0, j=0, nsnp = _include.size(), nindi=_keep.size();    
     vector<string> indices_snp;
@@ -2148,7 +2146,9 @@ void mtcojo_cond_output(string output_file, vector<string> snp_name, vector<int>
     ofile.close();
 }
 
-void gcta::mtcojo(string mtcojo_bxy_file, string ref_ld_dirt, string w_ld_dirt, double freq_thresh, double gwas_thresh, int clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr) {
+void gcta::mtcojo(string mtcojo_bxy_file, string ref_ld_dirt, string w_ld_dirt, double freq_thresh, double gwas_thresh, int clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, int gsmr_beta_version) {
+    if(gsmr_beta_version) { _n_gsmr_rst_item = 5; _gsmr_beta_version = 1; }
+    else { _n_gsmr_rst_item = 4; _gsmr_beta_version = 0; }
 
     int i=0, j=0, nsnp=_meta_remain_snp.size(), ncovar=_covar_pheno_name.size();
     vector<bool> snp_pair_flag(nsnp);

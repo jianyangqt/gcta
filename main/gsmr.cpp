@@ -445,10 +445,10 @@ void collect_snp_instru_effect(stringstream &ss, vector<vector<bool>> snp_flag, 
     ss << "#effect_end" << endl;
 }
 
-void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double freq_thresh, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, bool o_snp_instru_flag, int gsmr_so_alg) {
-    if(_gsmr_beta_version) _n_gsmr_rst_item = 5;
-    else _n_gsmr_rst_item = 4;
-    
+void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double freq_thresh, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double global_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, bool o_snp_instru_flag, int gsmr_so_alg, int gsmr_beta_version) {
+    if(gsmr_beta_version) { _n_gsmr_rst_item = 5; _gsmr_beta_version = 1; }
+    else { _n_gsmr_rst_item = 4; _gsmr_beta_version = 0; }
+   
     vector<vector<double>> bxy_est;
     map<string, int> snp_instru_map;
     vector<string> afsnps;

@@ -155,7 +155,7 @@ void option(int option_num, char* option_str[])
 
     // GSMR
     bool gsmr_flag = false, o_snp_instru_flag = false, gsmr_so_flag = false, gsmr_snp_update_flag = false;
-    int gsmr_alg_flag = 0, gsmr_so_alg = -9;
+    int gsmr_beta_version = 0, gsmr_alg_flag = 0, gsmr_so_alg = -9;
     string expo_file_list = "", outcome_file_list = "";
     
     // Adjustment for PC
@@ -1021,6 +1021,9 @@ void option(int option_num, char* option_str[])
             LOGGER << "--gsmr-file " << expo_file_list << " " << outcome_file_list << endl;
             CommFunc::FileExist(expo_file_list);
             CommFunc::FileExist(outcome_file_list);
+        } else if(strcmp(argv[i], "--gsmr-beta") == 0) {
+            gsmr_beta_version = 1;
+            LOGGER << "--gsmr-beta" << endl;
         } else if (strcmp(argv[i], "--gsmr-direction") == 0) {
             gsmr_alg_flag = atoi(argv[++i]);
             if(gsmr_alg_flag < 0 || gsmr_alg_flag > 2) 
@@ -1299,8 +1302,8 @@ void option(int option_num, char* option_str[])
             else if (massoc_slct_flag | massoc_joint_flag) {pter_gcta->set_massoc_pC_thresh(massoc_out_pC_thresh); pter_gcta->run_massoc_slct(massoc_file, massoc_wind, massoc_p, massoc_collinear, massoc_top_SNPs, massoc_joint_flag, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag, massoc_mld_slct_alg);}
             else if (!massoc_cond_snplist.empty()) {pter_gcta->set_massoc_pC_thresh(massoc_out_pC_thresh); pter_gcta->run_massoc_cond(massoc_file, massoc_cond_snplist, massoc_wind, massoc_collinear, massoc_gc_flag, massoc_gc_val, massoc_actual_geno_flag);}
             else if (massoc_sblup_flag) pter_gcta->run_massoc_sblup(massoc_file, massoc_wind, massoc_sblup_fac);
-            else if (gsmr_flag) pter_gcta->gsmr(gsmr_alg_flag, ref_ld_dirt, w_ld_dirt, freq_thresh, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, o_snp_instru_flag, gsmr_so_alg);
-            else if (mtcojo_flag) pter_gcta->mtcojo(mtcojo_bxy_file, ref_ld_dirt, w_ld_dirt, freq_thresh, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, ld_fdr_thresh, nsnp_gsmr);
+            else if (gsmr_flag) pter_gcta->gsmr(gsmr_alg_flag, ref_ld_dirt, w_ld_dirt, freq_thresh, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, o_snp_instru_flag, gsmr_so_alg, gsmr_beta_version);
+            else if (mtcojo_flag) pter_gcta->mtcojo(mtcojo_bxy_file, ref_ld_dirt, w_ld_dirt, freq_thresh, gwas_thresh, clump_wind_size, clump_r2_thresh, global_heidi_thresh, ld_fdr_thresh, nsnp_gsmr, gsmr_beta_version);
             else if (simu_qt_flag || simu_cc) pter_gcta->GWAS_simu(bfile, simu_rep, simu_causal, simu_case_num, simu_control_num, simu_h2, simu_K, simu_seed, simu_output_causal, simu_emb_flag, simu_eff_mod);
             else if (make_bed_flag) pter_gcta->save_plink();
             else if (fst_flag) pter_gcta->Fst(subpopu_file);
