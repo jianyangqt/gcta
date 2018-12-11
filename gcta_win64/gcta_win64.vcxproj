@@ -134,6 +134,7 @@
     <ClCompile Include="..\src\FastFAM.cpp" />
     <ClCompile Include="..\src\Geno.cpp" />
     <ClCompile Include="..\src\GRM.cpp" />
+    <ClCompile Include="..\src\LD.cpp" />
     <ClCompile Include="..\src\Logger.cpp" />
     <ClCompile Include="..\src\main.cpp" />
     <ClCompile Include="..\src\Marker.cpp" />
@@ -151,6 +152,7 @@
     <ClInclude Include="..\include\FastFAM.h" />
     <ClInclude Include="..\include\Geno.h" />
     <ClInclude Include="..\include\GRM.h" />
+    <ClInclude Include="..\include\LD.h" />
     <ClInclude Include="..\include\Logger.h" />
     <ClInclude Include="..\include\Marker.h" />
     <ClInclude Include="..\include\mem.hpp" />
