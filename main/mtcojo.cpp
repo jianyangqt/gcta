@@ -1397,9 +1397,9 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
     }
 
     vector<int> remain_index(kept_ID);
+    bool heidi_flag = CommFunc::FloatNotEqual(global_heidi_thresh, 0) ? true : false;
     if(_gsmr_beta_version) {
         // HEIDI-outlier step 1
-        bool heidi_flag = CommFunc::FloatNotEqual(global_heidi_thresh, 0) ? true : false;
         if (heidi_flag) {
             int n_kept_snp = 0;
             while(1) {
@@ -1462,14 +1462,7 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
         rst[0] = bxy_hat; rst[1] = bxy_hat_se; rst[2] = bxy_hat_pval; rst[3] = n_indices_snp; rst[4] = global_heidi_pval;
     } else {
         // HEIDI-outlier using top SNP
-        // Step 1, find the top SNP
-        int topsnp_index = -9;
-        topsnp_index = topsnp_bxy(bxy, bzx, bzx_se, _meta_snp_name_map, indices_snp, kept_ID, n_indices_snp);
-        if(topsnp_index < 0)  {
-            err_msg = "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required.";
-            return rst;
-        }
-        // Step 2, estimate cov(bxy) matrix
+        // Step 1, estimate cov(bxy) matrix
         eigenMatrix cov_bxy_p1(n_indices_snp, n_indices_snp), cov_bxy_p2(n_indices_snp, n_indices_snp);
         est_cov_bxy(cov_bxy_p1, cov_bxy_p2, bzx, bzx_se, bzy_se, ld_r_mat, _meta_snp_name_map, indices_snp, kept_ID);
         eigenVector bxy_kept(n_indices_snp);
@@ -1481,27 +1474,36 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
         }
         cov_bxy = cov_bxy_p1 + cov_bxy_p2;
 
-        // Step 3, estimate HEIDI-outlier p-value
-        // d = bxy_i - bxy_gsmr
-        eigenVector d(n_indices_snp);
-
-        est_diff_bxy(d, bxy(kept_ID[topsnp_index]), indices_snp, kept_ID, bzx, bzy, _meta_snp_name_map);
-        eigenVector var_d = cov_bxy.diagonal() + cov_bxy(topsnp_index, topsnp_index)*eigenVector::Ones(n_indices_snp) - 2*cov_bxy.col(topsnp_index);
-        vector<int> kept_ID_tmp;
-        vector<double> indi_heidi_pval(n_indices_snp);
-        for(i = 0; i < n_indices_snp; i++) {
-            if(i==topsnp_index) {
-                kept_ID_tmp.push_back(kept_ID[i]);
-                continue;
+        if(heidi_flag) {
+            // Step 2, find the top SNP
+            int topsnp_index = -9;
+            topsnp_index = topsnp_bxy(bxy, bzx, bzx_se, _meta_snp_name_map, indices_snp, kept_ID, n_indices_snp);
+            if(topsnp_index < 0)  {
+                err_msg = "Not enough SNPs to perform the GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required.";
+                return rst;
             }
-            indi_heidi_pval[i] = StatFunc::pchisq(d(i)*d(i)/var_d(i), 1);
-            if(indi_heidi_pval[i] >= global_heidi_thresh)
-                kept_ID_tmp.push_back(kept_ID[i]);
-        }
-        kept_ID = kept_ID_tmp;
-        n_indices_snp = kept_ID.size();
 
-        bxy_kept.resize(n_indices_snp);    
+            // Step 3, estimate HEIDI-outlier p-value
+            // d = bxy_i - bxy_gsmr
+            eigenVector d(n_indices_snp);
+
+            est_diff_bxy(d, bxy(kept_ID[topsnp_index]), indices_snp, kept_ID, bzx, bzy, _meta_snp_name_map);
+            eigenVector var_d = cov_bxy.diagonal() + cov_bxy(topsnp_index, topsnp_index)*eigenVector::Ones(n_indices_snp) - 2*cov_bxy.col(topsnp_index);
+            vector<int> kept_ID_tmp;
+            vector<double> indi_heidi_pval(n_indices_snp);
+            for(i = 0; i < n_indices_snp; i++) {
+                if(i==topsnp_index) {
+                    kept_ID_tmp.push_back(kept_ID[i]);
+                    continue;
+                }
+                indi_heidi_pval[i] = StatFunc::pchisq(d(i)*d(i)/var_d(i), 1);
+                if(indi_heidi_pval[i] >= global_heidi_thresh)
+                    kept_ID_tmp.push_back(kept_ID[i]);
+            }
+            kept_ID = kept_ID_tmp;
+            n_indices_snp = kept_ID.size();
+        } 
+        bxy_kept.resize(n_indices_snp);   
         for(i = 0; i < n_indices_snp; i++) bxy_kept(i) = bxy(kept_ID[i]);
         std::stable_sort(bxy_kept.data(), bxy_kept.data()+n_indices_snp);
 
