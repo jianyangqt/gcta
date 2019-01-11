@@ -30,6 +30,8 @@ void addOneFileOption(string key_store, string append_string, string key_name, m
 
 bool checkFileReadable(string filename);
 
+uint64_t getFileSize(FILE * file);
+
 template <typename T>
 void readBytes(FILE * file, int num_item, T* buffer){
     if(num_item != fread(buffer, sizeof(T), num_item, file)){

@@ -132,6 +132,7 @@ void Marker::matchSNPListFile(string filename, int num_min_fields, const vector<
         }
 
     }
+    allele_file.close();
 
     // match snp name
     vector<uint32_t> marker_index, ref_index;
@@ -178,7 +179,7 @@ void Marker::matchSNPListFile(string filename, int num_min_fields, const vector<
     }
 
     keep_raw_index(index_common);
-
+    // bug here?
     if(ref_allele.size()){
         a_rev.resize(export_index.size());
         std::transform(export_index.begin(), export_index.end(), a_rev.begin(), [&temp_a_rev](size_t pos){return temp_a_rev[pos];});

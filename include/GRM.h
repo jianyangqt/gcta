@@ -56,6 +56,7 @@ public:
     void cut_rel(float thresh, bool no_grm = false);
     void prune_fam(float thresh, bool isSparse = true);
     void unify_grm(string mgrm_file, string out_file);
+    void subtract_grm(string mgrm_file, string out_file);
 
 private:
     Geno *geno;

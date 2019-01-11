@@ -23,5 +23,16 @@ bool checkFileReadable(string filename){
     return f.good();
 }
 
+uint64_t getFileSize(FILE * file){
+   if(file == NULL){
+       return 0;
+   }
+   fseek(file, 0, SEEK_END);
+   uint64_t f_size = ftell(file);
+   rewind(file);
+   return f_size;
+}
+
+
 
 

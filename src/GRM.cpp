@@ -103,6 +103,111 @@ GRM::GRM(){
 
 }
 
+void GRM::subtract_grm(string mgrm_file, string out_file){
+   std::ifstream mgrm(mgrm_file.c_str());
+    if(!mgrm){
+        LOGGER.e(0, "can't open " + mgrm_file + " to read.");
+    }
+    string line;
+    vector<string> files;
+    vector<string> err_files;
+    while(getline(mgrm, line)){
+        boost::trim(line);
+        if(!line.empty()){
+            if(checkFileReadable(line+".grm.id") && checkFileReadable(line+".grm.bin") && checkFileReadable(line + ".grm.N.bin")){
+                files.push_back(line);
+            }else{
+                err_files.push_back(line);
+            }
+        }
+    }
+
+    if(err_files.size() != 0){
+        string out_err = "can't read GRM (*.grm.id, *.grm.bin) in ";
+        out_err += boost::algorithm::join(err_files, ", ");
+        out_err += ".";
+        LOGGER.e(0, out_err);
+    }
+    if(files.size() != 2){
+        LOGGER.e(0, "only 2 grm supported currently.");
+    }
+
+    LOGGER.i(0, "Reading [" + files[0] + ".grm.id]...");
+    vector<string> common_id = Pheno::read_sublist(files[0] + ".grm.id");
+    LOGGER << common_id.size() << " samples have been read." << std::endl;
+    LOGGER.i(0, "Reading [" + files[1] + ".grm.id]...");
+    vector<string> common_id2 = Pheno::read_sublist(files[1] + ".grm.id");
+    if(common_id != common_id2){
+        LOGGER.e(0, "The sample id in two GRM is not same, try --unify-grm first.");
+    }
+    std::ofstream o_id(out_file + ".grm.id");
+    if(!o_id) LOGGER.e(0, "can't write to [" + options["out"] + ".grm.id]");
+    LOGGER.i(2, "Saving " + to_string(common_id.size()) + " individual IDs");
+    std::copy(common_id.begin(), common_id.end(), std::ostream_iterator<string>(o_id, "\n"));
+    o_id.close();
+
+    uint64_t grm_size = (1 + common_id.size()) * common_id.size() / 2;
+    uint64_t grm_file_size = grm_size * 4; 
+
+    FILE * h_grm1 = fopen((files[0] + ".grm.bin").c_str(), "rb");
+    FILE * h_grmN1 = fopen((files[0] + ".grm.N.bin").c_str(), "rb");
+    FILE * h_grm2 = fopen((files[1] + ".grm.bin").c_str(), "rb");
+    FILE * h_grmN2 = fopen((files[1] + ".grm.N.bin").c_str(), "rb");
+    if(grm_file_size != getFileSize(h_grm1)){
+        LOGGER.e(0, "The size of [" + files[0] + ".grm.bin] is not correct.");
+    }
+    if(grm_file_size != getFileSize(h_grmN1)){
+        LOGGER.e(0, "The size of [" + files[0] + ".grm.N.bin] is not correct.");
+    }
+    if(grm_file_size != getFileSize(h_grm2)){
+        LOGGER.e(0, "The size of [" + files[1] + ".grm.bin] is not correct.");
+    }
+    if(grm_file_size != getFileSize(h_grmN2)){
+        LOGGER.e(0, "The size of [" + files[1] + ".grm.N.bin] is not correct.");
+    }
+
+    uint64_t itemRead = 26214400;
+    float *buf1 = new float[itemRead];
+    float *buf2 = new float[itemRead];
+    float *buf = new float[itemRead];
+    float *bufN1 = new float[itemRead];
+    float *bufN2 = new float[itemRead];
+    float *bufN = new float[itemRead];
+    
+    int loop_num = (grm_size + itemRead - 1) / itemRead;
+    uint64_t remain_item = grm_size % itemRead;
+    LOGGER.i(0, "Subtracting GRMs...");
+    FILE *ho_grm = fopen((out_file + ".grm.bin").c_str(), "wb");
+    FILE *ho_grmN = fopen((out_file + ".grm.N.bin").c_str(), "wb");
+
+    for(int i = 0; i < loop_num; i++){
+        if(i == loop_num - 1 && remain_item != 0) itemRead = remain_item;
+        readBytes(h_grm1, itemRead, buf1);
+        readBytes(h_grm2, itemRead, buf2);
+        readBytes(h_grmN1, itemRead, bufN1);
+        readBytes(h_grmN2, itemRead, bufN2);
+        for(int j = 0; j < itemRead; j++){
+            bufN[j] = bufN1[j] - bufN2[j];
+            buf[j] = (buf1[j] * bufN1[j] - buf2[j] * bufN2[j]) / bufN[j];
+        }
+        if(fwrite(buf, sizeof(float), itemRead, ho_grm) != itemRead){
+            LOGGER.e(0, "can't write to [" + out_file + ".grm.bin].");
+        }
+        if(fwrite(bufN, sizeof(float), itemRead, ho_grmN) != itemRead){
+            LOGGER.e(0, "can't write to [" + out_file + ".grm.N.bin].");
+        }
+    }
+    LOGGER.i(0, "Subtracted GRM has been written to [" + out_file + ".grm.bin, .grm.N.bin].");
+
+    delete[] buf1;
+    delete[] buf2;
+    delete[] bufN1;
+    delete[] bufN2;
+    delete[] buf;
+    delete[] bufN;
+}
+
+
 void GRM::unify_grm(string mgrm_file, string out_file){
     std::ifstream mgrm(mgrm_file.c_str());
     if(!mgrm){
@@ -1370,6 +1475,13 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
         return_value++;
     }
 
+    string op_grm = "--subtract-grm";
+    if(options_in.find(op_grm) != options_in.end()){
+        processFunctions.push_back("subtract_grm");
+        options_in.erase(op_grm);
+        return_value++;
+    }
+
     if(options_in.find("--make-grm") != options_in.end()){
         isDominance = false;
         if(options.find("grm_file") == options.end()){
@@ -1503,6 +1615,10 @@ void GRM::processMain() {
         if(process_function == "unify_grm"){
             GRM grm;
             grm.unify_grm(options["mgrm"], options["out"]);
+        }
+        if(process_function == "subtract_grm"){
+            GRM grm;
+            grm.subtract_grm(options["mgrm"], options["out"]);
         }
     }
 
