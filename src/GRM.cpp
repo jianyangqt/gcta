@@ -188,7 +188,7 @@ void GRM::subtract_grm(string mgrm_file, string out_file){
         readBytes(h_grmN2, itemRead, bufN2);
         for(int j = 0; j < itemRead; j++){
             bufN[j] = bufN1[j] - bufN2[j];
-            buf[j] = (buf1[j] * bufN1[j] - buf2[j] * bufN2[j]) / bufN[j];
+            buf[j] = (float)(((double)buf1[j] * bufN1[j] - (double)buf2[j] * bufN2[j]) / bufN[j]);
         }
         if(fwrite(buf, sizeof(float), itemRead, ho_grm) != itemRead){
             LOGGER.e(0, "can't write to [" + out_file + ".grm.bin].");
