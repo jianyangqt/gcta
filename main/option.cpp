@@ -109,6 +109,7 @@ void option(int option_num, char* option_str[])
     // REML analysis
     bool prevalence_flag = false, reml_force_inv_fac_flag = false, reml_force_converge_flag = false, reml_no_converge_flag = false, reml_fixed_var_flag = false;
     int mphen = 1, mphen2 = 2, reml_mtd = 0, MaxIter = 100;
+    bool reml_allow_constrain_run = false;
     double prevalence = -2.0, prevalence2 = -2.0;
     bool reml_flag = false, pred_rand_eff = false, est_fix_eff = false, blup_snp_flag = false, no_constrain = false, reml_lrt_flag = false, no_lrt = false, bivar_reml_flag = false, ignore_Ce = false, within_family = false, reml_bending = false, HE_reg_flag = false, reml_diag_one = false, bivar_no_constrain = false;
     bool cv_blup = false;
@@ -717,6 +718,9 @@ void option(int option_num, char* option_str[])
         } else if (strcmp(argv[i], "--reml-bending") == 0) {
             reml_bending = true;
             LOGGER << "--reml-bending " << endl;
+        }else if (strcmp(argv[i], "--reml-amzvc") == 0){
+            reml_allow_constrain_run = true;
+            LOGGER << "--reml-amzvc" << endl;
         } else if (strcmp(argv[i], "--reml-diag-one") == 0) {
             reml_diag_one = true;
             LOGGER << "--reml-diag-one " << endl;
@@ -1248,6 +1252,7 @@ void option(int option_num, char* option_str[])
     if(reml_force_converge_flag) pter_gcta->set_reml_force_converge();
     if(reml_no_converge_flag) pter_gcta->set_reml_no_converge();
     if(reml_fixed_var_flag) pter_gcta->set_reml_fixed_var();
+    if(reml_allow_constrain_run) pter_gcta->set_reml_allow_constrain_run();
     if(reml_mtd != 0) pter_gcta->set_reml_mtd(reml_mtd);
     if (grm_bin_flag || m_grm_bin_flag) pter_gcta->enable_grm_bin_flag();
     //if(simu_unlinked_flag) pter_gcta->simu_geno_unlinked(simu_unlinked_n, simu_unlinked_m, simu_unlinked_maf);

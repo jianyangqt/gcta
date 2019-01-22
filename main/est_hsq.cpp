@@ -18,6 +18,10 @@ void gcta::set_reml_force_inv()
     _reml_force_inv = true;
 }
 
+void gcta::set_reml_allow_constrain_run(){
+    _reml_allow_constrain_run = true;
+}
+
 void gcta::set_reml_force_converge()
 {
     _reml_force_converge = true;
@@ -1037,7 +1041,13 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
             varcmp = prev_varcmp; 
             break;
         }
-        if (constrain_num * 2 > _r_indx.size()) LOGGER.e(0, "analysis stopped because more than half of the variance components are constrained. The result would be unreliable.\n Please have a try to add the option --reml-no-constrain.");
+        if (constrain_num * 2 > _r_indx.size()){
+            if(_reml_allow_constrain_run){
+                LOGGER.w(0, "more than half of the variance components are constrained.");
+            }else{
+                LOGGER.e(0, "analysis stopped because more than half of the variance components are constrained. The result would be unreliable.\n Please have a try to add the option --reml-no-constrain.");
+            }
+        }
         // added by Jian Yang on 22 Oct 2014
         //if (constrain_num == _r_indx.size()) LOGGER.e(0, "analysis stopped because all variance components are constrained. You may have a try of adding the option --reml-no-constrain.");
 
