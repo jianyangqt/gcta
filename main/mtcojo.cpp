@@ -1418,7 +1418,9 @@ int indi_heidi_outlier_topsnp_iter(eigenVector bxy, eigenMatrix &cov_bxy, eigenV
     double pval_thresh = 5e-8;
     vector<int> ci_index;
     // 1. removing SNPs with significant bzy
-    ci_index = keep_non_associate_snp(bzy_pval, indices_snp, kept_ID, meta_snp_name_map, pval_thresh);
+    //ci_index = keep_non_associate_snp(bzy_pval, indices_snp, kept_ID, meta_snp_name_map, pval_thresh);
+    ci_index.resize(n_indices_snp);
+    for(int i=0; i<n_indices_snp; i++) ci_index[i] = i;
 
     // 2. removing SNPs with extreme bxy, [0.05, 0.95]
     int n_candidate_snp = ci_index.size();
