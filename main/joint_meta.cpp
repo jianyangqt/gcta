@@ -502,6 +502,8 @@ void gcta::massoc_cond(const vector<int> &slct, const vector<int> &remain, eigen
     bC_se = eigenVector::Zero(remain.size());
     pC = eigenVector::Constant(remain.size(), 2);
     eigenVector Z_Bi(n), Z_Bi_buf(n);
+    double cutoff = 1e-10 * _jma_Vp;
+    //LOGGER << "Cutoff of bC_se " << cutoff << endl;
     for (i = 0; i < remain.size(); i++) {
         j = remain[i];
         B2 = _MSX[j] * _Nd[j];
@@ -515,7 +517,7 @@ void gcta::massoc_cond(const vector<int> &slct, const vector<int> &remain, eigen
         }
         if (_jma_actual_geno) bC_se[i] *= _jma_Ve - (B2 * bC[i] * _beta[j]) / (_Nd[j] - n - 1);
         else bC_se[i] *= _jma_Ve;
-        if (bC_se[i] > 1e-7) {
+        if (bC_se[i] > cutoff) {
             bC_se[i] = sqrt(bC_se[i]);
             chisq = bC[i] / bC_se[i];
             if (_GC_val > 0) pC[i] = StatFunc::pchisq(chisq * chisq / _GC_val, 1);
