@@ -539,7 +539,7 @@ void Covar::read_covar(string filename, vector<string>& sub_list, vector<vector<
             for(int col_index = 0; col_index < nkeep; col_index++){
                 string temp_string = line_elements[keep_col[col_index]];
                 boost::to_upper(temp_string);
-                int temp_item;
+                double temp_item;
                 if(temp_string == "NA" || temp_string == "NAN"){
                     is_skip = true;
                     break;

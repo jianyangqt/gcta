@@ -128,7 +128,14 @@ FastFAM::FastFAM(Geno *geno){
     if(has_covar){
         MatrixXd concovar = Map<Matrix<double, Dynamic, Dynamic, Eigen::ColMajor>>(remain_covar.data(), remain_phenos.size(), 
                 remain_covar.size() / remain_phenos.size());
+        std::ofstream covar_w(options["out"] + "_aln_covar.txt"), pheno_w(options["out"] + "_aln_phen.txt"), pheno_w2(options["out"] + "_adj_phen.txt");
+        covar_w << concovar << std::endl;
+        pheno_w << phenoVec << std::endl;
         conditionCovarReg(phenoVec, concovar);
+        pheno_w2 << phenoVec << std::endl;
+        covar_w.close();
+        pheno_w.close();
+        pheno_w2.close();
     }
 
     // Center
