@@ -108,10 +108,17 @@ FastFAM::FastFAM(Geno *geno){
     //reorder phenotype, covar
     vector<double> remain_phenos(n_remain_index_fam);
     vector<string> remain_ids_fam(n_remain_index_fam);
+    vector<uint32_t> total_remain_index(n_remain_index_fam);
     for(int i = 0; i != n_remain_index_fam; i++){
-        remain_phenos[i] = phenos[remain_index[remain_index_fam[i]]];
-        remain_ids_fam[i] = ids[remain_index[remain_index_fam[i]]];
+        uint32_t temp_index = remain_index[remain_index_fam[i]];
+        remain_phenos[i] = phenos[temp_index];
+        remain_ids_fam[i] = ids[temp_index];
+        total_remain_index[i] = temp_index;
     }
+    //fix pheno keep
+    geno->pheno->filter_keep_index(total_remain_index);
+    geno->init_keep();
+    num_indi = geno->pheno->count_keep();
     LOGGER.i(0, "After matching all the files, " + to_string(remain_phenos.size()) + " individuals to be included in the analysis.");
 
     vector<double> remain_covar;
@@ -141,16 +148,18 @@ FastFAM::FastFAM(Geno *geno){
     // Center
     double phenoVec_mean = phenoVec.mean();
     phenoVec -= VectorXd::Ones(phenoVec.size()) * phenoVec_mean;
+    LOGGER << "DEBUG: samples size: " << geno->pheno->count_keep() << std::endl;
 
     if(fam_flag){
+        LOGGER << "DEBUG: pheno vector size: " << phenoVec.size() << std::endl;
         double Vpheno = phenoVec.array().square().sum() / (phenoVec.size() - 1);
         //phenoVec /= pheno_sd;
 
-        LOGGER.i(0, "DEBUG: conditioned Pheno (first 5)");
+        //LOGGER.i(0, "DEBUG: conditioned Pheno (first 5)");
 
-        for(int i = 0; i < 5; i++){
-            LOGGER.i(0, to_string(phenoVec[i]));
-        }
+        //for(int i = 0; i < 5; i++){
+            //LOGGER.i(0, to_string(phenoVec[i]));
+        //}
 
         if(options.find("inv_file") == options.end()){
             vector<double> Aij;
@@ -222,7 +231,7 @@ FastFAM::FastFAM(Geno *geno){
 void FastFAM::conditionCovarReg(VectorXd &pheno, MatrixXd &covar){
     MatrixXd t_covar = covar.transpose();
     VectorXd beta = (t_covar * covar).ldlt().solve(t_covar * pheno);
-    LOGGER.i(0, "DEBUG: condition betas:");
+    //LOGGER.i(0, "DEBUG: condition betas:");
     LOGGER << beta << std::endl;
     //VectorXd beta = covar.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(pheno);
     pheno -= covar * beta;
@@ -327,7 +336,7 @@ void FastFAM::readFAM(string filename, SpMat& fam, const vector<string> &ids, ve
     vector<string> sublist = Pheno::read_sublist(filename + ".grm.id");
     vector<uint32_t> fam_index;
     vector_commonIndex(sublist, ids, fam_index, remain_index);
-    LOGGER.i(0, "DEBUG: " + to_string(fam_index.size()) + " subjects remained");
+    //LOGGER.i(0, "DEBUG: " + to_string(fam_index.size()) + " subjects remained");
 
     //Fix index order to outside, that fix the phenotype, covar order
     vector<size_t> index_list_order = sort_indexes(remain_index);

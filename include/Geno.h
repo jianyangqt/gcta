@@ -48,6 +48,7 @@ public:
     void sum_geno(uint64_t *buf, int num_marker);
     void sum_geno_x(uint64_t *buf, int num_marker);
     void closeOut();
+    void init_keep();
     void freq64_x(uint64_t *buf, int num_marker);
     bool check_bed();
     void out_freq(string filename);
@@ -96,8 +97,8 @@ private:
     uint64_t num_byte_keep_geno1;
     uint64_t num_male_keep_sample;
     uint64_t num_item_geno_buffer;
-    uint64_t *keep_mask;
-    uint64_t *keep_male_mask;
+    uint64_t *keep_mask = NULL;
+    uint64_t *keep_male_mask = NULL;
     bool isX;
     void bgen2bed(const vector<uint32_t> &raw_marker_index);
 

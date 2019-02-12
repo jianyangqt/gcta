@@ -127,23 +127,6 @@ Geno::Geno(Pheno* pheno, Marker* marker) {
     num_byte_buffer = num_byte_per_marker * Constants::NUM_MARKER_READ;
     last_byte_NA_sample = (4 - (num_raw_sample % 4)) % 4;
 
-    num_keep_sample = pheno->count_keep();
-    total_markers = 2 * num_keep_sample;
-    num_byte_keep_geno1 = (num_keep_sample + 3) / 4;
-    num_item_1geno = (num_keep_sample + 31) / 32;
-    num_item_geno_buffer = num_item_1geno * Constants::NUM_MARKER_READ;
-
-    keep_mask = new uint64_t[(num_raw_sample + 63)/64]();
-    pheno->getMaskBit(keep_mask);
-
-    isX = false;
-    if(options.find("sex") != options.end()){
-        isX = true;
-        num_male_keep_sample = pheno->count_male();
-        total_markers -= pheno->count_male();
-        keep_male_mask = new uint64_t[(num_keep_sample + 63)/64]();
-        pheno->getMaskBitMale(keep_male_mask);
-    }
 
     if(options.find("bed_file") != options.end()
             || options.find("m_file") != options.end()){
@@ -157,12 +140,41 @@ Geno::Geno(Pheno* pheno, Marker* marker) {
     init_AF(alleleFileName);
 
     init_AsyncBuffer();
-    filter_MAF();
+
+    num_keep_sample = 0;
+    init_keep();
 }
 
 Geno::~Geno(){
     delete asyncBuffer;
     delete[] keep_mask;
+    if(keep_male_mask) delete[] keep_male_mask;
+}
+
+void Geno::init_keep(){
+    uint32_t temp_num_keep_sample = pheno->count_keep();
+    bool initMAF = false;
+    if(temp_num_keep_sample != num_keep_sample) initMAF = true;
+    num_keep_sample = temp_num_keep_sample;
+    total_markers = 2 * num_keep_sample;
+    num_byte_keep_geno1 = (num_keep_sample + 3) / 4;
+    num_item_1geno = (num_keep_sample + 31) / 32;
+    num_item_geno_buffer = num_item_1geno * Constants::NUM_MARKER_READ;
+
+    if(keep_mask) delete[] keep_mask;
+    keep_mask = new uint64_t[(num_raw_sample + 63)/64]();
+    pheno->getMaskBit(keep_mask);
+
+    isX = false;
+    if(keep_male_mask) delete[] keep_male_mask;
+    if(options.find("sex") != options.end()){
+        isX = true;
+        num_male_keep_sample = pheno->count_male();
+        total_markers -= pheno->count_male();
+        keep_male_mask = new uint64_t[(num_keep_sample + 63)/64]();
+        pheno->getMaskBitMale(keep_male_mask);
+    }
+    if(initMAF) filter_MAF();
 }
 
 void Geno::filter_MAF(){
@@ -176,8 +188,8 @@ void Geno::filter_MAF(){
         } 
         loop_64block(this->marker->get_extract_index(), callBacks);
         // We adopt the EPSILON from plink, because the double value may have some precision issue;
-        double min_maf = options_d["min_maf"] * (1 - Constants::SMALL_EPSILON);
-        double max_maf = options_d["max_maf"] * (1 + Constants::SMALL_EPSILON);
+        double min_maf = options_d["min_maf"] * (1.0 - Constants::SMALL_EPSILON);
+        double max_maf = options_d["max_maf"] * (1.0 + Constants::SMALL_EPSILON);
         LOGGER.d(0, "min_maf: " + to_string(min_maf) + " max_maf: " + to_string(max_maf));
         vector<uint32_t> extract_index;
         double cur_AF;
@@ -218,10 +230,12 @@ void Geno::filter_MAF(){
 
         marker->keep_extracted_index(extract_index);
 
-        init_AsyncBuffer();
+        //init_AsyncBuffer();
         num_blocks = marker->count_extract() / Constants::NUM_MARKER_READ +
                      (marker->count_extract() % Constants::NUM_MARKER_READ != 0);
         LOGGER.i(0, to_string(extract_index.size()) + " SNPs remain from --maf or --max-maf,  ");
+        num_finished_markers = 0;
+
     }
 
 }
@@ -1115,6 +1129,7 @@ void Geno::move_geno(uint8_t *buf, uint64_t *keep_list, uint32_t num_raw_sample,
 }
 
 void Geno::loop_64block(const vector<uint32_t> &raw_marker_index, vector<function<void (uint64_t *buf, int num_marker)>> callbacks, bool showLog) {
+    // show log also act as function that 
     if(showLog){
         LOGGER.i(0, "Reading PLINK BED file(s) in SNP-major format...");
         num_finished_markers = 0;
