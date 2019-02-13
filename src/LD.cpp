@@ -178,14 +178,17 @@ void LD::processMain(){
             Pheno pheno;
             Marker marker;
             Geno geno(&pheno, &marker);
+            if(!geno.filterMAF()){
+                callBacks.push_back(std::bind(&Geno::freq64, &geno, _1, _2));
+            }
+ 
             LD ld(&geno);
 
             LOGGER.i(0, "Generating LD matrix...");
             uint32_t window = options_i["LD_window"] * 1000;
             uint32_t total_num_marker = marker.count_extract(); 
             uint32_t cur_index_marker = 0;
-            callBacks.push_back(std::bind(&Geno::freq64, &geno, _1, _2));
-            callBacks.push_back(std::bind(&LD::readGeno, &ld, _1, _2));
+           callBacks.push_back(std::bind(&LD::readGeno, &ld, _1, _2));
 
             while(cur_index_marker < total_num_marker){
                 cur_buffer = !cur_buffer;

@@ -57,7 +57,9 @@ public:
             uint32_t num_keep_sample, uint32_t num_marker, uint64_t *geno_buf);
     static int registerOption(map<string, vector<string>>& options_in);
     static void processMain();
-
+    bool filterMAF();
+    static void setSexMode();
+ 
 private:
     Pheno* pheno;
     Marker* marker;
@@ -90,7 +92,6 @@ private:
 
     void init_AF(string alleleFileName);
     void init_AsyncBuffer();
-    void filter_MAF();
     uint64_t num_item_1geno;
     uint64_t num_raw_sample;
     uint64_t num_keep_sample;

@@ -44,15 +44,12 @@ typedef SparseMatrix<double, Eigen::ColMajor, long long> SpMat;
 class FastFAM {
 public:
     FastFAM(Geno *geno);
-    ~FastFAM(){
-        delete[] beta;
-        delete[] se;
-        delete[] p;
-    }
+    ~FastFAM();
 
     void calculate_fam(uint64_t *buf, int num_marker);
     void calculate_gwa(uint64_t *buf, int num_marker);
     void output(string filename);
+    void initMarkerVars();
 
     static void readFAM(string filename, SpMat& fam, const vector<string> &ids, vector<uint32_t> &remain_index);
     static double HEreg(vector<double> &Zij, vector<double> &Aij);
@@ -67,9 +64,9 @@ private:
     uint32_t num_indi;
     uint32_t num_marker;
     uint32_t num_finished_marker = 0;
-    double *beta;
-    double *se;
-    double *p;
+    double *beta = NULL;
+    double *se = NULL;
+    double *p = NULL;
 
     std::mutex chisq_lock;
     

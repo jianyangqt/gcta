@@ -47,11 +47,6 @@ FastFAM::FastFAM(Geno *geno){
     //Eigen::setNbThreads(THREADS.getThreadCount() + 1);
     this->geno = geno;
     num_indi = geno->pheno->count_keep();
-    num_marker = geno->marker->count_extract();
-
-    beta = new double[num_marker];
-    se = new double[num_marker];
-    p = new double[num_marker];
 
     double VG;
     double VR;
@@ -135,14 +130,18 @@ FastFAM::FastFAM(Geno *geno){
     if(has_covar){
         MatrixXd concovar = Map<Matrix<double, Dynamic, Dynamic, Eigen::ColMajor>>(remain_covar.data(), remain_phenos.size(), 
                 remain_covar.size() / remain_phenos.size());
+        /*
         std::ofstream covar_w(options["out"] + "_aln_covar.txt"), pheno_w(options["out"] + "_aln_phen.txt"), pheno_w2(options["out"] + "_adj_phen.txt");
         covar_w << concovar << std::endl;
         pheno_w << phenoVec << std::endl;
+        */
         conditionCovarReg(phenoVec, concovar);
+        /*
         pheno_w2 << phenoVec << std::endl;
         covar_w.close();
         pheno_w.close();
         pheno_w2.close();
+        */
     }
 
     // Center
@@ -227,6 +226,23 @@ FastFAM::FastFAM(Geno *geno){
         }
     }
 }
+
+void FastFAM::initMarkerVars(){
+    num_marker = geno->marker->count_extract();
+    if(beta)delete[] beta;
+    if(se) delete[] se;
+    if(p) delete[] p;
+    beta = new double[num_marker];
+    se = new double[num_marker];
+    p = new double[num_marker];
+}
+
+FastFAM::~FastFAM(){
+    if(beta)delete[] beta;
+    if(se) delete[] se;
+    if(p) delete[] p;
+}
+
 
 void FastFAM::conditionCovarReg(VectorXd &pheno, MatrixXd &covar){
     MatrixXd t_covar = covar.transpose();
@@ -698,6 +714,8 @@ void FastFAM::processMain(){
             Marker marker;
             Geno geno(&pheno, &marker);
             FastFAM ffam(&geno);
+            bool freqed = geno.filterMAF();
+            ffam.initMarkerVars();
 
             if(options.find("save_inv") != options.end()){
                 LOGGER.i(0, "Using --load-inv to load the inversed file for fastFAM");
@@ -705,7 +723,9 @@ void FastFAM::processMain(){
             }
             LOGGER.i(0, "Running fastFAM...");
             //Eigen::setNbThreads(1);
-            callBacks.push_back(bind(&Geno::freq64, &geno, _1, _2));
+            if(!freqed){
+                callBacks.push_back(bind(&Geno::freq64, &geno, _1, _2));
+            }
             if(options.find("grmsparse_file") != options.end()){
                 callBacks.push_back(bind(&FastFAM::calculate_fam, &ffam, _1, _2));
             }else{

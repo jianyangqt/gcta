@@ -1571,8 +1571,10 @@ void GRM::processMain() {
             Pheno pheno;
             Marker marker;
             Geno geno(&pheno, &marker);
+            if(!geno.filterMAF()){
+                callBacks.push_back(bind(&Geno::freq64, &geno, _1, _2));
+            }
             GRM grm(&geno);
-            callBacks.push_back(bind(&Geno::freq64, &geno, _1, _2));
             callBacks.push_back(bind(&GRM::calculate_GRM, &grm, _1, _2));
             geno.loop_64block(marker.get_extract_index(), callBacks);
             grm.deduce_GRM();
@@ -1582,11 +1584,15 @@ void GRM::processMain() {
 
         if(process_function == "make_grmx"){
             LOGGER.i(0, "Note: This function takes X chromosome as non PAR region.");
+            Geno::setSexMode();
+
             Pheno pheno;
             Marker marker;
             Geno geno(&pheno, &marker);
+            if(!geno.filterMAF()){
+                callBacks.push_back(bind(&Geno::freq64, &geno, _1, _2));
+            }
             GRM grm(&geno);
-            callBacks.push_back(bind(&Geno::freq64_x, &geno, _1, _2));
             callBacks.push_back(bind(&GRM::calculate_GRM, &grm, _1, _2));
             geno.loop_64block(marker.get_extract_index(), callBacks);
             //geno.out_freq("test.frq");

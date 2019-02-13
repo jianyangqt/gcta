@@ -152,10 +152,7 @@ Geno::~Geno(){
 }
 
 void Geno::init_keep(){
-    uint32_t temp_num_keep_sample = pheno->count_keep();
-    bool initMAF = false;
-    if(temp_num_keep_sample != num_keep_sample) initMAF = true;
-    num_keep_sample = temp_num_keep_sample;
+    num_keep_sample = pheno->count_keep();
     total_markers = 2 * num_keep_sample;
     num_byte_keep_geno1 = (num_keep_sample + 3) / 4;
     num_item_1geno = (num_keep_sample + 31) / 32;
@@ -174,18 +171,25 @@ void Geno::init_keep(){
         keep_male_mask = new uint64_t[(num_keep_sample + 63)/64]();
         pheno->getMaskBitMale(keep_male_mask);
     }
-    if(initMAF) filter_MAF();
 }
 
-void Geno::filter_MAF(){
+void Geno::setSexMode(){
+    std::map<string, vector<string>> t_option;
+    t_option["--chrx"] = {};
+    t_option["--filter-sex"] = {}; 
+    Pheno::registerOption(t_option);
+    Marker::registerOption(t_option);
+    Geno::registerOption(t_option);
+}
+
+
+//
+//true:  filtered; flase: not neccesory to filter
+bool Geno::filterMAF(){
     if((options_d["min_maf"] != 0.0) || (options_d["max_maf"] != 0.5)){
         LOGGER.i(0, "Computing allele frequencies...");
         vector<function<void (uint64_t *, int)>> callBacks;
-        if(isX){ 
-            callBacks.push_back(bind(&Geno::freq64_x, this, _1, _2));
-        }else{
-            callBacks.push_back(bind(&Geno::freq64, this, _1, _2));
-        } 
+        callBacks.push_back(bind(&Geno::freq64, this, _1, _2));
         loop_64block(this->marker->get_extract_index(), callBacks);
         // We adopt the EPSILON from plink, because the double value may have some precision issue;
         double min_maf = options_d["min_maf"] * (1.0 - Constants::SMALL_EPSILON);
@@ -235,7 +239,9 @@ void Geno::filter_MAF(){
                      (marker->count_extract() % Constants::NUM_MARKER_READ != 0);
         LOGGER.i(0, to_string(extract_index.size()) + " SNPs remain from --maf or --max-maf,  ");
         num_finished_markers = 0;
-
+        return true;
+    }else{
+        return false;
     }
 
 }
@@ -910,6 +916,10 @@ void Geno::freq64(uint64_t *buf, int num_marker) {
     //pheno->mask_geno_keep(buf, num_marker);
     const static uint64_t MASK = 6148914691236517205UL; 
     if(num_marker_freq >= marker->count_extract()) return;
+    if(isX){
+        freq64_x(buf, num_marker);
+        return;
+    }
 
     int cur_num_marker_read = num_marker;
     
@@ -1415,7 +1425,7 @@ void Geno::processMain() {
             Pheno pheno;
             Marker marker;
             Geno geno(&pheno, &marker);
-            if(geno.num_marker_freq == 0 ){
+            if(!geno.filterMAF() ){
                 LOGGER.i(0, "Computing allele frequencies...");
                 callBacks.push_back(bind(&Geno::freq64, &geno, _1, _2));
                 geno.loop_64block(marker.get_extract_index(), callBacks);
@@ -1425,19 +1435,14 @@ void Geno::processMain() {
         }
 
         if(process_function == "freqx"){
-            std::map<string, vector<string>> t_option;
-            t_option["--chrx"] = {};
-            t_option["--filter-sex"] = {}; 
-            Pheno::registerOption(t_option);
-            Marker::registerOption(t_option);
-            Geno::registerOption(t_option);
+            Geno::setSexMode();
 
             Pheno pheno;
             Marker marker;
             Geno geno(&pheno, &marker);
-            if(geno.num_marker_freq == 0 ){
+            if(!geno.filterMAF()){
                 LOGGER.i(0, "Computing allele frequencies...");
-                callBacks.push_back(bind(&Geno::freq64_x, &geno, _1, _2));
+                callBacks.push_back(bind(&Geno::freq64, &geno, _1, _2));
                 geno.loop_64block(marker.get_extract_index(), callBacks);
             }
             geno.out_freq(options["out"]);
@@ -1448,6 +1453,7 @@ void Geno::processMain() {
             Pheno pheno;
             Marker marker;
             Geno geno(&pheno, &marker);
+            geno.filterMAF();
             string filename = options["out"];
             pheno.save_pheno(filename + ".fam");
             marker.save_marker(filename + ".bim");
@@ -1475,6 +1481,7 @@ void Geno::processMain() {
             Pheno pheno;
             Marker marker;
             Geno geno(&pheno, &marker);
+            geno.filterMAF();
             LOGGER.i(0, "Summing genotype in with sex"); 
             callBacks.push_back(bind(&Geno::sum_geno_x, &geno, _1, _2));
             geno.loop_64block(marker.get_extract_index(), callBacks);
