@@ -54,7 +54,7 @@ void out_ver(bool flag_outFile){
 
     log(0, "*******************************************************************", "");
     log(0, "* Genome-wide Complex Trait Analysis (GCTA)", "");
-    log(0, "* version 1.92.0 beta3", "");
+    log(0, "* version 1.92.0 beta4", "");
     log(0, "* (C) 2010-2018, The University of Queensland", "");
     log(0, "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>", "");
     log(0, "*******************************************************************", "");
@@ -245,7 +245,13 @@ int main(int argc, char *argv[]){
 
         processMains[mains[0]]();
     }else{
-        option(argc, argv);
+        try {
+            option(argc, argv);
+        } catch (const string &err_msg) {
+            LOGGER.e(0, err_msg);
+        } catch (const char *err_msg) {
+            LOGGER.e(0, string(err_msg));
+        }
     }
 
     LOGGER.i(0, "");
@@ -260,4 +266,5 @@ int main(int argc, char *argv[]){
     time_str = time_str + ((time_str == "") ? to_string(seconds) : to_string((int)seconds)) + " second(s)"; 
 
     LOGGER.i(0, "Computational time: " + time_str + ".");
+    return EXIT_SUCCESS;
 }

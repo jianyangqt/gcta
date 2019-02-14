@@ -26,6 +26,7 @@
 
 #include "Logger.h"
 #include <iostream>
+#include <cstdlib>
 
 #ifdef _WIN32
 #include <io.h>
@@ -114,7 +115,7 @@ void Logger::e(int level, const string& message, const string& title){
     string head = title.empty() ? "Error: " : (title+" ");
     m_pThis->Log(level, ERROR, head, message);
     m_pThis->Log(level, INFO, "", "An error occurs, please check the options or data");
-    exit(1);
+    exit(EXIT_FAILURE);
 }
 
 int Logger::precision(int p){
