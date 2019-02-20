@@ -26,7 +26,11 @@ namespace StatLib{
     chi_squared dist1(1);
 
     double pchisqd1(double x){
-        return cdf(complement(dist1, x));
+        if(x > 0){
+            return cdf(complement(dist1, x));
+        }else{
+            return std::numeric_limits<double>::quiet_NaN();
+        }
     }
 
     //n rank size,  Z shall be n * n double memory.

@@ -52,8 +52,8 @@ public:
     void initMarkerVars();
 
     static void readFAM(string filename, SpMat& fam, const vector<string> &ids, vector<uint32_t> &remain_index);
-    static double HEreg(vector<double> &Zij, vector<double> &Aij);
-    static double HEreg(const Ref<const SpMat> fam, const Ref<const VectorXd> pheno);
+    static double HEreg(vector<double> &Zij, vector<double> &Aij, bool &isSig);
+    static double HEreg(const Ref<const SpMat> fam, const Ref<const VectorXd> pheno, bool &isSig);
     static void conditionCovarReg(VectorXd &pheno, MatrixXd &covar);
     
     static int registerOption(map<string, vector<string>>& options_in);
@@ -67,6 +67,7 @@ private:
     double *beta = NULL;
     double *se = NULL;
     double *p = NULL;
+    bool fam_flag;
 
     std::mutex chisq_lock;
     

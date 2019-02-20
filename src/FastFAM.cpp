@@ -80,7 +80,7 @@ FastFAM::FastFAM(Geno *geno){
 
     // read fam
     string ffam_file = "";
-    bool fam_flag = true;
+    fam_flag = true;
     if(options.find("grmsparse_file") != options.end()){
         ffam_file = options["grmsparse_file"];
     }else{
@@ -177,13 +177,21 @@ FastFAM::FastFAM(Geno *geno){
                         }
                     }
 
-                    VG = HEreg(Zij, Aij);
+                    VG = HEreg(Zij, Aij, fam_flag);
                 }else{
-                    VG = HEreg(fam, phenoVec);
+                    VG = HEreg(fam, phenoVec, fam_flag);
                 }
                 VR = Vpheno - VG;
                 LOGGER.i(2, "Ve = " + to_string(VR));
                 LOGGER.i(2, "Heritablity = " + to_string(VG/Vpheno));
+            }
+            if(!fam_flag){
+                LOGGER.w(0, "The estimate of Vg is not statistically significant. "
+                        "This is likely because the number of relatives is not large enough. "
+                        "\nPerforming simple regression via removing --grm-sparse instead...");
+ 
+                fam.resize(0, 0);
+                return;
             }
 
             inverseFAM(fam, VG, VR);
@@ -255,7 +263,7 @@ void FastFAM::conditionCovarReg(VectorXd &pheno, MatrixXd &covar){
     //pheno -= (VectorXd::Ones(pheno.size())) * pheno_mean;
 }
 
-double FastFAM::HEreg(const Ref<const SpMat> fam, const Ref<const VectorXd> pheno){
+double FastFAM::HEreg(const Ref<const SpMat> fam, const Ref<const VectorXd> pheno, bool &isSig){
     int num_covar = 1;
     int num_component = 1;
     int col_X = num_covar + num_component;
@@ -302,14 +310,14 @@ double FastFAM::HEreg(const Ref<const SpMat> fam, const Ref<const VectorXd> phen
     LOGGER.i(2, "Vg = " + to_string(hsq) + ", se = " + to_string(sqrt(SD)) +  ", P = " + to_string(p));
 
     if(p > 0.05){
-        LOGGER.e(0, "The estimate of Vg is not statistically significant. "
-                "This is likely because the number of relatives is not large enough. "
-                "\nWe do not recommend to run fastFAM in this case, simple regression via removing --grm-sparse may be better.");
+        isSig = false;
+    }else{
+        isSig = true;
     }
     return hsq;
 }
 
-double FastFAM::HEreg(vector<double> &Zij, vector<double> &Aij){
+double FastFAM::HEreg(vector<double> &Zij, vector<double> &Aij, bool &isSig){
     Map<VectorXd> ZVec(Zij.data(), Zij.size());
     Map<VectorXd> AVec(Aij.data(), Aij.size());
 
@@ -337,9 +345,9 @@ double FastFAM::HEreg(vector<double> &Zij, vector<double> &Aij){
     LOGGER.i(2, "Vg = " + to_string(hsq) + ", se = " + to_string(se) +  ", P = " + to_string(p));
 
     if(p > 0.05){
-        LOGGER.e(0, "The estimate of Vg is not statistically significant. "
-                "This is likely because the number of relatives is not large enough. "
-                "We do not recommend to run fastFAM in this case.");
+        isSig = false;
+    }else{
+        isSig = true;
     }
 
     return hsq;
@@ -726,7 +734,7 @@ void FastFAM::processMain(){
             if(!freqed){
                 callBacks.push_back(bind(&Geno::freq64, &geno, _1, _2));
             }
-            if(options.find("grmsparse_file") != options.end()){
+            if(options.find("grmsparse_file") != options.end() && ffam.fam_flag){
                 callBacks.push_back(bind(&FastFAM::calculate_fam, &ffam, _1, _2));
             }else{
                 callBacks.push_back(bind(&FastFAM::calculate_gwa, &ffam, _1, _2));
