@@ -225,7 +225,7 @@ FastFAM::FastFAM(Geno *geno){
                 if(line_elements.size() != 3){
                     LOGGER.e(0, "the inversed file seems to be incorrect");
                 }
-                V_inverse.insertBackUncompressed(stoi(line_elements[0]), stoi(line_elements[1])) 
+                V_inverse.insert(stoi(line_elements[0]), stoi(line_elements[1])) 
                     = stod(line_elements[2]);
             }
             V_inverse.finalize();
