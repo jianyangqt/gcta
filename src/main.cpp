@@ -75,7 +75,8 @@ int main(int argc, char *argv[]){
         "--cg", "--ldlt", "--llt", "--pardiso", "--tcg", "--lscg", "--save-inv", "--load-inv",
         "--update-ref-allele", "--update-freq", "--update-sex", "--mbfile", "--freqx", "--make-grm-xchr", "--make-grm-xchr-part", "--make-grm-alg",
         "--make-bed", "--sum-geno-x", "--sample", "--bgen", "--mgrm", "--unify-grm", "--rel-only", 
-        "--ld-matrix", "--r", "--ld-wind", "--r2", "--subtract-grm"};
+        "--ld-matrix", "--r", "--ld-wind", "--r2", "--subtract-grm", "--save-pheno"
+    };
     map<string, vector<string>> options;
     vector<string> keys;
     string last_key = "";

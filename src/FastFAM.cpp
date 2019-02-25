@@ -143,6 +143,14 @@ FastFAM::FastFAM(Geno *geno){
         pheno_w << phenoVec << std::endl;
         */
         conditionCovarReg(phenoVec, concovar);
+        if(options.find("save_pheno") != options.end()){
+            std::ofstream pheno_w((options["out"] + ".cphen").c_str());
+            if(!pheno_w) LOGGER.e(0, "failed to write " + options["out"]+".cphen");
+            for(int k = 0; k < remain_ids_fam.size(); k++){
+                pheno_w << remain_ids_fam[k] << "\t" << phenoVec[k] << std::endl;
+            }
+            pheno_w.close();
+        }
         /*
         pheno_w2 << phenoVec << std::endl;
         covar_w.close();
@@ -154,10 +162,10 @@ FastFAM::FastFAM(Geno *geno){
     // Center
     double phenoVec_mean = phenoVec.mean();
     phenoVec -= VectorXd::Ones(phenoVec.size()) * phenoVec_mean;
-    LOGGER << "DEBUG: samples size: " << geno->pheno->count_keep() << std::endl;
+    //LOGGER << "DEBUG: samples size: " << geno->pheno->count_keep() << std::endl;
 
     if(fam_flag){
-        LOGGER << "DEBUG: pheno vector size: " << phenoVec.size() << std::endl;
+        //LOGGER << "DEBUG: pheno vector size: " << phenoVec.size() << std::endl;
         double Vpheno = phenoVec.array().square().sum() / (phenoVec.size() - 1);
         //phenoVec /= pheno_sd;
 
@@ -188,9 +196,12 @@ FastFAM::FastFAM(Geno *geno){
                 }else{
                     VG = HEreg(fam, phenoVec, fam_flag);
                 }
-                VR = Vpheno - VG;
-                LOGGER.i(2, "Ve = " + to_string(VR));
-                LOGGER.i(2, "Heritablity = " + to_string(VG/Vpheno));
+                LOGGER.i(2, "Vp = " + to_string(Vpheno));
+                if(fam_flag){
+                    VR = Vpheno - VG;
+                    LOGGER.i(2, "Ve = " + to_string(VR));
+                    LOGGER.i(2, "Heritablity = " + to_string(VG/Vpheno));
+                }
             }
             if(!fam_flag){
                 LOGGER.w(0, "The estimate of Vg is not statistically significant. "
@@ -320,7 +331,7 @@ void FastFAM::conditionCovarReg(VectorXd &pheno, MatrixXd &covar){
     MatrixXd t_covar = covar.transpose();
     VectorXd beta = (t_covar * covar).ldlt().solve(t_covar * pheno);
     //LOGGER.i(0, "DEBUG: condition betas:");
-    LOGGER << beta << std::endl;
+    //LOGGER << beta << std::endl;
     //VectorXd beta = covar.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(pheno);
     pheno -= covar * beta;
     //double pheno_mean = pheno.mean();
@@ -337,7 +348,6 @@ double FastFAM::HEreg(const Ref<const SpMat> fam, const Ref<const VectorXd> phen
 
     uint64_t size = fam.cols() * fam.rows();
     XtX(0, 0) = size;
-    LOGGER << "size: " << size << std::endl;
 
     for(int i = 1; i < fam.cols(); i++){
         double temp_pheno = pheno[i];
@@ -352,12 +362,20 @@ double FastFAM::HEreg(const Ref<const SpMat> fam, const Ref<const VectorXd> phen
 
     //MatrixXd XtXi = XtX.selfadjointView<Eigen::Upper>().inverse();
     XtX(1,0) = XtX(0,1);
-    LOGGER << "XtX" << endl;
+    LOGGER << "XtX:" << endl;
     LOGGER << XtX << endl;
 
-    MatrixXd XtXi = XtX.inverse();
+    Eigen::FullPivLU<MatrixXd> lu(XtX);
+    if(lu.rank() < XtX.rows()){
+        LOGGER.w(0, "the XtX matrix is invertable.");
+        isSig = false;
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    MatrixXd XtXi = lu.inverse();
+
     VectorXd betas = XtXi * XtY;
-    LOGGER << "beta" << endl;
+    LOGGER << "beta:" << endl;
     LOGGER << betas << endl;
 
     double sse = (SSy - betas.dot(XtY)) / (size - col_X);
@@ -764,6 +782,13 @@ int FastFAM::registerOption(map<string, vector<string>>& options_in){
         }else{
             LOGGER.e(0, "can't load multiple --load-inv files");
         }
+        options_in.erase(curFlag);
+    }
+
+    curFlag = "--save-pheno";
+    if(options_in.find(curFlag) != options_in.end()){
+        options["save_pheno"] == "yes";
+        options_in.erase(curFlag);
     }
 
     curFlag = "--rel-only";
@@ -793,14 +818,15 @@ void FastFAM::processMain(){
                 LOGGER.i(0, "Use --load-inv to load the inversed file for fastFAM");
                 return;
             }
-            LOGGER.i(0, "Running fastFAM...");
             //Eigen::setNbThreads(1);
             if(!freqed){
                 callBacks.push_back(bind(&Geno::freq64, &geno, _1, _2));
             }
             if(options.find("grmsparse_file") != options.end() && ffam.fam_flag){
+                LOGGER.i(0, "\nRunning fastFAM...");
                 callBacks.push_back(bind(&FastFAM::calculate_fam, &ffam, _1, _2));
             }else{
+                LOGGER.i(0, "\nRunning GWAS...");
                 callBacks.push_back(bind(&FastFAM::calculate_gwa, &ffam, _1, _2));
             }
             geno.loop_64block(marker.get_extract_index(), callBacks);
