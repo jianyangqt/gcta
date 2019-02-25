@@ -36,6 +36,13 @@
 
 #include <iostream>
 
+struct InvItem{
+    int32_t row;
+    int32_t col;
+    double val;
+};
+
+
 using std::to_string;
 using Eigen::Matrix;
 
@@ -198,39 +205,74 @@ FastFAM::FastFAM(Geno *geno){
             if(options.find("save_inv") != options.end()){
                 LOGGER.i(0, "Saving inverse of V for further analysis, use --load-inv for further analysis");
                 std::ofstream inv_id((options["out"]+".grm.id").c_str());
+                for(int k = 0; k < remain_ids_fam.size(); k++){
+                    inv_id << remain_ids_fam[k] << std::endl;
+                }
 
-                std::ofstream inv_out((options["out"]+".grm.inv").c_str());
-                inv_out << std::setprecision( std::numeric_limits<double>::digits10+2); 
+                FILE * inv_out = fopen((options["out"]+".grm.inv").c_str(), "wb");
+                InvItem item;
                 for(int k = 0; k < V_inverse.outerSize(); ++k){
                     for(SpMat::InnerIterator it(V_inverse, k); it; ++it){
-                        inv_out << it.row() << "\t" << it.col() << "\t" << it.value() << std::endl;
+                        item.row = it.row();
+                        item.col = it.col();
+                        item.val = it.value();
+                        if(fwrite(&item, sizeof(item), 1, inv_out) != 1){
+                            LOGGER.e(0, "can't write to [" + options["out"] + ".grm.inv]");
+                        }
                     }
                 }
-                inv_out.close();
+                fclose(inv_out);
+
                 LOGGER.i(0, "The inverse has been saved to [" + options["out"] + ".grm.inv]");
             }
         }else{
             V_inverse.resize(phenoVec.size(), phenoVec.size());
-            string in_name = options["inv_file"] + ".grm.inv";
-            LOGGER.i(0, "Loading inverse of V from " + in_name);
-            LOGGER.ts("LOAD_INV");
-            std::ifstream in_file(in_name.c_str());
-            if(!in_file){
-                LOGGER.e(0, "can't open the file");
+            string id_file = options["inv_file"] + ".grm.id";
+            std::ifstream h_id(id_file.c_str());
+            if(!h_id){
+                LOGGER.e(0, "can't read file [" + id_file + "].");
             }
             string line;
-            while(getline(in_file, line)){
-                vector<string> line_elements;
-                boost::split(line_elements, line, boost::is_any_of("\t "));
-                if(line_elements.size() != 3){
-                    LOGGER.e(0, "the inversed file seems to be incorrect");
+            uint32_t cur_index = 0;
+            while(getline(h_id, line)){
+                if(line != remain_ids_fam[cur_index]){
+                    LOGGER.e(0, "samples are not same from line " + to_string(cur_index + 1) + " in [" + id_file + "].");
                 }
-                V_inverse.insert(stoi(line_elements[0]), stoi(line_elements[1])) 
-                    = stod(line_elements[2]);
+                cur_index++;
             }
+            h_id.close();
+            if(cur_index == remain_ids_fam.size()){
+                LOGGER.i(0, to_string(cur_index) + " samples are checked identical in inverse V [" + id_file + "].");
+            }else{
+                LOGGER.e(0, "Empty file or lines not consistent in inverse V [" + id_file + "].");
+            }
+
+            string in_name = options["inv_file"] + ".grm.inv";
+            LOGGER.i(0, "Loading inverse of V from " + in_name + "...");
+            LOGGER.ts("LOAD_INV");
+            FILE * in_file = fopen(in_name.c_str(), "rb");
+            if(!in_file){
+                LOGGER.e(0, "can't open the file.");
+            }
+            fseek(in_file, 0L, SEEK_END);
+            size_t file_size = ftell(in_file);
+            rewind(in_file);
+
+            InvItem item;
+            size_t cur_pos = 0;
+            while(cur_pos < file_size){
+                if(fread(&item, sizeof(item), 1, in_file) == 1){
+                    V_inverse.insert(item.row, item.col) = item.val;
+                    cur_pos += sizeof(item);
+                }else{
+                    LOGGER.e(0, "can't read file in pos: " + to_string(cur_pos));
+                }
+            }
+            fclose(in_file);
+
             V_inverse.finalize();
             V_inverse.makeCompressed();
-            LOGGER.i(0, "Inverse of V loaded in " + to_string(LOGGER.tp("LOAD_INV")) + " seconds");
+            LOGGER.i(0, "Inverse of V loaded in " + to_string(LOGGER.tp("LOAD_INV")) + " seconds.");
         }
     }
 }

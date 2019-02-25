@@ -466,7 +466,7 @@ void GRM::prune_fam(float thresh, bool isSparse){
         LOGGER.i(0, "Saving GRM sparse (" + to_string(rm_grm.size()) + " pairs) to [" + options["out"] + ".grm.sp]");
         //    auto sorted_index = sort_indexes(rm_grm_ID2, rm_grm_ID1);
         //    for(auto index : sorted_index){
-        o_fam << std::setprecision( std::numeric_limits<double>::digits10+2);
+        o_fam << std::setprecision( std::numeric_limits<float>::digits10+2);
         for(int index = 0; index != rm_grm.size(); index++){
             o_fam << rm_grm_ID1[index] << "\t" << rm_grm_ID2[index] << "\t" << rm_grm[index] << std::endl;
         }
