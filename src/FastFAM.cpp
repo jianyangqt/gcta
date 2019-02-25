@@ -198,6 +198,13 @@ FastFAM::FastFAM(Geno *geno){
                         "\nPerforming simple regression via removing --grm-sparse instead...");
  
                 fam.resize(0, 0);
+                V_inverse.resize(0, 0);
+                if(options.find("save_inv") != options.end()){
+                    std::ofstream inv_id((options["out"]+".grm.id").c_str());
+                    if(!inv_id) LOGGER.e(0, "failed to write " + options["out"]+".grm.id");
+                    inv_id << "--fastGWA" << std::endl;
+                    inv_id.close();
+                }
                 return;
             }
 
@@ -205,6 +212,7 @@ FastFAM::FastFAM(Geno *geno){
             if(options.find("save_inv") != options.end()){
                 LOGGER.i(0, "Saving inverse of V for further analysis, use --load-inv for further analysis");
                 std::ofstream inv_id((options["out"]+".grm.id").c_str());
+                if(!inv_id) LOGGER.e(0, "failed to write " + options["out"]+".grm.id");
                 for(int k = 0; k < remain_ids_fam.size(); k++){
                     inv_id << remain_ids_fam[k] << std::endl;
                 }
@@ -226,7 +234,6 @@ FastFAM::FastFAM(Geno *geno){
                 LOGGER.i(0, "The inverse has been saved to [" + options["out"] + ".grm.inv]");
             }
         }else{
-            V_inverse.resize(phenoVec.size(), phenoVec.size());
             string id_file = options["inv_file"] + ".grm.id";
             std::ifstream h_id(id_file.c_str());
             if(!h_id){
@@ -234,6 +241,20 @@ FastFAM::FastFAM(Geno *geno){
             }
             string line;
             uint32_t cur_index = 0;
+            getline(h_id, line);
+            if(line == "--fastGWA") {
+                fam_flag = false;
+                LOGGER.w(0, "The estimate of Vg is not statistically significant. "
+                        "This is likely because the number of relatives is not large enough. "
+                        "\nPerforming simple regression via removing --grm-sparse instead...");
+ 
+                fam.resize(0, 0);
+                V_inverse.resize(0, 0);
+                return;
+            }
+            // go to the original position
+            h_id.clear(); 
+            h_id.seekg(0);
             while(getline(h_id, line)){
                 if(line != remain_ids_fam[cur_index]){
                     LOGGER.e(0, "samples are not same from line " + to_string(cur_index + 1) + " in [" + id_file + "].");
@@ -247,6 +268,7 @@ FastFAM::FastFAM(Geno *geno){
                 LOGGER.e(0, "Empty file or lines not consistent in inverse V [" + id_file + "].");
             }
 
+            V_inverse.resize(phenoVec.size(), phenoVec.size());
             string in_name = options["inv_file"] + ".grm.inv";
             LOGGER.i(0, "Loading inverse of V from " + in_name + "...");
             LOGGER.ts("LOAD_INV");
@@ -768,7 +790,7 @@ void FastFAM::processMain(){
             ffam.initMarkerVars();
 
             if(options.find("save_inv") != options.end()){
-                LOGGER.i(0, "Using --load-inv to load the inversed file for fastFAM");
+                LOGGER.i(0, "Use --load-inv to load the inversed file for fastFAM");
                 return;
             }
             LOGGER.i(0, "Running fastFAM...");
