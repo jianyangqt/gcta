@@ -54,7 +54,7 @@ void out_ver(bool flag_outFile){
 
     log(0, "*******************************************************************", "");
     log(0, "* Genome-wide Complex Trait Analysis (GCTA)", "");
-    log(0, "* version 1.92.0 beta7", "");
+    log(0, "* version 1.92.0 beta8", "");
     log(0, "* (C) 2010-2018, The University of Queensland", "");
     log(0, "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>", "");
     log(0, "*******************************************************************", "");
@@ -75,7 +75,7 @@ int main(int argc, char *argv[]){
         "--cg", "--ldlt", "--llt", "--pardiso", "--tcg", "--lscg", "--save-inv", "--load-inv",
         "--update-ref-allele", "--update-freq", "--update-sex", "--mbfile", "--freqx", "--make-grm-xchr", "--make-grm-xchr-part", "--make-grm-alg",
         "--make-bed", "--sum-geno-x", "--sample", "--bgen", "--mgrm", "--unify-grm", "--rel-only", 
-        "--ld-matrix", "--r", "--ld-wind", "--r2", "--subtract-grm", "--save-pheno"
+        "--ld-matrix", "--r", "--ld-wind", "--r2", "--subtract-grm", "--save-pheno", "--save-bin"
     };
     map<string, vector<string>> options;
     vector<string> keys;

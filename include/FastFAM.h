@@ -64,9 +64,9 @@ private:
     uint32_t num_indi;
     uint32_t num_marker;
     uint32_t num_finished_marker = 0;
-    double *beta = NULL;
-    double *se = NULL;
-    double *p = NULL;
+    float *beta = NULL;
+    float *se = NULL;
+    float *p = NULL;
     bool fam_flag;
 
     std::mutex chisq_lock;

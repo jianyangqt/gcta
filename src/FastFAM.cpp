@@ -315,9 +315,9 @@ void FastFAM::initMarkerVars(){
     if(beta)delete[] beta;
     if(se) delete[] se;
     if(p) delete[] p;
-    beta = new double[num_marker];
-    se = new double[num_marker];
-    p = new double[num_marker];
+    beta = new float[num_marker];
+    se = new float[num_marker];
+    p = new float[num_marker];
 }
 
 FastFAM::~FastFAM(){
@@ -702,17 +702,51 @@ void FastFAM::reg_thread(uint8_t *buf, int from_marker, int to_marker){
 
 
 void FastFAM::output(string filename){
-    std::ofstream out(filename.c_str());
-    vector<string> header{"CHR", "SNP", "POS", "A1", "A2", "AF1", "beta", "se", "p"};
-    //std::copy(header.begin(), header.end(), std::ostream_iterator<string>(out, "\t"));
-    string header_string = boost::algorithm::join(header, "\t");
-    out << header_string << std::endl;
-    for(int index = 0; index != num_marker; index++){
-        out << geno->marker->get_marker(geno->marker->getExtractIndex(index)) << "\t" <<
-            geno->AFA1[index] << "\t" << beta[index] << "\t" << se[index] << "\t" << p[index] << std::endl;
+    if(options.find("save_bin") == options.end()){
+        std::ofstream out(filename.c_str());
+        vector<string> header{"CHR", "SNP", "POS", "A1", "A2", "AF1", "beta", "se", "p"};
+        //std::copy(header.begin(), header.end(), std::ostream_iterator<string>(out, "\t"));
+        string header_string = boost::algorithm::join(header, "\t");
+        out << header_string << std::endl;
+        for(int index = 0; index != num_marker; index++){
+            out << geno->marker->get_marker(geno->marker->getExtractIndex(index)) << "\t" <<
+                geno->AFA1[index] << "\t" << beta[index] << "\t" << se[index] << "\t" << p[index] << std::endl;
+        }
+        out.close();
+        LOGGER.i(0, "The association results have been saved to [" + filename +"].");
+    }else{
+        std::ofstream out((filename + ".snp").c_str());
+        for(int index = 0; index != num_marker; index++){
+            out << geno->marker->get_marker(geno->marker->getExtractIndex(index)) << std::endl;
+        }
+        out.close();
+        LOGGER.i(0, "The SNP inf of association results has been saved to [" + filename + ".snp].");
+
+        float * afa1 = new float[num_marker];
+        for(int index = 0; index != num_marker; index++){
+            afa1[index] = geno->AFA1[index];
+        }
+
+        FILE * h_out = fopen((filename + ".bin").c_str(), "wb");
+        if(!h_out){LOGGER.e(0,  "can't open [" + filename + ".bin] to write.");}
+        if(fwrite(afa1, sizeof(float), num_marker, h_out) != num_marker){
+            LOGGER.e(0, "can't write AF to [" + filename + ".bin].");
+        }
+        delete[] afa1;
+
+        if(fwrite(beta, sizeof(float), num_marker, h_out) != num_marker){
+            LOGGER.e(0, "can't write beta to [" + filename + ".bin].");
+        }
+         if(fwrite(se, sizeof(float), num_marker, h_out) != num_marker){
+            LOGGER.e(0, "can't write se to [" + filename + ".bin].");
+        }
+        if(fwrite(p, sizeof(float), num_marker, h_out) != num_marker){
+            LOGGER.e(0, "can't write p to [" + filename + ".bin].");
+        }
+        fclose(h_out);
+        LOGGER.i(0, "The association results have been saved to [" + filename + ".bin] in binary format.");
     }
-    out.close();
-    LOGGER.i(0, "The association results have been saved to [" + filename +"].");
+        
 }
 
 int FastFAM::registerOption(map<string, vector<string>>& options_in){
@@ -773,6 +807,12 @@ int FastFAM::registerOption(map<string, vector<string>>& options_in){
     if(options_in.find(curFlag) != options_in.end()){
         options["save_inv"] = "yes";
         options_in.erase(curFlag);
+    }
+
+    curFlag = "--save-bin";
+    if(options_in.find(curFlag) != options_in.end()){
+        options["save_bin"] = "yes";
+        //options_in.erase(curFlag);
     }
 
     curFlag = "--load-inv";
