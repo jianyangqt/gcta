@@ -34,6 +34,34 @@ std::string getHostName(){
     return computerName;
 }
 
+std::string getOSName(){
+    #ifdef _WIN64
+    return "Windows";
+    #elif __linux__
+    return "Linux";
+    #elif __APPLE__ || __MACH__
+    return "Mac";
+    #else
+    return "Other";
+    #endif
+}
+
+std::string getSSEvar(){
+    #ifdef __AVX512F__
+    return "AVX512";
+    #elif __AVX2__
+    return "AVX2";
+    #elif __AVX__
+    return "AVX";
+    #elif __SSE4_1
+    return "SSE4";
+    #elif __SSE2__
+    return "SSE2";
+    #else
+    return "unknown";
+    #endif
+}
+
 std::string getLocalTime(){
     auto now = std::chrono::system_clock::now();
     auto now_c = std::chrono::system_clock::to_time_t(now);

@@ -37,6 +37,8 @@ std::string getLocalTime();
 std::string getFileName(const std::string & path);
 std::string getPathName(const std::string & path);
 std::string joinPath(const std::string & dir, const std::string & path);
+std::string getSSEvar();
+std::string getOSName();
 
 template <typename T>
 bool hasVectorDuplicate(const std::vector<T> &v){
