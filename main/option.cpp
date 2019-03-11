@@ -114,6 +114,7 @@ void option(int option_num, char* option_str[])
     bool reml_flag = false, pred_rand_eff = false, est_fix_eff = false, blup_snp_flag = false, no_constrain = false, reml_lrt_flag = false, no_lrt = false, bivar_reml_flag = false, ignore_Ce = false, within_family = false, reml_bending = false, HE_reg_flag = false, reml_diag_one = false, bivar_no_constrain = false;
     bool cv_blup = false;
     bool HE_reg_bivar_flag = false;
+    string weight_file = "";
     string phen_file = "", qcovar_file = "", covar_file = "", qgxe_file = "", gxe_file = "", blup_indi_file = "";
     vector<double> reml_priors, reml_priors_var, fixed_rg_val;
     vector<int> reml_drop;
@@ -740,6 +741,10 @@ void option(int option_num, char* option_str[])
             covar_file = argv[++i];
             LOGGER << "--covar " << covar_file << endl;
             CommFunc::FileExist(covar_file);
+        } else if (strcmp(argv[i], "--weighted-res") == 0){
+            weight_file = argv[++i];
+            LOGGER << "--weighted-res " << weight_file << endl;
+            CommFunc::FileExist(weight_file);
         } else if (strcmp(argv[i], "--gxqe") == 0) {
             qgxe_file = argv[++i];
             LOGGER << "--gxqe " << qgxe_file << endl;

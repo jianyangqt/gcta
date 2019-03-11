@@ -177,7 +177,52 @@ int gcta::read_GE(string GE_file, vector<string> &GE_ID, vector< vector<string> 
     return GE_num;
 }
 
-void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, string covar_file, string qGE_file, string GE_file, string keep_indi_file, string remove_indi_file, string sex_file, int mphen, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool m_grm_flag, bool pred_rand_eff, bool est_fix_eff, int reml_mtd, int MaxIter, vector<double> reml_priors, vector<double> reml_priors_var, vector<int> drop, bool no_lrt, double prevalence, bool no_constrain, bool mlmassoc, bool within_family, bool reml_bending, bool reml_diag_one) {
+void read_weight(string phen_file, vector<string> &phen_ID, vector<double> &weights) {
+    // Read phenotype data
+    ifstream in_phen(phen_file.c_str());
+    if (!in_phen) LOGGER.e(0, "can not open the weight [" + phen_file + "] to read.");
+
+    int i = 0;
+    string str_buf, fid_buf, pid_buf;
+    vector<string> vs_buf;
+    phen_ID.clear();
+    weights.clear();
+    LOGGER << "Reading weights from [" + phen_file + "]." << endl;
+    getline(in_phen, str_buf);
+    int phen_num = StrFunc::split_string(str_buf, vs_buf) - 2;
+    if (phen_num <= 0) LOGGER.e(0, "no weight data is found.");
+    if (phen_num > 1) LOGGER << "There are " << phen_num << " weights specified in the file [" + phen_file + "], however, only the first one used." << endl;
+    in_phen.seekg(ios::beg);
+    int line = 1;
+    while (in_phen) {
+        line++;
+        in_phen >> fid_buf;
+        if (in_phen.eof()) break;
+        in_phen >> pid_buf;
+        getline(in_phen, str_buf);
+        if (StrFunc::split_string(str_buf, vs_buf) != phen_num) {
+            stringstream errmsg;
+            errmsg << vs_buf.size() - phen_num << " weight values are missing in line #" << line << " in the file [" + phen_file + "]";
+            LOGGER.e(0, errmsg.str());
+        }
+
+        const char *temp_str = vs_buf[0].c_str();
+        char* pEnd;
+        double temp_double = strtod(temp_str, &pEnd);
+        if(std::isfinite(temp_double) && strlen(temp_str) == pEnd - temp_str){ 
+            phen_ID.push_back(fid_buf + ":" + pid_buf);
+            weights.push_back(temp_double);
+        }else{
+            LOGGER.w(0, "ignored line #" + to_string(line) + ".");
+        }
+
+    }
+    in_phen.close();
+    LOGGER << "Non-missing weights of " << phen_ID.size() << " individuals are included from [" + phen_file + "]." << endl;
+}
+
+
+void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, string covar_file, string qGE_file, string GE_file, string keep_indi_file, string remove_indi_file, string sex_file, int mphen, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool m_grm_flag, bool pred_rand_eff, bool est_fix_eff, int reml_mtd, int MaxIter, vector<double> reml_priors, vector<double> reml_priors_var, vector<int> drop, bool no_lrt, double prevalence, bool no_constrain, bool mlmassoc, bool within_family, bool reml_bending, bool reml_diag_one, string weight_file) {
     _within_family = within_family;
     _reml_mtd = reml_mtd;
     _reml_max_iter = MaxIter;
@@ -225,6 +270,14 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
         E_fac_num = read_GE(GE_file, GE_ID, GE, false);
         update_id_map_kp(GE_ID, _id_map, _keep);
     }
+
+    vector<string> weight_ID;
+    vector<double> weights;
+    if(!weight_file.empty()){
+        read_weight(weight_file, weight_ID, weights);
+        update_id_map_kp(weight_ID, _id_map, _keep);
+    }
+
     if (!mlmassoc) {
         if (!keep_indi_file.empty()) keep_indi(keep_indi_file);
         if (!remove_indi_file.empty()) remove_indi(remove_indi_file);
@@ -267,6 +320,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
             LOGGER << "Note: you can specify the prevalences of the two diseases by the option --reml-bivar-prevalence so that GCTA can transform the estimates of variance explained to the underlying liability scale." << endl;
         }
     }
+
 
     int pos = 0;
     _r_indx.clear();
@@ -346,6 +400,16 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
         _A.resize(_r_indx.size());
     }
     _A[_r_indx.size() - 1] = eigenMatrix::Identity(_n, _n);
+    if(!weight_file.empty()){
+        // contruct weight
+        VectorXd v_weight(_n);
+        for (int i = 0; i < weight_ID.size(); i++) {
+            iter = uni_id_map.find(weight_ID[i]);
+            if (iter == uni_id_map.end()) continue;
+            v_weight(iter->second) = weights[i];
+        }
+        _A[_r_indx.size() - 1].diagonal() = v_weight;
+    }
 
     // GE interaction
     vector<eigenMatrix> E_float(E_fac_num);
