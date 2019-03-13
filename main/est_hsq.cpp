@@ -408,6 +408,16 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
             if (iter == uni_id_map.end()) continue;
             v_weight(iter->second) = weights[i];
         }
+        //v_weight = 1.0 / v_weight.array();
+        v_weight = 1.0 / v_weight.array() - (1.0 / v_weight.array()).mean() + 1;
+        /*
+        ofstream o_test("weight_out.txt");
+        for(int i = 0; i < v_weight.size(); i++){
+            o_test << v_weight[i] << "\t" << _y[i] << endl;
+        }
+        o_test.close();
+        */
+
         _A[_r_indx.size() - 1].diagonal() = v_weight;
     }
 

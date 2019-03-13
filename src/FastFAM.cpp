@@ -702,6 +702,9 @@ void FastFAM::reg_thread(uint8_t *buf, int from_marker, int to_marker){
 
 
 void FastFAM::output(string filename){
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const double MAF_L_THRESH = 0.00001;
+    const double MAF_U_THRESH = 0.99999;
     if(options.find("save_bin") == options.end()){
         std::ofstream out(filename.c_str());
         if(options.find("no_marker") == options.end()){
@@ -710,8 +713,14 @@ void FastFAM::output(string filename){
             string header_string = boost::algorithm::join(header, "\t");
             out << header_string << std::endl;
             for(int index = 0; index != num_marker; index++){
-                out << geno->marker->get_marker(geno->marker->getExtractIndex(index)) << "\t" <<
-                    geno->AFA1[index] << "\t" << beta[index] << "\t" << se[index] << "\t" << p[index] << std::endl;
+                double af = geno->AFA1[index];
+                if(af > MAF_L_THRESH && af < MAF_U_THRESH){
+                    out << geno->marker->get_marker(geno->marker->getExtractIndex(index)) << "\t" <<
+                        af << "\t" << beta[index] << "\t" << se[index] << "\t" << p[index] << std::endl;
+                }else{
+                    out << geno->marker->get_marker(geno->marker->getExtractIndex(index)) << "\t" <<
+                        af << "\t" << nan << "\t" << nan << "\t" << nan << std::endl;
+                }
             }
         }else{
             vector<string> header{"AF1", "beta", "se", "p"};
@@ -719,7 +728,12 @@ void FastFAM::output(string filename){
             string header_string = boost::algorithm::join(header, "\t");
             out << header_string << std::endl;
             for(int index = 0; index != num_marker; index++){
-                out << geno->AFA1[index] << "\t" << beta[index] << "\t" << se[index] << "\t" << p[index] << std::endl;
+                double af = geno->AFA1[index];
+                if(af > MAF_L_THRESH && af < MAF_U_THRESH){
+                    out << af << "\t" << beta[index] << "\t" << se[index] << "\t" << p[index] << std::endl;
+                }else{
+                    out << af << "\t" << nan << "\t" << nan << "\t" << nan << std::endl;
+                }
             }
             LOGGER.i(0, "No SNP information saved, " + to_string(num_marker) + " SNPs saved");
         }
@@ -739,7 +753,13 @@ void FastFAM::output(string filename){
 
         float * afa1 = new float[num_marker];
         for(int index = 0; index != num_marker; index++){
-            afa1[index] = geno->AFA1[index];
+            double af = geno->AFA1[index];
+            afa1[index] = af;
+            if(af < MAF_L_THRESH || af > MAF_U_THRESH){
+                beta[index] = nan;
+                se[index] = nan;
+                p[index] = nan;
+            }
         }
 
         FILE * h_out = fopen((filename + ".bin").c_str(), "wb");
