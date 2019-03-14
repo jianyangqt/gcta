@@ -137,11 +137,12 @@ FastFAM::FastFAM(Geno *geno){
     if(has_covar){
         MatrixXd concovar = Map<Matrix<double, Dynamic, Dynamic, Eigen::ColMajor>>(remain_covar.data(), remain_phenos.size(), 
                 remain_covar.size() / remain_phenos.size());
+
         /*
         std::ofstream covar_w(options["out"] + "_aln_covar.txt"), pheno_w(options["out"] + "_aln_phen.txt"), pheno_w2(options["out"] + "_adj_phen.txt");
-        covar_w << concovar << std::endl;
         pheno_w << phenoVec << std::endl;
         */
+
         conditionCovarReg(phenoVec, concovar);
         if(options.find("save_pheno") != options.end()){
             std::ofstream pheno_w((options["out"] + ".cphen").c_str());
@@ -151,6 +152,7 @@ FastFAM::FastFAM(Geno *geno){
             }
             pheno_w.close();
         }
+
         /*
         pheno_w2 << phenoVec << std::endl;
         covar_w.close();
@@ -589,6 +591,13 @@ void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
 }
 
 void FastFAM::calculate_gwa(uint64_t *buf, int num_marker){
+/*
+        std::ofstream pheno_w2(options["out"] + "_gwa_phen.txt");
+        pheno_w2 << phenoVec << std::endl;
+        pheno_w2.close();
+        LOGGER << "LOOP: " << num_finished_marker << std::endl;
+*/
+        //MatrixXd dealGeno(num_indi, num_marker);
     #pragma omp parallel for schedule(dynamic)
     for(int cur_marker = 0; cur_marker < num_marker; cur_marker++){
         double *w_buf = new double[num_indi];
@@ -596,6 +605,7 @@ void FastFAM::calculate_gwa(uint64_t *buf, int num_marker){
         MatrixXd XMat_V;
 
         geno->makeMarkerX(buf, cur_marker, w_buf, true, false);
+        //dealGeno.col(cur_marker) = xMat;
 
         MatrixXd tMat_V = xMat.transpose();
 
@@ -613,6 +623,13 @@ void FastFAM::calculate_gwa(uint64_t *buf, int num_marker){
         p[cur_raw_marker] = StatLib::pchisqd1(temp_z * temp_z); 
         delete[] w_buf;
     }
+
+    /*
+    std::ofstream o_geno(options["out"] + "_geno.txt");
+        o_geno << dealGeno << std::endl;
+        o_geno.close();
+    */
+     
 
     num_finished_marker += num_marker;
     if(num_finished_marker % 30000 == 0){

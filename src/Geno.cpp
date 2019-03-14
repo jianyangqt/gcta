@@ -1209,7 +1209,7 @@ void Geno::loop_64block(const vector<uint32_t> &raw_marker_index, vector<functio
 
 
 void Geno::makeMarkerX(uint64_t *buf, int cur_marker, double *w_buf, bool center, bool std){
-    static uint32_t last_sample = num_keep_sample % 32;
+    static uint32_t last_sample = (num_keep_sample % 32 == 0) ? 32 : (num_keep_sample % 32);
     static uint32_t last_8block = last_sample / 4;
     static uint32_t last_2block = last_sample % 4; 
 

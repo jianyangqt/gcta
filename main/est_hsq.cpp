@@ -409,7 +409,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
             v_weight(iter->second) = weights[i];
         }
         //v_weight = 1.0 / v_weight.array();
-        v_weight = 1.0 / v_weight.array() - (1.0 / v_weight.array()).mean() + 1;
+        //v_weight = 1.0 / v_weight.array() - (1.0 / v_weight.array()).mean() + 1;
         /*
         ofstream o_test("weight_out.txt");
         for(int i = 0; i < v_weight.size(); i++){
