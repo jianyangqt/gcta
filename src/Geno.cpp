@@ -403,7 +403,9 @@ void Geno::read_bed(const vector<uint32_t> &raw_marker_index){
             fseek(pFile, (lag_index - 1) * num_byte_per_marker, SEEK_CUR);
         }else{
             for(int32_t ab_index = 1; ab_index < lag_index; ab_index++){
-                fread(w_buf, 1, num_byte_per_marker, pFile);
+                if(fread(w_buf, 1, num_byte_per_marker, pFile) != num_byte_per_marker){
+                    LOGGER.e(0, "read [" + bed_files[cur_file_index] + "] error.\nThere might be some problems in your storage, or have you changed the file?");
+                }
             }
         }
         size_t read_count = fread(w_buf, 1, num_byte_per_marker, pFile);

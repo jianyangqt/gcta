@@ -18,6 +18,8 @@
 #include <mutex>
 #include <condition_variable>
 #include <tuple>
+#include <chrono>
+
 using std::mutex;
 using std::lock_guard;
 using std::condition_variable;
@@ -61,6 +63,7 @@ public:
         }else{
             std::unique_lock<std::mutex> lock(wmut);
             wcv.wait(lock);
+
             return start_write();
             //return NULL;
         }
@@ -92,7 +95,9 @@ public:
             return tuple<T*, bool>{buffer[curBufferRead], m_stat.eof[curBufferRead]};
         }else{
             std::unique_lock<std::mutex> lock(rmut);
-            rcv.wait(lock);
+            rcv.wait_for(lock, std::chrono::milliseconds(100));
+            lock.unlock();
+            
             return start_read();
             //return tuple<T*, bool>{NULL, m_stat.eof[curBufferRead]};
         }
