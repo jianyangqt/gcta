@@ -1705,7 +1705,7 @@ int read_ld_marker(string ref_ld_dirt) {
 
 vector<string> read_ld_score_txt(string filestr, map<string,int> snplist_map, vector<double> &ld_score) {
     
-    int line_number = 0, indxbuf = 0;
+    int line_number = 0, indxbuf = 0, ldsc_index = 0;
     double ldscbuf = 0.0;
     string strbuf = "", snpbuf = "";
     vector<string> ld_score_snps;
@@ -1717,10 +1717,16 @@ vector<string> read_ld_score_txt(string filestr, map<string,int> snplist_map, ve
         std::istringstream linebuf(strbuf);
         std::istream_iterator<string> begin(linebuf), end;
         vector<string> line_elements(begin, end);
-        if(line_elements.size() != 6) LOGGER.e(0, "Format of file [" + filestr + "] is not correct, line " + to_string(line_number) + ".");
+        if(line_elements.size() == 4) {
+            ldsc_index = 3;
+        } else if(line_elements.size() == 6) {
+            ldsc_index = 5;
+        } else {
+            LOGGER.e(0, "Format of file [" + filestr + "] is not correct, line " + to_string(line_number) + ".");
+        }
         if(line_number==1) continue;
         snpbuf = line_elements[1];
-        ldscbuf  = atof(line_elements[5].c_str());
+        ldscbuf  = atof(line_elements[ldsc_index].c_str());
         // save the data
         snp_iter = snplist_map.find(snpbuf);
         if(snp_iter!=snplist_map.end()) {
@@ -1734,26 +1740,35 @@ vector<string> read_ld_score_txt(string filestr, map<string,int> snplist_map, ve
 }
 
 vector<string> read_ld_score_gz(string filestr, map<string,int> snplist_map, vector<double> &ld_score) {
-    int i = 0, indxbuf = 0;
+    int indxbuf = 0, line_number = 0, ldsc_index = 0;
     double ldscbuf = 0.0;
-    string strbuf = "", snpbuf = "";
+    string snpbuf = "";
     vector<string> ld_score_snps;
     map<string,int>::iterator snp_iter;
 
     string err_msg = "Failed to read [" + filestr + "]. An error occurs in line ";
 
     const int MAX_LINE_LENGTH = 1024;
-    char buf[MAX_LINE_LENGTH];
+    char strbuf[MAX_LINE_LENGTH];
     gzifstream ldsc_marker(filestr.c_str());
     while(1) {
-        ldsc_marker.getline(buf, MAX_LINE_LENGTH, '\n');
+        ldsc_marker.getline(strbuf, MAX_LINE_LENGTH, '\n');
         if (ldsc_marker.fail() || !ldsc_marker.good()) break;
-        stringstream ss(buf);
-        if (!(ss >> strbuf)) LOGGER.e(0, err_msg + buf);
-        if (!(ss >> snpbuf)) LOGGER.e(0, err_msg + buf);
-        for(i=0; i<3; i++) if (!(ss >> strbuf)) LOGGER.e(0, err_msg + buf);
-        if (!(ss >> strbuf)) LOGGER.e(0, err_msg + buf);
-        ldscbuf = atof(strbuf.c_str());
+        line_number ++;
+        std::istringstream linebuf(strbuf);
+        std::istream_iterator<string> begin(linebuf), end;
+        vector<string> line_elements(begin, end);
+        if(line_elements.size() == 4) {
+            ldsc_index = 3;
+        } else if(line_elements.size() == 6) {
+            ldsc_index = 5;
+        } else {
+            LOGGER.e(0, "Format of file [" + filestr + "] is not correct, line " + to_string(line_number) + ".");
+        }
+        if(line_number==1) continue;
+        snpbuf = line_elements[1];
+        ldscbuf  = atof(line_elements[ldsc_index].c_str());
+
         // save the data
         snp_iter = snplist_map.find(snpbuf);
         if(snp_iter!=snplist_map.end()) {
