@@ -704,7 +704,7 @@ vector<string> gcta::filter_meta_snp_pval(vector<string> snp_name, vector<int> r
     return kpsnps;
 }
 
-void gcta::read_mtcojofile(string mtcojolist_file, double gwas_thresh, int nsnp_gsmr) {
+int gcta::read_mtcojofile(string mtcojolist_file, double gwas_thresh, int nsnp_gsmr) {
 
     int ncovar=0, i=0, j=0;
     string target_pheno_file="";
@@ -814,13 +814,13 @@ void gcta::read_mtcojofile(string mtcojolist_file, double gwas_thresh, int nsnp_
     vector<string> keptsnps; 
     
     keptsnps = filter_meta_snp_pval(_meta_snp_name, _meta_remain_snp, _meta_snp_pval, 1, 1+ncovar, _snp_val_flag, pval_thresh);
-    if(keptsnps.size() < nsnp_gsmr) LOGGER.e(0, "Not enough significant SNPs for mtCOJO analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required.");
- 
     update_id_map_kp(keptsnps, _snp_name_map, _include);
-
     std::stringstream ss;
     ss << std::scientific << std::setprecision(1) << gwas_thresh;
     LOGGER.i(0, "There are " + to_string(_include.size()) + " genome-wide significant SNPs with p < " + ss.str() + ".\n");
+    if(keptsnps.size() < nsnp_gsmr) LOGGER.w(0, "We will use LD score regression to estimate bxy, because there are not enough significant SNPs for GSMR analysis. At least " + to_string(nsnp_gsmr) + " SNPs are required.\n");
+
+    return(_include.size());
 }
 
 eigenVector read_external_bxy(string filestr, vector<string> covar_pheno_name) {
@@ -2094,7 +2094,7 @@ eigenMatrix gcta::ldsc_snp_h2(eigenMatrix bhat_z, eigenMatrix bhat_n, eigenVecto
         // Remove missing value
         if(nsnp_cm_trait[i] < nsnp_ldsc_thresh) 
             LOGGER.w(0, "Only " + to_string(nsnp_cm_trait[i]) + " are retained in the univariate LD score regression analysis for " 
-                    + trait_name[i] + ". The estimate may not be accurate.");
+                    + trait_name[i] + ". The estimate may not be accurate.");                    
         int k = 0, nsnp_buf = 0;
         eigenVector chi_val_buf(nsnp_cm_trait[i]), n_buf(nsnp_cm_trait[i]), ref_ld_buf(nsnp_cm_trait[i]), w_ld_buf(nsnp_cm_trait[i]);
         for(j = 0, k = 0; j < n_cm_ld_snps; j++) {
@@ -2181,6 +2181,10 @@ bool gcta::mtcojo_ldsc(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eig
     // Re-order the SNP effects and LD scores
     reorder_snp_effect(snp_remain, bhat_z, bhat_n, snp_b, snp_se, snp_n, snp_flag, snp_val_flag, nsnp_cm_trait,
                        cm_ld_snps, ldsc_snp_name_map, ref_ld, w_ld, ref_ld_vec, w_ld_vec, ntrait);
+    for(i=0; i<ntrait; i++) {
+        if(nsnp_cm_trait[i]==0)
+            LOGGER.e(0, "\nThere is no SNP in common between the summary data and the LD score files. Please double check.");
+    }
     // Check the p-value
     for(i=0; i<ntrait; i++) {
         double chi_val_buf = bhat_z.col(i).squaredNorm()/nsnp_cm_trait[i];

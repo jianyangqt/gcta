@@ -151,7 +151,7 @@ void option(int option_num, char* option_str[])
     // mtCOJO
     char chbuf = '\0';
     string mtcojolist_file="", mtcojo_bxy_file="", ref_ld_dirt="", w_ld_dirt="";
-    int nsnp_gsmr=10;
+    int nsnp_gsmr=10, nsnp_read = 0;
     double freq_thresh = 0.2, gwas_thresh=5e-8, global_heidi_thresh = 0.01, std_heidi_thresh = 0.01, ld_fdr_thresh=0.05, clump_wind_size=10000, clump_r2_thresh=0.05;
     bool mtcojo_flag=false, ref_ld_flag=false, w_ld_flag=false, global_heidi_flag=false;
 
@@ -1309,9 +1309,11 @@ void option(int option_num, char* option_str[])
             if (!update_refA_file.empty()) pter_gcta->update_ref_A(update_refA_file);
             if (LD) pter_gcta->read_LD_target_SNPs(LD_file);
             if(gsmr_flag) pter_gcta->read_gsmrfile(expo_file_list, outcome_file_list, gwas_thresh, nsnp_gsmr, gsmr_so_alg);
-            if(mtcojo_flag) pter_gcta->read_mtcojofile(mtcojolist_file, gwas_thresh, nsnp_gsmr);
-            if(bfile_flag==1) pter_gcta->read_bedfile(bfile + ".bed");
-            else pter_gcta->read_multi_bedfiles(multi_bfiles);
+            if(mtcojo_flag) nsnp_read = pter_gcta->read_mtcojofile(mtcojolist_file, gwas_thresh, nsnp_gsmr);
+            if(mtcojo_flag && nsnp_read>0) {
+                if(bfile_flag==1) pter_gcta->read_bedfile(bfile + ".bed");
+                else pter_gcta->read_multi_bedfiles(multi_bfiles);
+            }
             if (!update_impRsq_file.empty()) pter_gcta->update_impRsq(update_impRsq_file);
             if (!update_freq_file.empty()) pter_gcta->update_freq(update_freq_file);
             if (dose_Rsq_cutoff > 0.0) pter_gcta->filter_impRsq(dose_Rsq_cutoff);
