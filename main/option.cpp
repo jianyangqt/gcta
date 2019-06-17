@@ -1030,9 +1030,9 @@ void option(int option_num, char* option_str[])
             LOGGER << "--gsmr-file " << expo_file_list << " " << outcome_file_list << endl;
             CommFunc::FileExist(expo_file_list);
             CommFunc::FileExist(outcome_file_list);
-        } else if(strcmp(argv[i], "--gsmr-beta") == 0) {
+        } else if(strcmp(argv[i], "--gsmr2-beta") == 0) {
             gsmr_beta_version = 1;
-            LOGGER << "--gsmr-beta" << endl;
+            LOGGER << "--gsmr2-beta" << endl;
         } else if (strcmp(argv[i], "--gsmr-direction") == 0) {
             gsmr_alg_flag = atoi(argv[++i]);
             if(gsmr_alg_flag < 0 || gsmr_alg_flag > 2) 
@@ -1227,7 +1227,7 @@ void option(int option_num, char* option_str[])
         LOGGER.w(0, "The threshold of multi-SNP-based HEIDI-outlier analysis is not specified. The default value is " + to_string(global_heidi_thresh).substr(0,5) + ".");
     }
     if(!gsmr_beta_version && global_heidi_flag) {
-        LOGGER.w(0, "--gsmr-beta is not specified. GCTA will perform single-SNP-based HEIDI-outlier analysis, which was published in Zhu et al. 2018 Nature Communications. The threshold of multi-SNP-based HEIDI-outlier analysis will not be accepted.");
+        LOGGER.w(0, "--gsmr2-beta is not specified. GCTA will perform single-SNP-based HEIDI-outlier analysis, which was published in Zhu et al. 2018 Nature Communications. The threshold of multi-SNP-based HEIDI-outlier analysis will not be accepted.");
     }
     if(pcl_flag && gwas_data_flag) {
         pcl_flag = false; gwas_adj_pc_flag = true; thread_flag = false;
