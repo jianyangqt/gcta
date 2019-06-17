@@ -1314,6 +1314,11 @@ void option(int option_num, char* option_str[])
                 if(bfile_flag==1) pter_gcta->read_bedfile(bfile + ".bed");
                 else pter_gcta->read_multi_bedfiles(multi_bfiles);
             }
+            if(!mtcojo_flag){
+                if(bfile_flag==1) pter_gcta->read_bedfile(bfile + ".bed");
+                else pter_gcta->read_multi_bedfiles(multi_bfiles);
+            }
+
             if (!update_impRsq_file.empty()) pter_gcta->update_impRsq(update_impRsq_file);
             if (!update_freq_file.empty()) pter_gcta->update_freq(update_freq_file);
             if (dose_Rsq_cutoff > 0.0) pter_gcta->filter_impRsq(dose_Rsq_cutoff);

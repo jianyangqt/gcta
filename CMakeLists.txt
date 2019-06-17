@@ -110,8 +110,8 @@ endif()
 #target_link_libraries(gcta64 ${libs_list} mainV1)
 
 # Testing has some problems currently
-enable_testing()
-ADD_SUBDIRECTORY(test)
+#enable_testing()
+#ADD_SUBDIRECTORY(test)
 
 IF(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/compile_commands.json")
   EXECUTE_PROCESS( COMMAND ${CMAKE_COMMAND} -E copy_if_different
