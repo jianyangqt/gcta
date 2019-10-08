@@ -99,11 +99,13 @@ void gcta::read_metafile(string metafile, bool GC, double GC_val) {
     for (i = 0; i < snplist.size(); i++) id_map.insert(pair<string, int>(snplist[i], i));
     for (i = 0; i < _include.size(); i++) {
         int include_i = _include[i];
+        bool flip_flag = false;
         string cur_snp_name = _snp_name[include_i];
         iter = id_map.find(cur_snp_name);
         _ref_A[include_i] = ref_A_buf[iter->second];
         if (!_mu.empty() && ref_A_buf[iter->second] == _allele2[include_i]){
             _mu[include_i] = 2.0 - _mu[include_i];
+            flip_flag = true;
         }
         double cur_freq_value =  _mu[include_i] / 2.0;
         double freq_diff = abs(cur_freq_value - freq_buf[iter->second]);
@@ -111,6 +113,7 @@ void gcta::read_metafile(string metafile, bool GC, double GC_val) {
             snplist_freq.push_back(cur_snp_name);
             indx.push_back(iter->second);
         }else{
+            if(flip_flag) cur_freq_value = 1.0 - cur_freq_value;
             bad_snp_freq.push_back(cur_snp_name);
             bad_A1_freq.push_back(_allele1[include_i]);
             bad_A2_freq.push_back(_allele2[include_i]);
