@@ -1600,7 +1600,7 @@ vector<double> gcta::gsmr_meta(vector<string> &snp_instru, eigenVector bzx, eige
         while(1) {          
             n_kept_snp = kept_ID.size();
             int process = indi_heidi_outlier_topsnp_iter(bxy, cov_bxy, bzx, bzx_se, bzy, bzy_se, bzy_pval, 
-                        ld_r_mat, _meta_snp_name_map, indices_snp, kept_ID, global_heidi_thresh);
+                        ld_r_mat, _meta_snp_name_map, indices_snp, kept_ID, std_heidi_thresh);
             n_indices_snp = kept_ID.size();
             if(n_kept_snp - n_indices_snp == 0 ) break;
             // check
