@@ -26,6 +26,7 @@
 #include "utils.hpp"
 #include "OptionIO.h"
 #include <memory>
+#include <sqlite3.h>
 
 using std::to_string;
 using std::unique_ptr;
@@ -60,10 +61,29 @@ Marker::Marker() {
         read_mbim(options["m_file"]);
     }
 
+    if(options.find("pvar_file") != options.end()){
+        has_marker = true;
+        read_pvar(options["pvar_file"]);
+        raw_limits.push_back(num_marker);
+    }
+
+    if(options.find("m_pvar") != options.end()){
+        has_marker = true;
+        read_mpvar(options["m_pvar"]);
+    }
+
     if(options.find("bgen_file") != options.end()){
         has_marker = true;
-        read_bgen(options["bgen_file"]);
+        read_bgen_index(options["bgen_file"]);
         raw_limits.push_back(num_marker);
+        index_extract.resize(num_marker);
+        std::iota(index_extract.begin(), index_extract.end(), 0); 
+
+    }
+
+    if(options.find("mbgen_file") != options.end()){
+        has_marker = true;
+        read_mbgen(options["mbgen_file"]);
     }
 
     if(!has_marker){
@@ -73,11 +93,13 @@ Marker::Marker() {
 
     if(options.find("extract_file") != options.end()){
         vector<string> extractlist = read_snplist(options["extract_file"]);
+        LOGGER << "Get " << extractlist.size() << " SNPs from list [" << options["extract_file"] << "]." << std::endl;
         extract_marker(extractlist, true);
     }
 
     if(options.find("exclude_file") != options.end()){
         vector<string> excludelist = read_snplist(options["exclude_file"]);
+        LOGGER << "Get " << excludelist.size() << " SNPs from list [" << options["exclude_file"] << "]." << std::endl;
         extract_marker(excludelist, false);
     }
     reset_exclude();
@@ -89,7 +111,11 @@ Marker::Marker() {
         vector<bool> a_rev;
         matchSNPListFile(options["update_ref_allele_file"], 2, field_return, fields, a_rev, true);
 
-        LOGGER.i(0, "Reference alleles are updated."); 
+        LOGGER.i(0, to_string(index_extract.size()) + " reference alleles are updated."); 
+    }
+
+    if(index_extract.size() == 0){
+        LOGGER.e(0, "0 SNP remained!");
     }
 
 }
@@ -141,18 +167,23 @@ void Marker::matchSNPListFile(string filename, int num_min_fields, const vector<
     // match alleles
     vector<uint32_t> index_remained;
     index_remained.reserve(marker_index.size());
+    vector<uint32_t> ref_index_remained;
+    ref_index_remained.reserve(marker_index.size());
     if(ref_allele.size()){
         temp_a_rev.reserve(marker_index.size());
         for(int i = 0; i < marker_index.size(); i++){
             uint32_t cur_marker_index = marker_index[i];
-            string cur_ref = ref_allele[ref_index[i]];
+            uint32_t cur_ref_index = ref_index[i];
+            string cur_ref = ref_allele[cur_ref_index];
             std::transform(cur_ref.begin(), cur_ref.end(), cur_ref.begin(), toupper);
             if(a1[cur_marker_index] == cur_ref){
-                temp_a_rev.push_back(false);
+                temp_a_rev.push_back(A_rev[cur_marker_index]);
                 index_remained.push_back(cur_marker_index);
+                ref_index_remained.push_back(cur_ref_index);
             }else if(a2[cur_marker_index] == cur_ref){
-                temp_a_rev.push_back(true);
+                temp_a_rev.push_back(!A_rev[cur_marker_index]);
                 index_remained.push_back(cur_marker_index);
+                ref_index_remained.push_back(cur_ref_index);
             }
         }
     }else{
@@ -179,7 +210,7 @@ void Marker::matchSNPListFile(string filename, int num_min_fields, const vector<
     }
 
     keep_raw_index(index_common);
-    // bug here?
+
     if(ref_allele.size()){
         a_rev.resize(export_index.size());
         std::transform(export_index.begin(), export_index.end(), a_rev.begin(), [&temp_a_rev](size_t pos){return temp_a_rev[pos];});
@@ -189,7 +220,9 @@ void Marker::matchSNPListFile(string filename, int num_min_fields, const vector<
     if(field_num){
         fields.reserve(export_index.size() * field_num);
         for(auto i : export_index){
-            for(int j = i; j < i + field_num; j++){
+            uint32_t t_index = ref_index_remained[i];
+            uint32_t t_index_from = t_index * field_num;
+            for(int j = t_index_from; j < t_index_from + field_num; j++){
                 fields.push_back(temp_fields[j]);
             }
         }
@@ -201,17 +234,39 @@ void Marker::read_mbim(string mfile){
     boost::split(mfiles, mfile, boost::is_any_of("\t "));
     raw_limits.clear();
     for(auto & mfile : mfiles){
-        read_bim(mfile + ".bim");
+        read_bim(mfile);
         raw_limits.push_back(num_marker);
     }
 }
 
-vector<uint32_t>& Marker::get_extract_index(){
-    return this->index_extract;
+void Marker::read_mpvar(string mfile){
+    vector<string> mfiles;
+    boost::split(mfiles, mfile, boost::is_any_of("\t "));
+    raw_limits.clear();
+    for(auto & mfile : mfiles){
+        read_pvar(mfile);
+        raw_limits.push_back(num_marker);
+    }
 }
 
+
+void Marker::read_mbgen(string mbgen_file){
+    vector<string> mfiles;
+    boost::split(mfiles, mbgen_file, boost::is_any_of("\t"));
+    raw_limits.clear();
+    for(auto & mfile : mfiles){
+        read_bgen_index(mfile);
+        raw_limits.push_back(num_marker);
+    }
+
+    index_extract.resize(num_marker);
+    std::iota(index_extract.begin(), index_extract.end(), 0); 
+}
+
+
+
 //cur_marker_index:  is the index point to position of index_extract
-vector<uint32_t> Marker::getNextWindowIndex(uint32_t cur_marker_index, uint32_t window, bool& chr_ends){
+vector<uint32_t> Marker::getNextWindowIndex(uint32_t cur_marker_index, uint32_t window, bool& chr_ends, bool& isX, bool retRaw){
     vector<uint32_t> indices;
     if(cur_marker_index >= index_extract.size()){
         chr_ends = true;
@@ -224,6 +279,8 @@ vector<uint32_t> Marker::getNextWindowIndex(uint32_t cur_marker_index, uint32_t 
     uint32_t final_pd = window + cur_pd;
 
     chr_ends = false;
+    bool success;
+    isX = (cur_chr == mapCHR("X", success));
 
     for(uint32_t marker_index = cur_marker_index; marker_index < index_extract.size(); marker_index++){
         uint32_t temp_index = index_extract[marker_index];
@@ -232,13 +289,93 @@ vector<uint32_t> Marker::getNextWindowIndex(uint32_t cur_marker_index, uint32_t 
             break;
         }
         if(pd[temp_index] <= final_pd){
-            indices.push_back(temp_index);
+            indices.push_back(retRaw ? temp_index : marker_index);
         }else{
             break;
         }
     }
     return indices;
 }
+
+uint32_t Marker::getNextSize(const vector<uint32_t> &rawRef, uint32_t curExtractIndex, uint32_t num, int &fileIndex, bool &chr_ends, uint8_t &isSexXY){
+    static bool success;
+    static uint8_t Xchr = mapCHR("X", success);
+    static uint8_t Ychr = mapCHR("Y", success);
+    if(curExtractIndex >= rawRef.size()){
+        chr_ends = true;
+        return 0;
+    }
+    uint32_t cur_index = rawRef[curExtractIndex];
+    uint8_t cur_chr = chr[cur_index];
+
+
+    chr_ends = false;
+    
+    if(cur_chr == Xchr){
+        isSexXY = 1;
+    }else if(cur_chr == Ychr){
+        isSexXY = 2;
+    }else{
+        isSexXY = 0;
+    }
+
+    //isSexXY = (cur_chr == mapCHR("X", success)); // 1 X
+    //isSexXY = (cur_chr == mapCHR("Y", success)? 2 : 0); // 2 Y;
+
+    fileIndex = getMIndex(cur_index);
+    uint32_t rawIndexLimits = raw_limits[fileIndex];
+
+    uint32_t retSize = 0; 
+    for(uint32_t marker_index = curExtractIndex; marker_index < curExtractIndex + num; marker_index++){
+        if(marker_index >= rawRef.size()){
+            chr_ends = true;
+            break;
+        }
+        uint32_t temp_index = rawRef[marker_index];
+        if(chr[temp_index] != cur_chr){
+            chr_ends = true;
+            break;
+        }
+        if(temp_index >= rawIndexLimits){
+            break;
+        }
+        retSize++;
+    }
+    return retSize;
+}
+
+
+
+vector<uint32_t> Marker::getNextSizeIndex(uint32_t cur_marker_index, uint32_t num, bool& chr_ends, bool& isX, bool retRaw){
+    vector<uint32_t> indices;
+    indices.reserve(num);
+    if(cur_marker_index >= index_extract.size()){
+        chr_ends = true;
+        return indices;
+    }
+    uint32_t cur_index = index_extract[cur_marker_index];
+    uint8_t cur_chr = chr[cur_index];
+
+    chr_ends = false;
+    bool success;
+    isX = (cur_chr == mapCHR("X", success));
+
+    for(uint32_t marker_index = cur_marker_index; marker_index < cur_marker_index + num; marker_index++){
+        if(marker_index >= index_extract.size()){
+            chr_ends = true;
+            break;
+        }
+        uint32_t temp_index = index_extract[marker_index];
+        if(chr[temp_index] != cur_chr){
+            chr_ends = true;
+            break;
+        }
+        indices.push_back(retRaw ? temp_index : marker_index);
+    }
+    return indices;
+}
+
+
 
 uint32_t Marker::getNextWindowSize(uint32_t cur_marker_index, uint32_t window){
     if(cur_marker_index >= index_extract.size()){
@@ -287,6 +424,123 @@ void Marker::save_marker(string filename){
     }
     LOGGER.i(0, to_string(index_extract.size()) + " SNPs saved.");
 
+}
+
+void Marker::read_pvar(string pvar_file){
+    LOGGER.i(0, "Reading PLINK2 PVAR file from [" + pvar_file + "]...");
+    vector<string> head;
+    map<int, vector<string>> lists;
+    int nHeader = 0;
+    if(readTxtList(pvar_file, 5, head, nHeader, lists)){
+        int ncol = lists.size();
+        int iChr, iPOS, iID, iA1, iA2;
+        if(head.empty()){
+            if(ncol==6){
+                iChr = 0;
+                iID = 1;
+                iPOS = 3;
+                iA1 = 4;
+                iA2 = 5;
+            }else if(ncol == 5){
+                iChr = 0;
+                iID = 1;
+                iPOS = 2;
+                iA1 = 3;
+                iA2 = 4;
+            }else{
+                LOGGER.e(0, "can't read variant list file with " + to_string(ncol) + " columns, not a valid BIM file.");
+            }
+        }else{
+            if(head[0]=="#CHROM"){
+                iChr = 0;
+                int validHeadCT = 1;
+                bool found;
+                iPOS = findElementVector(head, string("POS"), found);
+                if(found)validHeadCT++;
+
+                iID = findElementVector(head, string("ID"), found);
+                if(found) validHeadCT++;
+
+                iA2 = findElementVector(head, string("REF"), found);
+                if(found) validHeadCT++;
+
+                iA1 = findElementVector(head, string("ALT"), found);
+                if(found) validHeadCT++;
+
+                if(validHeadCT != 5){
+                    LOGGER.e(0, "can't find enough essential columns in PVAR file.");
+                }
+            }else{
+                LOGGER.e(0, "invaild PVAR file, should start with #CHROM.");
+            }
+        }
+
+
+        uint32_t nrows = lists[0].size();
+        uint32_t oriSize = chr.size();
+        uint32_t newSize = oriSize + nrows;
+        chr.resize(newSize);
+        name.resize(newSize);
+        pd.resize(newSize);
+        a1.resize(newSize);
+        a2.resize(newSize);
+        A_rev.resize(newSize, false);
+        byte_start.resize(newSize, 1);
+        vector<uint8_t> validSNP(nrows);
+        #pragma omp parallel for
+        for(int i = 0; i < nrows; i++){
+            uint32_t curRow = i + oriSize;
+            bool success;
+            chr[curRow] = mapCHR(lists[iChr][i], success);
+            if(success){
+                validSNP[i] = 1;
+            }else{
+                validSNP[i] = 0;
+            }
+            name[curRow] = lists[iID][i];
+            try{
+                //gd here if need;
+                pd[curRow] = std::stoi(lists[iPOS][i]);
+            }catch(std::invalid_argument&){
+                LOGGER.e(0, "Line " + to_string(nHeader + i + 1) + " contains illegal distance value.");
+            }
+            auto &curA1 = lists[iA1][i];
+            std::transform(curA1.begin(), curA1.end(), curA1.begin(), toupper);
+            a1[curRow] = curA1;
+
+            auto &curA2 = lists[iA2][i];
+            std::transform(curA2.begin(), curA2.end(), curA2.begin(), toupper);
+            a2[curRow] = curA2;
+        }
+
+        index_extract.reserve(newSize);
+        uint32_t nValidSNP = 0;
+        for(int i = 0; i < nrows; i++){
+            uint32_t curRow = i + oriSize;
+            if(validSNP[i]){
+                index_extract.push_back(curRow);
+                nValidSNP++;
+            }
+        }
+        index_extract.shrink_to_fit();
+
+        num_marker = name.size();
+        num_extract = index_extract.size();
+
+        LOGGER.i(0, to_string(num_marker) + " SNPs to be included from PVAR file(s).");
+        if(nrows != nValidSNP){
+            LOGGER.i(0, to_string(num_extract) + " SNPs to be included from valid chromosome number");
+        }
+
+        MarkerParam markerParam;
+        markerParam.rawCountSNP = nrows;
+        markerParam.rawCountSample = 0; // dummy 
+        markerParam.compressFormat = 0;
+        markerParam.posGenoDataStart = 3; // just dummy, pgen don't start with 3
+        markerParams.push_back(markerParam);
+    }else{
+        LOGGER.e(0, "invalid PVAR file.");
+    }
 }
 
 void Marker::read_bim(string bim_file) {
@@ -348,18 +602,368 @@ void Marker::read_bim(string bim_file) {
     }
     num_marker = name.size();
     num_extract = index_extract.size();
-    LOGGER.i(0, to_string(num_marker) + " SNPs to be included from BIM file.");
+    LOGGER.i(0, to_string(num_marker) + " SNPs to be included from BIM file(s).");
     if(num_marker != num_extract){
         LOGGER.i(0, to_string(num_extract) + " SNPs to be included from valid chromosome number");
     }
     bim.close();
-    if(num_extract == 0){
-        LOGGER.e(0, "0 SNP remain.");
-    }
+    MarkerParam markerParam;
+    markerParam.rawCountSNP = num_marker - start_line_number + 1;
+    markerParam.rawCountSample = 0;
+    markerParam.compressFormat = 0;
+    markerParam.posGenoDataStart = 3;
+    markerParams.push_back(markerParam);
 }
 
-uint64_t Marker::getStartPos(uint32_t raw_index){
-    return byte_start[raw_index];
+void Marker::getStartPosSize(uint32_t raw_index, uint64_t &pos, uint64_t &size){
+    pos = byte_start[raw_index];
+    size = byte_size[raw_index];
+}
+
+MarkerParam Marker::getBgenMarkerParam(FILE *h_bgen, string &outputs){
+    // check file formats
+    uint32_t start_byte = read1Byte<uint32_t>(h_bgen);
+    uint32_t start_data_block = start_byte + 4;
+
+    uint32_t len_header = read1Byte<uint32_t>(h_bgen);
+
+    uint32_t n_variants_total = read1Byte<uint32_t>(h_bgen);
+
+    auto n_sample = read1Byte<uint32_t>(h_bgen);
+    outputs = outputs + to_string(n_sample) + " samples, " + to_string(n_variants_total) + " SNPs.\n";
+
+    char magic[5];
+    readBytes<char>(h_bgen, 4, magic);
+    if(strncmp(magic, "bgen", 4) != 0){
+        LOGGER.e(0, "bad magic number in the bgen file.");
+    }
+
+    int32_t skip_byte = (int32_t)len_header - 20;
+    if(skip_byte > 0){
+        fseek(h_bgen, skip_byte, SEEK_CUR); 
+    }else if(skip_byte < 0){
+        LOGGER.e(0, "strange header length, might be an invalid bgen.");
+    }
+
+    uint32_t flags = read1Byte<uint32_t>(h_bgen);
+    int compress_block = flags & 3; // first 2 bit
+    int layout = (flags >> 2) & 15; //2-5 bit
+    int has_sample = (flags >> 31) & 1;
+
+    outputs += "BGEN version ";
+    switch(layout){
+        case 1:
+            outputs += "1.1, ";
+            break;
+        case 2:
+            outputs += "1.2, ";
+            break;
+        default:
+            outputs += "unkown, ";
+    }
+    switch(compress_block){
+        case 0:
+            outputs += "no compress";
+            break;
+        case 1:
+            outputs += "compressed by zlib";
+            break;
+        case 2:
+            outputs += "compressed by zstd";
+            break;
+        default:
+            outputs += "unknown format";
+    }
+    outputs += ".";
+
+    if(layout != 2){
+        LOGGER.e(0, "GCTA only support bgen version 1.2, 1.3. Use QCTOOLv2 to convert to new version.");
+    }
+
+    if(has_sample){
+        LOGGER.w(0, "GCTA reads sample information from '--sample' inputs, but ignore the built-in sample data.");
+    }
+
+    MarkerParam param;
+    param.rawCountSNP = n_variants_total;
+    param.rawCountSample = n_sample;
+    param.compressFormat = compress_block;
+    param.posGenoDataStart = start_data_block;
+    return param;
+}
+
+
+#define RCSTR(TEMP) std::string(reinterpret_cast<const char*>(TEMP))
+
+void Marker::read_bgen_index(string bgen_file){
+    sqlite3 *db;
+    int rc;
+    string index_fname = bgen_file + ".bgi";
+    string query_file = "file:" + index_fname + "?nolock=1";
+    LOGGER.i(0, "Loading bgen index from [" + index_fname + "]...");
+    rc = sqlite3_open_v2(query_file.c_str(), &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI, NULL);
+
+    //string prompt_index = "'gcta64 --bgen test.bgen --bgen-index --out test.bgen.bgi' or 'bgenix -g test.bgen -index'";
+    string prompt_index = "'bgenix -g test.bgen -index'";
+    if(rc){
+        LOGGER.e(0, "can't open index file: " + string(sqlite3_errmsg(db)) + 
+                "\nIndex the bgen file by " + prompt_index + ".");
+    }
+
+    sqlite3_stmt *stmt;
+
+    //check the bgen file
+    const char * sql_meta = "SELECT * FROM Metadata";
+    rc = sqlite3_prepare_v2(db, sql_meta, -1, &stmt, NULL);
+    if(rc != SQLITE_OK){
+        LOGGER.e(0, "bad index file: " + string(sqlite3_errmsg(db)) +
+                "\nTry to regenerate the index by " + prompt_index + ".");
+    }
+    string filename;
+    uint64_t file_size;
+    const char * first1000bytes;
+    
+    rc = sqlite3_step(stmt);
+    if(rc == SQLITE_ROW){
+        filename = RCSTR(sqlite3_column_text(stmt, 0));
+        file_size = sqlite3_column_int64(stmt, 1);
+        first1000bytes = reinterpret_cast< const char* >(sqlite3_column_blob(stmt, 3));
+    }
+
+    //check 1000 bytes and file size;
+    int num_firstNbytes = file_size < 1000 ? file_size : 1000;
+
+    FILE * h_bgen = fopen(bgen_file.c_str(), "rb");
+    if(h_bgen == NULL){
+        LOGGER.e(0, "can't read bgen file [" + bgen_file + "], " + string(strerror(errno)));
+    }
+
+    char * geno_first1000bytes = new char[num_firstNbytes];
+    if(num_firstNbytes != fread(geno_first1000bytes, sizeof(char), num_firstNbytes, h_bgen)){
+        LOGGER.e(0, "can't read bgen file [" + bgen_file + "], " + string(strerror(errno)));
+    }
+
+    if(strncmp(first1000bytes, geno_first1000bytes, num_firstNbytes) != 0){
+        LOGGER.e(0, "bad index file, first 1000 bytes aren't consistent."
+                "\nTry to regenerate the index by " + prompt_index + ".");
+    }
+
+    fseek(h_bgen, 0L, SEEK_END);
+    if(file_size != ftell(h_bgen)){
+        LOGGER.e(0, "bad index file, file size isn't consistent."
+                "\nTry to regenerate the index by " + prompt_index + ".");
+    }
+    rewind(h_bgen);
+    rc = sqlite3_reset(stmt);
+
+    // check variants;
+    const char * sql_allvar = "SELECT count(*) FROM Variant";
+    const char * sql_var1 = "SELECT * FROM Variant";
+    rc = sqlite3_prepare_v2(db, sql_allvar, -1, &stmt, NULL);
+    if(rc != SQLITE_OK){
+        LOGGER.e(0, "bad index file: " + string(sqlite3_errmsg(db)) +
+                "\nTry to regenerate the index by " + prompt_index + ".");
+    }
+    rc = sqlite3_step(stmt);
+
+    int n_variants_total_index;
+    if(rc == SQLITE_ROW){
+        n_variants_total_index = sqlite3_column_int(stmt, 0);
+    }
+    rc = sqlite3_reset(stmt);
+
+    string outputs;
+    MarkerParam markerParam = getBgenMarkerParam(h_bgen, outputs);
+    LOGGER << outputs << std::endl;
+    if(markerParam.rawCountSNP != n_variants_total_index){
+        LOGGER.e(0, "bad index file, the indexed SNPs are different from bgen file."
+                "\nTry to regenerate the index by " + prompt_index + ".");
+    }
+    markerParams.push_back(markerParam);
+
+    // load the index from bgi
+    const char *sql_count = "SELECT count(*) FROM Variant WHERE number_of_alleles=2";
+    const char *sql = "SELECT chromosome,position,rsid,allele1,allele2,file_start_position,size_in_bytes FROM Variant WHERE number_of_alleles=2";
+
+    // count the alleles
+    rc = sqlite3_prepare_v2(db, sql_count, -1, &stmt, NULL);
+    if(rc != SQLITE_OK){
+        LOGGER.e(0, "bad index file: " + string(sqlite3_errmsg(db)) +
+                "\nTry to regenerate the index by " + prompt_index + ".");
+    }
+    int n_variants = 0;
+    while((rc = sqlite3_step(stmt)) == SQLITE_ROW){
+        n_variants = sqlite3_column_int(stmt, 0);
+    }
+    if(rc != SQLITE_DONE){
+       LOGGER.e(0, "bad index file: " + string(sqlite3_errmsg(db)) +
+                "\nTry to regenerate the index by " + prompt_index + ".");
+    }
+    rc = sqlite3_reset(stmt);
+    if(n_variants == 0){
+        LOGGER.w(0, "None variant with bialleric SNPs.");
+        return;
+    }
+    int cur_total_num_variants = chr.size() + n_variants;
+    chr.reserve(cur_total_num_variants);
+    name.reserve(cur_total_num_variants);
+    gd.reserve(cur_total_num_variants);
+    pd.reserve(cur_total_num_variants);
+    a1.reserve(cur_total_num_variants);
+    a2.reserve(cur_total_num_variants);
+    A_rev.reserve(cur_total_num_variants);
+    byte_start.reserve(cur_total_num_variants);
+    byte_size.reserve(cur_total_num_variants);
+    LOGGER.i(0, to_string(n_variants) + " SNPs to be included from bgen index file.");
+
+    // retrieve each variants
+    rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    if(rc != SQLITE_OK){
+        LOGGER.e(0, "bad index file: " + string(sqlite3_errmsg(db)) +
+                "\nTry to regenerate the index by " + prompt_index + ".");
+    }
+
+    int count_chr_error = 0;
+    while((rc = sqlite3_step(stmt)) == SQLITE_ROW){
+        string snp_chr = RCSTR(sqlite3_column_text(stmt, 0));
+        uint8_t chr_item = 0;
+        bool keep_snp = true;
+        try{
+            chr_item = std::stoi(snp_chr);
+        }catch(std::invalid_argument&){
+            try{
+                chr_item = chr_maps.at(snp_chr);
+            }catch(std::out_of_range&){
+                count_chr_error++;
+                keep_snp = false;
+            }
+        }
+
+        if(chr_item < options_i["start_chr"] || chr_item > options_i["end_chr"]){
+            count_chr_error++;
+            keep_snp = false;
+        }
+        if(keep_snp){
+            chr.push_back(chr_item);
+            name.push_back(RCSTR(sqlite3_column_text(stmt, 2)));
+            gd.push_back(0);
+            pd.push_back(sqlite3_column_int(stmt, 1));
+            string snp_a1 = RCSTR(sqlite3_column_text(stmt, 3));
+            string snp_a2 = RCSTR(sqlite3_column_text(stmt, 4));
+            std::transform(snp_a1.begin(), snp_a1.end(), snp_a1.begin(), toupper);
+            std::transform(snp_a2.begin(), snp_a2.end(), snp_a2.begin(), toupper);
+            a1.push_back(snp_a1);
+            a2.push_back(snp_a2);
+
+            A_rev.push_back(false);
+            byte_start.push_back(sqlite3_column_int64(stmt, 5));
+            uint64_t cur_size = sqlite3_column_int64(stmt, 6);
+            byte_size.push_back(cur_size);
+            if(maxGeno1ByteSize < cur_size){
+                maxGeno1ByteSize = cur_size;
+            }
+        }
+    }
+
+    if (rc != SQLITE_DONE) {
+        LOGGER.e(0, string(sqlite3_errmsg(db)) + "\nBad index file, regenerate by " + prompt_index + ".");
+    }
+
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+    num_marker = cur_total_num_variants - count_chr_error;
+    int num_var_added = n_variants - count_chr_error;
+
+    // check the first and last SNPs
+    if(num_var_added > 0){
+        int index1 = chr.size() - num_var_added;
+        int index2 = index1 + num_var_added - 1;
+        uint64_t pos1 = byte_start[index1];
+        uint64_t pos2 = byte_start[index2];
+        MarkerInfo m1 = extractBgenMarkerInfo(h_bgen, pos1);
+        MarkerInfo m2 = extractBgenMarkerInfo(h_bgen, pos2);
+        vector<string> allele1 = {a1[index1], a2[index1]};
+        vector<string> allele2 = {a1[index2], a2[index2]};
+        bool success;
+        if(mapCHR(m1.chr, success) != chr[index1] || m1.name != name[index1] || m1.pd != pd[index1] || m1.alleles != allele1){
+            LOGGER.e(0, "The first variant in bgen file aren't consistent with index file."
+                "\nTry to regenerate the index by " + prompt_index + ".");
+        }
+
+        if(mapCHR(m2.chr, success) != chr[index2] || m2.name != name[index2] || m2.pd != pd[index2] || m2.alleles != allele2){
+            LOGGER.e(0, "The variants in bgen file aren't consistent with index file."
+                "\nTry to regenerate the index by " + prompt_index + ".");
+        }
+    }
+
+    fclose(h_bgen);
+
+    if(count_chr_error > 0){
+        LOGGER << count_chr_error << " SNPs excluded due to filter on chromosome. " << std::endl;
+    }
+
+    LOGGER << "Total SNPs included: " << num_var_added  << "/" <<  num_marker << "." << std::endl;
+ 
+}
+
+uint64_t Marker::getMaxGenoMarkerUptrSize(){
+    int suptr = sizeof(uintptr_t);
+    return (maxGeno1ByteSize + suptr - 1) / suptr; 
+}
+
+MarkerInfo Marker::extractBgenMarkerInfo(FILE *h_bgen, uint64_t &pos){
+    fseek(h_bgen, pos, SEEK_SET);
+    auto Lid = read1Byte<uint16_t>(h_bgen);
+    fseek(h_bgen, Lid, SEEK_CUR);
+
+    auto len_rs = read1Byte<uint16_t>(h_bgen);
+    unique_ptr<char[]> rsid(new char[len_rs + 1]());
+    readBytes(h_bgen, len_rs, rsid.get());
+
+    auto len_chr = read1Byte<uint16_t>(h_bgen);
+    unique_ptr<char[]> snp_chr(new char[len_chr + 1]());
+    
+    readBytes(h_bgen, len_chr, snp_chr.get());
+
+    string chr(snp_chr.get());
+
+    auto snp_pos = read1Byte<uint32_t>(h_bgen);
+
+    auto n_alleles = read1Byte<uint16_t>(h_bgen);
+    vector<string> alleles;
+    for(int i = 0; i < n_alleles; i++){
+        auto len_a1 = read1Byte<uint32_t>(h_bgen);
+        unique_ptr<char[]> snp_a1(new char[len_a1 + 1]());
+        readBytes(h_bgen, len_a1, snp_a1.get());
+        std::transform(snp_a1.get(), snp_a1.get() + len_a1, snp_a1.get(), toupper);
+        alleles.push_back(snp_a1.get());
+    }
+
+    uint64_t snp_start = ftell(h_bgen);
+
+    //auto len_comp = read1Byte<uint32_t>(h_bgen); 
+    //fseek(h_bgen, len_comp, SEEK_CUR);
+
+    MarkerInfo markerInfo;
+    markerInfo.chr = chr;
+    markerInfo.name = string(rsid.get());
+    markerInfo.pd = snp_pos;
+    markerInfo.alleles = alleles;
+    markerInfo.A_rev = false;
+
+    pos = snp_start; // set the position easy for seek
+
+    return markerInfo;
+}
+    
+
+MarkerParam Marker::getMarkerParams(int part_num){
+    if(part_num < markerParams.size()){
+        return markerParams[part_num];
+    }else{
+        LOGGER.e(0, "Get Marker Params out of range.");
+        return markerParams[0]; // dummy return
+    }
 }
 
 
@@ -420,9 +1024,13 @@ void Marker::read_bgen(string bgen_file){
             LOGGER << "unknown format";
     }
     LOGGER << "." << std::endl;
+
+    if(layout != 2){
+        LOGGER.e(0, "GCTA only support bgen version 1.2, 1.3. Use QCTOOL to convert to new version.");
+    }
                
-    if(compress_block != 1 || layout != 2){
-        LOGGER.e(0, "bgen < 1.2, compress not by zlib is not supported currently");
+    if(compress_block != 1){
+        LOGGER.e(0, "Compress not by zlib is not supported currently");
     }
 
     LOGGER << "Looking for bialleric allels..." << std::endl;
@@ -443,16 +1051,26 @@ void Marker::read_bgen(string bgen_file){
         uint8_t chr_item = 0;
         bool keep_snp = true;
         try{
-            chr_item = chr_maps.at(snp_chr.get());
-        }catch(std::out_of_range&){
-            count_chr_error++;
-            keep_snp = false;
+            chr_item = std::stoi(string(snp_chr.get()));
+        }catch(std::invalid_argument&){
+            try{
+                chr_item = chr_maps.at(snp_chr.get());
+            }catch(std::out_of_range&){
+                count_chr_error++;
+                keep_snp = false;
+            }
         }
+        //if(errno == ERANGE){
+        //if(errno != 0){
 
         if(chr_item < options_i["start_chr"] || chr_item > options_i["end_chr"]){
             count_chr_error++;
             keep_snp = false;
         }
+
+        //LOGGER << options_i["start_chr"] << " " << options_i["end_chr"] << " " << (int)chr_item << " count_chr_error:" << count_chr_error << std::endl;
+        //LOGGER.e(0, "test")
+
 
         auto snp_pos = read1Byte<uint32_t>(h_bgen);
 
@@ -506,6 +1124,26 @@ void Marker::read_bgen(string bgen_file){
     }
 }
 
+uint8_t Marker::mapCHR(string chr_str, bool &success){
+    uint8_t chr_item = 0;
+    bool keep_snp = true;
+    try{
+        chr_item = std::stoi(chr_str);
+    }catch(std::invalid_argument&){
+        try{
+            chr_item = chr_maps.at(chr_str);
+        }catch(std::out_of_range&){
+            keep_snp = false;
+        }
+    }
+
+    if(chr_item < options_i["start_chr"] || chr_item > options_i["end_chr"]){
+        keep_snp = false;
+    }
+    success = keep_snp;
+    return chr_item;
+}
+
 uint32_t Marker::count_raw(int part) {
     if(part == -1){
         return num_marker;
@@ -518,8 +1156,43 @@ uint32_t Marker::count_extract(){
     return index_extract.size();
 }
 
+vector<uint32_t>& Marker::get_extract_index(){ // raw index
+    return this->index_extract;
+}
+
+vector<uint32_t> Marker::get_extract_index_autosome(){ // returns the index in keep list not raw
+    uint8_t last_auto_chr = options_i["last_chr_autosome"] + 1;
+    uint8_t xy_chr = options_i["last_chr_autosome"] + 3;
+    vector<uint32_t> auto_index;
+    for(int i = 0; i < index_extract.size(); i++){
+        uint32_t curIndex = index_extract[i];
+        if(chr[curIndex] < last_auto_chr || chr[curIndex] == xy_chr){
+            auto_index.push_back(i);
+        }
+    }
+    return auto_index;
+}
+
+vector<uint32_t> Marker::get_extract_index_X(){
+    uint8_t chrx = options_i["last_chr_autosome"] + 1;
+    vector<uint32_t> auto_index;
+    for(int i = 0; i < index_extract.size(); i++){
+        uint32_t curIndex = index_extract[i];
+        if(chr[curIndex] == chrx){
+            auto_index.push_back(i);
+        }
+    }
+    return auto_index;
+}
+
+
 void Marker::extract_marker(vector<string> markers, bool isExtract) {
     vector<uint32_t> ori_index, marker_index;
+    size_t numOriMarker = markers.size();
+    removeDuplicateSort(markers);
+    int numDup = numOriMarker - markers.size();
+    if(numDup != 0) LOGGER.w(0, to_string(numDup) + " duplicated SNPs were ignored in the list." );
+
     vector_commonIndex_sorted1(name, markers, ori_index, marker_index);
     vector<uint32_t> remain_index;
     if(isExtract){
@@ -540,7 +1213,6 @@ void Marker::extract_marker(vector<string> markers, bool isExtract) {
     }
 
     LOGGER.i(0, string("After ") + (isExtract? "extracting" : "excluding") +  " SNP, " +  to_string(num_extract) + " SNPs remain.");
-
 }
 
 void Marker::reset_exclude(){
@@ -575,15 +1247,20 @@ void Marker::keep_extracted_index(const vector<uint32_t>& keep_index) {
     keep_raw_index(raw_index);
 }
 
-string Marker::get_marker(int extract_index){ // raw index
-    string return_string = std::to_string(chr[extract_index]) + "\t" + name[extract_index] + "\t" + 
-        std::to_string(pd[extract_index]) + "\t";
-    if(A_rev[extract_index]){
-        return return_string + a2[extract_index] + "\t" + a1[extract_index];
+string Marker::get_marker(int rawindex){ // raw index
+    string return_string = std::to_string(chr[rawindex]) + "\t" + name[rawindex] + "\t" + 
+        std::to_string(pd[rawindex]) + "\t";
+    if(A_rev[rawindex]){
+        return return_string + a2[rawindex] + "\t" + a1[rawindex];
     }else{
-        return return_string + a1[extract_index] + "\t" + a2[extract_index];
+        return return_string + a1[rawindex] + "\t" + a2[rawindex];
     }
 }
+
+string Marker::getMarkerStrExtract(int extractindex){ // extract index
+    return get_marker(getRawIndex(extractindex));
+}
+ 
 
 bool Marker::isInExtract(uint32_t index) {
     if(index_extract.size() > index_exclude.size()){
@@ -593,13 +1270,19 @@ bool Marker::isInExtract(uint32_t index) {
     }
 }
 
-uint32_t Marker::getExtractIndex(uint32_t extractedIndex){
+uint32_t Marker::getRawIndex(uint32_t extractedIndex){
     return index_extract[extractedIndex];
 }
 
 bool Marker::isEffecRev(uint32_t extractedIndex){
     return A_rev[index_extract[extractedIndex]];
 }
+
+bool Marker::isEffecRevRaw(uint32_t rawIndex){
+    return A_rev[rawIndex];
+}
+
+
 
 //TODO support multiple column SNP list, currently only take the first SNP list
 // If multiple column provided, it will miss the correct SNP name.
@@ -630,7 +1313,6 @@ vector<string> Marker::read_snplist(string snplist_file) {
         last_length = line_elements.size();
     }
     if_snplist.close();
-    LOGGER.i(0, "Get " + to_string(line_number) + " SNPs from [" + snplist_file + "]");
     return snplist;
 }
 
@@ -661,18 +1343,14 @@ int Marker::registerOption(map<string, vector<string>>& options_in){
     addOneFileOption("update_ref_allele_file", "", "--update-ref-allele", options_in);
     addOneFileOption("bgen_file", "", "--bgen", options_in);
 
-    if(options_in.find("m_file") != options_in.end()){
-        for(auto & item : options_in["m_file"]){
-            std::ifstream file_item((item + ".bim").c_str());
-            if(file_item.fail()){
-                LOGGER.e(0, "can't read BIM file in [" + item + "].");
-            }
-            file_item.close();
-        }
-        options["m_file"] = boost::algorithm::join(options_in["m_file"], "\t");
-        boost::replace_all(options["m_file"], "\r", "");
-    }
+    addOneFileOption("pvar_file", ".pvar", "--pfile", options_in);
+    addOneFileOption("marker_file", ".bim", "--bpfile", options_in);
 
+    addMFileListsOption("mbgen_file", ".bgen", "--mbgen", options_in, options);
+    addMFileListsOption("m_pvar", ".pvar", "--mpfile", options_in, options);
+    addMFileListsOption("m_file", ".bim", "--mbpfile", options_in, options);
+    addMFileListsOption("m_file", ".bim", "--mbfile", options_in, options);
+        
     if(options_in.find("--autosome-num") != options_in.end()){
         if(options_in["--autosome-num"].size() == 1){
             try{

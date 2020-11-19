@@ -3,19 +3,20 @@
  *
  * GCTA options
  *
- * 2010-2017 by Jian Yang <jian.yang@uq.edu.au> and others
+ * 2010-Present by Jian Yang <jian.yang.qt@gmail.com> and others
  *
  * This file is distributed under the GNU General Public
- * License, Version 2.  Please see the file COPYING for more
+ * License, Version 3.  Please see the file LICENSE for more
  * details
  *
  * Mocked by Zhili.
  *
  * This folder contains most majority functions of GCTA.
- * We are moving toward version 2 by huge mocks on original version.
+ * We are moving toward new version by huge mocks on original version.
  * 
  */
 
+#include <cstdio>
 #include <stdlib.h>
 #include "gcta.h"
 #include "Logger.h"
@@ -112,6 +113,10 @@ void option(int option_num, char* option_str[])
     bool reml_allow_constrain_run = false;
     double prevalence = -2.0, prevalence2 = -2.0;
     bool reml_flag = false, pred_rand_eff = false, est_fix_eff = false, blup_snp_flag = false, no_constrain = false, reml_lrt_flag = false, no_lrt = false, bivar_reml_flag = false, ignore_Ce = false, within_family = false, reml_bending = false, HE_reg_flag = false, reml_diag_one = false, bivar_no_constrain = false;
+    int reml_diagV_adj = 0;
+    double reml_diag_mul = 0.01;
+    int reml_inv_method = 0;
+
     bool cv_blup = false;
     bool HE_reg_bivar_flag = false;
     string weight_file = "";
@@ -725,6 +730,15 @@ void option(int option_num, char* option_str[])
         } else if (strcmp(argv[i], "--reml-diag-one") == 0) {
             reml_diag_one = true;
             LOGGER << "--reml-diag-one " << endl;
+        } else if (strcmp(argv[i], "--reml-diagV-adj") == 0) {
+            reml_diagV_adj = atoi(argv[++i]);
+            LOGGER << "--reml-diagV-adj " << reml_diagV_adj << endl;
+        } else if(strcmp(argv[i], "--reml-diag-mul") == 0) {
+            reml_diag_mul = stod(argv[++i]);
+            LOGGER << "--reml-diag-mul " << reml_diag_mul << endl;
+        } else if(strcmp(argv[i], "--reml-inv-mtd") == 0){
+            reml_inv_method = stoi(argv[++i]);
+            LOGGER << "--reml-inv-mtd " << reml_inv_method << endl;
         } else if (strcmp(argv[i], "--pheno") == 0) {
             phen_file = argv[++i];
             LOGGER << "--pheno " << phen_file << endl;
@@ -741,9 +755,9 @@ void option(int option_num, char* option_str[])
             covar_file = argv[++i];
             LOGGER << "--covar " << covar_file << endl;
             CommFunc::FileExist(covar_file);
-        } else if (strcmp(argv[i], "--weighted-res") == 0){
+        } else if (strcmp(argv[i], "--reml-res-diag") == 0){
             weight_file = argv[++i];
-            LOGGER << "--weighted-res " << weight_file << endl;
+            LOGGER << "--reml-res-diag " << weight_file << endl;
             CommFunc::FileExist(weight_file);
         } else if (strcmp(argv[i], "--gxqe") == 0) {
             qgxe_file = argv[++i];
@@ -853,8 +867,8 @@ void option(int option_num, char* option_str[])
             LOGGER << "--cojo-top-SNPs " << massoc_top_SNPs << endl;
             if (massoc_top_SNPs < 1 || massoc_top_SNPs > 10000) LOGGER.e(0, "\n  --cojo-top-SNPs should be within the range from 1 to 10000.\n");
         } else if (strcmp(argv[i], "--cojo-actual-geno") == 0) {
-            massoc_actual_geno_flag = true;
-            LOGGER << "--cojo-actual-geno" << endl;
+            massoc_actual_geno_flag = false;
+            LOGGER << "--cojo-actual-geno is deprecated currently." << endl;
         } else if (strcmp(argv[i], "--cojo-p") == 0) {
             massoc_p = atof(argv[++i]);
             LOGGER << "--cojo-p " << massoc_p << endl;
@@ -1259,6 +1273,10 @@ void option(int option_num, char* option_str[])
     if(reml_fixed_var_flag) pter_gcta->set_reml_fixed_var();
     if(reml_allow_constrain_run) pter_gcta->set_reml_allow_constrain_run();
     if(reml_mtd != 0) pter_gcta->set_reml_mtd(reml_mtd);
+    if(reml_inv_method != 0) pter_gcta->set_reml_inv_method(reml_inv_method);
+    pter_gcta->set_reml_diagV_adj(reml_diagV_adj);
+    pter_gcta->set_reml_diag_mul(reml_diag_mul);
+    pter_gcta->set_diff_freq(freq_thresh); 
     if (grm_bin_flag || m_grm_bin_flag) pter_gcta->enable_grm_bin_flag();
     //if(simu_unlinked_flag) pter_gcta->simu_geno_unlinked(simu_unlinked_n, simu_unlinked_m, simu_unlinked_maf);
     if (!RG_fname_file.empty()) {

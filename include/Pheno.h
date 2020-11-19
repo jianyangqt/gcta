@@ -44,7 +44,7 @@ public:
     uint32_t count_keep();
     uint32_t count_male();
     void mask_geno_keep(uint8_t *const geno_1block, int num_blocks);
-    vector<string> get_id(int from_index, int to_index);
+    vector<string> get_id(int from_index, int to_index, string delim = "\t");
     uint8_t extract_genobit(uint8_t * const buf, int index_in_keep);
     vector<uint32_t>& get_index_keep();
     void get_pheno(vector<string>& ids, vector<double>& pheno);
@@ -52,6 +52,11 @@ public:
     void filter_keep_index(vector<uint32_t>& k_index);
     void getMaskBit(uint64_t *maskp);
     void getMaskBitMale(uint64_t *maskp);
+    uint32_t getSeed();
+
+    vector<uint32_t>& getSexValidRawIndex();
+    vector<uint32_t>& getMaleRawIndex();
+    vector<uint32_t>& getMaleExtractIndex();
 
     static int registerOption(map<string, vector<string>>& options);
     static void processMain();
@@ -67,7 +72,11 @@ private:
     vector<double> pheno;
     vector<uint32_t> index_keep;
     vector<uint32_t> index_rm;
+
+    vector<uint32_t> index_keep_sex;
     vector<uint32_t> index_keep_male;
+    vector<uint32_t> index_keep_male_extract; // in the sex valid
+
     vector<int> block8_rm;
     vector<uint8_t> mask_rm;
     int num_ind = 0;
@@ -79,6 +88,8 @@ private:
 
     void read_fam(string fam_file);
     void read_sample(string sample_file);
+    void read_psam(string psam_file);
+    void read_checkMPSample(string m_file);
     void update_pheno(vector<string>& indi_marks, vector<double>& phenos);
     void update_sex(vector<string>& indi_marks, vector<double>& sex);
     void init_mask_block();

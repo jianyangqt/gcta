@@ -192,7 +192,8 @@ void LD::processMain(){
 
             while(cur_index_marker < total_num_marker){
                 cur_buffer = !cur_buffer;
-                vector<uint32_t> indices1 = marker.getNextWindowIndex(cur_index_marker, window, chr_ends);
+                bool isX;
+                vector<uint32_t> indices1 = marker.getNextWindowIndex(cur_index_marker, window, chr_ends, isX);
                 geno_buffer[cur_buffer].reset(new double[indices1.size() * num_indi]);
                 cur_buffer_offset[cur_buffer] = 0;
                 geno.loop_64block(indices1, callBacks, false);

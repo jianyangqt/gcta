@@ -27,6 +27,7 @@
 #include "utils.hpp"
 #include <cstring>
 #include <boost/algorithm/string.hpp>
+#include <boost/crc.hpp>
 #include <set>
 #include "OptionIO.h"
 
@@ -44,12 +45,28 @@ Pheno::Pheno() {
     if(options.find("pheno_file") != options.end()){
         this->read_fam(options["pheno_file"]);
         has_pheno = true;
-    }else{
     }
 
     if(options.find("sample_file") != options.end()){
         has_pheno = true;
         this->read_sample(options["sample_file"]);
+    }
+
+    if(options.find("psam_file") != options.end()){
+        has_pheno = true;
+        read_psam(options["psam_file"]);
+    }
+
+    if(options.find("mpsam_file") != options.end()){
+        has_pheno = true;
+        string mpsam_file = options["mpsam_file"]; 
+        read_checkMPSample(mpsam_file);
+    }
+
+    if(options.find("mpheno_file") != options.end()){
+        has_pheno = true;
+        string mpsam_file = options["mpheno_file"]; 
+        read_checkMPSample(mpsam_file);
     }
 
     if(!has_pheno){
@@ -58,11 +75,13 @@ Pheno::Pheno() {
 
     if(options.find("keep_file") != options.end()){
         vector<string> keep_subjects = read_sublist(options["keep_file"]);
+        LOGGER << "Get " << keep_subjects.size() << " samples from list [" << options["keep_file"] << "]." << std::endl;
         set_keep(keep_subjects, mark, index_keep,  true);
     }
 
     if(options.find("remove_file") != options.end()){
         vector<string> remove_subjects = read_sublist(options["remove_file"]);
+        LOGGER << "Get " << remove_subjects.size() << " samples from list [" << options["remove_file"] << "]." << std::endl;
         set_keep(remove_subjects, mark, index_keep, false);
     }
 
@@ -70,6 +89,10 @@ Pheno::Pheno() {
         vector<vector<double>> phenos;
         LOGGER.i(0, "Reading phenotype data from [" + options["qpheno_file"] + "]...");
         vector<string> pheno_subjects = read_sublist(options["qpheno_file"], &phenos);
+        if(hasVectorDuplicate(pheno_subjects)){
+            LOGGER.e(0, "find duplicated items in phenotype data.");
+        }
+
         int cur_pheno = 1;
         if(options.find("mpheno") != options.end()){
             try{
@@ -86,7 +109,7 @@ Pheno::Pheno() {
         cur_pheno -= 1;
 
         update_pheno(pheno_subjects, phenos[cur_pheno]);
-        LOGGER.i(0, to_string(index_keep.size()) + " overlapped individuals with non-missing data to be included from the phenotype file.");
+        LOGGER.i(0, to_string(index_keep.size()) + " overlapping individuals with non-missing data to be included from the phenotype file.");
         
     }
 
@@ -94,6 +117,9 @@ Pheno::Pheno() {
         vector<vector<double>> phenos;
         LOGGER.i(0, "Reading gender information from [" + options["sex_file"] + "]...");
         vector<string> subjects = read_sublist(options["sex_file"], &phenos);
+        if(hasVectorDuplicate(subjects)){
+            LOGGER.e(0, "find duplicated items in gender information.");
+        }
         vector<double> sex_info = phenos[0];
         update_sex(subjects, sex_info);
         LOGGER.i(0, to_string(index_keep.size()) + " individuals with valid sex information to be included from the phenotype file.");
@@ -104,6 +130,19 @@ Pheno::Pheno() {
     }
 
     reinit();
+    LOGGER << index_keep.size() << " individuals to be included. " << index_keep_male.size() << " males, " << index_keep_sex.size() - index_keep_male.size() << " females, " << index_keep.size() - index_keep_sex.size() <<" unknown." << std::endl;
+
+    /*
+    vector<string> filter_marker;
+    for(int i = 0; i < index_keep.size(); i++){
+        filter_marker.push_back(mark[index_keep[i]]);
+    }
+
+    if(hasVectorDuplicate(filter_marker)){
+        LOGGER.e(0, "find duplicated items in sample IDs.");
+    }
+    */
+
 }
 
 void Pheno::filter_keep_index(vector<uint32_t>& k_index){
@@ -152,6 +191,25 @@ void Pheno::reinit(){
         LOGGER.e(0, "0 individual remain for further analysis.");
     }
     //init_mask_block();
+    index_keep_male.clear();
+    index_keep_sex.clear();
+    index_keep_male_extract.clear();
+
+    uint32_t curSexIndex = 0;
+    for(int i = 0; i < num_keep; i++){
+        uint32_t curIndex = index_keep[i];
+        int8_t curSex = sex[curIndex];
+        if(curSex == 1){
+            index_keep_male.push_back(curIndex);
+            //index_keep_male_extract.push_back(curSexIndex);
+            index_keep_male_extract.push_back(i);
+            index_keep_sex.push_back(curIndex);
+            curSexIndex++;
+        }else if(curSex == 2){
+            index_keep_sex.push_back(curIndex);
+            curSexIndex++;
+        }
+    }
     
 }
 
@@ -164,24 +222,25 @@ vector<string> Pheno::read_sublist(string sublist_file, vector<vector<double>> *
         LOGGER.e(0, "cann't read [" + sublist_file + "]");
     }
     vector<int> keep_row;
-    string err_file = "the subject list file [" + sublist_file + "]";
+    string err_file = "the file [" + sublist_file + "]";
+
+    const double dNAN = strtod("nan", NULL);
 
     string line;
-    int line_number = 0;
     int last_length = 0;
-    bool init_pheno = true;
     int large_elements = 0;
-    while(std::getline(sublist, line)){
-        line_number++;
+    int min_col = 2;
+
+    if(std::getline(sublist, line)){
         vector<string> line_elements;
         boost::split(line_elements, line, boost::is_any_of("\t "));
         int num_elements = line_elements.size();
-        boost::replace_all(line_elements[num_elements - 1], "\r", "");
-        if(num_elements < 2){
-            LOGGER.e(0, err_file + ", line " + to_string(line_number) +
-                        " has elements less than 2");
-        }
-        if(phenos && init_pheno){
+        last_length = num_elements;
+        if(phenos){
+            if(num_elements < 3){
+                LOGGER.e(0, err_file + " has less than 3 columns, first 2 columns should be FID, IID");
+            }
+
             if(keep_row_p){
                 keep_row = *keep_row_p;
                 phenos->resize(keep_row.size());
@@ -194,12 +253,27 @@ vector<string> Pheno::read_sublist(string sublist_file, vector<vector<double>> *
             if(large_elements > num_elements){
                 LOGGER.e(0, err_file + " has not enough column to read");
             }
-            init_pheno = false;
+        }else{
+            if(num_elements < 2){
+                LOGGER.e(0, err_file + " has less than 2 columns.");
+            }
         }
+    }else{
+        LOGGER.e(0, err_file + " is empty.");
+    }
+    sublist.seekg(0);
 
-        if(line_number > 1 && num_elements != last_length){
+    int line_number = 0;
+    while(std::getline(sublist, line)){
+        line_number++;
+        vector<string> line_elements;
+        boost::split(line_elements, line, boost::is_any_of("\t "));
+        int num_elements = line_elements.size();
+        boost::replace_all(line_elements[num_elements - 1], "\r", "");
+
+        if(num_elements != last_length){
             string errmsg = err_file + ", line " + to_string(line_number) +
-                        " has different elements";
+                " has different number of columns.";
             LOGGER.w(0, errmsg);
         }
 
@@ -211,10 +285,17 @@ vector<string> Pheno::read_sublist(string sublist_file, vector<vector<double>> *
             }
             for(int index = 0; index != keep_row.size(); index++){
                 const char *temp_str = line_elements[index+2].c_str();
-                char* pEnd;
-                double temp_double = strtod(temp_str, &pEnd);
-                if(strlen(temp_str) != pEnd - temp_str){ 
-                    temp_double = strtod("nan", NULL);
+                double temp_double;
+                // special case -9
+                if(strcmp(temp_str, "-9")==0){
+                    temp_double = dNAN;
+                }else{
+                    char* pEnd;
+                    // this hold for all other strings, include "."
+                    temp_double = strtod(temp_str, &pEnd);
+                    if(strlen(temp_str) != pEnd - temp_str){ 
+                        temp_double = dNAN;
+                    }
                 }
                 (*phenos)[index].push_back(temp_double);
                 
@@ -225,6 +306,138 @@ vector<string> Pheno::read_sublist(string sublist_file, vector<vector<double>> *
     }
     sublist.close();
     return subject_list;
+}
+
+void Pheno::read_checkMPSample(string m_file){
+    vector<string> mfiles;
+    boost::split(mfiles, m_file, boost::is_any_of("\t "));
+    if(mfiles.size() > 0){
+        read_psam(mfiles[0]);
+    }
+    if(mfiles.size() > 1){
+        LOGGER << "Checking other sample files..." << std::endl;
+        vector<string> head1;
+        map<int, vector<string>> lists1;
+        int nHeader1 = 0;
+        readTxtList(mfiles[0], 2, head1, nHeader1, lists1);
+        int ncol1 = lists1.size();
+        int nFiles = mfiles.size();
+        vector<uint8_t> fileValids(nFiles, 0);
+        #pragma omp parallel for
+        for(int i = 1; i < nFiles; i++){
+            vector<string> head;
+            map<int, vector<string>> lists;
+            int nHeader = 0;
+            if(readTxtList(mfiles[i], 2, head, nHeader, lists)){
+                if(head == head1 && ncol1 == lists.size()){
+                    for(int j = 0; j < ncol1; j++){
+                        if(lists[j] != lists1[j]){
+                            fileValids[i] = false;
+                            break;
+                        }
+                    }
+                    fileValids[i] = 1;
+                }
+            }
+        }
+        bool errr = false;
+        for(int i = 1; i < nFiles; i++){
+            if(fileValids[i] == 0){
+                errr = true;
+                LOGGER.w(0, "Sample file [" + mfiles[i] + "] is different from the first file.");
+            }
+        }
+        if(errr){
+            LOGGER.e(0, "GCTA requires all files with same sample information.");
+        }else{
+            LOGGER.i(1, "All files checked OK.");
+        }
+    }
+}
+
+void Pheno::read_psam(string psam_file){
+    LOGGER.i(0, "Reading PLINK sample file from [" + psam_file + "]...");
+    vector<string> head;
+    map<int, vector<string>> lists;
+    int nHeader = 0;
+    if(readTxtList(psam_file, 2, head, nHeader, lists)){
+        int ncol = lists.size();
+        int iFID = -1, iIID = -1, iPAT = -1, iMAT = -1, iSEX = -1;
+        if(head.empty()){
+            if(ncol == 6){
+                iFID = 0;
+                iIID = 1;
+                iPAT = 2;
+                iMAT = 3;
+                iSEX = 4;
+            }else{
+                LOGGER.e(0, "only find " + to_string(ncol) + " columns, invalid FAM file (at least 6).");
+            }
+            //pheno.push_back(strtod("nan", NULL)); //5
+        }else{
+            bool foundFID;
+            iFID = findElementVector(head, string("#FID"), foundFID); 
+
+            bool foundIID;
+            if(foundFID){
+                iIID = findElementVector(head, string("IID"), foundIID);
+            }else{
+                // if not find FID, then use the IID instead, different from plink 
+                iIID = findElementVector(head, string("#IID"), foundIID);
+                iFID = iIID;
+            }
+            if(!foundIID) LOGGER.e(0, "can't find IID or #IID in header, invalid PSAM file.");
+
+            bool found;
+            iSEX = findElementVector(head, string("SEX"), found);
+            if(!found) LOGGER.e(0, "SEX column in PSAM file is essential to GCTA.");
+            iPAT = findElementVector(head, string("PAT"), found);
+            iMAT = findElementVector(head, string("MAT"), found);
+        }
+        uint32_t nrows = lists[0].size();
+        fid.resize(nrows);
+        pid.resize(nrows);
+        mark.resize(nrows);
+        fa_id.resize(nrows);
+        mo_id.resize(nrows);
+        sex.resize(nrows);
+        pheno.resize(nrows, std::numeric_limits<double>::quiet_NaN());
+        #pragma omp parallel for
+        for(int i = 0; i < nrows; i++){
+            fid[i] = lists[iFID][i];
+            pid[i] = lists[iIID][i];
+            mark[i] = (fid[i] + "\t" + pid[i]);
+            int sex_code = 0;
+            string &sex_item = lists[iSEX][i];
+            if(sex_item == "1"){
+                sex_code = 1;
+            }else if(sex_item == "2"){
+                sex_code = 2;
+            }// others all unknown
+            //sex[i] = std::stoi(lists[iSEX][i]);
+            sex[i] = sex_code;
+            if(iPAT != -1){
+                fa_id[i] = lists[iPAT][i];
+            }else{
+                fa_id[i] = "0";
+            }
+            if(iMAT != -1){
+                mo_id[i] = lists[iMAT][i];
+            }else{
+                mo_id[i] = "0";
+            }
+        }
+        index_keep.resize(nrows);
+        std::iota(index_keep.begin(), index_keep.end(), 0);
+
+        num_ind = fid.size();
+        num_keep =  index_keep.size();
+        LOGGER.i(0, to_string(num_ind) + " individuals to be included from the sample file.");
+
+    }else{
+        LOGGER.e(0, "invalid PSAM file.");
+    }
+
 }
 
 void Pheno::read_sample(string sample_file){
@@ -256,6 +469,15 @@ void Pheno::read_sample(string sample_file){
         LOGGER.e(0, "invalid sample file");
     }
 
+    std::map<string, uint8_t> sex_map;
+    sex_map["0"] = 0;
+    sex_map["1"] = 1;
+    sex_map["2"] = 2;
+    sex_map["NA"] = 0;
+    sex_map["NAN"] = 0;
+    sex_map["na"] = 0;
+    sex_map["nan"] = 0;
+
     int line_number = 0;
     while(std::getline(hsample, line)){
         boost::split(line_elements, line, boost::is_any_of("\t "));
@@ -266,7 +488,7 @@ void Pheno::read_sample(string sample_file){
             fa_id.push_back("0");
             mo_id.push_back("0");
             mark.push_back(line_elements[0] + "\t" + line_elements[1]);
-            sex.push_back(std::stoi(line_elements[3]));
+            sex.push_back(sex_map[line_elements[3]]);
             pheno.push_back(strtod("nan", NULL)); //5
         }else{
             LOGGER.e(0, "Line " + to_string(line_number + 3) + " has different number of columns.");
@@ -278,7 +500,7 @@ void Pheno::read_sample(string sample_file){
     std::iota(index_keep.begin(), index_keep.end(), 0);
     num_ind = index_keep.size();
     num_keep =  index_keep.size();
-    LOGGER.i(0, to_string(num_ind) + " individuals to be included from sample file.");
+    LOGGER.i(0, to_string(num_ind) + " individuals to be included from the sample file.");
     hsample.close();
 }
 
@@ -324,14 +546,23 @@ void Pheno::read_fam(string fam_file) {
     fam.close();
 }
 
-vector<string> Pheno::get_id(int from_index, int to_index){
+uint32_t Pheno::getSeed(){
+    boost::crc_32_type result;
+    for(int i = 0; i < pid.size(); i++){
+        string tmp = pid[i];
+        const char* buf = tmp.data();
+        result.process_bytes(buf, tmp.size());
+    }
+    return result.checksum();
+}
+
+vector<string> Pheno::get_id(int from_index, int to_index, string delim ){
     vector<string> out_id;
-    int raw_index;
-    out_id.reserve(num_keep);
+    out_id.reserve(to_index - from_index + 1);
     for(int index = from_index; index <= to_index; index++){
-        raw_index = index_keep[index];
-        //out_id.push_back(fid[raw_index] + "\t" + pid[raw_index]);
-        out_id.push_back(mark[raw_index]);
+        int raw_index = index_keep[index];
+        out_id.push_back(fid[raw_index] + delim + pid[raw_index]);
+        //out_id.push_back(mark[raw_index]);
     }
     return out_id;
 }
@@ -354,6 +585,17 @@ PhenoMask Pheno::get_indi_mask(uint32_t ori_index){
 vector<uint32_t>& Pheno::get_index_keep() {
     return this->index_keep;
 }
+vector<uint32_t>& Pheno::getSexValidRawIndex(){
+    return this->index_keep_sex;
+}
+vector<uint32_t>& Pheno::getMaleRawIndex(){
+    return this->index_keep_male;
+}
+vector<uint32_t>& Pheno::getMaleExtractIndex(){
+    return this->index_keep_male_extract;
+}
+
+
 
 void Pheno::save_pheno(string filename){
     LOGGER.i(0, "Saving individual information to [" + filename + "]...");
@@ -420,6 +662,13 @@ int8_t Pheno::get_sex(uint32_t index){
 // remove have larger priority than keep, once the SNP has been removed, it
 // will never be kept again
 void Pheno::set_keep(vector<string>& indi_marks, vector<string>& marks, vector<uint32_t>& keeps, bool isKeep) {
+    int osize = indi_marks.size();
+    removeDuplicateSort(indi_marks);
+    int nDup = osize - indi_marks.size();
+    if(nDup != 0){
+        LOGGER.w(0, to_string(nDup) + " duplicated samples were ignored in the list.");
+    }
+
     vector<uint32_t> keep_index, indi_index;
     vector_commonIndex_sorted1(marks, indi_marks, keep_index, indi_index);
 
@@ -474,10 +723,11 @@ void Pheno::update_sex(vector<string>& indi_marks, vector<double>& phenos){
     for(int i = 0; i < common_index.size(); i++){
         uint32_t raw_index = index_keep[common_index[i]];
         int temp_update_pheno = std::round(phenos[update_index[pheno_index2[i]]]);
-        if(temp_update_pheno > 0 && temp_update_pheno < 3){
-            indicies.push_back(raw_index);
-            sex[raw_index] = temp_update_pheno;
+        if(temp_update_pheno != 1 && temp_update_pheno != 2){
+            temp_update_pheno = 0;
         }
+        indicies.push_back(raw_index);
+        sex[raw_index] = temp_update_pheno;
     }
     index_keep = indicies;
 }
@@ -665,7 +915,7 @@ void Pheno::mask_geno_keep(uint8_t *const geno_1block, int num_blocks) {
         }
     }
 }
-
+//maskp must be zeroed
 void Pheno::getMaskBit(uint64_t *maskp){
     for(auto keep_item : index_keep){
         uint32_t cur_qword = keep_item / 64;
@@ -674,6 +924,7 @@ void Pheno::getMaskBit(uint64_t *maskp){
     }
 }
 
+//maskp must be zeroed
 void Pheno::getMaskBitMale(uint64_t *maskp){
     for(auto keep_item : index_keep_male){
         uint32_t cur_qword = keep_item / 64;
@@ -690,55 +941,13 @@ int Pheno::registerOption(map<string, vector<string>>& options_in){
     addOneFileOption("sample_file", "", "--sample", options_in, options);
     options_in.erase("--sample");
 
-    addOneFileOption("m_file", "", "--mbfile", options_in, options);
-    if(options.find("m_file") != options.end()){
-       vector<string> m_files;
-        std::ifstream m_file(options["m_file"]);
-        string line;
-        vector<string> initial_ids;
-        bool inited = false;
-        while(std::getline(m_file,line)){
-            vector<string> line_elements;
-            boost::split(line_elements, line, boost::is_any_of("\t "));
-            boost::replace_all(line_elements[line_elements.size() - 1], "\r", "");
-            for(auto elements : line_elements){
-                if(!elements.empty()){
-                    vector<string> ids = read_sublist(elements+".fam");
-                    m_files.push_back(elements);
-                    if(!inited){
-                        initial_ids = ids;
-                        inited = true;
-                        continue;
-                    }
-                    if(ids == initial_ids){
-                        continue;
-                    }else{
-                        LOGGER.e(0, "fam is different in [" + elements + "].");
-                    }
-                }
-            }
-        }
-        m_file.close();
-        if(m_files.size() > 0){
-            options["pheno_file"] = m_files[0] + ".fam";
-            std::set<string> unique_mfiles;
-            auto ends = std::remove_if(m_files.begin(), m_files.end(),
-                    [&unique_mfiles](const string& item){
-                        if(unique_mfiles.find(item) != unique_mfiles.end()){
-                            return true;
-                        }
-                        unique_mfiles.insert(item);
-                        return false;
-                    });
-            m_files.erase(ends, m_files.end());
-            LOGGER.i(0, to_string(m_files.size()) + " genotype(s) in [" + options["m_file"] + "].");
-            options_in.erase("--mbfile");
-            options_in["m_file"] = m_files;
-        }else{
-            LOGGER.e(0, "no item in [" + options["m_file"] + "].");
-        }
-    }
-  
+    addOneFileOption("pheno_file", ".fam", "--bpfile", options_in, options);
+    addOneFileOption("psam_file", ".psam", "--pfile", options_in, options);
+
+    addMFileListsOption("mpheno_file", ".fam", "--mbfile", options_in, options);
+    addMFileListsOption("mpsam_file", ".psam", "--mpfile", options_in, options);
+    addMFileListsOption("mpheno_file", ".fam", "--mbpfile", options_in, options);
+
 
     addOneFileOption("keep_file", "", "--keep", options_in, options);
     //options_in.erase("--keep");

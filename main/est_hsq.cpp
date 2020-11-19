@@ -3,15 +3,23 @@
  *
  * Implementations of functions for REML analysis
  *
- * 2010 by Jian Yang <jian.yang@qimr.edu.au>
+ * 2010 by Jian Yang <jian.yang.qt@gmail.com>
  *
  * This file is distributed under the GNU General Public
- * License, Version 2.  Please see the file COPYING for more
+ * License, Version 3.  Please see the file COPYING for more
  * details
  */
 
 #include "gcta.h"
 #include "mem.hpp"
+
+void gcta::set_reml_diag_mul(double value){
+    _reml_diag_mul = value;
+}
+
+void gcta::set_reml_diagV_adj(int method){
+    _reml_diagV_adj = method;
+}
 
 void gcta::set_reml_force_inv()
 {
@@ -45,6 +53,11 @@ void gcta::set_reml_mtd(int reml_mtd)
 {
     _reml_mtd = reml_mtd;
 }
+
+void gcta::set_reml_inv_method(int method){
+    _reml_inv_mtd = method;
+}
+    
 
 void gcta::read_phen(string phen_file, vector<string> &phen_ID, vector< vector<string> > &phen_buf, int mphen, int mphen2) {
     // Read phenotype data
@@ -500,6 +513,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
 
     // bending
     if (reml_bending) bend_A();
+    //LOGGER << "Prepare time: " << LOGGER.tp("main") << std::endl;
 
     // run REML algorithm
     reml(pred_rand_eff, est_fix_eff, reml_priors, reml_priors_var, prevalence, -2.0, no_constrain, no_lrt, mlmassoc);
@@ -625,7 +639,14 @@ bool gcta::check_case_control(double &ncase, eigenVector &y) {
         LOGGER << (int) case_num << " cases and " << (int) (n - case_num) << " controls ";
         ncase = case_num / (double) n;
         return true;
-    } else if (value.size() < 2) LOGGER.e(0, "invalid phenotype. Please check the phenotype file.");
+    } else if (value.size() < 2) {
+        LOGGER << "Only " << value.size() << " type(s) of phenotype value observed: ";
+        for(int i = 0; i < value.size(); i++){
+            LOGGER << value[i] << "\t";
+        }
+        LOGGER << std::endl;
+        LOGGER.e(0, "invalid phenotype. Please check the phenotype file (or after covariates merged).");
+    }
     return false;
 }
 
@@ -1064,6 +1085,8 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
             LOGGER << endl;
         }
         //LOGGER << "Iter " << iter << endl;
+        float time_vi = 0;
+        LOGGER.ts("DBGtime");
         if (_bivar_reml) calcu_Vi_bivar(_Vi, prev_varcmp, logdet, iter); // Calculate Vi, bivariate analysis //very slow
         else if (_within_family) calcu_Vi_within_family(_Vi, prev_varcmp, logdet, iter); // within-family REML
         else {
@@ -1076,11 +1099,19 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
                 break;
             }
         }
+        time_vi = LOGGER.tp("DBGtime");
         //LOGGER << "calcu_vi_bivar returned" << endl;
+        float time_p = 0;
+        LOGGER.ts("DBGtime");
         logdet_Xt_Vi_X = calcu_P(_Vi, Vi_X, Xt_Vi_X_i, _P); // Calculate P  //quick
+        time_p = LOGGER.tp("DBGtime");
+        
+        float time_reml = 0;
+        LOGGER.ts("DBGtime");
         if (_reml_mtd == 0) ai_reml(_P, Hi, Py, prev_varcmp, varcmp, dlogL);
         else if (_reml_mtd == 1) reml_equation(_P, Hi, Py, varcmp);
         else if (_reml_mtd == 2) em_reml(_P, Py, prev_varcmp, varcmp);  //slow ++
+        time_reml = LOGGER.tp("DBGtime");
         lgL = -0.5 * (logdet_Xt_Vi_X + logdet + (_y.transpose() * Py)(0, 0));
 
         if(_reml_force_converge && _reml_AI_not_invertible) break;
@@ -1104,6 +1135,7 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         if (iter > 0) {
             LOGGER << iter << "\t" << std::fixed << LOGGER.setprecision(2) << lgL << "\t";
             for (i = 0; i < _r_indx.size(); i++) LOGGER << LOGGER.setprecision(5) << varcmp[i] << "\t";
+            //LOGGER << time_vi << "\t" << time_p << "\t" << time_reml << "\t";
             if (constrain_num > 0) LOGGER << "(" << constrain_num << " component(s) constrained)" << endl;
             else LOGGER << endl;
         } else {
@@ -1243,7 +1275,23 @@ bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, i
         logdet = _n * log(prev_varcmp[0]);
     } 
     else {
-        for (i = 0; i < _r_indx.size(); i++) Vi += (_A[_r_indx[i]]) * prev_varcmp[i];
+        bool use_lu = false;
+        for (i = 0; i < _r_indx.size(); i++){
+            Vi += (_A[_r_indx[i]]) * prev_varcmp[i];
+            /*
+            if(prev_varcmp[i] < 0){
+                use_lu = true;
+            }
+            */
+        }
+
+        INVmethod method_try;
+        if(_reml_inv_mtd == 0){
+            method_try = use_lu? INV_LU : INV_LLT;
+        }else{
+            method_try = static_cast<INVmethod>(_reml_inv_mtd);
+        }
+            
         /*
         for(int i = 0; i < _r_indx.size(); i++){ 
             double cur_varcmp = prev_varcmp[i];
@@ -1255,7 +1303,56 @@ bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, i
             }
         }   
         */
+        int rank = 0;
+        bool ret = true;
+        if(!SquareMatrixInverse(Vi, logdet, rank, method_try)){
+            LOGGER<<"Warning: the variance-covaraince matrix V is invertible." << endl;
+            if(_reml_diagV_adj == 1){
+                LOGGER<<"A small positive value is added to the diagonals. The results might not be reliable!"<<endl;
+                double d_buf = Vi.diagonal().mean() * _reml_diag_mul;
+                for(j = 0; j < _n ; j++) Vi(j,j) += d_buf;
+                if(!SquareMatrixInverse(Vi, logdet, rank, method_try)){
+                    LOGGER << "Still can't be inversed. Try --reml-alg-inv 2 " << endl;
+                    ret = false;  
+                }
+            }else if(_reml_diagV_adj == 2){
+                LOGGER << "Switching to the \"bending\" approach to invert V. This method hasn't been tested. The results might not be reliable!" << endl;
+                bend_V(Vi);
+            }else{
+                LOGGER.e(0, "the variance-covariance matrix V can't be inverted.\nTry --reml-alg-inv 1 for diagonal addition value or --reml-alg-inv 2 for bending Vi.");
+                ret = false;
+            }
+                
+        }
+            //if(method != method_try){
+        return ret;
 
+
+/*
+        if (!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) {
+            LOGGER<<"Warning: the variance-covaraince matrix V is non-positive definite." << endl;
+            if(_reml_diagV_adj == 1){
+                LOGGER<<"Warning: the variance-covaraince matrix is invertible. A small positive value is added to the diagonals. The results might not be reliable!"<<endl;
+                double d_buf = Vi.diagonal().mean() * _reml_diag_mul;
+                for(j = 0; j < _n ; j++) Vi(j,j) += d_buf;
+                if(!comput_inverse_logdet_LDLT_mkl(Vi, logdet)){
+                    LOGGER << "Still can't inverse. Try --reml-alg-inv 2 " << endl;
+                    return false;  
+                }
+            }else if(_reml_diagV_adj == 2){
+                LOGGER<<"Warning: the variance-covaraince matrix V is non-positive definite." << endl;
+                LOGGER << "Switching to the \"bending\" approach to invert V. This method hasn't been tested. The results might not be reliable!" << endl;
+                bend_V(Vi);
+            }else{
+                LOGGER<<"Warning: the variance-covaraince matrix V is non-positive definite." << endl;
+                LOGGER << "Try --reml-alg-inv 1 for diagonal addition value or --reml-alg-inv 2 for bending Vi" << endl;
+                return false;
+            }
+                
+        }
+        */
+
+/*
         if (_V_inv_mtd == 0) {
             if (!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) {
                 if(_reml_force_inv) {
@@ -1274,6 +1371,7 @@ bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, i
             }
         }
         if (_V_inv_mtd == 1) bend_V(Vi);
+        */
        /*if (_V_inv_mtd == 2) {
             if(!_reml_force_converge){
                 LOGGER << "Switching from Cholesky to LU decomposition approach. The results might not be reliable!" << endl;
@@ -1332,14 +1430,15 @@ void gcta::bend_A() {
 bool gcta::bending_eigenval(eigenVector &eval) {
     int j = 0;
     double eval_m = eval.mean();
-    if (eval.minCoeff() > 0.0) return false;
+    if (eval.minCoeff() > 1e-6) return false;
     double S = 0.0, P = 0.0;
     for (j = 0; j < eval.size(); j++) {
         if (eval[j] >= 0) continue;
         S += eval[j];
         P = -eval[j];
     }
-    double W = S * S * 100.0 + 1;
+    //double W = S * S * 100.0 + 1;
+    double W = S * S / _reml_diag_mul + 1;
     for (j = 0; j < eval.size(); j++) {
         if (eval[j] >= 0) continue;
         eval[j] = P * (S - eval[j])*(S - eval[j]) / W;
@@ -1392,7 +1491,9 @@ bool gcta::comput_inverse_logdet_LU(eigenMatrix &Vi, double &logdet)
 bool gcta::inverse_H(eigenMatrix &H)
 {    
     double d_buf = 0.0;
-    if (!comput_inverse_logdet_LDLT_mkl(H, d_buf)) return false;
+    INVmethod method = (_reml_inv_mtd == 0) ? INV_LLT : static_cast<INVmethod>(_reml_inv_mtd);
+    int rank = 0;
+    if (!SquareMatrixInverse(H, d_buf, rank, method)) return false;
     /*{
         if(_reml_force_inv) {
             LOGGER<<"Warning: the information matrix is non-positive definite. Switching from Cholesky to LU decomposition approach. The results might not be reliable!"<<endl;
@@ -1414,7 +1515,9 @@ double gcta::calcu_P(eigenMatrix &Vi, eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i,
     Vi_X = Vi*_X;
     Xt_Vi_X_i = _X.transpose() * Vi_X;
     double logdet_Xt_Vi_X = 0.0;
-    if(!comput_inverse_logdet_LU(Xt_Vi_X_i, logdet_Xt_Vi_X)) LOGGER.e(0, "\n  the X^t * V^-1 * X matrix is not invertible. Please check the covariate(s) and/or the environmental factor(s).");
+    int rank = 0; 
+    INVmethod method = (_reml_inv_mtd == 0) ? INV_LLT : static_cast<INVmethod>(_reml_inv_mtd);
+    if(!SquareMatrixInverse(Xt_Vi_X_i, logdet_Xt_Vi_X, rank, method)) LOGGER.e(0, "\n  the X^t * V^-1 * X matrix is not invertible. Please check the covariate(s) and/or the environmental factor(s).");
     P = Vi - Vi_X * Xt_Vi_X_i * Vi_X.transpose();
     return logdet_Xt_Vi_X;
 }

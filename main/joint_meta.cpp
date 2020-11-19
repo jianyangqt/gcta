@@ -1,3 +1,15 @@
+/*
+ * GCTA: a tool for Genome-wide Complex Trait Analysis
+ *
+ * Implementations of functions for GWAS simulation
+ *
+ * 2010 by Jian Yang <jian.yang.qt@gmail.com>
+ *
+ * This file is distributed under the GNU General Public
+ * License, Version 3.  Please see the file LICENSE for more
+ * details
+ */
+
 #include "gcta.h"
 
 void gcta::set_diff_freq(double freq_diff){
@@ -257,7 +269,7 @@ void gcta::run_massoc_slct(string metafile, int wind_size, double p_cutoff, doub
     massoc_slct_output(joint_only, slct, bJ, bJ_se, pJ, rval);
 
     // output conditional results
-    if (!joint_only && !mld_slct_alg==2) {
+    if (!joint_only && mld_slct_alg!=2) {
         massoc_cond_output(remain, bC, bC_se, pC);
         LOGGER << "(" << _jma_snpnum_backward << " SNPs eliminated by backward selection and " << _jma_snpnum_collienar << " SNPs filtered by collinearity test are not included in the output)" << endl;
     }

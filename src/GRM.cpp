@@ -32,6 +32,9 @@
 #include "OptionIO.h"
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/join.hpp>
+#include <sstream>
+#include <mkl.h>
+#include <csignal>
 
 using std::to_string;
 
@@ -40,17 +43,6 @@ map<string, double> GRM::options_d;
 map<string, bool> GRM::options_b;
 vector<string> GRM::processFunctions;
 
-
-uint64_t numByteGRMFile(FILE * file) {
-    uint64_t f_size;
-    if(file == NULL){
-        LOGGER.e(0, "Read GRM file fail");
-    }
-    fseek(file, 0, SEEK_END);
-    f_size = ftell(file);
-    rewind(file);
-    return f_size;
-}
 
 GRM::GRM(){
     bool has_single_grm = false;
@@ -64,7 +56,10 @@ GRM::GRM(){
 
         uint64_t num_grm = num_subjects * (num_subjects + 1) / 2;
         FILE *file = fopen((grm_file + ".grm.bin").c_str(), "rb");
-        if(num_grm * 4 != numByteGRMFile(file)){
+        if(!file){
+            LOGGER.e(0, "can't open " + grm_file + ".grm.bin");
+        }
+        if(num_grm * 4 != getFileByteSize(file)){
             LOGGER.e(0, "The GRM id and GRM binary is not matching [" + grm_file + "]");
         }
         fclose(file);
@@ -89,11 +84,13 @@ GRM::GRM(){
 
         if(options.find("keep_file") != options.end()){
             vector<string> keep_lists = Pheno::read_sublist(options["keep_file"]);
+            LOGGER << "Get " << keep_lists.size() << " samples from list [" << options["keep_file"] << "]." << std::endl;
             Pheno::set_keep(keep_lists, grm_ids, index_keep, true);
         }
 
         if(options.find("remove_file") != options.end()){
             vector<string> rm_lists = Pheno::read_sublist(options["remove_file"]);
+            LOGGER << "Get " << rm_lists.size() << " samples from list [" << options["remove_file"] << "]." << std::endl;
             Pheno::set_keep(rm_lists, grm_ids, index_keep, false);
         }
     }
@@ -296,7 +293,7 @@ void GRM::unify_grm(string mgrm_file, string out_file){
         output_fileNames.push_back(joinPath(path_out, basename + "_" + basename_out));
     }
 
-    #pragma omp for
+    #pragma omp parallel for
     for(int i = 0; i < files.size(); i++){
         string id_file_name = output_fileNames[i] + ".grm.id";
         vector<uint32_t> index1;
@@ -376,7 +373,7 @@ void GRM::unify_grm(string mgrm_file, string out_file){
 
 }
 
-void GRM::prune_fam(float thresh, bool isSparse){
+void GRM::prune_fam(float thresh, bool isSparse, float *value){
     LOGGER.i(0, "Pruning the GRM to sparse with a cut off of " + to_string(thresh) + "...");
     LOGGER.i(0, "Total number of parts to proceed: " + to_string(index_grm_pairs.size()));
     FILE *grmFile = fopen((grm_file + ".grm.bin").c_str(), "rb");
@@ -431,18 +428,35 @@ void GRM::prune_fam(float thresh, bool isSparse){
                 continue;
             }
             int new_id2 = 0;
-            for(int id2 : index_keep){
-                if(id2 > id1) break;
-                cur_grm = *(cur_grm_pos0 + id2);
-                if(cur_grm > thresh){
-                    rm_grm_ID1.push_back(new_id1);
-                    rm_grm_ID2.push_back(new_id2);
-                    rm_grm.push_back(cur_grm);
-                    *(cur_grm_buf++) = cur_grm;
-                }else{
-                    *(cur_grm_buf++) = 0.0;
+            if(value){
+                for(int id2 : index_keep){
+                    if(id2 > id1) break;
+                    cur_grm = *(cur_grm_pos0 + id2);
+                    if(cur_grm > thresh){
+                        rm_grm_ID1.push_back(new_id1);
+                        rm_grm_ID2.push_back(new_id2);
+                        rm_grm.push_back(*value);
+                        *(cur_grm_buf++) = (*value);
+                    }else{
+                        *(cur_grm_buf++) = 0.0;
+                    }
+                    new_id2++;
                 }
-                new_id2++;
+ 
+            }else{
+                for(int id2 : index_keep){
+                    if(id2 > id1) break;
+                    cur_grm = *(cur_grm_pos0 + id2);
+                    if(cur_grm > thresh){
+                        rm_grm_ID1.push_back(new_id1);
+                        rm_grm_ID2.push_back(new_id2);
+                        rm_grm.push_back(cur_grm);
+                        *(cur_grm_buf++) = cur_grm;
+                    }else{
+                        *(cur_grm_buf++) = 0.0;
+                    }
+                    new_id2++;
+                }
             }
             new_id1++;
             cur_grm_pos0 += id1 + 1;
@@ -617,6 +631,7 @@ void GRM::cut_rel(float thresh, bool no_grm){
     stable_sort(rm_grm_ID1.begin(), rm_grm_ID1.end());
     rm_grm_ID1.erase(unique(rm_grm_ID1.begin(), rm_grm_ID1.end()), rm_grm_ID1.end());
     vector<string> removed_ID;
+    removed_ID.reserve(rm_grm_ID1.size());
     for (auto &index : rm_grm_ID1) removed_ID.push_back(grm_ids[index]);
 
     auto diff = [&rm_grm_ID1](int value) ->bool{
@@ -712,43 +727,26 @@ void GRM::outBinFile(FILE *sFile, FILE *dFile) {
     delete [] grm_out_buffer;
 }
 
-void GRM::init_AsyncBuffer(){
-    if(asyncBuffer){
-        delete asyncBuffer;
-    }
-    asyncBuffer = new AsyncBuffer<double>(num_byte_buffer);
-}
 
-
-GRM::GRM(Geno *geno) {
+GRM::GRM(Pheno* pheno, Marker* marker) {
     //clock_t begin = t_begin();
-    this->geno = geno;
+    this->pheno = pheno;
+    this->marker = marker;
+    this->geno = new Geno(pheno, marker);
     // Pay attention to not reflect the newest changes of keep;
-    this->index_keep = geno->pheno->get_index_keep();
+    this->index_keep = pheno->get_index_keep();
     this->part = std::stoi(options["cur_part"]);
     this->num_parts = std::stoi(options["num_parts"]);
 
-    this->num_byte_geno = sizeof(uint16_t) * Constants::NUM_MARKER_READ / num_marker_block * index_keep.size();
-
-    this->num_byte_cmask = sizeof(uint64_t) * Constants::NUM_MARKER_READ * index_keep.size() / num_cmask_block;
-
-    lookup_GRM_table = new double[Constants::NUM_MARKER_READ / num_marker_block][num_lookup_table];
-
-    int ret1 = posix_memalign((void **) &geno_buf, 32, num_byte_geno);
-    int ret2 = posix_memalign((void **) &mask_buf, 32, num_byte_geno);
-    int ret3 = posix_memalign((void **) &cmask_buf, 32, num_byte_cmask); 
-    if(ret1 != 0 | ret2 != 0 | ret3 != 0){
-        LOGGER.e(0, "can't allocate enough memory to genotype buffer.");
+    // divide the genotype into equal length
+    vector<uint32_t> parts;
+    if(options.find("use_blas") != options.end()){
+        bBLAS = true;
+        parts = divide_parts_mem(pheno->count_keep(), num_parts);
+    }else{
+        bBLAS = false;
+        parts = divide_parts(0, pheno->count_keep() - 1, num_parts);
     }
-
-    reg_bit_width = 64;
-
-    this->num_grm_handle = reg_bit_width / 64;
-    this->num_count_handle = reg_bit_width / 32;
-    this->num_block_handle = reg_bit_width / 16;
-    this->num_marker_process_block = this->num_marker_block * this->num_block_handle;
-
-    vector<uint32_t> parts = divide_parts(0, this->geno->pheno->count_keep() - 1, num_parts);
 
     if (parts.size() != num_parts) {
         LOGGER.w(0, "can not divide into " + to_string(num_parts) + ". Use " + to_string(parts.size()) + " instead.");
@@ -765,23 +763,61 @@ GRM::GRM(Geno *geno) {
         }
     }
 
+    // init the geno buffers
+    /*
+    if(!bBLAS){
+        // use byte style coding
+        this->num_byte_geno = sizeof(uint16_t) * Constants::NUM_MARKER_READ / num_marker_block * index_keep.size();
+        lookup_GRM_table = new double[Constants::NUM_MARKER_READ / num_marker_block][num_lookup_table];
+
+        int ret1 = posix_memalign((void **) &geno_buf, 32, num_byte_geno);
+        int ret2 = posix_memalign((void **) &mask_buf, 32, num_byte_geno);
+        if(ret1 != 0 | ret2 != 0){
+            LOGGER.e(0, "can't allocate enough memory to genotype buffer.");
+        }
+
+   }else{
+   }
+   */
+
+    reg_bit_width = 64;
+    this->num_grm_handle = reg_bit_width / 64;
+    this->num_count_handle = reg_bit_width / 32;
+    this->num_block_handle = reg_bit_width / 16;
+    this->num_marker_process_block = this->num_marker_block * this->num_block_handle;
+
+    // init the count mask buffer;
+    /*
+    this->num_byte_cmask = sizeof(uint64_t) * Constants::NUM_MARKER_READ * index_keep.size() / num_cmask_block;
+    int ret3 = posix_memalign((void **) &cmask_buf, 32, num_byte_cmask); 
+    if(ret3 != 0){
+        LOGGER.e(0, "can't allocate enough memory to store mask.");
+    }
+    */
+
+    // init the grm and N buffer
     num_individual = part_keep_indices.second - part_keep_indices.first + 1;
     num_grm = ((uint64_t) part_keep_indices.first + part_keep_indices.second + 2) * num_individual / 2;
 
     uint64_t fill_grm = (num_grm + num_count_handle - 1) / num_count_handle * num_count_handle;
+    uint64_t fill_N = fill_grm;
+    if(bBLAS){
+        fill_grm = (uint64_t)num_individual * (part_keep_indices.second + 1);
+    }
+
     int ret_grm = posix_memalign((void **)&grm, 32, fill_grm * sizeof(double));
     if(ret_grm){
         LOGGER.e(0, "can't allocate enough memory to (parted) GRM: " + to_string(fill_grm*sizeof(double) / 1024.0/1024/1024) + "GB");
     }
     memset(grm, 0, fill_grm * sizeof(double));
 
-    int ret_N = posix_memalign((void **)&N, 32, fill_grm * sizeof(uint32_t));
+    int ret_N = posix_memalign((void **)&N, 32, fill_N * sizeof(uint32_t));
     if(ret_N){
         LOGGER.e(0, "can't allocate enough memory to (parted) N: " + to_string(fill_grm*sizeof(uint32_t) / 1024.0/1024/1024) + "GB");
     }
-    memset(N, 0, fill_grm * sizeof(uint32_t));
+    memset(N, 0, fill_N * sizeof(uint32_t));
 
-    sub_miss = new uint32_t[index_keep.size()]();
+    sub_miss = new uint32_t[index_keep.size() + 64]();
 
     //calculate each index in pair thread;
     int num_thread = omp_get_max_threads();
@@ -801,14 +837,16 @@ GRM::GRM(Geno *geno) {
     }
 
     if(options_b.find("isMtd") != options_b.end()){
-        isMtd = true;
+        isMtd = options_b["isMtd"];
     }
 
     //t_print(begin, "  INIT finished");
-    string com_string = string("Computing the ") + (isDominance ? "dominance " : "") + "genetic relationship matrix (GRM) ...";
+
+    string fstring = bBLAS ? " v2 " : " ";
+    string com_string = string("Computing the ") + (isDominance ? "dominance " : "") + "genetic relationship matrix (GRM)" + fstring + "...";
     LOGGER.i(0, com_string);
     LOGGER.i(0, "Subset " + to_string(part) + "/" + to_string(num_parts) + ", no. subject " + to_string(part_keep_indices.first + 1) + "-" + to_string(part_keep_indices.second + 1));
-    LOGGER.i(1, to_string(num_individual) + " samples, " + to_string(geno->marker->count_extract()) + " markers, " + to_string(num_grm) + " GRM elements");
+    LOGGER.i(1, to_string(num_individual) + " samples, " + to_string(marker->count_extract()) + " markers, " + to_string(num_grm) + " GRM elements");
 
     o_name = options["out"];
 
@@ -826,7 +864,7 @@ GRM::GRM(Geno *geno) {
 
 
 void GRM::output_id() {
-    vector<string> out_id = geno->pheno->get_id(part_keep_indices.first, part_keep_indices.second);
+    vector<string> out_id = pheno->get_id(part_keep_indices.first, part_keep_indices.second);
 
     string o_grm_id = o_name + ".grm.id";
     std::ofstream grm_id(o_grm_id.c_str());
@@ -838,8 +876,197 @@ void GRM::output_id() {
 
 }
 
+void flip64(uintptr_t a[64]) {
+  int j, k;
+  uint64_t m, t;
+  for (j = 32, m = 0x00000000FFFFFFFF; j; j >>= 1, m ^= m << j) {
+    for (k = 0; k < 64; k = ((k | j) + 1) & ~j) {
+      t = (a[k] ^ (a[k | j] >> j)) & m;
+      a[k] ^= t;
+      a[k | j] ^= (t << j);
+    }
+  }
+}
+
+uint64_t revbits(uint64_t x) {
+    uint64_t t;
+    x = (x << 32) | (x >> 32); // Swap register halves.
+    x = (x & 0x0001FFFF0001FFFFLL) << 15 | // Rotate left
+        (x & 0xFFFE0000FFFE0000LL) >> 17; // 15.
+    t = (x ^ (x >> 10)) & 0x003F801F003F801FLL;
+    x = (t | (t << 10)) ^ x;
+    t = (x ^ (x >> 4)) & 0x0E0384210E038421LL;
+    x = (t | (t << 4)) ^ x;
+    t = (x ^ (x >> 2)) & 0x2248884222488842LL;
+    x = (t | (t << 2)) ^ x;
+    return x;
+}
+
+/*
+void flip64(uint64_t a[64]) {
+  uint64_t m = 0x00000000FFFFFFFF;
+  for (int j = 32; j; j >>= 1, m ^= m << j) {
+    for (int k = 0; k < 64; k = ((k | j) + 1) & ~j) {
+      uint64_t t = (a[k] ^ (a[k | j] >> j)) & m;
+      a[k] ^= t;
+      a[k | j] ^= (t << j);
+    }
+  }
+}
+*/
+
+//#ifdef __linux__
+//#pragma message("multiple target of N thread")
+//__attribute__((target_clones("popcnt","default")))
+//#endif
+#ifdef __linux__
+__attribute__((target("default")))
+#endif
+uint32_t popcounts(uint64_t dw){
+    return popcount(dw);
+}
+
+#ifdef __linux__
+__attribute__((target("popcnt")))
+uint32_t popcounts(uint64_t dw){
+    return popcount(dw);
+}
+#endif
+
+
+
+void GRM::calculate_GRM_blas(uintptr_t *buf, const vector<uint32_t> &markerIndex){
+    int num_marker = markerIndex.size();
+
+    static int m = part_keep_indices.second - part_keep_indices.first + 1;
+    static int n = part_keep_indices.second + 1;
+    static int n_sample = n;
+    static int s_n = n - m;
+    static int bytesStdGeno = sizeof(double) * n_sample;
+
+   // GenoBufItem items[num_marker];
+ 
+    #pragma omp parallel for
+    for(int i = 0; i < num_marker; i++){
+        GenoBufItem &item = gbufitems[i];
+        item.extractedMarkerIndex = markerIndex[i];
+        geno->getGenoDouble(buf, i, &item);
+    }
+
+    vector<int> validIndex;
+    validIndex.reserve(num_marker);
+    for(int i = 0; i < num_marker; i++){
+        if(gbufitems[i].valid){
+            validIndex.push_back(i);
+        }
+    }
+
+    int curNumValidMarkers = validIndex.size();
+
+    for(int i = 0; i < curNumValidMarkers; i++){
+        int curIndex = validIndex[i];
+        memcpy(stdGeno + i * n_sample, gbufitems[curIndex].geno.data(), bytesStdGeno);
+        sd.push_back(gbufitems[curIndex].sd);
+        /*
+        if(gbufitems[i].missing[41/64] & (1UL << (41 %64))){
+        */
+    }
+
+    static const char notrans='N', trans='T';
+    static const double alpha = 1.0, beta = 1.0;
+    static const char uplo='L';
+   // A * At 
+    if(part_keep_indices.first == 0){
+        dsyrk(&uplo, &notrans, &n, &curNumValidMarkers, &alpha, stdGeno, &n_sample, &beta, grm, &m);
+    }else{
+        //dgemm(&notrans, &trans, &m, &n, &num_marker, &alpha, stdGeno + part_keep_indices.first, &n_sample, stdGeno, &n_sample, &beta, grm, &m);
+        dgemm(&notrans, &trans, &m, &s_n, &curNumValidMarkers, &alpha, stdGeno + part_keep_indices.first, &n_sample, stdGeno, &n_sample, &beta, grm, &m);
+        double * grm_start = grm + ((uint64_t)s_n) * m;
+        dsyrk(&uplo, &notrans, &m, &curNumValidMarkers, &alpha, stdGeno + part_keep_indices.first, &n_sample, &beta, grm_start, &m); 
+    }
+
+    //memset(this->cmask_buf, 0, num_byte_cmask);
+
+    //LOGGER << "count N" << std::endl;
+    const int markerPerN = sizeof(uintptr_t) * CHAR_BIT;
+    int numNblock = (curNumValidMarkers + markerPerN - 1) / markerPerN;
+    static int numNSampleBlock = (n + markerPerN - 1) / markerPerN;
+    //LOGGER << "marker block: " << numNblock << ", sample block:" << numNSampleBlock << ", MarkerPerN: " << markerPerN << std::endl;
+    //LOGGER << ", n: " << n << std::endl;
+    uintptr_t *sample_miss = new uintptr_t[numNSampleBlock * markerPerN]; // don't need to set to 0
+    for(int i = 0; i < numNblock; i++){
+        int lastIndex = markerPerN * (i + 1);
+        int lastValidIndex = lastIndex > curNumValidMarkers ? curNumValidMarkers : lastIndex;
+
+        int baseMarkerIndex = markerPerN * i;
+        #pragma omp parallel for
+        for(int j = 0; j < numNSampleBlock; j++){
+            int baseMissIndex = j * markerPerN;
+            for(int k = baseMarkerIndex; k < lastValidIndex; k++){
+                int curMarkerIndex = validIndex[k];
+                sample_miss[baseMissIndex + k - baseMarkerIndex] = revbits(gbufitems[curMarkerIndex].missing[j]);
+            }
+            for(int k = lastValidIndex; k < lastIndex; k++){
+                sample_miss[baseMissIndex + k - baseMarkerIndex] = 0UL;
+            }
+            
+            flip64(&sample_miss[baseMissIndex]);
+
+            for(int k = baseMissIndex; k < baseMissIndex + markerPerN; k++){
+                sub_miss[k] += popcounts(sample_miss[k]); // give sub_miss a little more avoid overflow
+            }
+        }
+        #pragma omp parallel for
+        for(int index = 0; index < index_grm_pairs.size(); index++){
+            auto index_pair = index_grm_pairs[index];
+            N_thread(index_pair.first, index_pair.second, sample_miss);
+        }
+    }
+    delete[] sample_miss;
+
+    finished_marker += num_marker;
+
+    numValidMarkers += curNumValidMarkers;
+
+}
+
+    /*
+    int num_process_block = (num_marker + num_marker_block - 1) / num_marker_block;
+    this->cur_num_block = (num_marker + num_marker_process_block - 1) / num_marker_process_block;
+    num_process_block = cur_num_block;
+    static int keep_sample_size = index_keep.size();
+    static int geno_num64 = geno->num_item_1geno;
+    static int geno_num8 = geno_num64 * 8;
+
+    #pragma omp parallel for schedule(dynamic)
+    for(int index_process_block = 0; index_process_block < num_process_block; index_process_block++){
+        int base_marker_index = index_process_block * num_marker_process_block;
+        uint8_t *cur_buf = (uint8_t*) (buf + base_marker_index * geno_num64);
+        int num_marker_in_process_block = index_process_block == num_process_block - 1 ?
+                                      (num_marker - base_marker_index): num_marker_process_block;
+        // recode genotype
+        for(int index_indi = 0; index_indi < part_keep_indices.second + 1; index_indi += 1) {
+            uint32_t raw_index = index_indi;
+
+            for (int marker_index = 0; marker_index != num_marker_in_process_block; marker_index++) {
+                uint16_t temp_geno = (*(cur_buf  + marker_index * geno_num8 + raw_index / 4)
+                        >> ((raw_index % 4) * 2)) & 3LU;
+                if (temp_geno == 1) {
+                    #pragma omp atomic
+                    sub_miss[index_indi] += 1;
+                    //cmask
+                    #pragma omp atomic
+                    cmask_buf[index_indi + ((base_marker_index + marker_index) / num_cmask_block)*keep_sample_size] |=
+                            (1LLU << ((base_marker_index + marker_index) % num_cmask_block));
+                }
+            }
+       }
+    }
+    */
+
+
+/*
 void GRM::calculate_GRM(uint64_t *buf, int num_marker) {
-    //LOGGER.i(0, "GRM: ", "logged " + to_string(num_marker));
     //prepare the 7 freq arrays in current range;
     double * devs = new double[num_marker];
     if(!isDominance){
@@ -935,8 +1162,9 @@ void GRM::calculate_GRM(uint64_t *buf, int num_marker) {
     static int needs_block_geno64 = (part_keep_indices.second + 31) / 32;
     static int super_block_size = num_block_handle * keep_sample_size;
     static int super_N_size = num_cmask_block / num_marker_block;
-/*
-    //#pragma omp parallel for schedule(dynamic)
+*/
+/* Don't adapt this code, worse speed
+    //#pragma omp parallel for schedule(dynamic) 
     for(int index_process_block = 0; index_process_block < num_process_block; index_process_block++){
         int super_block_num = index_process_block / num_block_handle * super_block_size;
         int super_block_item = index_process_block % num_block_handle;
@@ -993,6 +1221,7 @@ void GRM::calculate_GRM(uint64_t *buf, int num_marker) {
     }
     */
 
+/*
 #ifndef NDEBUG
     if(finished_marker == 0 ){
         FILE *test = fopen("test_b0.bin", "wb");
@@ -1005,6 +1234,7 @@ void GRM::calculate_GRM(uint64_t *buf, int num_marker) {
 #endif
         
     static int geno_num8 = geno_num64 * 8;
+
 
     #pragma omp parallel for schedule(dynamic)
     for(int index_process_block = 0; index_process_block < num_process_block; index_process_block++){
@@ -1058,10 +1288,20 @@ void GRM::calculate_GRM(uint64_t *buf, int num_marker) {
     for(int index = 0; index < index_grm_pairs.size(); index++){
         auto index_pair = index_grm_pairs[index];
         grm_thread(index_pair.first, index_pair.second);
+        //N_thread(index_pair.first, index_pair.second);
+    }
+
+    #pragma omp parallel for
+    for(int index = 0; index < index_grm_pairs.size(); index++){
+        auto index_pair = index_grm_pairs[index];
+        //grm_thread(index_pair.first, index_pair.second);
         N_thread(index_pair.first, index_pair.second);
     }
 
-/*
+    //finished_marker += num_marker;
+//}
+*/
+/* don't use 
     //submit thread
     int pair_size = index_grm_pairs.size();
     for(int index = 0; index != pair_size - 1; index++){
@@ -1079,16 +1319,44 @@ void GRM::calculate_GRM(uint64_t *buf, int num_marker) {
     THREADS.WaitAll();
     */
 
-    finished_marker += num_marker;
     //std::stringstream out_message;
     //out_message << std::fixed << std::setprecision(2) << finished_marker * 100.0 / geno->marker->count_extract();
     //LOGGER.i(0, out_message.str() + "% has been finished");
 
+bool write_GRM(float *grm, float *N, FILE *grm_out, FILE *N_out, uint32_t row_index, float thresh=-99){
+    if(thresh == -99){
+        //binary output
+        fwrite(grm, sizeof(float), row_index + 1, grm_out);
+        fwrite(N, sizeof(float), row_index + 1, N_out);
+    }else{
+        std::stringstream ss;
+        ss << std::setprecision( std::numeric_limits<float>::digits10+2); 
+        for(int i = 0; i <= row_index; i++){
+            float tmp_grm = grm[i];
+            if(tmp_grm >= thresh){
+                ss << row_index << "\t" << i << "\t" << tmp_grm << "\n";
+            }
+        }
+        const string tmp = ss.str();
+        if(tmp.size() > 0){
+            fputs(tmp.c_str(), grm_out);
+        }
+    }
+    return true;
 }
+
 
 void GRM::deduce_GRM(){
     LOGGER.i(0, "The GRM computation is completed.");
-    LOGGER.i(0, "Saving GRM...");
+    float thresh = -99;
+    bool isSparse = false;
+    if(options_d.find("sparse_cutoff") != options_d.end()){
+        thresh = options_d["sparse_cutoff"];
+        isSparse = true;
+        LOGGER.i(0, "Saving sparse GRM with a cutoff " + to_string(thresh) + "...");
+    }else{
+        LOGGER.i(0, "Saving GRM...");
+    }
     //Just for test
 #ifndef NDEBUG
     fclose(o_geno0);
@@ -1096,38 +1364,51 @@ void GRM::deduce_GRM(){
 #endif
 
     //clock_t begin = t_begin();
-    string grm_name = o_name + ".grm.bin";
-    string N_name = o_name + ".grm.N.bin";
-    FILE *grm_out = fopen(grm_name.c_str(), "wb");
-    FILE *N_out = fopen(N_name.c_str(), "wb");
-    if((!grm_out) || (!N_out)){
-        LOGGER.e(0, "can't open " + o_name + ".grm.bin or .grm.N.bin to write");
+    FILE *grm_out, *N_out;
+    if(isSparse){
+        string grm_name = o_name + ".grm.sp";
+        grm_out = fopen(grm_name.c_str(), "wb");
+        N_out = NULL;
+        if(!grm_out){
+            LOGGER.e(0, "can't open " + o_name + ".grm.sp to write");
+        }
+    }else{
+        string grm_name = o_name + ".grm.bin";
+        string N_name = o_name + ".grm.N.bin";
+        grm_out = fopen(grm_name.c_str(), "wb");
+        N_out = fopen(N_name.c_str(), "wb");
+        if((!grm_out) || (!N_out)){
+            LOGGER.e(0, "can't open " + o_name + ".grm.bin or .grm.N.bin to write");
+        }
     }
 
     float mtd_weight = 1.0;
     if(options_b["isMtd"]){
         float weight = 0;
         if(!isDominance){
-            for(int i = 0; i < finished_marker; i++){
-                float af = geno->AFA1[i];
-                float sd = 2.0 * af * (1.0 - af); 
-                weight += sd;
+            for(int i = 0; i < numValidMarkers; i++){
+                //float af = geno->AFA1[i];
+                //float sd = 2.0 * af * (1.0 - af); 
+                weight += sd[i];
             }
         }else{
-            for(int i = 0; i < finished_marker; i++){
-                float af = geno->AFA1[i];
-                float sd = 2.0 * af * (1.0 - af); 
-                weight += sd * sd;
+            for(int i = 0; i < numValidMarkers; i++){
+                //float af = geno->AFA1[i];
+                //float sd = 2.0 * af * (1.0 - af); 
+                weight += sd[i] * sd[i];
             }
         }
-        mtd_weight = 1.0 / (weight / finished_marker);
+        mtd_weight = 1.0 / (weight / numValidMarkers);
     }
 
  
+    /* X chr adjustment
     float weights[5];
-    weights[2] = 0.5 * mtd_weight;
-    weights[3] = sqrt(0.5) * mtd_weight;
-    weights[4] = 1.0 * mtd_weight;
+    weights[2] = 0.5 * mtd_weight; // male male
+    weights[3] = sqrt(0.5) * mtd_weight; // male female;
+    weights[4] = 1.0 * mtd_weight; // female female;
+    // don't need now.
+    */
 
     uint32_t num_sample = index_keep.size();
     float *w_grm = new float[num_sample];
@@ -1136,95 +1417,132 @@ void GRM::deduce_GRM(){
     double *po_grm = grm;
     uint32_t *po_N = N;
 
-   if(!options_b["xchr"]){
+    uint64_t m = part_keep_indices.second - part_keep_indices.first + 1;
+    //LOGGER << "mtd weight: " << mtd_weight << std::endl;
+   
+    /*
+    std::ofstream osub("test1.txt");
+    for(int i = 0; i < part_keep_indices.second + 1; i++){
+        osub << sub_miss[i] << std::endl;
+    }
+    osub.close();
+    */
+    
+    if(bBLAS){
         for(int pair1 = part_keep_indices.first; pair1 != part_keep_indices.second + 1; pair1++){
-            uint32_t sub_miss1 = finished_marker - sub_miss[pair1];
+            uint32_t sub_miss1 = numValidMarkers - sub_miss[pair1];
             for(int pair2 = 0; pair2 != pair1 + 1; pair2++){
-                uint32_t sub_N = *po_N + sub_miss1 - sub_miss[pair2];
+                uint32_t sub_N = *(po_N + pair2) + sub_miss1 - sub_miss[pair2];
                 w_N[pair2] = (float)sub_N;
 
                 if(sub_N){
-                    w_grm[pair2] = (float)((*po_grm)/sub_N) * mtd_weight;
+                    w_grm[pair2] = (float)((*(po_grm + (uint64_t)pair2 * m))/sub_N) * mtd_weight;
                 }else{
                     w_grm[pair2] = 0.0;
                 }
-                po_N++;
-                po_grm++;
+                //po_N++;
+                //po_grm++;
             }
-            fwrite(w_grm, sizeof(float), pair1 + 1, grm_out);
-            fwrite(w_N, sizeof(float), pair1 + 1, N_out);
-        }
-    }else{
-        for(uint32_t pair1 = part_keep_indices.first; pair1 != part_keep_indices.second + 1; pair1++){
-            uint32_t sub_miss1 = finished_marker - sub_miss[pair1];
-            int8_t weight1 = geno->pheno->get_sex(pair1);
-            for(uint32_t pair2 = 0; pair2 != pair1 + 1; pair2++){
-                uint32_t sub_N = *po_N + sub_miss1 - sub_miss[pair2];
-                w_N[pair2] = (float)sub_N;
-
-                if(sub_N){
-                    int8_t weight2 = weight1 + geno->pheno->get_sex(pair2);
-                    w_grm[pair2] = weights[weight2] * ((*po_grm) /sub_N);
-
-                }else{
-                    w_grm[pair2] = 0.0;
-                }
-                po_N++;
-                po_grm++;
-            }
-            fwrite(w_grm, sizeof(float), pair1 + 1, grm_out);
-            fwrite(w_N, sizeof(float), pair1 + 1, N_out);
+            //fwrite(w_grm, sizeof(float), pair1 + 1, grm_out);
+            //fwrite(w_N, sizeof(float), pair1 + 1, N_out);
+            write_GRM(w_grm, w_N, grm_out, N_out, pair1, thresh);
+            po_N = po_N + pair1 + 1;
+            po_grm = po_grm + 1;
         }
     }
- 
+    /* // don't need special case
+    else{
+        if(!options_b["xchr"]){
+            for(int pair1 = part_keep_indices.first; pair1 != part_keep_indices.second + 1; pair1++){
+                uint32_t sub_miss1 = finished_marker - sub_miss[pair1];
+                for(int pair2 = 0; pair2 != pair1 + 1; pair2++){
+                    uint32_t sub_N = *po_N + sub_miss1 - sub_miss[pair2];
+                    w_N[pair2] = (float)sub_N;
 
-    fclose(grm_out);
-    fclose(N_out);
+                    if(sub_N){
+                        w_grm[pair2] = (float)((*po_grm)/sub_N) * mtd_weight;
+                    }else{
+                        w_grm[pair2] = 0.0;
+                    }
+                    po_N++;
+                    po_grm++;
+                }
+                //fwrite(w_grm, sizeof(float), pair1 + 1, grm_out);
+                //fwrite(w_N, sizeof(float), pair1 + 1, N_out);
+                write_GRM(w_grm, w_N, grm_out, N_out, pair1, thresh);
+            }
+        }else{
+            for(uint32_t pair1 = part_keep_indices.first; pair1 != part_keep_indices.second + 1; pair1++){
+                uint32_t sub_miss1 = finished_marker - sub_miss[pair1];
+                int8_t weight1 = pheno->get_sex(pair1);
+                for(uint32_t pair2 = 0; pair2 != pair1 + 1; pair2++){
+                    uint32_t sub_N = *po_N + sub_miss1 - sub_miss[pair2];
+                    w_N[pair2] = (float)sub_N;
+
+                    if(sub_N){
+                        int8_t weight2 = weight1 + pheno->get_sex(pair2);
+                        w_grm[pair2] = weights[weight2] * ((*po_grm) /sub_N);
+
+                    }else{
+                        w_grm[pair2] = 0.0;
+                    }
+                    po_N++;
+                    po_grm++;
+                }
+                //fwrite(w_grm, sizeof(float), pair1 + 1, grm_out);
+                //fwrite(w_N, sizeof(float), pair1 + 1, N_out);
+                write_GRM(w_grm, w_N, grm_out, N_out, pair1, thresh);
+            }
+        }
+    }
+    */
+
+
+    if(grm_out)fclose(grm_out);
+    if(N_out)fclose(N_out);
     delete[] w_grm;
     delete[] w_N;
     //t_print(begin, "  GRM deduce finished");
-    LOGGER.i(0, "GRM has been saved in the file [" + o_name + ".grm.bin]");
-    LOGGER.i(0, "Number of SNPs in each pair of individuals has been saved in the file [" + o_name + ".grm.N.bin]");
+    if(!isSparse){
+        LOGGER.i(0, "GRM has been saved in the file [" + o_name + ".grm.bin]");
+        LOGGER.i(0, "Number of SNPs in each pair of individuals has been saved in the file [" + o_name + ".grm.N.bin]");
+    }else{
+        LOGGER.i(0, "GRM has been saved in the file [" + o_name + ".grm.sp]");
+    }
+
 }
 
-#ifdef __linux__
-#pragma message("multiple target of N thread")
-__attribute__((target_clones("popcnt","default")))
-#endif
-void GRM::N_thread(int grm_index_from, int grm_index_to){
-    //LOGGER.i(0, "Nthread: ", to_string(grm_index_from) + " " + to_string(grm_index_to));
-    uint32_t *po_N;
-    uint64_t cmask1, cmask2, cmask;
-    uint64_t *p_cmask1, *p_cmask2;
-    uint64_t *cur_cmask;
-    uint32_t *po_N_start = N + ((uint64_t)grm_index_from + 1 + part_keep_indices.first) * (grm_index_from - part_keep_indices.first) / 2;
-    for(int cur_block = 0; cur_block != Constants::NUM_MARKER_READ / num_cmask_block; cur_block++){
-        cur_cmask = cmask_buf + cur_block * index_keep.size();
-        po_N = po_N_start;
-        p_cmask1 = cur_cmask + grm_index_from;
-        for(int index_pair1 = grm_index_from; index_pair1 != grm_index_to + 1; index_pair1++){
-            p_cmask2 = cur_cmask;
-            cmask1 = *p_cmask1++;
-            if(cmask1){
-                for(int index_pair2 = 0; index_pair2 != index_pair1 + 1; index_pair2++){
-                    cmask2 = *p_cmask2++;
-                    if(cmask2){
-                        cmask = cmask1 & cmask2;
-                        if(cmask){
-                            *po_N += popcount(cmask);
-                        }
+
+void GRM::N_thread(int grm_index_from, int grm_index_to, const uintptr_t* cur_cmask){
+    uint64_t startPos = ((uint64_t)grm_index_from + 1 + part_keep_indices.first) * (grm_index_from - part_keep_indices.first) / 2;
+
+    uint32_t *po_N_start = N + startPos;
+    //for(int cur_block = 0; cur_block != Constants::NUM_MARKER_READ / num_cmask_block; cur_block++){
+    //uint64_t *cur_cmask = cmask_buf + cur_block * index_keep.size();
+    uint32_t *po_N = po_N_start;
+    const uintptr_t *p_cmask1 = cur_cmask + grm_index_from;
+    for(int index_pair1 = grm_index_from; index_pair1 != grm_index_to + 1; index_pair1++){
+        const uintptr_t *p_cmask2 = cur_cmask;
+        uintptr_t cmask1 = *p_cmask1++;
+        if(cmask1){
+            for(int index_pair2 = 0; index_pair2 != index_pair1 + 1; index_pair2++){
+                uintptr_t cmask2 = *p_cmask2++;
+                if(cmask2){
+                    uintptr_t cmask = cmask1 & cmask2;
+                    if(cmask){
+                        *po_N += popcounts(cmask);
                     }
-                    po_N++;
                 }
-            }else{
-                po_N += index_pair1 + 1;
+                po_N++;
             }
+        }else{
+            po_N += index_pair1 + 1;
         }
     }
+    //}
 }
 
 void GRM::grm_thread(int grm_index_from, int grm_index_to) {
-    //LOGGER.i(0, "GRMthread: ", to_string(grm_index_from) + " " + to_string(grm_index_to));
 
     double *po_grm;
     uint64_t geno, mask;
@@ -1316,6 +1634,32 @@ void GRM::grm_thread(int grm_index_from, int grm_index_to) {
     }
 }
 
+vector<uint32_t> GRM::divide_parts_mem(uint32_t n_sample, uint32_t num_parts){
+    int parts = num_parts;
+    vector<double> n_part(parts);
+    vector<double> n_each_part(parts);
+    n_part[0] = 1;
+    n_each_part[0] = 1;
+    for(int i = 1; i < parts; i++){
+        double previous_n = n_part[i - 1];
+        //double cur_n = (sqrt(previous_n * previous_n + 4) - previous_n) / 2.0;
+        //double cur_n = (sqrt(16.0 * previous_n * previous_n + 36.0) - 4.0 * previous_n) / 6.0;
+        double cur_n = (sqrt(36.0 * previous_n * previous_n + 100.0) - 6.0 * previous_n) / 10.0;
+        n_each_part[i] = cur_n;
+        n_part[i] = previous_n + cur_n;
+    }
+
+    double x1 = n_sample / n_part[parts - 1];
+    vector<uint32_t> div_parts(parts);
+    uint32_t total_num = 0;
+    for(int i = 0 ; i < parts - 1; i++){
+        uint32_t cur_n = ceil(n_each_part[i] * x1);
+        total_num = cur_n + total_num;
+        div_parts[i] = total_num - 1;
+    }
+    div_parts[parts - 1] = n_sample - 1;
+    return div_parts;
+}
 
 vector<uint32_t> GRM::divide_parts(uint32_t from, uint32_t to, uint32_t num_parts){
     vector<uint64_t> num_indi_grms;
@@ -1438,12 +1782,14 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
     string op_grmx = "--make-grm-xchr";
     options_b["xchr"] = false;
     if(options_in.find(op_grmx) != options_in.end()){
+        /*
         std::map<string, vector<string>> t_option;
         t_option["--chrx"] = {};
         t_option["--filter-sex"] = {};
         Pheno::registerOption(t_option);
         Marker::registerOption(t_option);
         Geno::registerOption(t_option);
+        */
         processFunctions.push_back("make_grmx");
         options_b["xchr"] = true;
         options_in.erase(op_grmx);
@@ -1463,11 +1809,37 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
 
         return_value++;
     }
+
+    options_b["isMtd"] = false;
     string op_grm_mtd = "--make-grm-alg";
     if(options_in.find(op_grm_mtd) != options_in.end()){
         if(std::stoi(options_in[op_grm_mtd][0]) > 0)
         options_b["isMtd"] = true;
     }
+
+        /*
+    string op_grm_sparse = "--make-grm-sparse";
+    if(options_in.find(op_grm_sparse) != options_in.end()){
+        processFunctions.push_back("make_grm");
+        return_value++;
+        if(options_in[op_grm_sparse].size() == 0){
+            options_d["grm_cutoff"] = 0.05;
+        }else if(options_in[op_grm_sparse].size() >= 1){
+            options_d["grm_cutoff"] = std::stod(options_in[op_grm_sparse][0]);
+        }
+        options_in.erase(op_grm_sparse);
+    }
+        
+        */
+    string op_grm_sparse = "--sparse-cutoff";
+    if(options_in.find(op_grm_sparse) != options_in.end()){
+        if(options_in[op_grm_sparse].size() == 0){
+            options_d["sparse_cutoff"] = 0.05;
+        }else if(options_in[op_grm_sparse].size() >= 1){
+            options_d["sparse_cutoff"] = std::stod(options_in[op_grm_sparse][0]);
+        }
+    }
+ 
 
     string op_grm_unify = "--unify-grm";
     if(options_in.find(op_grm_unify) != options_in.end()){
@@ -1537,7 +1909,6 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
 
     }
 
-    
 
     vector<string> flags = {"--make-bK-sparse", "--make-bK"};
     vector<bool> isSparse = {true, false};
@@ -1551,6 +1922,11 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
                 options_d["grm_cutoff"] = std::stod(options_in[curFlag][0]);
                 options_b["sparse"] = isSparse[index]; 
                 processFunctions.push_back("make_fam");
+            }else if(options_in[curFlag].size() == 2){
+                options_d["grm_cutoff"] = std::stod(options_in[curFlag][0]);
+                options_b["sparse"] = isSparse[index]; 
+                options_d["grm_set_value"] = std::stod(options_in[curFlag][1]);
+                processFunctions.push_back("make_fam");
             }else{
                 LOGGER.e(0, curFlag + " can't deal with more than one value currently");
             }
@@ -1560,7 +1936,101 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
 
     options_b["isDominance"] = isDominance;
 
+    options["use_blas"] = "yes";
+    /*
+    auto it = std::find(processFunctions.begin(), processFunctions.end(), "make_grm");
+    if(it != processFunctions.end()){
+        if((!options_b["isDominance"]) && (!options_b["isMtd"])){
+        }
+    }
+
+    string op_blas = "--noblas";
+    if(options_in.find(op_blas) != options_in.end()){
+        if(options.find("use_blas")!=options.end()){
+            options.erase("use_blas");
+        }
+        options_in.erase(op_blas);
+    }
+    */
+
     return return_value;
+
+}
+
+void GRM::processMakeGRM(){
+    nMarkerBlock = 128;
+    gbufitems = new GenoBufItem[nMarkerBlock];
+    /*
+    uint32_t sampleCT, missPtrSize; 
+    geno->setGenoItemSize(sampleCT, missPtrSize);
+    for(int i = 0; i < nMarkerBlock; i++){
+        gbufitems[i].geno.resize(sampleCT);
+        gbufitems[i].missing.resize(missPtrSize);
+    }
+    */
+    this->num_byte_geno = sizeof(double) * nMarkerBlock * (part_keep_indices.second + 1);
+    int ret = posix_memalign((void **)&stdGeno, 32, num_byte_geno);
+    if(ret != 0){
+        LOGGER.e(0, "can't allnocate enough memory for genotype buffer.");
+    }
+    
+    vector<function<void (uintptr_t *, const vector<uint32_t> &)>> callBacks;
+    if(options.find("use_blas") != options.end()){
+        callBacks.push_back(bind(&GRM::calculate_GRM_blas, this, _1, _2));
+    }else{
+        //callBacks.push_back(bind(&GRM::calculate_GRM, &grm, _1, _2));
+        LOGGER.e(0, "original version has been deleted, please use GCTA 1.92.4");
+    }
+    geno->setGRMMode(true, isDominance);
+    bool isSTD = true;
+    if(isMtd) isSTD = false;
+    vector<uint32_t> processIndex = marker->get_extract_index_autosome();
+    sd.reserve(processIndex.size());
+    LOGGER << "Computing GRM..." << std::endl;
+    geno->loopDouble(processIndex, nMarkerBlock, true, true, isSTD, true, callBacks);
+    LOGGER << "  Used " << numValidMarkers << " valid SNPs."<< std::endl;
+    deduce_GRM();
+    delete[] gbufitems;
+    posix_mem_free(stdGeno);
+    geno->setGRMMode(false, false);
+}
+
+void GRM::processMakeGRMX(){
+    nMarkerBlock = 128;
+    gbufitems = new GenoBufItem[nMarkerBlock];
+    /*
+    uint32_t sampleCT, missPtrSize; 
+    geno->setGenoItemSize(sampleCT, missPtrSize);
+    for(int i = 0; i < nMarkerBlock; i++){
+        gbufitems[i].geno.resize(sampleCT);
+        gbufitems[i].missing.resize(missPtrSize);
+    }
+    */
+    this->num_byte_geno = sizeof(double) * nMarkerBlock * (part_keep_indices.second + 1);
+    int ret = posix_memalign((void **)&stdGeno, 32, num_byte_geno);
+    if(ret != 0){
+        LOGGER.e(0, "can't allnocate enough memory for genotype buffer.");
+    }
+    
+    vector<function<void (uintptr_t *, const vector<uint32_t> &)>> callBacks;
+    if(options.find("use_blas") != options.end()){
+        callBacks.push_back(bind(&GRM::calculate_GRM_blas, this, _1, _2));
+    }else{
+        //callBacks.push_back(bind(&GRM::calculate_GRM, &grm, _1, _2));
+        LOGGER.e(0, "original version has been deleted, please use GCTA 1.92.4");
+    }
+    geno->setGRMMode(true, isDominance);
+    bool isSTD = true;
+    if(isMtd) isSTD = false;
+    vector<uint32_t> processIndex = marker->get_extract_index_X();
+    sd.reserve(processIndex.size());
+    LOGGER << "Computing GRM..." << std::endl;
+    geno->loopDouble(processIndex, nMarkerBlock, true, true, isSTD, true, callBacks);
+    LOGGER << numValidMarkers << " valid SNPs are included."<< std::endl;
+    deduce_GRM();
+    delete[] gbufitems;
+    posix_mem_free(stdGeno);
+    geno->setGRMMode(false, false);
 
 }
 
@@ -1571,34 +2041,18 @@ void GRM::processMain() {
             LOGGER.i(0, "Note: GRM is computed using the SNPs on the autosome.");
             Pheno pheno;
             Marker marker;
-            Geno geno(&pheno, &marker);
-            if(!geno.filterMAF()){
-                callBacks.push_back(bind(&Geno::freq64, &geno, _1, _2));
-            }
-            GRM grm(&geno);
-            callBacks.push_back(bind(&GRM::calculate_GRM, &grm, _1, _2));
-            geno.loop_64block(marker.get_extract_index(), callBacks);
-            grm.deduce_GRM();
-
+            GRM grm(&pheno, &marker);
+            grm.processMakeGRM();
             return;
         }
 
         if(process_function == "make_grmx"){
             LOGGER.i(0, "Note: This function takes X chromosome as non PAR region.");
-            Geno::setSexMode();
 
             Pheno pheno;
             Marker marker;
-            Geno geno(&pheno, &marker);
-            if(!geno.filterMAF()){
-                callBacks.push_back(bind(&Geno::freq64, &geno, _1, _2));
-            }
-            GRM grm(&geno);
-            callBacks.push_back(bind(&GRM::calculate_GRM, &grm, _1, _2));
-            geno.loop_64block(marker.get_extract_index(), callBacks);
-            //geno.out_freq("test.frq");
-            grm.deduce_GRM();
-
+            GRM grm(&pheno, &marker);
+            grm.processMakeGRMX();
             return;
         }
 
@@ -1616,7 +2070,13 @@ void GRM::processMain() {
 
         if(process_function == "make_fam"){
             GRM grm;
-            grm.prune_fam(options_d["grm_cutoff"], options_b["sparse"]);
+            float *grm_value = NULL;
+            float value;
+            if(options_d.find("grm_set_value") != options_d.end()){
+                value = options_d["grm_set_value"];
+                grm_value = &value;
+            }
+            grm.prune_fam(options_d["grm_cutoff"], options_b["sparse"], grm_value);
         }
 
         if(process_function == "unify_grm"){

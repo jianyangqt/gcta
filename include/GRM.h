@@ -32,34 +32,45 @@ using std::pair;
 
 class GRM {
 public:
-    GRM(Geno *geno);
+    GRM(Pheno *pheno, Marker *marker);
     GRM();
     ~GRM() {
         posix_mem_free(grm);
         posix_mem_free(N);
-        delete[] lookup_GRM_table;
-        delete[] sub_miss;
-        posix_mem_free(geno_buf);
-        posix_mem_free(mask_buf);
         posix_mem_free(cmask_buf);
+        if(lookup_GRM_table) delete[] lookup_GRM_table;
+        if(sub_miss) delete[] sub_miss;
+        if(geno_buf) posix_mem_free(geno_buf);
+        if(mask_buf) posix_mem_free(mask_buf);
+        //if(stdGeno) posix_mem_free(stdGeno);
+        if(geno) delete geno;
     };
 
-    void calculate_GRM(uint64_t *buf, int num_marker);
+    void calculate_GRM(uintptr_t* genobuf, const vector<uint32_t> &markerIndex);
+    void calculate_GRM_blas(uintptr_t* genobuf, const vector<uint32_t> &markerIndex);
+    
     void grm_thread(int grm_index_from, int grm_index_to);
-    void N_thread(int grm_index_from, int grm_index_to);
+    void N_thread(int grm_index_from, int grm_index_to, const uintptr_t* cmask);
     void deduce_GRM();
     vector<uint32_t> divide_parts(uint32_t from, uint32_t to, uint32_t num_parts);
+    vector<uint32_t> divide_parts_mem(uint32_t n_sample, uint32_t num_parts);
+
     static int registerOption(map<string, vector<string>>& options_in);
     static void processMain();
+    void processMakeGRM();
+    void processMakeGRMX();
+
     void loop_block(vector<function<void (double *buf, int num_block)>> callbacks
                     = vector<function<void (double *buf, int num_block)>>());
     void cut_rel(float thresh, bool no_grm = false);
-    void prune_fam(float thresh, bool isSparse = true);
+    void prune_fam(float thresh, bool isSparse = true, float *val = NULL);
     void unify_grm(string mgrm_file, string out_file);
     void subtract_grm(string mgrm_file, string out_file);
 
 private:
-    Geno *geno;
+    Pheno *pheno = NULL;
+    Marker *marker = NULL;
+    Geno *geno = NULL;
     vector<uint32_t> index_keep;
     uint32_t part;
     uint32_t num_parts;
@@ -68,13 +79,15 @@ private:
     pair<uint32_t, uint32_t> part_keep_indices; //the index in pheno keep index;
     vector<pair<int, int>> index_grm_pairs;
 
-    double *grm;
-    uint32_t *N;
-    uint32_t *sub_miss;
+    double *grm = NULL;
+    uint32_t *N = NULL;
+    uint32_t *sub_miss = NULL; // sample miss in all markers
 
-    uint16_t *geno_buf;
-    uint16_t *mask_buf;
-    uint64_t *cmask_buf;
+    //========
+    // for byte style calculation
+    uint16_t *geno_buf = NULL;  // genotype buffer tranpose
+    uint16_t *mask_buf = NULL;  // mask of genotype
+    uint64_t *cmask_buf = NULL; // sample count mask //used in both byte or blas
     int cur_num_block = 0;
     int finished_marker = 0;
     const static int num_marker_block = 5;
@@ -85,7 +98,7 @@ private:
 
     double GRM_table[Constants::NUM_MARKER_READ][8];
     //double lookup_GRM_table[Constants::NUM_MARKER_READ / num_marker_block][num_lookup_table];
-    double (*lookup_GRM_table)[num_lookup_table];
+    double (*lookup_GRM_table)[num_lookup_table] = NULL;
 
     vector<uint16_t> elements = {0, 2, 3, 4, 5, 6, 7};
     uint64_t num_byte_geno;
@@ -95,6 +108,11 @@ private:
     int num_count_handle;
     int num_block_handle;
     int num_marker_process_block;
+    //====
+    //end for byte style calculation
+
+    bool bBLAS;
+    double *stdGeno = NULL;
 
     void output_id();
 
@@ -106,8 +124,6 @@ private:
     static vector<string> processFunctions;
 
     string grm_file;
-    AsyncBuffer<double>* asyncBuffer;
-    void init_AsyncBuffer();
     int num_byte_buffer;
     uint64_t num_subjects;
     vector<string> grm_ids;
@@ -118,12 +134,19 @@ private:
 
     bool isDominance = false;
     bool isMtd = false;
+    int nMarkerBlock = 128;
+    vector<double> sd;
+    uint32_t numValidMarkers = 0;
+
+    GenoBufItem *gbufitems = NULL;
 
     //Just for testing
 #ifndef NDEBUG
     FILE * o_geno0;
     FILE * o_mask0;
 #endif
+
+
 
 };
 

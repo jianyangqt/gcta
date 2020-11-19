@@ -2,7 +2,7 @@
  *
  * GCTA: a tool for Genome-wide Complex Trait Analysis
  *
- * 2010-2017 by Jian Yang <jian.yang@uq.edu.au> and others
+ * 2010-present Jian Yang <jian.yang.qt@gmail.com> and others
  *
  * Mock layer of version 2 by Zhili Zheng <zhilizheng@outlook.com>
  *
@@ -35,6 +35,7 @@
 #include "utils.hpp" 
 #include <omp.h>
 #include <cstdlib>
+#include "mem.hpp"
 
 using std::bind;
 using std::map;
@@ -54,9 +55,9 @@ void out_ver(bool flag_outFile){
 
     log(0, "*******************************************************************", "");
     log(0, "* Genome-wide Complex Trait Analysis (GCTA)", "");
-    log(0, "* version 1.92.1 beta1 " + getOSName() + " with " + getSSEvar(), "");
-    log(0, "* (C) 2010-2018, The University of Queensland", "");
-    log(0, "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>", "");
+    log(0, "* version 1.93.2 beta " + getOSName(), "");
+    log(0, "* (C) 2010-present, Jian Yang, The University of Queensland", "");
+    log(0, "* Please report bugs to Jian Yang <jian.yang.qt@gmail.com>", "");
     log(0, "*******************************************************************", "");
     log(0, string("at ") + getLocalTime() + ".", "Analysis started");
     log(0, "Hostname: " + getHostName(), "");
@@ -71,11 +72,13 @@ int main(int argc, char *argv[]){
         "--chr", "--autosome-num", "--autosome", "--extract", "--exclude", "--maf", "--max-maf", 
         "--freq", "--out", "--make-grm", "--make-grm-part", "--thread-num", "--threads", "--grm",
         "--grm-cutoff", "--grm-singleton", "--cutoff-detail", "--make-bK-sparse", "--make-bK", "--pheno",
-        "--mpheno", "--ge", "--fastFAM", "--grm-sparse", "--qcovar", "--covar", "--rcovar", "--make-grm-d", "--make-grm-d-part",
+        "--mpheno", "--ge", "--fastGWA", "--fastGWA-mlm", "--fastGWA-mlm-exact", "--fastGWA-lr", "--save-fastGWA-mlm-residual", "--grm-sparse", "--qcovar", "--covar", "--rcovar", "--covar-maxlevel", "--make-grm-d", "--make-grm-d-part",
         "--cg", "--ldlt", "--llt", "--pardiso", "--tcg", "--lscg", "--save-inv", "--load-inv",
-        "--update-ref-allele", "--update-freq", "--update-sex", "--mbfile", "--freqx", "--make-grm-xchr", "--make-grm-xchr-part", "--make-grm-alg",
-        "--make-bed", "--sum-geno-x", "--sample", "--bgen", "--mgrm", "--unify-grm", "--rel-only", 
-        "--ld-matrix", "--r", "--ld-wind", "--r2", "--subtract-grm", "--save-pheno", "--save-bin", "--no-marker"
+        "--update-ref-allele", "--update-freq", "--update-sex", "--mbfile", "--freqx", "--make-grm-xchr", "--make-grm-xchr-part", "--dc", "--make-grm-alg",
+        "--make-bed", "--recodet", "--sum-geno-x", "--sample", "--bgen", "--mbgen", "--hard-call-thresh", "--dosage-call", "--dosage", "--mgrm", "--unify-grm", "--rel-only", 
+        "--ld-matrix", "--r", "--ld-wind", "--r2", "--subtract-grm", "--save-pheno", "--save-bin", "--no-marker", "--joint-covar", "--sparse-cutoff", "--noblas", "--fastGWA-gram",
+        "--inv-t1", "--est-vg", "--force-gwa", "--reml-detail", "--h2-limit", "--gwa-no-constrain", "--verbose", "--c-inf", "--c-inf-no-filter", "--geno", "--info", "--nofilter",
+        "--pfile", "--bpfile", "--mpfile", "--mbpfile", "--model-only", "--load-model", "--seed"
     };
     map<string, vector<string>> options;
     vector<string> keys;
@@ -221,6 +224,12 @@ int main(int argc, char *argv[]){
             std::find(keys.begin(), keys.end(), "--mgrm") != keys.end()){
         unKnownFlag = true;
     }
+    bool bShowAll = false;
+    if(options.find("--verbose") != options.end()){
+        bShowAll = true;
+        options.erase("--verbose");
+    }
+ 
 
     LOGGER.open(options["out"][0] + ".log");
     out_ver(true);
@@ -239,7 +248,7 @@ int main(int argc, char *argv[]){
 
         if(mains.size() > 1) LOGGER.e(0, "multiple main functions are not supported currently.");
         if(is_threaded) {
-            LOGGER.i(0, "The program will be running on " + std::to_string(thread_num) + " threads at most.");
+            LOGGER.i(0, "The program will be running on up to " + std::to_string(thread_num) + " threads.");
         }
         //ThreadPool *threadPool = ThreadPool::GetPool(thread_num - 1);
         //avoid auto parallel
@@ -264,8 +273,18 @@ int main(int argc, char *argv[]){
     int mins = (int) (duration - 3600 * hours) / 60;
     time_str += (mins == 0) ? "" : (to_string(mins) + " minute" + ((mins == 1) ? " ": "s "));
     float seconds = duration - 3600 * hours - 60 * mins;
-    time_str = time_str + ((time_str == "") ? to_string(seconds) : to_string((int)seconds)) + " second(s)"; 
+    time_str = time_str + ((time_str == "") ? to_string_precision(seconds,2) : to_string((int)seconds)) + " sec"; 
 
-    LOGGER.i(0, "Computational time: " + time_str + ".");
+    #ifdef __linux__
+    if(bShowAll){
+        float vmem = roundf(1000.0 * getVMPeakKB() / 1024/1024) / 1000.0; 
+        float mem = roundf(1000.0 * getMemPeakKB() / 1024/1024) / 1000.0;     
+        LOGGER.setprecision(3);
+        LOGGER << "Peak memory: " << mem << " GB; Virtual memory: " << vmem << " GB." << std::endl;
+        //system("cat /proc/$PPID/status");
+    }
+    #endif
+ 
+    LOGGER << "Overall computational time: " << time_str  <<  "." << std::endl;
     return EXIT_SUCCESS;
 }

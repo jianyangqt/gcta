@@ -1,3 +1,16 @@
+/*
+ * GCTA: a tool for Genome-wide Complex Trait Analysis
+ *
+ * Implementations of functions for mtcojo
+ *
+ * 2018 by Jian Yang <jian.yang.qt@gmail.com>
+ *
+ * This file is distributed under the GNU General Public
+ * License, Version 3.  Please see the file LICENSE for more
+ * details
+ */
+
+
 #include "gcta.h"
 #include "Logger.h"
 #include "StatFunc.h"

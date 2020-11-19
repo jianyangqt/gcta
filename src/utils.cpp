@@ -1,3 +1,20 @@
+/*
+   GCTA: a tool for Genome-wide Complex Trait Analysis
+
+   Utils.
+
+   Developed by Zhili Zheng<zhilizheng@outlook.com>
+
+   This file is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   A copy of the GNU General Public License is attached along with this program.
+   If not, see <http://www.gnu.org/licenses/>.
+*/
+
+
 #include <utils.hpp>
 #include <cstdlib>
 #include <iomanip>
@@ -48,15 +65,15 @@ std::string getOSName(){
 
 std::string getSSEvar(){
     #ifdef __AVX512F__
-    return "AVX512";
+    return "avx512";
     #elif __AVX2__
-    return "AVX2";
+    return "avx2";
     #elif __AVX__
-    return "AVX";
+    return "avx";
     #elif __SSE4_1
-    return "SSE4";
+    return "sse4";
     #elif __SSE2__
-    return "SSE2";
+    return "sse2";
     #else
     return "unknown";
     #endif
@@ -102,3 +119,13 @@ std::string joinPath(const std::string & dir, const std::string & path){
         return dir + path;
     }
 }
+
+uint64_t getFileByteSize(FILE * file) {
+    uint64_t f_size;
+    fseek(file, 0, SEEK_END);
+    f_size = ftell(file);
+    rewind(file);
+    return f_size;
+}
+
+

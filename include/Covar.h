@@ -30,6 +30,7 @@ class Covar{
 public:
     Covar();
     bool getCommonSampleIndex(const vector<string> &sampleIDs, vector<uint32_t> &keep_index, vector<uint32_t> &covar_index);
+    bool hasCovar();
     bool getCovarXRaw(const vector<string> &sampleIDs, vector<double> &X, vector<uint32_t> &keep_index);
     bool getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector<uint32_t> &keep_index);
     bool setCovarMapping(bool is_rcovar, vector<vector<string>> *map_order = NULL);

@@ -3,10 +3,10 @@
  *
  * Implementations of functions for bivariate REML analysis
  *
- * 2012 by Jian Yang <jian.yang@uq.edu.au>
+ * 2012 by Jian Yang <jian.yang.qt@gmail.com>
  *
  * This file is distributed under the GNU General Public
- * License, Version 2.  Please see the file COPYING for more
+ * License, Version 3.  Please see the file LICENSE for more
  * details
  */
 
@@ -361,6 +361,7 @@ bool gcta::calcu_Vi_bivar(eigenMatrix &Vi, eigenVector &prev_varcmp, double &log
         if (!comput_inverse_logdet_LU_mkl(Vi, logdet)) LOGGER.e(0, "the variance-covaraince matrix V is not invertible.");
     }
     //LOGGER << "Chop decomposition finished" << endl;
+    return true;
 
     /*    if(!comput_inverse_logdet_LDLT_mkl(Vi, logdet)){
             if(_reml_have_bend_A) LOGGER.e(0, errmsg);

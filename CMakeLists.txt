@@ -6,14 +6,31 @@ SET(CMAKE_INCLUDE_CURRENT_DIR ON)
 SET(CMAKE_CXX_STANDARD 11)
 SET(CMAKE_C_STANDARD 11)
 
-if (NOT (CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.0))
-    MESSAGE(FATAL_ERROR "GCTA can't build without GCC version >= 6.1")
-endif()
-
 # fix win stack size issue
 if(WIN32)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--stack,10000000")
-    MESSAGE(FATAL_ERROR "GCTA can't build on Windows with CMake currently, you can build with Visual Studio in gcta_win64 directory")
+    MESSAGE(FATAL_ERROR "Use the Visual Studio project file which located in gcta_win64 directory")
+endif()
+
+if("${CMAKE_SYSTEM_NAME}" MATCHES "Linux" OR "${CMAKE_SYSTEM_NAME}" MATCHES "Darwin")
+    MESSAGE("Linux and Mac are supported.")
+else()
+    MESSAGE("Your system: ${CMAKE_SYSTEM_NAME}")
+    MESSAGE(FATAL_ERROR "Only Linux and Mac are currently supported.")
+endif()
+
+if (CMAKE_COMPILER_IS_GNUCC)
+    MESSAGE("Compiling by GCC${CMAKE_CXX_COMPILER_VERSION}")
+    if (NOT (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.0))
+        MESSAGE(FATAL_ERROR "GCTA can't build without GCC version >= 6.1")
+    endif()
+elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+    MESSAGE("Compiling by Clang${CMAKE_CXX_COMPILER_VERSION}")
+    if (NOT (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 8.0))
+        MESSAGE(FATAL_ERROR "GCTA can't build without Clang version >= 8.0")
+    endif()
+else()
+    MESSAGE(FATAL_ERROR "GCTA can only compile with GCC or Clang")
 endif()
 
 SET(EIGEN3_INCLUDE_DIR "$ENV{EIGEN3_INCLUDE_DIR}")
@@ -21,6 +38,13 @@ IF(NOT EIGEN3_INCLUDE_DIR)
     MESSAGE(FATAL_ERROR "Specify environment variable EIGEN3_INCLUDE_DIR to the location of Eigen3 package")
 ENDIF()
 INCLUDE_DIRECTORIES("${EIGEN3_INCLUDE_DIR}")
+
+SET(SPECTRA_LIB "$ENV{SPECTRA_LIB}")
+IF(NOT SPECTRA_LIB)
+    MESSAGE(FATAL_ERROR "Specify environment variable SPECTRA_LIB to the location of Spectra package")
+ENDIF()
+INCLUDE_DIRECTORIES("${SPECTRA_LIB}")
+
 
 SET(BOOST_LIB "$ENV{BOOST_LIB}")
 IF(NOT BOOST_LIB)
@@ -34,6 +58,9 @@ IF(NOT MKLROOT)
 ENDIF()
 INCLUDE_DIRECTORIES("${MKLROOT}/include")
 
+# PLINK2.0 pgen library;
+INCLUDE_DIRECTORIES("submods/plink-ng/2.0")
+
 if(WIN32)
     set(CMAKE_FIND_LIBRARY_SUFFIXES ".lib")
 else()
@@ -41,7 +68,7 @@ else()
 endif()
 
 find_library(lib_lp64 NAMES mkl_intel_lp64 PATHS "${MKLROOT}/lib/intel64" "${MKLROOT}/lib")
-if(APPLE)
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR APPLE)
     find_library(lib_thread NAMES mkl_intel_thread PATHS "${MKLROOT}/lib/intel64" "${MKLROOT}/lib")
 else()
     find_library(lib_thread NAMES mkl_gnu_thread PATHS "${MKLROOT}/lib/intel64" "${MKLROOT}/lib")
@@ -57,12 +84,17 @@ IF(NOT SSE)
     set(SSE "-msse2")
     message("SSE build")
 ENDIF()
+
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64 -fopenmp -msse4.2 -DMKL_LP64")
-    set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} -O3 -flto -DNDEBUG")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64 ${SSE} -DMKL_LP64 -pthread")
+    set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG -DEIGEN_USE_MKL_ALL")
     set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g")
-    # message(FALTAL_ERROR "GCTA has an known issue compile with Clang, we are checking the code")
-    message(WARNING "GCTA has an known issue compile with Clang, we are checking the code")
+    add_compile_options(-fopenmp)
+    set(CMAKE_EXE_LINKER_FLAGS "-Wl,-no_implicit_dylibs")
+    if(NOT APPLE)
+        # don't delete this it will result in _implibs
+        set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
+    endif()
 elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64 ${SSE} -pthread -DMKL_LP64 -fvisibility=hidden -fvisibility-inlines-hidden")
     set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG -DEIGEN_USE_MKL_ALL") #-flto 
@@ -94,20 +126,34 @@ foreach(_lib ${SRCS})
 endforeach(_lib)
 
 add_subdirectory(main)
+add_subdirectory(submods)
 
 if(APPLE)
     link_directories(${MKLROOT}/lib)
+    link_directories(/usr/local/lib)
+else(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    #linux
+    link_directories(${MKLROOT}/../../../lib/intel64)
 endif()
 
 add_executable(gcta64 ${MAIN_SOURCE})
 
 if(APPLE)
-    target_link_libraries(gcta64 ${libs_list} mainV1 z ${MKL_LIB} iomp5 pthread m dl )
+    # iomp5
+    target_link_libraries(gcta64 ${libs_list} Pgenlib mainV1 z ${MKL_LIB} sqlite3 zstd_s omp pthread m dl )
 else()
-    #target_link_libraries(gcta64 mainV1 ${libs_list} -Wl,-Bstatic z -Wl,--start-group ${MKL_LIB} -Wl,--end-group gomp -Wl,-Bdynamic pthread m dl)
-    target_link_libraries(gcta64 mainV1 ${libs_list} -static z -Wl,--start-group ${MKL_LIB} -Wl,--end-group gomp -Wl,--whole-archive -lpthread -Wl,--no-whole-archive m dl)
+    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        # error keeps only
+        #target_link_libraries(gcta64 ${libs_list} mainV1 z ${MKL_LIB} iomp5 pthread m dl )
+        #target_link_libraries(gcta64 mainV1 ${libs_list} z ${MKL_LIB} pthread m dl)
+        # Dynamic link works
+        #target_link_libraries(gcta64 mainV1 ${libs_list} -Wl,-Bstatic z -Wl,--start-group ${MKL_LIB} -Wl,--end-group iomp5 -Wl,-Bdynamic pthread m dl)
+        target_link_libraries(gcta64 mainV1 ${libs_list} Pgenlib -static z sqlite3 zstd -Wl,--start-group ${MKL_LIB} -Wl,--end-group iomp5 -Wl,--whole-archive -lpthread -Wl,--no-whole-archive m dl)
+    else()
+        #target_link_libraries(gcta64 mainV1 ${libs_list} -Wl,-Bstatic z -Wl,--start-group ${MKL_LIB} -Wl,--end-group gomp -Wl,-Bdynamic pthread m dl)
+        target_link_libraries(gcta64 mainV1 ${libs_list} Pgenlib -static z sqlite3 zstd -Wl,--start-group ${MKL_LIB} -Wl,--end-group gomp -Wl,--whole-archive -lpthread -Wl,--no-whole-archive m dl)
+    endif()
 endif()
-#target_link_libraries(gcta64 ${libs_list} mainV1)
 
 # Testing has some problems currently
 #enable_testing()

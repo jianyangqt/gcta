@@ -40,8 +40,8 @@ struct LDInfoStart{
     uint32_t startIndex;  // marker index in the marker info or .gld.esi
     uint32_t numMarker; 
     // marker Index 50 seems resonalbe 30K * 8 * 1024/1024  * 50 = 114MB
-    uint32_t* numRelAfter; // how many marker relation saved; size = 1
-    uint32_t* numRelBefore; // how many marker before;
+    uint32_t* numRelAfter = NULL; // how many marker relation saved; size = 1
+    uint32_t* numRelBefore = NULL; // how many marker before;
     uint64_t startByte; // the byte of start
     uint64_t compressSize; // compressed size;
     uint64_t decompressSize; // decompressed size;

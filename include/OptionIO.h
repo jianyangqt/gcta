@@ -27,6 +27,11 @@ using std::string;
 using std::to_string;
 
 void addOneFileOption(string key_store, string append_string, string key_name, map<string, vector<string>> options_in, map<string,string>& options);
+void addMFileListsOption(string key_store, string append_string, string key_name, map<string, vector<string>> options_in, map<string,string>& options);
+
+// get the header of the text file; true: get success, false: only string start with #
+bool getListHeaderNew(std::ifstream *input, bool &ioerr, int &ncol, vector<string> &head, int &nHeader);
+bool readTxtList(string fileName, int minFields, vector<string> &head, int &nHeader, map<int, vector<string>> &lists);
 
 bool checkFileReadable(string filename);
 
@@ -47,6 +52,29 @@ T read1Byte(FILE * file){
     }
     return buffer;
 }
+
+template<typename T>
+void addOneValOption(string key_store, string key_name, map<string, vector<string>> options_in, map<string,T>& options, T defVal, T lowVal, T upVal){
+    string curFlag = key_name;
+    T val = defVal;
+    if(options_in.find(curFlag) != options_in.end()){
+        auto option = options_in[curFlag];
+        if(option.size() == 1){
+            try{
+                val = std::stod(option[0]);
+            }catch(std::invalid_argument&){
+                LOGGER.e(0, "illegal value in " + curFlag + ".");
+            }
+            if(val < lowVal || val > upVal){
+                LOGGER.e(0, curFlag + " can't be smaller than " + to_string(lowVal) + " or larger than " + to_string(upVal) + ".");
+            }
+        }else{
+            LOGGER.e(0, "multiple value in " + curFlag + " are not supported currently");
+        }
+    }
+    options[key_store] = val;
+}
+
 
 
 #endif  //gcta2_optionio_h

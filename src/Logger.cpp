@@ -1,6 +1,4 @@
 /*
-   GCTA: a tool for Genome-wide Complex Trait Analysis
-
    Global Singleton logger system with robust functions and thread safe.
 
       * open a logger file first, otherwise no output into log

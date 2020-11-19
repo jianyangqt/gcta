@@ -3,10 +3,10 @@
  *
  * Within-family REML analysis
  *
- * 2012 by Jian Yang <jian.yang@qimr.edu.au>
+ * 2012 by Jian Yang <jian.yang.qt@gmail.com>
  *
  * This file is distributed under the GNU General Public
- * License, Version 2.  Please see the file COPYING for more
+ * License, Version 3.  Please see the file LICENSE for more
  * details
  */
 
@@ -48,8 +48,7 @@ bool gcta::calcu_Vi_within_family(eigenMatrix &Vi, eigenVector &prev_varcmp, dou
     else{
         eigenSparseMat Vit(_n, _n);
         for(i=0; i<_r_indx.size(); i++){
-            eigenSparseMat vit_temp = (_Asp[_r_indx[i]])*prev_varcmp[i];
-            Vit = Vit + vit_temp;
+            Vit = Vit + (_Asp[_r_indx[i]])*prev_varcmp[i];
         }
         int prev_pnt=0, subn=0;
         //logdet=0.0;
@@ -61,7 +60,7 @@ bool gcta::calcu_Vi_within_family(eigenMatrix &Vi, eigenVector &prev_varcmp, dou
             LOGGER.e(0, "can't inverse the matrix within familiy");
         }
         
-        double logdet = solver.vectorD().array().square().log().sum();
+        logdet = solver.vectorD().array().log().sum();
 
         eigenSparseMat vit_r = solver.solve(_Asp[_r_indx[_r_indx.size() - 1]]);
 

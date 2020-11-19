@@ -39,6 +39,7 @@ std::string getPathName(const std::string & path);
 std::string joinPath(const std::string & dir, const std::string & path);
 std::string getSSEvar();
 std::string getOSName();
+uint64_t getFileByteSize(FILE * file);
 
 template <typename T>
 bool hasVectorDuplicate(const std::vector<T> &v){
@@ -47,6 +48,13 @@ bool hasVectorDuplicate(const std::vector<T> &v){
     auto last = std::unique(t.begin(), t.end());
     return last != t.end();
 }
+
+template <typename T>
+void removeDuplicateSort(std::vector<T> &t){
+    std::sort(t.begin(), t.end());
+    t.erase(std::unique(t.begin(), t.end()), t.end());
+}
+
 
 template <typename T>
 std::vector<size_t> sort_indexes(const std::vector<T> &v) {
@@ -109,10 +117,10 @@ void vector_commonIndex(const std::vector<T>& v1, const std::vector<T>& v2, std:
 		T v2_temp = sorted_v2[v2_ind];
 		auto v1_iter = std::lower_bound(v1_begin, sorted_v1.end(), v2_temp);
 		
-		if( v1_iter != sorted_v1.end() && !(v2_temp < *v1_iter)){
-			k1.push_back(v1_index[v1_iter - sorted_v1.begin()]);
-			k2.push_back(v2_index[v2_ind]);
-			v1_begin = v1_iter;
+                while( v1_iter != sorted_v1.end() && (v2_temp == *v1_iter)){
+                    k1.push_back(v1_index[v1_iter - sorted_v1.begin()]);
+                    k2.push_back(v2_index[v2_ind]);
+                    v1_begin = v1_iter++;
 		}
 	}
         // order sometimes matters	
@@ -170,4 +178,18 @@ std::string to_string_precision(const T value, const int n = 0){
     out << std::fixed << value;
     return out.str();
 } 
+
+template <typename T>
+int findElementVector(const std::vector<T> &vec, T element, bool &found){
+    auto it = std::find(vec.begin(), vec.end(), element);
+    if(it != vec.end()){
+        found = true;
+        return(it - vec.begin());
+    }else{
+        found = false;
+        return -1;
+    }
+}
+
+
 #endif

@@ -1,6 +1,4 @@
 /*
-   GCTA: a tool for Genome-wide Complex Trait Analysis
-
    Robust thread pool with C++11 only, cross platform.
 
    Singleton pattern to use in the whole program.

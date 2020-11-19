@@ -25,6 +25,8 @@
 
 #include "Logger.h"
 #include "Geno.h"
+#include "Pheno.h"
+#include "Marker.h" 
 #include "Eigen/Dense"
 #include "Eigen/Sparse"
 #include <vector>
@@ -43,46 +45,115 @@ typedef SparseMatrix<double, Eigen::ColMajor, long long> SpMat;
 
 class FastFAM {
 public:
-    FastFAM(Geno *geno);
+    FastFAM();
     ~FastFAM();
 
-    void calculate_fam(uint64_t *buf, int num_marker);
-    void calculate_gwa(uint64_t *buf, int num_marker);
-    void output(string filename);
-    void initMarkerVars();
+    void calculate_fam(uintptr_t *buf, const vector<uint32_t> &markerIndex);
+    void calculate_grammar(uintptr_t *buf, const vector<uint32_t> &markerIndex);
+    void calculate_gwa(uintptr_t * geno, const vector<uint32_t> &markerIndex);
+    void output_res(const vector<uint8_t> &isValids, const vector<uint32_t> markerIndex);
+
+    //void readGenoSample(uint64_t *buf, int num_marker);
+    void genRandY(uint64_t *buf, int num_marker);
+    void estBeta(uint64_t *buf, int num_marker);
+
+    //void output(string filename);
+    //void initMarkerVars();
 
     static void readFAM(string filename, SpMat& fam, const vector<string> &ids, vector<uint32_t> &remain_index);
     static double HEreg(vector<double> &Zij, vector<double> &Aij, bool &isSig);
     static double HEreg(const Ref<const SpMat> fam, const Ref<const VectorXd> pheno, bool &isSig);
-    static void conditionCovarReg(VectorXd &pheno, MatrixXd &covar);
+    double MCREML(const Ref<const SpMat> fam, const Ref<const VectorXd> pheno, bool &isSig);
+    double spREML(const Ref<const SpMat> fam, const Ref<const VectorXd> pheno, bool &isSig);
+
+    void conditionCovarReg(Eigen::Ref<VectorXd> pheno);
+    void conditionCovarReg(VectorXd &pheno, VectorXd &condPheno);
     
     static int registerOption(map<string, vector<string>>& options_in);
     static void processMain();
+    void processFAM(vector<function<void (uintptr_t *, const vector<uint32_t> &)>> callBacks);
+    //void processFAM();
+
 
 private:
+    Pheno *pheno;
+    Marker *marker;
     Geno *geno;
     uint32_t num_indi;
     uint32_t num_marker;
     uint32_t num_finished_marker = 0;
     float *beta = NULL;
     float *se = NULL;
-    float *p = NULL;
-    bool fam_flag;
-
-    std::mutex chisq_lock;
+    double *p = NULL;
+    uint32_t * countMarkers = NULL;
+    float *af = NULL;
+    float *info = NULL;
+    bool bOutResAll = false;
     
+    bool fam_flag;
+    MatrixXd H, covar;
+    bool covarFlag = false;
+
+    bool bGrammar = false;
+    int num_grammar_markers;
+    VectorXd Vi_y;
+    VectorXd Vi_y_cinf;
+    double c_inf;
+    uint64_t finished_rand_marker = 0;
+    Eigen::ConjugateGradient<SpMat, Eigen::Lower|Eigen::Upper> solver;
+    void grammar_func(uintptr_t *genobuf, const vector<uint32_t> &markerIndex);
+    vector<double> v_chisq;
+    vector<double> v_c_infs;
+    vector<uint8_t> bValids;
+ 
+
+    //std::mutex chisq_lock;
+    //
+    //REML
+    vector<SpMat> A;
+    void logLREML(const Ref<const VectorXd> pheno, vector<double> &varcomp, double &logL, double *Hinv=NULL);
+
+    void loadModel();
 
     SpMat V_inverse;
     vector<double> phenos;
     VectorXd phenoVec;
+    VectorXd rawPhenoVec;
 
     void inverseFAM(SpMat& fam, double VG, double VR);
+    void makeIH(MatrixXd &X);
+    void grammar(SpMat& fam, double VG, double VR);
 
     static map<string, string> options;
     static map<string, double> options_d;
     static vector<string> processFunctions;
+    double fitREML(double logdet, const SpMat &fam, const VectorXd &pheno);
+
+    //for BOLT reml
+    MatrixXd rand_y;
+    MatrixXd rand_beta;
+    MatrixXd rand_e;
+
+    MatrixXd randVinvY;
+    VectorXd VinvY;
+
+    MatrixXd randEstBeta;
+    VectorXd phenoEstBeta;
+    uint64_t finished_boltreml_marker = 0;
+    
+    int mcTrails;
+
 
     //void reg_thread(uint8_t *buf, int from_marker, int to_marker);
+    bool bSaveBin = false;
+    bool bNoSaveMarker = false;
+    bool hasInfo = false;
+    string sFileName;
+
+    std::ofstream osOut;
+    FILE * bOut = NULL;
+    vector<char> osBuf;
+    uint32_t numMarkerOutput = 0;
 
 };
 

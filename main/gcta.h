@@ -3,10 +3,10 @@
  *
  * Interface to all the GCTA functions
  *
- * 2010 by Jian Yang <jian.yang@qimr.edu.au>
+ * 2010 by Jian Yang <jian.yang.qt@gmail.com>
  *
  * This file is distributed under the GNU General Public
- * License, Version 2.  Please see the file COPYING for more
+ * License, Version 3.  Please see the file COPYING for more
  * details
  */
 
@@ -21,6 +21,7 @@
 #define EIGEN_USE_MKL_ALL
 #endif
 
+#include <cstdio>
 #include "CommFunc.h"
 #include "StrFunc.h"
 #include "StatFunc.h"
@@ -39,6 +40,7 @@
 #include <mkl_cblas.h>
 #include <mkl_lapack.h>
 #include "Logger.h"
+#include "Matrix.hpp"
 
 #ifdef SINGLE_PRECISION
 typedef Eigen::SparseMatrix<float, Eigen::ColMajor, long long> eigenSparseMat;
@@ -128,6 +130,9 @@ public:
     void set_reml_fixed_var();
     void set_reml_mtd(int reml_mtd);
     void set_reml_allow_constrain_run();
+    void set_reml_diag_mul(double value);
+    void set_reml_diagV_adj(int method);
+    void set_reml_inv_method(int method);
 
     // bivariate REML analysis
     void fit_bivar_reml(string grm_file, string phen_file, string qcovar_file, string covar_file, string keep_indi_file, string remove_indi_file, string sex_file, int mphen, int mphen2, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool m_grm_flag, bool pred_rand_eff, bool est_fix_eff, int reml_mtd, int MaxIter, vector<double> reml_priors, vector<double> reml_priors_var, vector<int> drop, bool no_lrt, double prevalence, double prevalence2, bool no_constrain, bool ignore_Ce, vector<double> &fixed_rg_val, bool bivar_no_constrain);
@@ -542,6 +547,8 @@ private:
     int _reml_max_iter;
     int _reml_mtd;
     int _reml_inv_mtd;
+    double _reml_diag_mul;
+    int _reml_diagV_adj;
     bool _cv_blup;
     eigenMatrix _X;
     vector<eigenMatrix> _A;

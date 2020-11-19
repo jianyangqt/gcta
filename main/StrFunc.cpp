@@ -1,10 +1,10 @@
 /*
  * Implementations of the string-operation functions
  *
- * 2010 by Jian Yang <jian.yang@qimr.edu.au>
+ * 2010 by Jian Yang <jian.yang.qt@gmail.com>
  *
  * This file is distributed under the GNU General Public
- * License, Version 2.  Please see the file COPYING for more
+ * License, Version 3.  Please see the file LICENSE for more
  * details
  */
 
@@ -108,13 +108,13 @@ bool StrFunc::StrVecEqual(const vector<string> &VsBufA, const vector<string> &Vs
 
 bool StrFunc::str_within_quto(const string &str, string &str_buf)
 {
-	unsigned int begin=str.find_first_of("\"");
-	unsigned int end=str.find_last_of("\"");
-	if(begin==string::npos || end==string::npos || begin==end) return false;
+    std::size_t begin=str.find_first_of("\"");
+    std::size_t end=str.find_last_of("\"");
+    if(begin==string::npos || end==string::npos || begin==end) return false;
 
-	str_buf="";
-	str_buf.insert(str_buf.begin(), str.begin()+begin+1, str.begin()+end);
-	return true;
+    str_buf="";
+    str_buf.insert(str_buf.begin(), str.begin()+begin+1, str.begin()+end);
+    return true;
 }
 
 vector<string>::iterator StrFunc::find(vector<string> &target_vs, const string &target_str)

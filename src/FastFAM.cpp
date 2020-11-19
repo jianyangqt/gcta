@@ -16,31 +16,58 @@
    If not, see <http://www.gnu.org/licenses/>.
 */
 #include "FastFAM.h"
+#include "OptionIO.h"
 #include "StatLib.h"
 #include <cmath>
 #include <algorithm>
 #include <Eigen/SparseCholesky>
 #include <Eigen/PardisoSupport>
 #include <Eigen/IterativeLinearSolvers>
+#include <Eigen/Sparse>
 #include <sstream>
 #include <iterator>
 #include "utils.hpp"
 #include "Logger.h"
 #include "ThreadPool.h"
 #include "omp.h"
+#include "Matrix.hpp"
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/random.hpp>
+#include <boost/random/normal_distribution.hpp>
 #include <boost/lexical_cast.hpp>
 #include <iomanip>
 #include "Covar.h"
+#include <cstdio>
+#include <random>
+#include <chrono>
 
-#include <iostream>
+#include <Eigen/Core>
+#include <Eigen/SparseCore>
+
+#include <Spectra/SymEigsSolver.h>
+#include <Spectra/MatOp/SparseSymMatProd.h>
 
 struct InvItem{
     int32_t row;
     int32_t col;
     double val;
 };
+
+struct MDLHeader{
+    char magic[5];
+    uint32_t num_indi;
+    bool fam_flag;
+    bool isGrammar;
+    uint64_t phenoVec_start;
+    bool covarFlag;
+    uint64_t covarVec_start;
+    uint32_t covarVec_cols;
+    uint64_t V_inverse_start;
+    uint32_t V_inverse_items;
+    double c_inf;
+};
+    
 
 
 using std::to_string;
@@ -49,11 +76,165 @@ using Eigen::Matrix;
 map<string, string> FastFAM::options;
 map<string, double> FastFAM::options_d;
 vector<string> FastFAM::processFunctions;
+void FastFAM::loadModel(){
+        LOGGER << "Loading saved model prefixed with [" << options["model_file"] << "]..." << std::endl;
+        LOGGER << "Note: phenotype, covariates, sparse GRM and association test methods are provided by the model, thus these flags will be ignored." << std::endl;
+        string model_file = options["model_file"] + ".mdl";
 
-FastFAM::FastFAM(Geno *geno){
+        string id_file = model_file + ".id";
+        vector<string> modelIDs = Pheno::read_sublist(id_file);
+        num_indi = modelIDs.size();
+
+        uint32_t sample_keep_geno = pheno->count_keep();
+        vector<string> sampleIDs = pheno->get_id(0, sample_keep_geno - 1, "\t");
+        vector<uint32_t> id1, id2;
+        vector_commonIndex_sorted1(sampleIDs, modelIDs, id1, id2);
+        if(id2.size() != num_indi){
+            LOGGER.e(0, "Some sample ID in model are not existed in genotype!");
+        }
+
+        pheno->filter_keep_index(id1);
+        LOGGER << "  " << num_indi << " valid individuals to be included." << std::endl;
+
+        MDLHeader head;
+        string bin_file = model_file + ".bin";
+        FILE* ibin = fopen(bin_file.c_str(), "rb");
+        if(!ibin){
+            LOGGER.e(0, "can't open file [" + bin_file + "] to read.");
+        }
+        if(fread(&head, sizeof(MDLHeader), 1, ibin) != 1){
+            LOGGER.e(0, "can't read header in [" + bin_file + "].");
+        }
+        if(strcmp(head.magic, "fGWA") != 0){
+            LOGGER.e(0, "wrong header in [" + bin_file + "], this file can only generate from GCTA model.");
+        }
+        if(head.num_indi != modelIDs.size()){
+            LOGGER.e(0, "the sample in model is different from id file!");
+        }
+        fam_flag = head.fam_flag;
+        if(fam_flag){
+            options["grmsparse_file"] = "demo";
+        }
+
+        bGrammar = head.isGrammar;
+        if(fam_flag && bGrammar){
+            options["grammar"] = "yes";
+        }
+
+        covarFlag = head.covarFlag;
+        c_inf = head.c_inf;
+
+        // read the phenotype
+        LOGGER << "  loading phenotypes..." << std::endl;
+        double *phenoP;
+        double *tempP = new double[num_indi];
+        if((fam_flag && (!bGrammar)) || (!fam_flag)){
+            phenoVec.resize(num_indi);
+            phenoP = phenoVec.data();       
+        }else{
+            Vi_y_cinf.resize(num_indi);
+            phenoP = Vi_y_cinf.data();
+        }
+        fseek(ibin, head.phenoVec_start, SEEK_SET);
+        if(fread(tempP, sizeof(double), num_indi, ibin) != num_indi){
+            LOGGER.e(0, "failed to read phenotype from model.");
+        }
+        // switch order;
+        for(int i = 0; i < num_indi; i++){
+            phenoP[i] = tempP[id2[i]];
+        }
+        delete[] tempP;
+
+        // read covariates
+        LOGGER << "  loading covariates..." << std::endl;
+        uint64_t num_covar_elements = (uint64_t)num_indi * head.covarVec_cols;
+        fseek(ibin, head.covarVec_start, SEEK_SET);
+        this->covar.resize(num_indi, head.covarVec_cols);
+        double *tempCovar = new double[num_covar_elements];
+        if(fread(tempCovar, sizeof(double), num_covar_elements, ibin) != num_covar_elements){
+            LOGGER.e(0, "failed to read covariates from model.");
+        }
+        for(uint64_t i = 0; i < head.covarVec_cols; i++){
+            uint64_t cur_base = i * num_indi;
+            for(uint64_t j = 0; j < num_indi; j++){
+                covar(j, i) = tempCovar[cur_base + id2[j]];
+            }
+        }
+
+        if(covarFlag){
+            LOGGER << "  loading " << head.covarVec_cols << " covariates..." << std::endl;
+            H.resize(num_indi, head.covarVec_cols);
+            if(fread(tempCovar, sizeof(double), num_covar_elements, ibin) != num_covar_elements){
+                LOGGER.e(0, "failed to read covariates from model.");
+            }
+            for(uint64_t i = 0; i < head.covarVec_cols; i++){
+                uint64_t cur_base = i * num_indi;
+                for(uint64_t j = 0; j < num_indi; j++){
+                    H(j, i) = tempCovar[cur_base + id2[j]];
+                }
+            }
+        }
+        delete[] tempCovar;
+
+        if(fam_flag && (!bGrammar)){
+            LOGGER << "  loading V matrix..." << std::endl;
+            vector<size_t> lookup = sort_indexes(id2);
+
+            vector<uint32_t> vi, vj;
+            vector<double> val;
+            vi.resize(head.V_inverse_items);
+            vj.resize(head.V_inverse_items);
+            val.resize(head.V_inverse_items);
+
+            V_inverse.resize(num_indi, num_indi);
+
+            uint32_t cur_item = 0;
+            InvItem item;
+            while(cur_item < head.V_inverse_items){
+                if(fread(&item, sizeof(item), 1, ibin) == 1){
+                    //V_inverse.insert(item.row, item.col) = item.val;
+                    vi[cur_item] = lookup[item.row];
+                    vj[cur_item] = lookup[item.col];
+                    val[cur_item] = item.val; 
+
+                    cur_item++;
+                }else{
+                    LOGGER.e(0, "failed to read the V inverse from model.");
+                }
+            }
+            //reorder
+            vector<size_t> ordIndex = sort_indexes(vj, vi);
+            for(int i = 0; i < head.V_inverse_items; i++){
+                uint32_t idx = ordIndex[i]; 
+                V_inverse.insert(vi[idx], vj[idx]) = val[idx];
+            }
+        }
+
+        V_inverse.finalize();
+        V_inverse.makeCompressed();
+        fclose(ibin);
+        LOGGER << "  loaded successfully." << std::endl;
+}
+
+FastFAM::FastFAM(){
     //Eigen::setNbThreads(THREADS.getThreadCount() + 1);
-    this->geno = geno;
-    num_indi = geno->pheno->count_keep();
+    //Eigen::setNbThreads(1);
+    
+    pheno = new Pheno();
+    marker = new Marker();
+    this->geno = new Geno(pheno, marker);
+    hasInfo = geno->getGenoHasInfo();
+
+    num_indi = pheno->count_keep();
+
+    if(options["model_file"] != ""){
+        loadModel();
+        return;
+    }
+
+    if(options.find("grammar") !=options.end()){
+        bGrammar = true;
+    }
 
     double VG;
     double VR;
@@ -65,9 +246,9 @@ FastFAM::FastFAM(Geno *geno){
     }
 
     vector<string> ids;
-    geno->pheno->get_pheno(ids, phenos);
+    pheno->get_pheno(ids, phenos);
     if(ids.size() != num_indi){
-        LOGGER.e(0, "Phenotype is not equal, this shall be a flag bug");
+        LOGGER.e(0, "Did you forget to specify --pheno?");
     }
 
     // read covar
@@ -76,10 +257,16 @@ FastFAM::FastFAM(Geno *geno){
     Covar covar;
     if(covar.getCommonSampleIndex(ids, remain_index, remain_index_covar)){
         has_covar = true;
-        LOGGER.i(0, to_string(remain_index.size()) + " overlapped individuals with non-missing data to be included from the covariate file(s).");
+        LOGGER.i(0, to_string(remain_index.size()) + " overlapping individuals with non-missing data to be included from the covariate file(s).");
     }else{
-        remain_index.resize(ids.size());
-        std::iota(remain_index.begin(), remain_index.end(), 0);
+        // have covariates, no overlapped
+        if(covar.hasCovar()){
+            LOGGER.e(0, "No overlappping individual with non-missing data to be included from the covariate file(s).");
+        }else{
+            // no covariates
+            remain_index.resize(ids.size());
+            std::iota(remain_index.begin(), remain_index.end(), 0);
+        }
     }
 
     vector<string> remain_ids(remain_index.size());
@@ -118,9 +305,9 @@ FastFAM::FastFAM(Geno *geno){
         total_remain_index[i] = temp_index;
     }
     //fix pheno keep
-    geno->pheno->filter_keep_index(total_remain_index);
-    geno->init_keep();
-    num_indi = geno->pheno->count_keep();
+    pheno->filter_keep_index(total_remain_index);
+    //geno->init_keep();
+    num_indi = pheno->count_keep();
     LOGGER.i(0, "After matching all the files, " + to_string(remain_phenos.size()) + " individuals to be included in the analysis.");
 
     vector<double> remain_covar;
@@ -133,6 +320,8 @@ FastFAM::FastFAM(Geno *geno){
 
     // standerdize the phenotype, and condition the covar
     phenoVec = Map<VectorXd> (remain_phenos.data(), remain_phenos.size());
+    rawPhenoVec = phenoVec;
+
     // condition the covar
     if(has_covar){
         MatrixXd concovar = Map<Matrix<double, Dynamic, Dynamic, Eigen::ColMajor>>(remain_covar.data(), remain_phenos.size(), 
@@ -142,8 +331,29 @@ FastFAM::FastFAM(Geno *geno){
         std::ofstream covar_w(options["out"] + "_aln_covar.txt"), pheno_w(options["out"] + "_aln_phen.txt"), pheno_w2(options["out"] + "_adj_phen.txt");
         pheno_w << phenoVec << std::endl;
         */
+        /*
+        std::ofstream covar_w(options["out"] + "_aln_covar.txt");
+        for(int i = 0; i < phenoVec.size(); i++){
+            covar_w << phenoVec(i);
+            for(int j = 0; j < concovar.cols(); j++){
+                covar_w << "\t" << concovar(i, j);
+            }
+            covar_w << std::endl;
+        }
+        covar_w.close();
+        */
+        /*
+        FILE * out = fopen((options["out"] + ".covar.bin").c_str(), "wb");
+        fwrite(concovar.data(), sizeof(double), remain_covar.size(), out);
+        fclose(out);
 
-        conditionCovarReg(phenoVec, concovar);
+        FILE * pout = fopen((options["out"] + ".phenob").c_str(), "wb");
+        fwrite(phenoVec.data(), sizeof(double), phenoVec.size(), pout);
+        fclose(pout);
+        */
+        covarFlag = true;
+        makeIH(concovar);
+        conditionCovarReg(phenoVec);
         if(options.find("save_pheno") != options.end()){
             std::ofstream pheno_w((options["out"] + ".cphen").c_str());
             if(!pheno_w) LOGGER.e(0, "failed to write " + options["out"]+".cphen");
@@ -152,6 +362,12 @@ FastFAM::FastFAM(Geno *geno){
             }
             pheno_w.close();
         }
+        /*
+        FILE * p1out = fopen((options["out"] + ".phenoa1").c_str(), "wb");
+        fwrite(phenoVec.data(), sizeof(double), phenoVec.size(), p1out);
+        fclose(p1out);
+        */
+
 
         /*
         pheno_w2 << phenoVec << std::endl;
@@ -159,30 +375,58 @@ FastFAM::FastFAM(Geno *geno){
         pheno_w.close();
         pheno_w2.close();
         */
+    }else{
+        this->covar.resize(phenoVec.size(), 1);
+        this->covar.setZero();
+        this->covar = this->covar.array() + 1;
+    }
+
+    // joint covar
+    if(options.find("adj_covar") != options.end() && covarFlag){
+        LOGGER.i(0, "Fitting covariates jointly in association.");
+        covarFlag = true;
+    }else{
+        covarFlag = false;
+        // not usefull now but useful to REML
+        this->covar.resize(phenoVec.size(), 1);
+        this->covar.setZero();
+        this->covar = this->covar.array() + 1;
     }
 
     // Center
     double phenoVec_mean = phenoVec.mean();
     phenoVec -= VectorXd::Ones(phenoVec.size()) * phenoVec_mean;
+
+    double raw_mean = rawPhenoVec.mean();
+    rawPhenoVec = rawPhenoVec.array() - raw_mean;
+
+    double Vpheno = phenoVec.array().square().sum() / (phenoVec.size() - 1);
+    if(Vpheno < 1e-5){
+        LOGGER.e(0, "Vp < 1e-5, which is not quite right. Please check: 1. Phenotype scale issue? 2. The covariates could explain all Vp; 3. Very rare prevalence of disease.");
+    }
+
+
     //LOGGER << "DEBUG: samples size: " << geno->pheno->count_keep() << std::endl;
+    /*
+    FILE * p1out = fopen((options["out"] + ".phenoa2").c_str(), "wb");
+    fwrite(phenoVec.data(), sizeof(double), phenoVec.size(), p1out);
+    fclose(p1out);
+    */
+
+    std::map<string, string> mtdString;
+    mtdString["REML"] = "fastGWA-REML (grid search)";
+    mtdString["HE"] = "Haseman-Elston regression";
 
     if(fam_flag){
-        //LOGGER << "DEBUG: pheno vector size: " << phenoVec.size() << std::endl;
-        double Vpheno = phenoVec.array().square().sum() / (phenoVec.size() - 1);
-        //phenoVec /= pheno_sd;
-
-        //LOGGER.i(0, "DEBUG: conditioned Pheno (first 5)");
-
-        //for(int i = 0; i < 5; i++){
-            //LOGGER.i(0, to_string(phenoVec[i]));
-        //}
 
         if(options.find("inv_file") == options.end()){
+            // no saved inv file
             vector<double> Aij;
             vector<double> Zij;
 
             if(flag_est_GE){
-                LOGGER.i(0, "Estimating the genetic variance (Vg) by HE regression...");
+                LOGGER.i(0, "Estimating the genetic variance (Vg) by " + mtdString[options["VgEstMethod"]] + "...");
+                LOGGER.ts("HE");
                 if(options["rel_only"] == "yes"){
                     LOGGER.i(0, "Use related pairs only.");
                     for(int k = 0; k < fam.outerSize(); ++k){
@@ -196,19 +440,50 @@ FastFAM::FastFAM(Geno *geno){
 
                     VG = HEreg(Zij, Aij, fam_flag);
                 }else{
-                    VG = HEreg(fam, phenoVec, fam_flag);
+                    string vgEstMethod = options["VgEstMethod"];
+                    if(vgEstMethod == "HE"){
+                        VG = HEreg(fam, phenoVec, fam_flag);
+                    }else if(vgEstMethod == "MCREML"){
+                        VG = MCREML(fam, phenoVec, fam_flag);
+                    }else if (vgEstMethod == "REML"){
+                        VG = spREML(fam, phenoVec, fam_flag);
+                    }else{
+                        LOGGER.e(0, "Unknown method to estimate the Vg");
+                    }
                 }
-                LOGGER.i(2, "Vp = " + to_string(Vpheno));
+                if(options.find("force_gwa") != options.end()){
+                    if(!fam_flag){
+                        LOGGER.w(0, "  Forced to run fastGWA MLM");
+                    }
+                    fam_flag = true;
+                }
+
                 if(fam_flag){
                     VR = Vpheno - VG;
-                    LOGGER.i(2, "Ve = " + to_string(VR));
-                    LOGGER.i(2, "Heritablity = " + to_string(VG/Vpheno));
+                    if(VG < 0 && options.find("force_gwa") == options.end()){
+                        LOGGER.w(0, "Constrain Vg to 0.");
+                        fam_flag = false;
+                    }else if(VG > Vpheno && fam_flag){
+                        if(options.find("no_constrain") != options.end()){
+                            LOGGER.w(0, "Vg larger than Vp");
+                        }else{
+                            VG = 0.99 * Vpheno;
+                            LOGGER.w(0, "Constrain Vg to 0.99 * Vp: " + to_string(VG) + ".");
+                        }
+                    }
                 }
+                if(options["VgEstMethod"]=="REML"){
+                    LOGGER << "fastGWA-REML runtime: ";
+                }else if(options["VgEstMethod"]=="HE"){
+                    LOGGER << "HE regression runtime: ";
+                }
+                LOGGER << LOGGER.tp("HE") << " sec." << std::endl;
+
             }
             if(!fam_flag){
-                LOGGER.w(0, "The estimate of Vg is not statistically significant. "
-                        "This is likely because the number of relatives is not large enough. "
-                        "\nPerforming simple regression via removing --grm-sparse instead...");
+                LOGGER.w(0, "the estimate of Vg is not statistically significant. "
+                        "This is likely because the number of closely related individuals in the sample is not large enough. "
+                        "\nIn this case, the program will use linear regression for association test.");
  
                 fam.resize(0, 0);
                 V_inverse.resize(0, 0);
@@ -218,35 +493,43 @@ FastFAM::FastFAM(Geno *geno){
                     inv_id << "--fastGWA" << std::endl;
                     inv_id.close();
                 }
-                return;
+                goto saveRes;
             }
 
-            inverseFAM(fam, VG, VR);
-            if(options.find("save_inv") != options.end()){
-                LOGGER.i(0, "Saving inverse of V for further analysis, use --load-inv for further analysis");
-                std::ofstream inv_id((options["out"]+".grm.id").c_str());
-                if(!inv_id) LOGGER.e(0, "failed to write " + options["out"]+".grm.id");
-                for(int k = 0; k < remain_ids_fam.size(); k++){
-                    inv_id << remain_ids_fam[k] << std::endl;
-                }
+            if(!bGrammar){
+                // ordinary inverse way.
+                inverseFAM(fam, VG, VR);
+                if(options.find("save_inv") != options.end()){
+                    LOGGER.i(0, "Saving inverse of V for further analysis, use --load-inv for further analysis");
+                    std::ofstream inv_id((options["out"]+".grm.id").c_str());
+                    if(!inv_id) LOGGER.e(0, "failed to write " + options["out"]+".grm.id");
+                    for(int k = 0; k < remain_ids_fam.size(); k++){
+                        inv_id << remain_ids_fam[k] << std::endl;
+                    }
 
-                FILE * inv_out = fopen((options["out"]+".grm.inv").c_str(), "wb");
-                InvItem item;
-                for(int k = 0; k < V_inverse.outerSize(); ++k){
-                    for(SpMat::InnerIterator it(V_inverse, k); it; ++it){
-                        item.row = it.row();
-                        item.col = it.col();
-                        item.val = it.value();
-                        if(fwrite(&item, sizeof(item), 1, inv_out) != 1){
-                            LOGGER.e(0, "can't write to [" + options["out"] + ".grm.inv]");
+                    FILE * inv_out = fopen((options["out"]+".grm.inv").c_str(), "wb");
+                    InvItem item;
+                    for(int k = 0; k < V_inverse.outerSize(); ++k){
+                        for(SpMat::InnerIterator it(V_inverse, k); it; ++it){
+                            item.row = it.row();
+                            item.col = it.col();
+                            item.val = it.value();
+                            if(fwrite(&item, sizeof(item), 1, inv_out) != 1){
+                                LOGGER.e(0, "can't write to [" + options["out"] + ".grm.inv]");
+                            }
                         }
                     }
-                }
-                fclose(inv_out);
+                    fclose(inv_out);
 
-                LOGGER.i(0, "The inverse has been saved to [" + options["out"] + ".grm.inv]");
-            }
+                    LOGGER.i(0, "The inverse has been saved to [" + options["out"] + ".grm.inv]");
+                }
+            }else{
+                //grammar approx.
+                //LOGGER.i(0, "Performing GRAMMAR-gamma approximation...");
+                grammar(fam, VG, VR);
+           }
         }else{
+            // use saved inv 
             string id_file = options["inv_file"] + ".grm.id";
             std::ifstream h_id(id_file.c_str());
             if(!h_id){
@@ -310,34 +593,350 @@ FastFAM::FastFAM(Geno *geno){
             LOGGER.i(0, "Inverse of V loaded in " + to_string(LOGGER.tp("LOAD_INV")) + " seconds.");
         }
     }
-}
 
+saveRes:
+    if(options.find("model_only") != options.end()){
+        LOGGER << "Saving fastGWA model information..." << std::endl;
+        string id_file = options["out"] + ".mdl.id";
+        std::ofstream inv_id(id_file.c_str());
+        if(!inv_id) LOGGER.e(0, "failed to write " + options["out"]+".grm.id");
+        vector<string> ids = pheno->get_id(0, num_indi - 1, "\t");
+        for(auto & t_id : ids){
+            inv_id << t_id << "\n";
+        }
+        inv_id.close();
+        LOGGER << "Sample information has been saved to [" << id_file << "]." << std::endl;
+
+        MDLHeader header;
+        header.magic[0] = 'f';
+        header.magic[1] = 'G';
+        header.magic[2] = 'W';
+        header.magic[3] = 'A';
+        header.magic[4] = '\0';
+        header.num_indi = num_indi;
+        header.fam_flag = fam_flag;
+        header.isGrammar = bGrammar;
+        header.phenoVec_start = 512;
+        header.covarFlag = covarFlag;
+        header.covarVec_start = header.phenoVec_start + header.num_indi * 8;
+        header.covarVec_cols = this->covar.cols();
+        uint64_t covar_size = header.covarVec_cols * header.num_indi * 8;
+        header.V_inverse_start = header.covarVec_start + covar_size + (header.covarFlag ? covar_size : 0);
+        if(header.fam_flag & (!header.isGrammar)) header.V_inverse_items = V_inverse.nonZeros();
+        header.c_inf = c_inf;
+
+        string bin_file = options["out"] + ".mdl.bin";
+        FILE* obin = fopen(bin_file.c_str(), "wb");
+        if(!obin){
+            LOGGER.e(0, "can't open " + bin_file + " to write.");
+        }
+
+        if(fwrite(&header, sizeof(header), 1, obin) != 1){
+            LOGGER.e(0, "can't write header to " + bin_file + ".");
+        }
+
+        fseek(obin, header.phenoVec_start, SEEK_SET);
+        if(fam_flag && header.isGrammar){
+            if(fwrite(Vi_y_cinf.data(), sizeof(double), header.num_indi, obin) != header.num_indi){
+                LOGGER.e(0, "can't write phenotype to " + bin_file + ".");
+            }
+        }else{
+            if(fwrite(this->phenoVec.data(), sizeof(double), header.num_indi, obin) != header.num_indi){
+                LOGGER.e(0, "can't write phenotype to " + bin_file + ".");
+            }
+        }
+
+        uint64_t num_covar_elements = (uint64_t)header.num_indi * header.covarVec_cols;
+        fseek(obin, header.covarVec_start, SEEK_SET);
+        if(fwrite(this->covar.data(), sizeof(double), num_covar_elements, obin)
+                != num_covar_elements){
+            LOGGER.e(0, "can't write covariates to " + bin_file + ".");
+        }
+
+        if(header.covarFlag){
+            if(fwrite(this->H.data(), sizeof(double), num_covar_elements, obin)
+                    != num_covar_elements){
+                LOGGER.e(0, "can't write covariates to " + bin_file + ".");
+            }
+        }
+
+        fseek(obin, header.V_inverse_start, SEEK_SET);
+        if(header.fam_flag && (!header.isGrammar)){
+            InvItem item;
+            for(int k = 0; k < V_inverse.outerSize(); ++k){
+                for(SpMat::InnerIterator it(V_inverse, k); it; ++it){
+                    item.row = it.row();
+                    item.col = it.col();
+                    item.val = it.value();
+                    if(fwrite(&item, sizeof(item), 1, obin) != 1){
+                        LOGGER.e(0, "can't write V inverse to " + bin_file + ".");
+                    }
+                }
+            }
+        }
+        fclose(obin);
+        LOGGER << "Model has been saved to [" << bin_file << "]." << std::endl;
+    }
+
+ }
+/*
 void FastFAM::initMarkerVars(){
-    num_marker = geno->marker->count_extract();
+    num_marker = marker->count_extract();
     if(beta)delete[] beta;
     if(se) delete[] se;
     if(p) delete[] p;
     beta = new float[num_marker];
     se = new float[num_marker];
-    p = new float[num_marker];
+    p = new double[num_marker];
 }
+*/
 
 FastFAM::~FastFAM(){
-    if(beta)delete[] beta;
-    if(se) delete[] se;
-    if(p) delete[] p;
+    delete pheno;
+    delete marker;
+    delete geno;
+    //if(beta)delete[] beta;
+    //if(se) delete[] se;
+    //if(p) delete[] p;
+    //if(countMarkers) delete[] countMarkers;
+    //if(af) delete[] af;
+}
+
+void FastFAM::makeIH(MatrixXd &X){
+    MatrixXd ctc = X.transpose() * X;
+    //MatrixXd cty = covar.transpose() * pheno;
+    Eigen::FullPivLU<MatrixXd> lu(ctc);
+    if(lu.rank() < ctc.rows()){
+        //LOGGER.e(0, "Can't invert the covariate matrix. It might be conlinear problem.\nIf you have confirmed there are no problem, add --ignore-check to go through.");
+        LOGGER.w(0, "The covariate matrix has some similar or little information columns, however the results will not be affected mostly.");
+    }
+    covar = X;
+    
+    //MatrixXd interm = X * lu.solve(MatrixXd::Identity(X.cols(), X.cols())) * X.transpose();
+    H = X * lu.solve(MatrixXd::Identity(X.cols(), X.cols())); 
 }
 
 
-void FastFAM::conditionCovarReg(VectorXd &pheno, MatrixXd &covar){
-    MatrixXd t_covar = covar.transpose();
-    VectorXd beta = (t_covar * covar).ldlt().solve(t_covar * pheno);
+void FastFAM::conditionCovarReg(VectorXd &y, VectorXd &condPheno){
+    if(covarFlag){
+        condPheno.noalias() = H * y;
+    }else{
+        condPheno = y;
+    }
+}
+
+void FastFAM::conditionCovarReg(Eigen::Ref<VectorXd> y){
+ 
+    /*Eigen::Ref<VectorXd>
+        FILE * out = fopen((options["out"] + ".covar.bin1").c_str(), "wb");
+        fwrite(covar.data(), sizeof(double), covar.rows() * covar.cols(), out);
+        fclose(out);
+
+        FILE * pout = fopen((options["out"] + ".phenob1").c_str(), "wb");
+        fwrite(pheno.data(), sizeof(double), pheno.size(), pout);
+        fclose(pout);
+        */
+
+
+    //MatrixXd t_covar = covar.transpose();
+    //VectorXd beta = lu.solve(cty);
     //LOGGER.i(0, "DEBUG: condition betas:");
     //LOGGER << beta << std::endl;
     //VectorXd beta = covar.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(pheno);
-    pheno -= covar * beta;
+    if(covarFlag){
+        y = y - H * (covar.transpose() * y);
+    }
+    /*
+        FILE * pout1 = fopen((options["out"] + ".phenoa0").c_str(), "wb");
+        fwrite(pheno.data(), sizeof(double), pheno.size(), pout1);
+        fclose(pout1);
+        FILE * pout2 = fopen((options["out"] + ".beta").c_str(), "wb");
+        fwrite(beta.data(), sizeof(double), beta.size(), pout2);
+        fclose(pout2);
+        */
+
+
+
     //double pheno_mean = pheno.mean();
     //pheno -= (VectorXd::Ones(pheno.size())) * pheno_mean;
+}
+
+void generateRandom(Ref<MatrixXd> mat){
+    uint64_t row = mat.rows();
+    uint64_t col = mat.cols();
+    
+    boost::mt19937 rng( std::chrono::system_clock::now().time_since_epoch().count() + 77 );
+    boost::variate_generator<boost::mt19937&, boost::normal_distribution<> >
+        randn(rng, boost::normal_distribution<>(0.0, 1.0));
+    for(int i = 0; i < col; i++){
+        for(int j = 0; j < row; j++){
+            mat(j, i) = randn();
+        }
+    }
+}
+
+void FastFAM::genRandY(uint64_t *buf, int num_marker){
+    MatrixXd X(num_indi, num_marker);
+    double * ptr = X.data();
+    #pragma omp parallel for schedule(dynamic) 
+    for(int i = 0; i < num_marker; i++){
+        geno->makeMarkerX(buf, i, ptr + i * num_indi, true, true);
+    }
+
+    #pragma omp parallel for schedule(dynamic) 
+    for(int i = 0; i < mcTrails; i++){
+        rand_y.col(i) += X * rand_beta.block(finished_rand_marker, i, num_marker, 1);
+    }
+
+    finished_rand_marker += num_marker;
+}
+
+void FastFAM::estBeta(uint64_t *buf, int num_marker){
+    MatrixXd X(num_indi, num_marker);
+    double * ptr = X.data();
+    #pragma omp parallel for schedule(dynamic) 
+    for(int i = 0; i < num_marker; i++){
+        geno->makeMarkerX(buf, i, ptr + i * num_indi, true, true);
+    }
+
+    phenoEstBeta.block(finished_rand_marker, 0, num_marker, 1) = X.transpose() * VinvY;
+
+    #pragma omp parallel for schedule(dynamic) 
+    for(int i = 0; i < mcTrails; i++){
+        randEstBeta.block(finished_rand_marker, i, num_marker, 1) = X.transpose() * randVinvY.col(i);
+    }
+
+    finished_rand_marker += num_marker;
+    
+}
+//MCREML
+double FastFAM::fitREML(double logdet, const SpMat &fam, const VectorXd &pheno){
+    SpMat eye(fam.rows(), fam.cols());
+    eye.setIdentity();
+
+    uint32_t n = fam.cols();
+    double det = exp(logdet);
+    double sqrt_det = sqrt(det);
+
+    //solve the V
+    SpMat V = fam + det * eye;
+    Eigen::SimplicialLDLT<SpMat> solver;
+    solver.compute(V);
+    if(solver.info() != Eigen::Success){
+        LOGGER.e(0, "can't inverse the V");
+    }
+    
+    vector<uint32_t> marker_index = marker->get_extract_index();
+    uint32_t m = marker_index.size();
+
+    finished_rand_marker = 0;
+    vector<function<void (uint64_t *, int)>> callBacks;
+    if(!geno->filterMAF()){
+        callBacks.push_back(std::bind(&Geno::freq64, geno, _1, _2));
+    }
+    callBacks.push_back(std::bind(&FastFAM::genRandY, this, _1, _2));
+    geno->loop_64block(marker_index, callBacks, true);
+    //geno->resetLoop();
+
+    VectorXd sum_e2_rand(mcTrails); // sum e rand ^ 2
+    double det2 = det * det;
+    #pragma omp parallel for
+    for(int i = 0; i < mcTrails; i++){
+        rand_y.col(i) = rand_y.col(i) + sqrt_det * rand_e.col(i);
+        randVinvY.col(i) = solver.solve(rand_y.col(i));
+        sum_e2_rand(i) = det2 * (randVinvY.col(i).squaredNorm());
+    }
+
+    LOGGER << "solve VinvY" << std::endl;
+    VinvY = solver.solve(pheno);
+    double sum_e2 = det2 * (VinvY.squaredNorm()); 
+
+    finished_rand_marker = 0;
+    vector<function<void (uint64_t *, int)>> callBacks2;
+    if(!geno->filterMAF()){
+        callBacks2.push_back(std::bind(&Geno::freq64, geno, _1, _2));
+    }
+    callBacks2.push_back(std::bind(&FastFAM::estBeta, this, _1, _2));
+    geno->loop_64block(marker_index, callBacks2, true);
+    //geno->resetLoop();
+
+    LOGGER << "sum beta" << std::endl;
+
+    VectorXd sum_beta2_rand(mcTrails);
+    double invm2 = 1.0 / m / m;
+    #pragma omp parallel for
+    for(int i = 0; i < mcTrails; i++){
+        sum_beta2_rand(i) = invm2 * randEstBeta.col(i).squaredNorm();
+    }
+
+    //sum beta 2
+    LOGGER << "Get the sum beta" << std::endl;
+    double sum_beta2 = invm2 * phenoEstBeta.squaredNorm();
+
+    double f = log( (sum_beta2 / sum_e2) / (sum_beta2_rand.sum() / sum_e2_rand.sum()));
+    return f;
+}
+
+
+double FastFAM::MCREML(const Ref<const SpMat> fam, const Ref<const VectorXd> pheno, bool &isSig){
+    uint64_t n = pheno.size();
+    uint64_t m = marker->get_extract_index().size();
+    //get random vectors
+    mcTrails = 4e9 / n;
+    mcTrails = mcTrails > 15 ? 15 : mcTrails;
+    mcTrails = mcTrails < 3 ? 3 : mcTrails;
+
+    rand_y.resize(n, mcTrails);
+    rand_y.setZero();
+
+    rand_beta.resize(m, mcTrails);
+    rand_e.resize(n, mcTrails); 
+    generateRandom(rand_beta);
+    rand_beta = rand_beta.array() * sqrt(1.0/m);
+
+    generateRandom(rand_e);
+
+    randVinvY.resize(n, mcTrails);
+    VinvY.resize(n);
+
+    phenoEstBeta.resize(m, mcTrails);
+    randEstBeta.resize(m, mcTrails);
+
+    double hsq1 = 0.25;
+    double logdet1 = log((1-hsq1)/hsq1);
+    LOGGER << "Fitting MCREML, logdet: " << logdet1 << " h2: " << hsq1 << std::endl;
+    double f1 =  fitREML(logdet1, fam, pheno);
+
+    double hsq2;
+    if(f1 < 0){
+        hsq2 = 0.125;
+    }else{
+        hsq2 = 0.50;
+    }
+    double logdet2 = log((1-hsq2)/hsq2);
+    LOGGER << "Fitting MCREML, logdet: " << logdet2 << " h2: " << hsq2 << std::endl;
+    double f2 = fitREML(logdet2, fam, pheno);
+
+    double prev2_logdet = logdet1, prev_logdet = logdet2;
+    double prev2_f = f1, prev_f = f2;
+    double f, logdet;
+    for(int s = 0; s < 5; s++){
+        logdet = (prev2_logdet * prev_f - prev_logdet * prev2_f) / (prev_f - prev2_f);
+        if(std::abs(logdet - prev_logdet) < 0.01){
+            break;
+        }
+        LOGGER << "Fitting MCREML, logdet: " << logdet << std::endl;
+        f = fitREML(logdet, fam, pheno);
+        prev2_logdet = prev_logdet;
+        prev_logdet = logdet;
+        prev2_f = prev_f;
+        prev_f = f;
+    }
+
+    double h2 = pheno.dot(VinvY) / n;
+    LOGGER << "  Vg = " << h2 << std::endl;
+    isSig = true;
+    return h2;
 }
 
 double FastFAM::HEreg(const Ref<const SpMat> fam, const Ref<const VectorXd> pheno, bool &isSig){
@@ -351,16 +950,28 @@ double FastFAM::HEreg(const Ref<const SpMat> fam, const Ref<const VectorXd> phen
     uint64_t size = fam.cols() * fam.rows();
     XtX(0, 0) = size;
 
-    for(int i = 1; i < fam.cols(); i++){
+    int n = fam.cols();
+    VectorXd SSys(n);
+    VectorXd XtY0s(n);
+    VectorXd XtY1s(n);
+    VectorXd XtX01s(n);
+    VectorXd XtX11s(n);
+    #pragma omp parallel for
+    for(int i = 1; i < n; i++){
         double temp_pheno = pheno[i];
         auto fam_block = fam.block(0, i, i, 1);
         auto pheno_block = pheno.head(i) * temp_pheno;
-        SSy += pheno_block.dot(pheno_block);
-        XtY[0] += pheno_block.sum();
-        XtY[1] += (pheno_block.transpose() * fam_block)[0];
-        XtX(0,1) += fam_block.sum();
-        XtX(1,1) += (fam_block.cwiseProduct(fam_block)).sum();
+        SSys[i] = pheno_block.dot(pheno_block);
+        XtY0s[i] = pheno_block.sum();
+        XtY1s[i] = (pheno_block.transpose() * fam_block)[0];
+        XtX01s[i] = fam_block.sum();
+        XtX11s[i] = (fam_block.cwiseProduct(fam_block)).sum();
     }
+    SSy = SSys.sum();
+    XtY[0] = XtY0s.sum();
+    XtY[1] = XtY1s.sum();
+    XtX(0, 1) = XtX01s.sum();
+    XtX(1, 1) = XtX11s.sum();
 
     //MatrixXd XtXi = XtX.selfadjointView<Eigen::Upper>().inverse();
     XtX(1,0) = XtX(0,1);
@@ -378,20 +989,27 @@ double FastFAM::HEreg(const Ref<const SpMat> fam, const Ref<const VectorXd> phen
 
     VectorXd betas = XtXi * XtY;
     LOGGER << "beta:" << endl;
-    LOGGER << betas << endl;
+    LOGGER << betas.transpose() << endl;
 
     double sse = (SSy - betas.dot(XtY)) / (size - col_X);
     LOGGER << "SSE: " << sse << endl;
 
     VectorXd SDs = sse * XtXi.diagonal();
-    LOGGER << "SD: " << SDs << endl;
+    LOGGER << "SD: " << SDs.transpose() << endl;
 
     double hsq = betas[betas.size() - 1];
     double SD = SDs[SDs.size() - 1];
     double Zsq = hsq * hsq / SD;
     double p = StatLib::pchisqd1(Zsq);
 
-    LOGGER.i(2, "Vg = " + to_string(hsq) + ", se = " + to_string(sqrt(SD)) +  ", P = " + to_string(p));
+    double Vpheno = pheno.array().square().sum() / (pheno.size() - 1);
+    //LOGGER.i(2, "Vg = " + to_string(hsq) + ", se = " + to_string(sqrt(SD)) +  ", P = " + to_string(p));
+    LOGGER << "\nSource\tVariance\tSE" << std::endl;
+    LOGGER << "Vg\t" << hsq << "\t" << sqrt(SD) << std::endl;
+    LOGGER << "Ve\t" << Vpheno - hsq << std::endl;
+    LOGGER << "Vp\t" << Vpheno << std::endl;
+    
+    LOGGER << "\nHeritability = " << hsq / Vpheno << " (Pval = " << p << ")" << std::endl;
 
     if(p > 0.05){
         isSig = false;
@@ -399,6 +1017,250 @@ double FastFAM::HEreg(const Ref<const SpMat> fam, const Ref<const VectorXd> phen
         isSig = true;
     }
     return hsq;
+}
+
+void FastFAM::logLREML(const Ref<const VectorXd> pheno, vector<double> &varcomp, double &logL, double *Hinv){
+    int n_comp = varcomp.size();
+    int n = A[0].cols();
+
+    SpMat V(n, n);
+    for(int j = 0; j < n_comp; j++){
+        V += varcomp[j] * A[j];
+    }
+    //LOGGER << "Non zeros V: " << V.nonZeros() << std::endl;
+
+    Eigen::SimplicialLDLT<SpMat> solverV;
+    solverV.compute(V);
+    if(solverV.info() != Eigen::Success){
+        LOGGER.e(0, "can't inverse the V");
+    }
+
+    VectorXd d = solverV.vectorD();
+    double logdet_V = d.array().log().sum(); 
+    //double logdet_V = solverV.logAbsDeterminant();
+
+    MatrixXd ViX = solverV.solve(covar); // n*c
+
+    MatrixXd XtViX = covar.transpose() * ViX; // c*c
+    INVmethod method = INV_FQR;
+    double logdet_XtViX;
+    int rank;
+    if(!SquareMatrixInverse(XtViX, logdet_XtViX, rank, method)){
+        LOGGER.e(0, "can't inverse XtViX");
+    }
+
+    MatrixXd b_proj_t = ViX * XtViX; //n*c
+    VectorXd b2 = b_proj_t.transpose() * pheno; // c*1
+    VectorXd resi = pheno - covar * b2; // n*1
+    VectorXd Py = solverV.solve(resi);
+
+    logL = -0.5 * (logdet_V + logdet_XtViX + pheno.dot(Py));
+
+    if(Hinv){
+        MatrixXd APy(n, n_comp);
+        for(int i = 0; i < n_comp; i++){
+            APy.col(i) = A[i] * Py;
+        }
+
+        MatrixXd Hi(n_comp, n_comp);
+        for(int i = 0; i < n_comp; i++){
+            VectorXd cur_APy = APy.col(i);
+            VectorXd cvec = solverV.solve(cur_APy) - ViX * (b_proj_t.transpose() * cur_APy);
+            Hi(i, i) = 0.5 * cur_APy.dot(cvec);
+            for(int j = 0; j < i; j++){
+                Hi(j, i) = 0.5 * APy.col(j).dot(cvec);
+                Hi(i, j) = Hi(j, i);
+            }
+        }
+        INVmethod mtd_hi = INV_FQR;
+        double logdet_hi;
+        int rank;
+        if(!SquareMatrixInverse(Hi, logdet_hi, rank, mtd_hi)){
+            LOGGER.e(0, "Hi can't be inverted.");
+        }
+        memcpy(Hinv, Hi.data(), n_comp * n_comp * sizeof(double));
+    }
+}
+
+
+double FastFAM::spREML(const Ref<const SpMat> fam, const Ref<const VectorXd> pheno, bool &isSig){
+    int n_comp = 2;
+
+    int n = pheno.size();
+    int n_covar = covar.cols();
+
+    A.resize(2);
+    A[0] = fam;
+    A[1].resize(n, n); 
+    A[1].setIdentity();
+
+    double Vp = pheno.array().square().sum() / (n - 1);
+
+    //vector<int> trails = {101, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11};
+    vector<int> trails = {101, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16};
+    double MAX_Vg = Vp * options_d["h2_limit"];
+    double start = 0;
+    double end = MAX_Vg;
+    double end_logL = 0;
+    vector<bool> bEndNAN(trails.size());
+    vector<double> starts(trails.size());
+    vector<double> ends(trails.size());
+    vector<double> steps(trails.size());
+
+    bool b_reml = false;
+    std::ofstream out;
+    if(options.find("reml_detail") != options.end()){
+        b_reml = true;
+        out.open(options["out"] + ".reml");
+        if(!out){
+            LOGGER.e(0, "Error to open the " + options["out"] + ".reml");
+        }
+
+        out << std::setprecision( std::numeric_limits<double>::digits10);
+        out << "index\tlogL\tVg\tVe" << std::endl;
+
+    }
+
+    for(int iter = 0; iter < trails.size(); iter++){
+        int n_trails = trails[iter];
+        double step = (end - start) / (n_trails - 1);
+        vector<double> varcomps(n_trails);
+        vector<double> logLs(n_trails);
+
+        #pragma omp parallel for
+        for(int i = 0; i < n_trails; i++){
+            vector<double> varcomp(n_comp);
+            varcomp[0] = start + i * step;
+            varcomp[1] = Vp - varcomp[0];
+            double logL;
+            logLREML(pheno, varcomp, logL);
+            varcomps[i] = varcomp[0];
+            logLs[i] = logL;
+        }
+
+        double max_logL = -1e300;
+        double max_varcomp = 0;
+
+        int max_index = 0;
+        for(int i = 0; i < n_trails; i++){
+            double logL = logLs[i];
+            if(logL > max_logL){
+                max_logL = logL;
+                max_varcomp = varcomps[i];
+                max_index = i;
+            }
+        }
+        if(max_index == 0){
+            start = varcomps[max_index];
+            end = varcomps[max_index + 1];
+            end_logL = logLs[max_index + 1];
+        }else if(max_index == n_trails - 1){
+            start = varcomps[max_index - 1];
+            end = varcomps[max_index];
+            end_logL = logLs[max_index];
+        }else{
+            start = varcomps[max_index - 1];
+            end = varcomps[max_index + 1];
+            end_logL = logLs[max_index + 1];
+        }
+
+        if(b_reml){
+            for(int i = 0; i < logLs.size(); i++){
+                out << i << "\t" << logLs[i] << "\t" << varcomps[i] << "\t" << Vp - varcomps[i] << std::endl;
+            }
+            out << "----------------------------" << std::endl;
+        }
+
+        if(!std::isfinite(end_logL)){
+            bEndNAN[iter] = true;
+        }else{
+            bEndNAN[iter] = false;
+        }
+        starts[iter] = start;
+        ends[iter] = end;
+        steps[iter] = step;
+
+
+        LOGGER << "Iteration " << iter + 1 << ", step size: " << step << ", logL: " << max_logL
+               << ". Vg: " << max_varcomp
+               << ", searching range: " << start << " to " << end << std::endl;
+    }
+
+    if(b_reml){
+        out.close();
+    }
+
+    double Vg = (start + end) / 2.0;
+    double Ve = Vp - Vg;
+
+    if(b_reml){
+        LOGGER << "\n" << "Up boundary detail: " << std::endl;
+        LOGGER << "  " << "iter\tstep\tstart\tend\tendNAN" << std::endl;
+        LOGGER << std::boolalpha;
+        for(int iter = 0; iter < trails.size(); iter++){
+            LOGGER << "  " << iter << "\t" << steps[iter] << "\t" << starts[iter] << "\t" << ends[iter] << "\t" << bEndNAN[iter] << std::endl; 
+        }
+        LOGGER << std::endl;
+    }
+
+    if(bEndNAN[0] && Ve < 0){
+        std::streamsize ss = std::cout.precision();
+        LOGGER << "Best guess Vg " 
+            << std::setprecision( std::numeric_limits<double>::digits10) 
+            << "range: " << start << " to " << end 
+            << ", Vp: " << Vp << std::setprecision(ss) << std::endl;
+        LOGGER.e(0, "fastGWA-REML can't converge.");
+    }
+
+    if(MAX_Vg - end <= 1e-10){
+        std::streamsize ss = std::cout.precision();
+        LOGGER << "Best guess Vg " 
+            << std::setprecision( std::numeric_limits<double>::digits10) 
+            << "range: " << start << " to " << end 
+            << ", Vp: " << Vp << std::setprecision(ss) << std::endl;
+
+        LOGGER.e(0, "fastGWA-REML can't converge, hit upper limit!");
+    }
+
+    LOGGER << "fastGWA-REML converged." << std::endl;
+
+    //std::streamsize ss = std::cout.precision();
+    //LOGGER << "Estimated Vg: " << std::setprecision( std::numeric_limits<double>::digits10) << Vg << ", range: " << start << " to " << end << std::setprecision(ss) << std::endl;
+
+    double logL;
+    MatrixXd Hinv(n_comp, n_comp);
+    vector<double> varcomp(n_comp);
+    varcomp[0] = Vg;
+    varcomp[1] = Ve;
+    logLREML(pheno, varcomp, logL, Hinv.data());
+
+    LOGGER << "logL: " << logL << std::endl;
+
+    LOGGER <<"Sampling variance/covariance of the estimates of Vg and Ve:" << std::endl; 
+    LOGGER << Hinv << std::endl;
+
+    LOGGER << "\nSource\tVariance\tSE" << std::endl;
+    LOGGER << "Vg" << "\t" << varcomp[0] << "\t" << sqrt(Hinv(0, 0)) << std::endl;
+    LOGGER << "Ve" << "\t" << varcomp[1] << "\t" << sqrt(Hinv(1, 1)) << std::endl;
+    LOGGER << "Vp" << "\t" << Vp << std::endl;
+
+    for(int i = 0; i < n_comp; i++){
+        A[i].resize(0, 0);
+    }
+    A.resize(0);
+
+    double zsq = Vg * Vg / Hinv(0, 0);
+    double p = StatLib::pchisqd1(zsq);
+
+    LOGGER << "\nHeritability = " << Vg / Vp << " (Pval = " << p << ")" << std::endl;
+    
+    if(p>0.05){
+        isSig = false;
+    }else{
+        isSig = true;
+    }
+
+    return Vg;
 }
 
 double FastFAM::HEreg(vector<double> &Zij, vector<double> &Aij, bool &isSig){
@@ -469,7 +1331,7 @@ void FastFAM::readFAM(string filename, SpMat& fam, const vector<string> &ids, ve
     vector<uint32_t> id2;
     vector<double> grm;
 
-    vector<uint32_t> num_elements(num_indi, 0);
+    vector<uint32_t> num_elements(remain_index.size(), 0);
 
     map<uint32_t, uint32_t> map_index;
     for(uint32_t index = 0; index != ordered_fam_index.size(); index++){
@@ -504,6 +1366,13 @@ void FastFAM::readFAM(string filename, SpMat& fam, const vector<string> &ids, ve
         }
     }
     pair_list.close();
+    /*
+    std::ofstream out("test.txt");
+    for(int i = 0; i < id1.size(); i++){
+        out << id1[i] << "\t" <<  id2[i] << "\t" << grm[i] << std::endl;
+    }
+    out.close();
+    */
 
     auto sorted_index = sort_indexes(id2, id1);
 
@@ -518,16 +1387,267 @@ void FastFAM::readFAM(string filename, SpMat& fam, const vector<string> &ids, ve
 
 }
 
+void FastFAM::grammar_func(uintptr_t *genobuf, const vector<uint32_t> &markerIndex){
+    int nMarker = markerIndex.size();
+    #pragma omp parallel for schedule(dynamic)
+    for(int i = 0; i < nMarker; i++){
+        int index_cur_marker = num_grammar_markers + i;
+        GenoBufItem item;
+        item.extractedMarkerIndex = markerIndex[i];
+        geno->getGenoDouble(genobuf, i, &item);
+        bValids[index_cur_marker] = item.valid;
+        if(item.valid){
+            Map< VectorXd > curGeno(item.geno.data(), num_indi);
+            conditionCovarReg(curGeno);
+            VectorXd Vg = solver.solve(curGeno);
+            double gt_Vg = curGeno.dot(Vg);
+            double g_Vi_y = curGeno.dot(Vi_y);
+            double temp_chisq = g_Vi_y * g_Vi_y / gt_Vg;
+
+            v_chisq[index_cur_marker] = temp_chisq;
+
+            if(temp_chisq < 5){
+                double gt_g = curGeno.dot(curGeno);
+                double tmp_cinf = gt_Vg / gt_g;
+                v_c_infs[index_cur_marker] = tmp_cinf;
+            }else{
+                bValids[index_cur_marker] = false;
+            }
+        }
+    }
+    num_grammar_markers += nMarker;
+}
+
+
+void FastFAM::grammar(SpMat& fam, double VG, double VR){
+    int num_marker_rand = 1000;
+
+    LOGGER.i(0, "\nTuning parameters using " + to_string(num_marker_rand) + " null SNPs...");
+
+    SpMat eye(fam.rows(), fam.cols());
+    eye.setIdentity();
+
+    fam *= VG;
+    fam += eye * VR;
+
+    //LOGGER.i(0, "Estimating conjugate gradient...");
+    LOGGER.ts("tuning");
+    solver.compute(fam);
+    if(solver.info() != Eigen::Success){
+        LOGGER.e(0, "can't invert the V matrix");
+    }
+    //LOGGER << "TCG compute time: " << LOGGER.tp("TCG") << std::endl;
+
+    //LOGGER.i(0, "Solving Vi * y via conjugate gradient...");
+    //LOGGER.ts("vi_y");
+    Vi_y = solver.solve(phenoVec);
+    //LOGGER << "  time: " << LOGGER.tp("vi_y") << std::endl;
+
+
+    // get 1000 random SNPs
+    auto total_markers_index = marker->get_extract_index_autosome();
+    if(total_markers_index.size() < num_marker_rand){
+        LOGGER.e(0, "can't read " + to_string(num_marker_rand) + " SNPs from autosome for tuning.");
+    }
+    std::default_random_engine generator;
+    //generator.seed(std::chrono::system_clock::now().time_since_epoch().count());
+    uint32_t seed;
+    if(options_d["seed"] == 0){
+        seed = pheno->getSeed();
+    }else{
+        seed = options_d["seed"];
+        LOGGER << "Use seed: " << seed << std::endl;
+    }
+    //LOGGER << "Setting seed: " << seed << std::endl;
+    generator.seed(seed);
+    std::uniform_int_distribution<uint32_t> distribution(0, total_markers_index.size() - 1);
+    vector<uint32_t> seq_marker_index(num_marker_rand);
+
+    for(int i = 0; i < num_marker_rand; i++){
+        seq_marker_index[i] = distribution(generator);
+    }
+    std::sort(seq_marker_index.begin(), seq_marker_index.end());
+    auto last = std::unique(seq_marker_index.begin(), seq_marker_index.end());
+    seq_marker_index.erase(last, seq_marker_index.end());
+
+    num_marker_rand = seq_marker_index.size();
+    vector<uint32_t> marker_index(num_marker_rand);
+    std::transform(seq_marker_index.begin(), seq_marker_index.end(), marker_index.begin(), [&total_markers_index](size_t pos){return total_markers_index[pos];});
+
+    int nMarker = 100;
+
+    //get previous threshold
+    double preAF = geno->getMAF();
+    double preInfo = geno->getFilterInfo();
+    double preMiss = geno->getFilterMiss();
+    if(options.find("c-inf-no-filter") != options.end()){
+        if(preAF < 0.01){
+            geno->setMAF(0.01);
+        }
+        if(preInfo < 0.3 && hasInfo){
+            geno->setFilterInfo(0.3);
+        }
+        if(preMiss < 0.9){
+            geno->setFilterMiss(0.9);
+        }
+    }
+
+    v_chisq.resize(num_marker_rand);
+    v_c_infs.resize(num_marker_rand);
+    bValids.resize(num_marker_rand);
+    num_grammar_markers = 0;
+
+    LOGGER << "  reading genotypes..." << std::endl; 
+    vector<function<void (uintptr_t *, const vector<uint32_t> &)>> callBacks;
+    callBacks.push_back(bind(&FastFAM::grammar_func, this, _1, _2));
+    geno->loopDouble(marker_index, nMarker, true, true, false, false, callBacks);
+
+    if(num_marker_rand != num_grammar_markers){
+        LOGGER.e(0, "some SNPs didn't read successfully!");
+    }
+
+    //reset back
+    geno->setMAF(preAF);
+    geno->setFilterInfo(preInfo);
+    geno->setFilterMiss(preMiss);
+
+    
+    double tmp_cinf = 0;
+    int n_valid_null = 0;
+
+    std::ofstream o_inf;
+    bool out_inf = false;
+    if(options.find("c-inf") != options.end()){
+        o_inf.open(options["out"] + ".cinf");
+        o_inf << "CHR\tSNP\tPOS\tA1\tA2\tcinf\tchisq" << std::endl;
+        out_inf = true;
+    }
+    for(int i=0; i<num_marker_rand; i++){
+        if(bValids[i]){
+            tmp_cinf += v_c_infs[i];
+            n_valid_null++;
+            if(out_inf){
+                o_inf << marker->getMarkerStrExtract(marker_index[i]) << "\t" << v_c_infs[i] << "\t" << v_chisq[i] << std::endl;
+            }
+        }
+    }
+    if(out_inf){
+        o_inf.close();
+    }
+    //LOGGER.i(0, "Got " + to_string(n_valid_null) + " null SNPs");
+
+    if(n_valid_null < 100){
+        LOGGER.e(0, "Not enough null SNPs (<100).");
+    }
+
+    c_inf = tmp_cinf / n_valid_null;
+    LOGGER.i(0, "Mean gamma = " + to_string(c_inf));
+    LOGGER << "Tune time " << LOGGER.tp("tuning") << " sec" << std::endl;
+    Vi_y_cinf = Vi_y.array() / c_inf;
+    v_chisq.resize(0);
+    v_c_infs.resize(0);
+    bValids.resize(0);
+
+    if(Vi_y_cinf.size() != num_indi){
+        LOGGER.e(0, "Inconsistent sample size, there may be some unknown bugs.");
+    }
+    if(options.find("save_resi") != options.end()){
+        std::ofstream oresi((options["out"] + ".fastGWA.residual").c_str());
+        std::ofstream ogam((options["out"] + ".fastGWA.gamma").c_str());
+        if((!ogam) || (!oresi)){
+            LOGGER.e(0, "can't write fastGWA MLM parameters to the file.");
+        }
+        ogam << c_inf << std::endl;
+        ogam.close();
+
+        for(int i = 0; i < num_indi; i++){
+            oresi << (pheno->get_id(i,i, "\t")[0]) << "\t" << Vi_y_cinf[i] << "\n";
+        }
+        oresi.close();
+        LOGGER << "Saved grammar gamma residual to [" << options["out"] << ".fastGWA(.residual, .gamma)" << "]." << std::endl;
+    }
+    /*
+    //calculate the c_inf
+    VectorXd c_infs(num_marker_tune);
+    // shuffle the vector
+    vector<uint32_t> est_index(num_marker_rand);
+    std::iota(est_index.begin(), est_index.end(), 0);
+    std::shuffle(est_index.begin(), est_index.end(), generator);
+
+    int valid_null = 0;
+    LOGGER.ts("CG_g");
+    while(!est_index.empty() && valid_null < num_marker_tune){
+        uint32_t cur_index = est_index.back();
+        est_index.pop_back();
+        VectorXd curGeno = randGenoBuffer.col(cur_index);
+
+        VectorXd Vg = solver.solve(curGeno);
+
+        double gt_Vg = curGeno.dot(Vg);
+        double g_Vi_y = curGeno.dot(Vi_y);
+        double temp_chisq = g_Vi_y * g_Vi_y / gt_Vg;
+
+        if(temp_chisq <= 5){
+            double gt_g = curGeno.dot(curGeno);
+            double tmp_cinf = gt_Vg / gt_g;
+            c_infs[valid_null] = tmp_cinf;
+            valid_null++;
+        }
+    }
+
+    LOGGER << "CG genotype time: " << LOGGER.tp("CG_g") << std::endl;
+
+    if(valid_null != num_marker_tune){
+        LOGGER.e(0, "Got only " + to_string(valid_null) + " null SNPs. This might due to the huge number of significat SNPs. You can run --fastGWA without --grm-sparse to check");
+    }
+    c_inf = c_infs.mean();
+    LOGGER << "c_infs:" << std::endl;
+    LOGGER << c_infs << std::endl;
+    LOGGER.i(0, "Mean c_inf = " + to_string(c_inf));
+    */
+}
+/*
+void FastFAM::readGenoSample(uint64_t *buf, int num_marker){
+
+    #pragma omp parallel for schedule(dynamic) 
+    for(int i = 0; i < num_marker; i++){
+        VectorXd curGeno(num_indi);
+        geno->makeMarkerX(buf, i, curGeno.data(), true, false);
+        conditionCovarReg(curGeno);
+
+        VectorXd Vg = solver.solve(curGeno);
+
+        double gt_Vg = curGeno.dot(Vg);
+        double g_Vi_y = curGeno.dot(Vi_y);
+        double temp_chisq = g_Vi_y * g_Vi_y / gt_Vg;
+
+        int index_cur_marker = finished_rand_marker + i;
+        v_chisq[index_cur_marker] = temp_chisq;
+
+        if(temp_chisq <= 5){
+            double gt_g = curGeno.dot(curGeno);
+            double tmp_cinf = gt_Vg / gt_g;
+            v_c_infs[index_cur_marker] = tmp_cinf;
+        }
+ 
+    }
+
+    finished_rand_marker += num_marker;
+}
+*/
+
+ 
+
 void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
-    LOGGER.i(0, "Inverting the variance-covarinace matrix (This may take a long time).");
-    LOGGER.i(0, string("Inverse method: ") + options["inv_method"]);
-    LOGGER.i(0, "DEUBG: Inverse Threads " + to_string(Eigen::nbThreads()));
+    LOGGER.i(0, "\nInverting the variance-covarinace matrix via " + options["inv_method"] + " (This may take a long time)...");
+    //LOGGER.i(0, "DEUBG: Inverse Threads " + to_string(Eigen::nbThreads()));
     LOGGER.ts("INVERSE_FAM");
     SpMat eye(fam.rows(), fam.cols());
-    LOGGER.i(0, "FAM " + to_string(fam.rows()) + " * " + to_string(fam.cols()));
+    //LOGGER.i(0, "FAM " + to_string(fam.rows()) + " * " + to_string(fam.cols()));
     eye.setIdentity();
 
     // V
+
     fam *= VG;
     fam += eye * VR;
 
@@ -535,10 +1655,12 @@ void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
     if(options["inv_method"] == "ldlt"){
         Eigen::SimplicialLDLT<SpMat> solver;
         solver.compute(fam);
+
         if(solver.info() != Eigen::Success){
             LOGGER.e(0, "can't inverse the FAM");
         }
-        V_inverse = solver.solve(eye);
+
+        V_inverse = solver.solve(eye); //extreme slow for large matrix
     }else if(options["inv_method"] == "cg"){
         Eigen::ConjugateGradient<SpMat> solver;
         solver.compute(fam);
@@ -576,6 +1698,74 @@ void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
             LOGGER.e(0, "can't inverse the FAM");
         }
         V_inverse = solver.solve(eye);
+    }else if(options["inv_method"] == "inv-t1"){
+        /*
+           LOGGER.ts("lu");
+           Eigen::SparseLU<SpMat, Eigen::COLAMDOrdering<long long>> lu_solver;
+           lu_solver.analyzePattern(fam);
+           lu_solver.factorize(fam);
+           LOGGER << " LU logdet: " << lu_solver.logAbsDeterminant() << std::endl;
+           LOGGER << " LU time: " << LOGGER.tp("lu") << std::endl; // LU time: 0.620486
+           LOGGER.ts("lu_sol");
+           LOGGER << lu_solver.solve(phenoVec).sum() << std::endl;
+           LOGGER << " LU solve time: " << LOGGER.tp("lu_sol"); // LU solve time: 0.0302136
+           */
+
+        //SpMat ori(fam);
+        LOGGER.ts("ldlt");
+        Eigen::SimplicialLDLT<SpMat> solver;
+        solver.compute(fam);
+ 
+        VectorXd d = solver.vectorD();
+        //double logdet = 0;
+        //for (int i = 0; i < d.size(); i++) logdet += log(d[i]);
+        double logdet2 = d.array().log().sum(); 
+        double invtrace = (1.0 / d.array()).sum();
+        //LOGGER << " logdet = " << logdet << std::endl;
+        LOGGER << " logdet2 = " << logdet2 << std::endl;
+        LOGGER << " inv trace = " << invtrace << std::endl;
+
+        LOGGER << "  compute LDLT time: " << LOGGER.tp("ldlt") << std::endl; // compute LDLT time: 0.244541
+        if(solver.info() != Eigen::Success){
+            LOGGER.e(0, "can't inverse the FAM");
+        }
+
+        LOGGER.ts("ldlt_sol");
+        LOGGER << solver.solve(phenoVec).sum() << std::endl;
+        LOGGER << "  LDLT solve y time: " << LOGGER.tp("ldlt_sol") << std::endl;//LDLT solve time: 0.0224732
+
+        LOGGER.ts("ldlt_solA");
+        //SpMat solvedA = solver.solve(ori);
+        //LOGGER << solvedA.diagonal().sum() << std::endl;
+        //LOGGER << "  ori non zeros: " << ori.nonZeros() << std::endl;
+        //LOGGER << "  solved A non zeros: " << solvedA.nonZeros() << std::endl;
+        LOGGER << "  LDLT solve A time: " << LOGGER.tp("ldlt_solA") << std::endl;
+
+        LOGGER << "Spectra" << std::endl;
+        LOGGER.ts("sp_solve");
+        Spectra::SparseSymMatProd<double, Eigen::Lower, 0, long long> op(fam);
+        LOGGER << "1" << std::endl;
+        Spectra::SymEigsSolver< double, Spectra::LARGEST_ALGE,  Spectra::SparseSymMatProd<double, Eigen::Lower, 0, long long> > eigs(&op, 1000, 2000);
+        LOGGER << "2" << std::endl;
+        eigs.init();
+        LOGGER << "3" << std::endl;
+        int nconv = eigs.compute();
+        LOGGER << " Eigens compute time: " << LOGGER.tp("sp_solve") << std::endl;
+
+        LOGGER.ts("sp_get");
+        Eigen::VectorXd evalues;
+        if(eigs.info() == Spectra::SUCCESSFUL)
+            evalues = eigs.eigenvalues();
+        LOGGER << "logdet from eigen: " << evalues.array().log().sum() << std::endl;
+        LOGGER << "trace of fam-1: " <<  (1.0/evalues.array().sum()) << std::endl;
+        LOGGER << " eigen get time: " << LOGGER.tp("sp_get") << std::endl;
+
+        LOGGER.e(0, "test finished");
+
+        LOGGER.ts("sol");
+        V_inverse = solver.solve(eye); //extreme slow for large matrix
+        LOGGER << " inv trace true value = " << V_inverse.diagonal().sum() << std::endl;
+        LOGGER << "  inverse time: " << LOGGER.tp("sol") << std::endl;
     }else{
         LOGGER.e(0, "Unknown inverse methods");
     }
@@ -587,10 +1777,10 @@ void FastFAM::inverseFAM(SpMat& fam, double VG, double VR){
    //LOGGER.i(0, "# iteations: " + to_string(solver.iterations()));
     //LOGGER.i(0, "# error: " + to_string(solver.error()));
 
-    LOGGER.i(0, "Inverted in " + to_string(LOGGER.tp("INVERSE_FAM")) + " seconds");
+    LOGGER.i(0, "Inverted in " + to_string(LOGGER.tp("INVERSE_FAM")) + " sec.");
 }
 
-void FastFAM::calculate_gwa(uint64_t *buf, int num_marker){
+void FastFAM::calculate_gwa(uintptr_t * genobuf, const vector<uint32_t> &markerIndex){
 /*
         std::ofstream pheno_w2(options["out"] + "_gwa_phen.txt");
         pheno_w2 << phenoVec << std::endl;
@@ -598,94 +1788,491 @@ void FastFAM::calculate_gwa(uint64_t *buf, int num_marker){
         LOGGER << "LOOP: " << num_finished_marker << std::endl;
 */
         //MatrixXd dealGeno(num_indi, num_marker);
-    #pragma omp parallel for schedule(dynamic)
-    for(int cur_marker = 0; cur_marker < num_marker; cur_marker++){
-        double *w_buf = new double[num_indi];
-        Map< VectorXd > xMat(w_buf, num_indi);
-        MatrixXd XMat_V;
+    //const double nan = std::numeric_limits<double>::quiet_NaN();
+    //const double MAF_L_THRESH = 0.00001;
+    //const double MAF_U_THRESH = 0.99999;
+ 
+    static double iN = 1.0 /(num_indi - (covarFlag ? covar.cols() : 1.0) - 1.0);
+    static double SSy = phenoVec.dot(phenoVec);
 
-        geno->makeMarkerX(buf, cur_marker, w_buf, true, false);
+    int num_marker = markerIndex.size();
+    vector<uint8_t> isValids(num_marker);
+
+    #pragma omp parallel for schedule(dynamic)
+    for(int i = 0; i < num_marker; i++){
+        uint32_t cur_marker = markerIndex[i];
+        GenoBufItem item;
+        item.extractedMarkerIndex = cur_marker;
+
+        geno->getGenoDouble(genobuf, i, &item);
+
+        isValids[i] = item.valid;
+        if(!item.valid) {
+            continue;
+        }
+
+        Map< VectorXd > xMat(item.geno.data(), num_indi);
+        //MatrixXd XMat_V;
+
+        conditionCovarReg(xMat);
         //dealGeno.col(cur_marker) = xMat;
 
-        MatrixXd tMat_V = xMat.transpose();
+        //MatrixXd tMat_V = xMat.transpose();
 
-        double xMat_V_x = 1.0 / (tMat_V * xMat)(0, 0);
-        double xMat_V_p = (tMat_V * phenoVec)(0, 0);
+        double xMat_V_x = 1.0 / xMat.dot(xMat);
+        double xMat_V_p = xMat.dot(phenoVec);
 
         double temp_beta =  xMat_V_x * xMat_V_p;
-        double temp_se = sqrt(xMat_V_x);
+        //uint32_t temp_N = geno->countMarkers[cur_raw_marker] >> 1;
+        // slow: VectorXd res = phenoVec - xMat * temp_beta;
+        //double sse = res.dot(res) / N;
+        double sse = (SSy - temp_beta * xMat_V_p) * iN;
+        double temp_se = sqrt(sse * xMat_V_x);
+
+
+        //double temp_se = sqrt(xMat_V_x);
         double temp_z = temp_beta / temp_se;
 
-        uint32_t cur_raw_marker = num_finished_marker + cur_marker;
+        beta[i] = (float)temp_beta; //* geno->RDev[cur_raw_marker]; 
+        se[i] = (float)temp_se;
+        p[i] = StatLib::pchisqd1(temp_z * temp_z); 
 
-        beta[cur_raw_marker] = temp_beta; //* geno->RDev[cur_raw_marker]; 
-        se[cur_raw_marker] = temp_se;
-        p[cur_raw_marker] = StatLib::pchisqd1(temp_z * temp_z); 
-        delete[] w_buf;
+        af[i] = (float)item.af;
+        countMarkers[i] = item.nValidN;
+        info[i] = item.info; 
+        //}else{
+            //beta[index] = nan;
+            //se[index] = nan;
+            //p[index] = nan;
+        //}
     }
 
-    /*
-    std::ofstream o_geno(options["out"] + "_geno.txt");
+    output_res(isValids, markerIndex);
+   /*
+        std::ofstream o_geno(options["out"] + "_geno.txt");
         o_geno << dealGeno << std::endl;
         o_geno.close();
     */
-     
-
-    num_finished_marker += num_marker;
-    if(num_finished_marker % 30000 == 0){
-        LOGGER.i(2, to_string(num_finished_marker) + " markers finished"); 
-    }
-
 }
 
+void FastFAM::output_res(const vector<uint8_t> &isValids, const vector<uint32_t> markerIndex){
+    int numKept = 0;
+    int num_marker = markerIndex.size();
+    if(bSaveBin){
+        int num_write = 1;
+        for(int i = 0; i != num_marker; i++){
+            if(isValids[i]){
+                numKept++;
+                osOut << marker->getMarkerStrExtract(markerIndex[i]) << "\n";
+                if(fwrite(&af[i], sizeof(float), num_write, bOut) != num_write){
+                    LOGGER.e(0, "can't write allele frequency to [" + sFileName + ".bin].");
+                }
 
-void FastFAM::calculate_fam(uint64_t *buf, int num_marker){
+                if(fwrite(&beta[i], sizeof(float), num_write, bOut) != num_write){
+                    LOGGER.e(0, "can't write beta to [" + sFileName + ".bin].");
+                }
+                if(fwrite(&se[i], sizeof(float), num_write, bOut) != num_write){
+                    LOGGER.e(0, "can't write se to [" + sFileName + ".bin].");
+                }
+                if(fwrite(&p[i], sizeof(double), num_write, bOut) != num_write){
+                    LOGGER.e(0, "can't write p to [" + sFileName + ".bin].");
+                }
+
+                if(fwrite(&countMarkers[i], sizeof(uint32_t), num_write, bOut) != num_write){
+                    LOGGER.e(0, "can't write N to [" + sFileName + ".bin].");
+                }
+                if(hasInfo){
+                    if(fwrite(&info[i], sizeof(float), num_write, bOut) != num_write){
+                        LOGGER.e(0, "can't write INFO score to [" + sFileName + ".bin].");
+                    }
+                }
+
+
+            }
+        }
+    }else{
+        for(int i = 0; i != num_marker; i++){
+            if(isValids[i]){
+                numKept++;
+                osOut << marker->getMarkerStrExtract(markerIndex[i]) << "\t" << countMarkers[i]
+                    << "\t" << af[i] << "\t" << beta[i] << "\t" << se[i] << "\t" << p[i];
+                if(hasInfo){
+                    osOut << "\t" << info[i];
+                }
+                osOut << "\n";
+            }else{
+                if(bOutResAll){
+                    numKept++;
+                osOut << marker->getMarkerStrExtract(markerIndex[i]) << "\t" << countMarkers[i]
+                    << "\t" << af[i] << "\tNA\tNA\tNA";
+                if(hasInfo){
+                    osOut << "\t" << info[i];
+                }
+                osOut << "\n";
+ 
+                }
+            }
+        }
+    }
+
+    numMarkerOutput += numKept;
+}
+ 
+
+
+void FastFAM::calculate_fam(uintptr_t *genobuf, const vector<uint32_t> &markerIndex){
+
     // Memory fam_size * 2 * 4 + (N * 8 * 2 ) * thread_num + M * 3 * 8  B
-    //int num_thread = THREADS.getThreadCount() + 1; 
-    #pragma omp parallel for schedule(dynamic)
-    for(int cur_marker = 0; cur_marker < num_marker; cur_marker++){
-        double *w_buf = new double[num_indi];
-        Map< VectorXd > xMat(w_buf, num_indi);
-        MatrixXd XMat_V;
+    /*
+    LOGGER <<"new2" << std::endl;
+    FILE *phen = fopen((options["out"] + ".phena").c_str(), "wb");
+    fwrite(phenoVec.data(), sizeof(double), phenoVec.size(), phen);
+    fclose(phen);
+    MatrixXd dealGeno(num_indi, num_marker);
+    */
+    int num_marker = markerIndex.size();
+    vector<uint8_t> isValids(num_marker);
 
-        geno->makeMarkerX(buf, cur_marker, w_buf, true, false);
-        // Xt * V-1
+    #pragma omp parallel for schedule(dynamic)
+    for(int i = 0; i < num_marker; i++){
+        uint32_t cur_marker = markerIndex[i];
+        GenoBufItem item;
+        item.extractedMarkerIndex = cur_marker;
+
+        geno->getGenoDouble(genobuf, i, &item);
+
+        isValids[i] = item.valid;
+        if(!item.valid) {
+            continue;
+        }
+ 
+        Map< VectorXd > xMat(item.geno.data(), num_indi);
+        //MatrixXd XMat_V;
+
+        conditionCovarReg(xMat);
+        //dealGeno.col(cur_marker) = xMat;
+
+        //norm
+        /*
         MatrixXd xMat_V = xMat.transpose() * V_inverse;
-        // 
-        double xMat_V_x = 1.0 / (xMat_V * xMat)(0, 0);
+        double xMat_V_x = 1.0 / (xMat_V * xMat)(0, 0); 
         double xMat_V_p = (xMat_V * phenoVec)(0, 0);
+        */
+        //end norm
+        // Xt * V-1
+        //VectorXd xMat_V = V_inverse.selfadjointView<Eigen::Lower>() * xMat;
+        VectorXd xMat_V = V_inverse * xMat;
+        double xMat_V_x = 1.0 / xMat_V.dot(xMat);
+        double xMat_V_p = xMat_V.dot(phenoVec);
 
         double temp_beta =  xMat_V_x * xMat_V_p;
         double temp_se = sqrt(xMat_V_x);
         double temp_z = temp_beta / temp_se;
 
-        uint32_t cur_raw_marker = num_finished_marker + cur_marker;
 
-        beta[cur_raw_marker] = temp_beta; //* geno->RDev[cur_raw_marker]; 
-        se[cur_raw_marker] = temp_se;
-        p[cur_raw_marker] = StatLib::pchisqd1(temp_z * temp_z); 
-        delete[] w_buf;
+        beta[i] = (float)temp_beta; //* geno->RDev[cur_raw_marker]; 
+        se[i] = (float)temp_se;
+        p[i] = StatLib::pchisqd1(temp_z * temp_z); 
+
+        af[i] = (float)item.af;
+        countMarkers[i] = item.nValidN;
+        info[i] = item.info;
     }
-/*
-    int num_thread = omp_get_max_threads();
-    int num_marker_part = (num_marker + num_thread - 1) / num_thread;
-    #pragma omp parallel for
-    for(int index = 0; index <= num_thread; index++){
-        if(index != num_thread){
-            reg_thread(buf, index * num_marker_part, (index + 1) * num_marker);
-        }else{
-            reg_thread(buf, (num_thread - 1) * num_marker_part, num_marker);
+    output_res(isValids, markerIndex);
+}
+
+void FastFAM::calculate_grammar(uintptr_t *genobuf, const vector<uint32_t> &markerIndex){
+    int num_marker = markerIndex.size();
+    vector<uint8_t> isValids(num_marker);
+    #pragma omp parallel for schedule(dynamic)
+    for(int i = 0; i < num_marker; i++){
+        uint32_t cur_marker = markerIndex[i];
+        GenoBufItem item;
+        item.extractedMarkerIndex = cur_marker;
+        geno->getGenoDouble(genobuf, i, &item);
+        
+        isValids[i] = item.valid;
+        if(!item.valid){
+            continue;
         }
-        //THREADS.AddJob(std::bind(&FastFAM::reg_thread, this, buf, index * num_marker_part, (index + 1) * num_marker_part));
+        
+        Map< VectorXd > xvec(item.geno.data(), num_indi);
+
+        conditionCovarReg(xvec);
+
+        double gtg = xvec.dot(xvec);
+        //double gt_Vi_y = xvec.dot(Vi_y);
+        double gt_Vi_y = xvec.dot(Vi_y_cinf);
+
+        //double temp_beta = gt_Vi_y / gtg / c_inf;
+        double temp_beta = gt_Vi_y / gtg;
+        //double temp_chisq = temp_beta * gt_Vi_y;
+        double temp_chisq = temp_beta * gt_Vi_y * c_inf;
+        double temp_se = sqrt(temp_beta * temp_beta / temp_chisq);
+
+        beta[i] = (float)temp_beta; //* geno->RDev[cur_raw_marker]; 
+        se[i] = (float)temp_se;
+        p[i] = StatLib::pchisqd1(temp_chisq); 
+        af[i] = (float)item.af;
+        countMarkers[i] = item.nValidN;
+        info[i] = item.info;
     }
 
-    //THREADS.WaitAll();
-*/
-    num_finished_marker += num_marker;
-    if(num_finished_marker % 30000 == 0){
-        LOGGER.i(2, to_string(num_finished_marker) + " markers finished"); 
+    output_res(isValids, markerIndex);
+}
+
+
+/*
+void FastFAM::calculate_grammar_check(GenoBuf *buf, const vector<uint32_t> &markerIndex){
+    
+    static uint32_t n_sample = buf->n_sample;
+    int num_marker = markerIndex.size();
+
+    #pragma omp parallel for schedule(dynamic)
+    for(int cur_marker = 0; cur_marker < num_marker; cur_marker++){
+        if(buf->usedIndex[cur_marker]){
+            Map< VectorXd > xvec(buf->geno.data() + cur_marker * n_sample, n_sample);
+
+            conditionCovarReg(xvec);
+
+            double gtg = xvec.dot(xvec);
+            double gt_Vi_y = xvec.dot(Vi_y);
+
+            double temp_beta = gt_Vi_y / gtg / c_inf;
+            double temp_chisq = temp_beta * gt_Vi_y;
+            double temp_se = sqrt(temp_beta * temp_beta / temp_chisq);
+
+            uint32_t cur_raw_marker = num_finished_marker + cur_marker;
+
+            beta[cur_raw_marker] = temp_beta; / geno->RDev[cur_raw_marker]; 
+            se[cur_raw_marker] = temp_se;
+            p[cur_raw_marker] = StatLib::pchisqd1(temp_chisq); 
+            af[cur_marker] = buf->af[cur_marker];
+            countMarkers[cur_marker] = buf->nValidN[cur_marker];
+        }
+    }
+    if(bSaveBin){
+        for(int i = 0; i != num_marker; i++){
+            osOut << marker->getMarkerStrExtract(markerIndex[i]) << "\n";
+        }
+        
+        if(fwrite(af, sizeof(float), num_marker, bOut) != num_marker){
+            LOGGER.e(0, "can't write allele frequency to [" + sFileName + ".bin].");
+        }
+
+        if(fwrite(beta, sizeof(float), num_marker, bOut) != num_marker){
+            LOGGER.e(0, "can't write beta to [" + sFileName + ".bin].");
+        }
+         if(fwrite(se, sizeof(float), num_marker, bOut) != num_marker){
+            LOGGER.e(0, "can't write se to [" + sFileName + ".bin].");
+        }
+        if(fwrite(p, sizeof(double), num_marker, bOut) != num_marker){
+            LOGGER.e(0, "can't write p to [" + sFileName + ".bin].");
+        }
+
+        if(fwrite(countMarkers, sizeof(uint32_t), num_marker, bOut) != num_marker){
+            LOGGER.e(0, "can't write N to [" + sFileName + ".bin].");
+        }
+    }else{
+        for(int i = 0; i != num_marker; i++){
+            if(buf->usedIndex[i]){
+                osOut << marker->getMarkerStrExtract(markerIndex[i]) << "\t" << countMarkers[i]
+                    << "\t" << af[i] << "\t" << beta[i] << "\t" << se[i] << "\t" << p[i] << "\n";
+            }
+        }
     }
 }
+*/
+
+void FastFAM::processFAM(vector<function<void (uintptr_t *, const vector<uint32_t> &)>> callBacks){
+    sFileName = options["out"]; 
+    int buf_size = 23068672;
+    osBuf.resize(buf_size);
+    osOut.rdbuf()->pubsetbuf(&osBuf[0], buf_size);
+    if(options.find("save_bin") == options.end()){
+        bSaveBin = false;
+        LOGGER << "fastGWA results will be saved in text format to [" << sFileName << "]." << std::endl;
+        osOut.open(sFileName.c_str());
+        vector<string> header = {"CHR", "SNP", "POS", "A1", "A2", "N", "AF1", "BETA", "SE", "P"};
+        if(hasInfo)header = {"CHR", "SNP", "POS", "A1", "A2", "N", "AF1", "BETA", "SE", "P", "INFO"};
+        string header_string = boost::algorithm::join(header, "\t");
+        if(osOut.bad()){
+            LOGGER.e(0, "can't open [" + sFileName + "] to write.");
+        }
+        osOut << header_string << std::endl;
+    }else{
+        bSaveBin = true;
+        LOGGER << "fastGWA results will be saved in binary format to [" << sFileName << "(.snpinfo, .bin)]" << std::endl;
+        osOut.open((sFileName + ".snpinfo").c_str());
+        if(osOut.bad()){
+            LOGGER.e(0, "can't open [" + sFileName + ".snpinfo] to write.");
+        }
+        osOut << "CHR\tSNP\tPOS\tA1\tA2" << std::endl;
+        bOut = fopen((sFileName + ".bin").c_str(), "wb");
+        if(bOut == NULL){
+            LOGGER.e(0, "can't open [" + sFileName + ".bin] to write.");
+        }
+    }
+
+
+    if(options.find("no_filter") == options.end()){
+        bOutResAll = false;
+        double preAF = geno->getMAF();
+        double preInfo = geno->getFilterInfo();
+        double preMiss = geno->getFilterMiss();
+        if(preAF < 1e-10){
+            geno->setMAF(0.0001);
+            LOGGER << "  Filtering out variants with MAF < 0.0001, customise it with --maf flag." << std::endl; 
+        }
+        /*
+        if(preInfo < 1e-10 && hasInfo){
+            geno->setFilterInfo(0.3);
+            LOGGER << "  Filtering out variants with imputation INFO score < 0.30, customise it with --info flag." << std::endl;
+        }
+        */
+        if(preMiss < 1e-10){
+            geno->setFilterMiss(0.9);
+            LOGGER << "  Filtering out variants with missingness rate > 0.10, customise it with --geno flag." << std::endl;
+        }
+    }else{
+        bOutResAll = true;
+    }
+
+    vector<uint32_t> extractIndex(marker->count_extract());
+    std::iota(extractIndex.begin(), extractIndex.end(), 0);
+
+    int nMarker = 128;
+ 
+    beta = new float[nMarker];
+    se = new float[nMarker];
+    p = new double[nMarker];
+    countMarkers = new uint32_t[nMarker];
+    af = new float[nMarker];
+    info = new float[nMarker];
+
+    numMarkerOutput = 0;
+    geno->loopDouble(extractIndex, nMarker, true, true, false, false, callBacks);
+
+    osOut.flush();
+    osOut.close();
+    if(bOut){
+        fflush(bOut);
+        fclose(bOut);
+    }
+    LOGGER << "Saved " << numMarkerOutput << " SNPs." << std::endl;
+
+    delete[] beta;
+    delete[] se;
+    delete[] p;
+    delete[] countMarkers;
+    delete[] af;
+    delete[] info;
+
+}
+
+/*
+void FastFAM::processFAM(vector<function<void (GenoBuf *, const vector<uint32_t> &)>> callBacks){
+    sFileName = options["out"]; 
+    int buf_size = 23068672;
+    osBuf.resize(buf_size);
+    osOut.rdbuf()->pubsetbuf(&osBuf[0], buf_size);
+    if(options.find("save_bin") == options.end()){
+        bSaveBin = false;
+        osOut.open(sFileName.c_str());
+        vector<string> header{"CHR", "SNP", "POS", "A1", "A2", "N", "AF1", "BETA", "SE", "P"};
+        string header_string = boost::algorithm::join(header, "\t");
+        if(osOut.bad()){
+            LOGGER.e(0, "can't open [" + sFileName + "] to write.");
+        }
+        osOut << header_string << std::endl;
+    }else{
+        bSaveBin = true;
+        osOut.open((sFileName + ".snpinfo").c_str());
+        if(osOut.bad()){
+            LOGGER.e(0, "can't open [" + sFileName + ".snpinfo] to write.");
+        }
+        osOut << "CHR\tSNP\tPOS\tA1\tA2" << std::endl;
+        bOut = fopen((sFileName + ".bin").c_str(), "wb");
+        if(bOut == NULL){
+            LOGGER.e(0, "can't open [" + sFileName + ".bin] to write.");
+        }
+    }
+
+    numMarkerOutput = 0;
+    vector<uint32_t> extractIndex(marker->count_extract());
+    std::iota(extractIndex.begin(), extractIndex.end(), 0);
+    GenoBuf gbuf;
+    gbuf.center = true;
+    gbuf.std = false;
+    gbuf.saveGeno = true;
+    gbuf.saveMiss = false;
+    int nMarker = 128;
+
+    vector<uint32_t> rawIndex = marker->get_extract_index();
+
+    geno->preProcess(&gbuf, nMarker, &rawIndex);
+ 
+    double preAF = geno->getMAF();
+    double preInfo = geno->getFilterInfo();
+    double preMiss = geno->getFilterMiss();
+    if(preAF < 1e-10){
+        geno->setMAF(0.0001);
+        LOGGER << "  Filtering out variants with MAF < 0.0001, customise it with --maf flag." << std::endl; 
+    }
+    if(preInfo < 1e-10 && gbuf.hasInfo){
+        geno->setFilterInfo(0.3);
+        LOGGER << "  Filtering out variants with imputation INFO score < 0.30, customise it with --info flag." << std::endl;
+    }
+    if(preMiss < 1e-10){
+        geno->setFilterMiss(0.9);
+        LOGGER << "  Filtering out variants with missingness rate > 0.10, customise it with --geno flag." << std::endl;
+    }
+
+    beta = new float[nMarker];
+    se = new float[nMarker];
+    p = new double[nMarker];
+    countMarkers = new uint32_t[nMarker];
+    af = new float[nMarker];
+    */
+
+    /* use no extract no in code
+    int curMarker = 0;
+    uint32_t nTMarker = extractIndex.size();
+    LOGGER.ts("FAM");
+    while(curMarker < nTMarker){
+        int endMarker = curMarker + nMarker;
+        endMarker = endMarker > nTMarker ? nTMarker : endMarker;
+        vector<uint32_t> curMarkers(extractIndex.begin() + curMarker, extractIndex.begin() + endMarker);
+        geno->getGenoArrayExtract(curMarkers, &gbuf);
+
+        for(auto callback : callBacks){
+            callback(&gbuf, curMarkers);
+        }
+        curMarker = endMarker;
+    }
+    LOGGER << "Time: " << LOGGER.tp("FAM") << " sec"<< std::endl;
+    */
+ 
+/*
+    geno->loopDoublePre(extractIndex, &gbuf, callBacks);
+    osOut.flush();
+    osOut.close();
+    if(bOut){
+        fflush(bOut);
+        fclose(bOut);
+    }
+    LOGGER << "Saved " << numMarkerOutput << " SNPs." << std::endl;
+    geno->endProcess();
+
+    delete[] beta;
+    delete[] se;
+    delete[] p;
+    delete[] countMarkers;
+    delete[] af;
+}
+*/
+
+
 /*
 void FastFAM::reg_thread(uint8_t *buf, int from_marker, int to_marker){
     //Eigen::setNbThreads(1);
@@ -706,7 +2293,7 @@ void FastFAM::reg_thread(uint8_t *buf, int from_marker, int to_marker){
 
         uint32_t cur_raw_marker = num_finished_marker + cur_marker;
 
-        beta[cur_raw_marker] = temp_beta; //* geno->RDev[cur_raw_marker]; 
+        beta[cur_raw_marker] = temp_beta; // geno->RDev[cur_raw_marker]; 
         se[cur_raw_marker] = temp_se;
         {
             std::lock_guard<std::mutex> lock(chisq_lock);
@@ -717,50 +2304,55 @@ void FastFAM::reg_thread(uint8_t *buf, int from_marker, int to_marker){
 }
 */
 
-
+/*
 void FastFAM::output(string filename){
     const double nan = std::numeric_limits<double>::quiet_NaN();
     const double MAF_L_THRESH = 0.00001;
     const double MAF_U_THRESH = 0.99999;
+    //const double qchisq05 = 0.4549364;
     if(options.find("save_bin") == options.end()){
         std::ofstream out(filename.c_str());
         if(options.find("no_marker") == options.end()){
-            vector<string> header{"CHR", "SNP", "POS", "A1", "A2", "AF1", "beta", "se", "p"};
+            vector<string> header{"CHR", "SNP", "POS", "A1", "A2", "N", "AF1", "BETA", "SE", "P"};
             //std::copy(header.begin(), header.end(), std::ostream_iterator<string>(out, "\t"));
             string header_string = boost::algorithm::join(header, "\t");
             out << header_string << std::endl;
             for(int index = 0; index != num_marker; index++){
                 double af = geno->AFA1[index];
+                uint32_t real_index = marker->getRawIndex(index);
+                uint32_t countSample = geno->countMarkers[index] >> 1;
                 if(af > MAF_L_THRESH && af < MAF_U_THRESH){
-                    out << geno->marker->get_marker(geno->marker->getExtractIndex(index)) << "\t" <<
+                    out << marker->get_marker(real_index) << "\t" << countSample << "\t" << 
                         af << "\t" << beta[index] << "\t" << se[index] << "\t" << p[index] << std::endl;
                 }else{
-                    out << geno->marker->get_marker(geno->marker->getExtractIndex(index)) << "\t" <<
+                    out << marker->get_marker(marker->getRawIndex(index)) << "\t" << countSample << "\t"<<
                         af << "\t" << nan << "\t" << nan << "\t" << nan << std::endl;
                 }
             }
         }else{
-            vector<string> header{"AF1", "beta", "se", "p"};
+            vector<string> header{"N", "AF1", "BETA", "SE", "P"};
             //std::copy(header.begin(), header.end(), std::ostream_iterator<string>(out, "\t"));
             string header_string = boost::algorithm::join(header, "\t");
             out << header_string << std::endl;
             for(int index = 0; index != num_marker; index++){
                 double af = geno->AFA1[index];
+                uint32_t countSample = geno->countMarkers[index] >> 1;
+ 
                 if(af > MAF_L_THRESH && af < MAF_U_THRESH){
-                    out << af << "\t" << beta[index] << "\t" << se[index] << "\t" << p[index] << std::endl;
+                    out << countSample << "\t" << af << "\t" << beta[index] << "\t" << se[index] << "\t" << p[index] << std::endl;
                 }else{
-                    out << af << "\t" << nan << "\t" << nan << "\t" << nan << std::endl;
+                    out << countSample << "\t" << af << "\t" << nan << "\t" << nan << "\t" << nan << std::endl;
                 }
             }
             LOGGER.i(0, "No SNP information saved, " + to_string(num_marker) + " SNPs saved");
         }
         out.close();
-        LOGGER.i(0, "The association results have been saved to [" + filename +"].");
+        LOGGER.i(0, "The association results have been saved in [" + filename +"].");
     }else{
         if(options.find("no_marker") == options.end()){
             std::ofstream out((filename + ".snp").c_str());
             for(int index = 0; index != num_marker; index++){
-                out << geno->marker->get_marker(geno->marker->getExtractIndex(index)) << std::endl;
+                out << marker->get_marker(marker->getRawIndex(index)) << std::endl;
             }
             out.close();
             LOGGER.i(0, "The SNP inf of association results has been saved to [" + filename + ".snp].");
@@ -769,6 +2361,7 @@ void FastFAM::output(string filename){
         }
 
         float * afa1 = new float[num_marker];
+        uint32_t * countSamples = new uint32_t[num_marker];
         for(int index = 0; index != num_marker; index++){
             double af = geno->AFA1[index];
             afa1[index] = af;
@@ -777,6 +2370,7 @@ void FastFAM::output(string filename){
                 se[index] = nan;
                 p[index] = nan;
             }
+            countSamples[index] = geno->countMarkers[index] >> 1;
         }
 
         FILE * h_out = fopen((filename + ".bin").c_str(), "wb");
@@ -792,25 +2386,41 @@ void FastFAM::output(string filename){
          if(fwrite(se, sizeof(float), num_marker, h_out) != num_marker){
             LOGGER.e(0, "can't write se to [" + filename + ".bin].");
         }
-        if(fwrite(p, sizeof(float), num_marker, h_out) != num_marker){
+        if(fwrite(p, sizeof(double), num_marker, h_out) != num_marker){
             LOGGER.e(0, "can't write p to [" + filename + ".bin].");
         }
+
+        if(fwrite(countSamples, sizeof(uint32_t), num_marker, h_out) != num_marker){
+            LOGGER.e(0, "can't write N to [" + filename + ".bin].");
+        }
+        delete[] countSamples;
         fclose(h_out);
         LOGGER.i(0, "The association results have been saved to [" + filename + ".bin] in binary format.");
     }
         
 }
+*/
 
 int FastFAM::registerOption(map<string, vector<string>>& options_in){
     int returnValue = 0;
     //DEBUG: change to .fastFAM
-    options["out"] = options_in["out"][0] + ".fastFAM.assoc";
+    options["out"] = options_in["out"][0] + ".fastGWA";
 
-    string curFlag = "--fastFAM";
+    string curFlag = "--fastGWA";
     if(options_in.find(curFlag) != options_in.end()){
         processFunctions.push_back("fast_fam");
         returnValue++;
         options_in.erase(curFlag);
+        LOGGER.e(0, "Obsoleted flag, try --fastGWA-mlm or --fastGWA-mlm-exact");
+    }
+
+    curFlag = "--fastGWA-gram";
+    if(options_in.find(curFlag) != options_in.end()){
+        processFunctions.push_back("fast_fam");
+        options["grammar"] = "true";
+        returnValue++;
+        options_in.erase(curFlag);
+        LOGGER.e(0, "Obsoleted flag, try --fastGWA-mlm or --fastGWA-mlm-exact");
     }
 
     curFlag = "--grm-sparse";
@@ -820,6 +2430,46 @@ int FastFAM::registerOption(map<string, vector<string>>& options_in){
         }else{
             LOGGER.e(0, curFlag + "can't deal with 0 or > 1 files");
         }
+        options_in.erase(curFlag);
+    }
+
+    curFlag = "--fastGWA-mlm";
+    if(options_in.find(curFlag) != options_in.end()){
+        processFunctions.push_back("fast_fam");
+        options["grammar"] = "true";
+        if(options.find("grmsparse_file") == options.end()){
+            LOGGER.e(0, "--fastGWA-mlm must run with --grm-sparse");
+        }
+        returnValue++;
+        options_in.erase(curFlag);
+    }
+
+    curFlag = "--save-fastGWA-mlm-residual";
+    if(options_in.find(curFlag) != options_in.end()){
+        if(options.find("grammar") == options.end()){
+            LOGGER.e(0, curFlag + " can only work with --fastGWA-mlm");
+        }
+        options["save_resi"] = "true";
+        options_in.erase(curFlag);
+    }
+
+    curFlag = "--fastGWA-mlm-exact";
+    if(options_in.find(curFlag) != options_in.end()){
+        processFunctions.push_back("fast_fam");
+        if(options.find("grmsparse_file") == options.end()){
+            LOGGER.e(0, "--fastGWA-mlm-exact must run with --grm-sparse");
+        }
+        returnValue++;
+        options_in.erase(curFlag);
+    }
+
+    curFlag = "--fastGWA-lr";
+    if(options_in.find(curFlag) != options_in.end()){
+        processFunctions.push_back("fast_fam");
+        if(options.find("grmsparse_file") != options.end()){
+            LOGGER.e(0, "--fastGWA-lr can't run with --grm-sparse currently");
+        }
+        returnValue++;
         options_in.erase(curFlag);
     }
 
@@ -846,12 +2496,21 @@ int FastFAM::registerOption(map<string, vector<string>>& options_in){
     */
 
     options["inv_method"] = "ldlt";
-    vector<string> flags = {"--cg", "--ldlt", "--llt", "--pardiso", "--tcg", "--lscg"};
+    vector<string> flags = {"--cg", "--ldlt", "--llt", "--pardiso", "--tcg", "--lscg", "--inv-t1"};
     for(auto curFlag : flags){
         if(options_in.find(curFlag) != options_in.end()){
             boost::erase_all(curFlag, "--");
             options["inv_method"] = curFlag;
             options_in.erase(curFlag);
+        }
+    }
+
+    options["VgEstMethod"] = "REML";
+    curFlag = "--est-vg";
+    if(options_in.find(curFlag) != options_in.end()){
+        auto cur_option = options_in[curFlag];
+        if(cur_option.size() >=1){
+            options["VgEstMethod"] = cur_option[0];
         }
     }
 
@@ -873,6 +2532,26 @@ int FastFAM::registerOption(map<string, vector<string>>& options_in){
         //options_in.erase(curFlag);
     }
 
+    curFlag = "--nofilter";
+    if(options_in.find(curFlag) != options_in.end()){
+        options["no_filter"] = "yes";
+        //options_in.erase(curFlag);
+    }
+
+
+    curFlag = "--c-inf";
+    if(options_in.find(curFlag) != options_in.end()){
+        options["c-inf"] = "yes";
+        options_in.erase(curFlag);
+    }
+
+    curFlag = "--c-inf-no-filter";
+    if(options_in.find(curFlag) != options_in.end()){
+        options["c-inf-no-filter"] = "yes";
+        options_in.erase(curFlag);
+    }
+
+
 
     curFlag = "--load-inv";
     if(options_in.find(curFlag) != options_in.end()){
@@ -884,11 +2563,88 @@ int FastFAM::registerOption(map<string, vector<string>>& options_in){
         options_in.erase(curFlag);
     }
 
-    curFlag = "--save-pheno";
+    curFlag = "--model-only";
+    bool model_only = false;
     if(options_in.find(curFlag) != options_in.end()){
-        options["save_pheno"] == "yes";
+        options["model_only"] = "yes";
+        model_only = true;
         options_in.erase(curFlag);
     }
+
+    curFlag = "--load-model";
+    options["model_file"] = "";
+    if(options_in.find(curFlag) != options_in.end()){
+        if(options_in[curFlag].size() == 1){
+            options["model_file"] = options_in[curFlag][0];
+            checkFileReadable(options["model_file"] + ".mdl.id");
+            checkFileReadable(options["model_file"] + ".mdl.bin");
+            processFunctions.push_back("fast_fam");
+            returnValue++;
+        }else{
+            LOGGER.e(0, "can't load multiple --load-model files");
+        }
+       options_in.erase(curFlag);
+    }
+
+    if(model_only && options["model_file"] != ""){
+        LOGGER.e(0, "can't model and load model at the same time");
+    }
+
+
+    curFlag = "--save-pheno";
+    if(options_in.find(curFlag) != options_in.end()){
+        options["save_pheno"] = "yes";
+        options_in.erase(curFlag);
+    }
+
+    curFlag = "--joint-covar";
+    if(options_in.find(curFlag) != options_in.end()){
+        options["adj_covar"] = "yes";
+        options_in.erase(curFlag);
+    }
+
+    curFlag = "--force-gwa";
+    if(options_in.find(curFlag) != options_in.end()){
+        options["force_gwa"] = "yes";
+        options_in.erase(curFlag);
+    }
+
+    // no contrain by default
+    options["no_constrain"] = "yes";
+    curFlag = "--gwa-no-constrain";
+    if(options_in.find(curFlag) != options_in.end()){
+        options["no_constrain"] = "yes";
+        options_in.erase(curFlag);
+    }
+
+    curFlag = "--reml-detail";
+    if(options_in.find(curFlag) != options_in.end()){
+        options["reml_detail"] = "yes";
+        options_in.erase(curFlag);
+    }
+
+    curFlag = "--h2-limit";
+    if(options_in.find(curFlag) != options_in.end()){
+        auto cur_option = options_in[curFlag];
+        if(cur_option.size() >=1){
+            options_d["h2_limit"] = stod(cur_option[0]);
+        }
+    }else{
+        //default value 1.6
+        options_d["h2_limit"] = 1.6;
+    }
+
+    //random seed
+    curFlag = "--seed";
+    if(options_in.find(curFlag) != options_in.end()){
+        auto cur_option = options_in[curFlag];
+        if(cur_option.size() >=1){
+            options_d["seed"] = stod(cur_option[0]);
+        }
+    }else{
+        options_d["seed"] = 0;
+    }
+
 
     curFlag = "--rel-only";
     if(options_in.find(curFlag) != options_in.end()){
@@ -898,39 +2654,42 @@ int FastFAM::registerOption(map<string, vector<string>>& options_in){
         options["rel_only"] = "no";
     }
 
+    
+
     return returnValue;
 }
 
+
 void FastFAM::processMain(){
-    vector<function<void (uint64_t *, int)>> callBacks;
+    vector<function<void (uintptr_t *, const vector<uint32_t> &)>> callBacks;
     //THREADS.JoinAll();
     for(auto &process_function : processFunctions){
         if(process_function == "fast_fam"){
-            Pheno pheno;
-            Marker marker;
-            Geno geno(&pheno, &marker);
-            FastFAM ffam(&geno);
-            bool freqed = geno.filterMAF();
-            ffam.initMarkerVars();
-
+            FastFAM ffam;
             if(options.find("save_inv") != options.end()){
-                LOGGER.i(0, "Use --load-inv to load the inversed file for fastFAM");
+                LOGGER.i(0, "Use --load-inv to load the inversed file for fastGWA");
+                return;
+            }
+            if(options.find("model_only") != options.end()){
+                LOGGER.i(0, "Use \"--load-model " + options["out"] + "\" to load the model for further analysis.");
+                LOGGER << "Note: the sample ID (FID IID) in model has to exsit in genotype for further association step." << std::endl;
                 return;
             }
             //Eigen::setNbThreads(1);
-            if(!freqed){
-                callBacks.push_back(bind(&Geno::freq64, &geno, _1, _2));
-            }
             if(options.find("grmsparse_file") != options.end() && ffam.fam_flag){
-                LOGGER.i(0, "\nRunning fastFAM...");
-                callBacks.push_back(bind(&FastFAM::calculate_fam, &ffam, _1, _2));
+                if(options.find("grammar") == options.end()){
+                    LOGGER.i(0, "\nPerforming fastGWA mixed model association analysis (extact test)...");
+                    callBacks.push_back(bind(&FastFAM::calculate_fam, &ffam, _1, _2));
+                }else{
+                    LOGGER.i(0, "\nPerforming fastGWA mixed model association analysis...");
+                    callBacks.push_back(bind(&FastFAM::calculate_grammar, &ffam, _1, _2));
+                }
             }else{
-                LOGGER.i(0, "\nRunning GWAS...");
+                LOGGER.i(0, "\nPerforming fastGWA linear regression analysis...");
                 callBacks.push_back(bind(&FastFAM::calculate_gwa, &ffam, _1, _2));
             }
-            geno.loop_64block(marker.get_extract_index(), callBacks);
-
-            ffam.output(options["out"]);
+            ffam.processFAM(callBacks);
+            callBacks.clear();
         }
     }
 }

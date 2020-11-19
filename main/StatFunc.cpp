@@ -1,10 +1,10 @@
 /*
  * Implementations of the statistical functions
  *
- * 2010 by Jian Yang <jian.yang@qimr.edu.au>
+ * 2010 by Jian Yang <jian.yang.qt@gmail.com>
  *
  * This file is distributed under the GNU General Public
- * License, Version 2.  Please see the file COPYING for more
+ * License, Version 3.  Please see the file LICENSE for more
  * details
  */
 
@@ -269,6 +269,7 @@ double StatFunc::ran1(int &idum) {
 double StatFunc::chidev(int &idum, const double df) {
     if (df > 2.0) return 2.0 * cheng_gamdev(idum, df * 0.5);
     else LOGGER.e(0, "Invalid degree of freedom! StatFunc::chidev");
+    return 0;
 }
 
 double StatFunc::cheng_gamdev(int &idum, const double alpha) {

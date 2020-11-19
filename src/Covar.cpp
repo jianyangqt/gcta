@@ -1,7 +1,7 @@
 /*
    GCTA: a tool for Genome-wide Complex Trait Analysis
 
-   New implementation: holds covar information
+   New implementation: covar information
 
    Developed by Zhili Zheng<zhilizheng@outlook.com>, 2017
 
@@ -162,10 +162,12 @@ Covar::Covar(){
         case 10:
             sample_id = samples_covar;
             this->covar = covar;
+            setCovarMapping(false);
             return;
         case 100:
             sample_id = samples_rcovar;
             this->rcovar = rcovar;
+            setCovarMapping(true);
             return;
         case 11:
             idList[0] = &samples_qcovar;
@@ -329,8 +331,7 @@ bool Covar::setCovarMapping(bool is_rcovar, vector<vector<string>> *map_order){
 }
 
 bool Covar::getCommonSampleIndex(const vector<string> &sampleIDs, vector<uint32_t> &keep_index, vector<uint32_t> &covar_index){
-    int total_col_covar = qcovar.size() + covar.size() + rcovar.size();
-    if(sampleIDs.size() == 0 || sample_id.size() == 0 || total_col_covar == 0){
+    if(sampleIDs.size() == 0 || (!hasCovar())){
         return false;
     }
     vector_commonIndex_sorted1(sampleIDs, sample_id, keep_index, covar_index);
@@ -340,6 +341,14 @@ bool Covar::getCommonSampleIndex(const vector<string> &sampleIDs, vector<uint32_
     return true;
 }
 
+bool Covar::hasCovar(){
+    int total_col_covar = qcovar.size() + covar.size() + rcovar.size();
+    if(sample_id.size() == 0 || total_col_covar == 0){
+        return false;
+    }else{
+        return true;
+    }
+}
 
 
 bool Covar::getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector<uint32_t> &keep_index){
@@ -521,7 +530,9 @@ void Covar::read_covar(string filename, vector<string>& sub_list, vector<vector<
             (*labels)[i]["LABEL_MAX_VALUE"] = -1;
         }
     }
-    
+
+    int n_item = atoi(options["covar_maxlevel"].c_str());
+
     while(std::getline(hcovar, line)){
         line_number++;
         boost::split(line_elements, line, boost::is_any_of("\t "));
@@ -535,12 +546,13 @@ void Covar::read_covar(string filename, vector<string>& sub_list, vector<vector<
         bool is_skip = false;
         vector<double> covar_temp(nkeep);
         if(has_covar){
-            // get every column in the keep
+
+           // get every column in the keep
             for(int col_index = 0; col_index < nkeep; col_index++){
                 string temp_string = line_elements[keep_col[col_index]];
                 boost::to_upper(temp_string);
                 double temp_item;
-                if(temp_string == "NA" || temp_string == "NAN"){
+                if(temp_string == "NA" || temp_string == "NAN" || temp_string == "." || temp_string == "-9"){
                     is_skip = true;
                     break;
                 }
@@ -552,8 +564,8 @@ void Covar::read_covar(string filename, vector<string>& sub_list, vector<vector<
                     }else{ // new factor
                         (*label_p)["LABEL_MAX_VALUE"] += 1;
                         temp_item = (*label_p)["LABEL_MAX_VALUE"];
-                        if(temp_item > 22){
-                            LOGGER.e(0, "too many factors in " + to_string(col_index+2) + "th column.");
+                        if(temp_item > n_item){
+                            LOGGER.e(0, "too many levels in covariate #" + to_string(col_index + 1) + ". You may fit it as a quantitative covariate using --qcovar.");
                         }
                         (*label_p)[temp_string] = temp_item;
                     }
@@ -582,6 +594,16 @@ int Covar::registerOption(map<string, vector<string>>& options_in){
     addOneFileOption("qcovar", "", "--qcovar", options_in, options);
     addOneFileOption("covar", "", "--covar", options_in, options);
     addOneFileOption("rcovar", "", "--rcovar", options_in, options);
+
+    string op = "--covar-maxlevel";
+    options["covar_maxlevel"] = "33";
+    if(options_in.find(op) != options_in.end()){
+        auto options_tmp = options_in[op];
+        if(options_tmp.size() >= 1){
+            options["covar_maxlevel"] = options_tmp[0];
+        }
+    }
+
     if(options_in.find("--test-covar") != options_in.end()){
         string filename = options_in["--test-covar"][0];
         vector<string> samples;

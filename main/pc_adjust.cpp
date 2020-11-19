@@ -159,7 +159,7 @@ vector<string> update_snp_freq(vector<string> meta_snp_name, vector<int> meta_sn
         }
 
         // Update AF
-        for( j=0; j<npheno & freq_flag; j++) {
+        for( j=0; (j<npheno) & freq_flag; j++) {
             if(!snp_flag[j][meta_snp_remain[i]]) continue;
             if(std::isnan(meta_freq(meta_snp_remain[i],j))) 
                 meta_freq(meta_snp_remain[i],j) = a1_freq;

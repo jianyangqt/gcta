@@ -1,10 +1,13 @@
 /*
- *  mkl.cpp
- *  gcta
+ *  GCTA: a tool for Genome-wide Complex Trait Analysis
  *
- *  Created by Jian Yang on 24/01/13.
- *  Copyright 2013 QIMR. All rights reserved.
+ * Implementations of functions for MKL
  *
+ * 2014 by Jian Yang <jian.yang.qt@gmail.com>
+ *
+ * This file is distributed under the GNU General Public
+ * License, Version 3.  Please see the file LICENSE for more
+ * details
  */
 
 #include "gcta.h"

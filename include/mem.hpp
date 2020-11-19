@@ -22,6 +22,7 @@
 #define posix_memalign(p, a, s) ( ((*(p)) = _aligned_malloc((s), (a))), *(p) ? 0 : errno )
 #define posix_mem_free _aligned_free
 #else
+#include <cstdio>
 #include <stdlib.h>
 #define posix_mem_free free
 #endif
@@ -30,6 +31,8 @@
 int getVMemKB();
 int getMemKB();
 
+int getVMPeakKB();
+int getMemPeakKB();
 
 #endif //GCTA2_MEM_HPP
 

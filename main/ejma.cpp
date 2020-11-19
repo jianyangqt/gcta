@@ -3,10 +3,10 @@
  *
  * Implementations of functions for BLUP analysis using sumamry data from EWAS
  *
- * 2010 by Jian Yang <jian.yang@qimr.edu.au>
+ * 2010 by Jian Yang <jian.yang.qt@gmail.com>
  *
  * This file is distributed under the GNU General Public
- * License, Version 2.  Please see the file COPYING for more
+ * License, Version 3.  Please see the file LICENSE for more
  * details
  */
 

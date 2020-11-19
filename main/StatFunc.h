@@ -1,16 +1,18 @@
 /*
  * Interface to the statistical functions
  *
- * 2010 by Jian Yang <jian.yang@qimr.edu.au>
+ * 2010 by Jian Yang <jian.yang.qt@gmail.com>
  *
  * This file is distributed under the GNU General Public
- * License, Version 2.  Please see the file COPYING for more
+ * License, Version 3.  Please see the file LICENSE for more
  * details
  */
 
 #ifndef _STATFUNC_H
 #define _STATFUNC_H
 
+#include <cstdio>
+#include <cstdlib>
 #include <vector>
 #include <algorithm>
 #include <iostream>

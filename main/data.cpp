@@ -3,10 +3,10 @@
  *
  * Implementations of functions for data management
  *
- * 2010 by Jian Yang <jian.yang@qimr.edu.au>
+ * 2010 by Jian Yang <jian.yang.qt@gmail.com>
  *
  * This file is distributed under the GNU General Public
- * License, Version 2.  Please see the file COPYING for more
+ * License, Version 3.  Please see the file LICENSE for more
  * details
  */
 
@@ -1575,6 +1575,7 @@ void gcta::calcu_mu(bool ssq_flag) {
         }else if (_sex[_keep[i]] == 2){
             xfac[i] = 1.0;
         }else{
+            xfac[i] = 1.0;
             no_sex_info = true;
         }
         fac[i] = 0.5;
@@ -1590,11 +1591,7 @@ void gcta::calcu_mu(bool ssq_flag) {
             mu_func(j, auto_fac);
         }else if (_chr[_include[j]] == (_autosome_num + 1)) {
             if(no_sex_info){
-                #pragma omp critical
-                {
-                    flag_x_problem = true;
-                }
-                #pragma omp cancel for
+                flag_x_problem = true;
             }
             mu_func(j, xfac);
         }else{
@@ -1603,7 +1600,7 @@ void gcta::calcu_mu(bool ssq_flag) {
     }
 
     if(flag_x_problem){
-        LOGGER.e(0, "gender information (the 5th column of the .fam file) is required for COJO analysis on chromosome X.");
+        LOGGER.w(0, "gender information (the 5th column of the .fam file) is required for analysis on chromosome X, GCTA assumes those missing samples as female.");
     }
 }
 
