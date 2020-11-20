@@ -43,6 +43,14 @@ using std::vector;
 
 typedef SparseMatrix<double, Eigen::ColMajor, long long> SpMat;
 
+// SPA
+struct SPARes {
+    double p_adj;
+    double p;
+    double score;
+    bool bConverge;
+};
+
 class FastFAM {
 public:
     FastFAM();
@@ -68,6 +76,8 @@ public:
 
     void conditionCovarReg(Eigen::Ref<VectorXd> pheno);
     void conditionCovarReg(VectorXd &pheno, VectorXd &condPheno);
+    void conditionCovarBinReg(Eigen::Ref<VectorXd> y);
+
     
     static int registerOption(map<string, vector<string>>& options_in);
     static void processMain();
@@ -80,16 +90,21 @@ private:
     Marker *marker;
     Geno *geno;
     uint32_t num_indi;
+    int num_covar;
+    int numi_indi;
     uint32_t num_marker;
     uint32_t num_finished_marker = 0;
     float *beta = NULL;
     float *se = NULL;
     double *p = NULL;
+    double *padj = NULL;
+    uint8_t *rConverge = NULL;
     uint32_t * countMarkers = NULL;
     float *af = NULL;
     float *info = NULL;
     bool bOutResAll = false;
-    
+
+   
     bool fam_flag;
     MatrixXd H, covar;
     bool covarFlag = false;
@@ -155,7 +170,43 @@ private:
     vector<char> osBuf;
     uint32_t numMarkerOutput = 0;
 
+    uint32_t seed;
+
+    //binary
+    bool bBinary = false; 
+    void loadBinModel();
+    VectorXd phenoVecMu;
+ 
+    static bool covarGLM(const VectorXd& phenoVec, const MatrixXd& covar, Ref<VectorXd> est_beta, int maxIter=200, double thresh = 1e-6);
+    void initBinary(const SpMat &fam);
+    Eigen::SimplicialLDLT<SpMat> solverV;
+    MatrixXd ViX;
+    MatrixXd inv_XtVX_ViX;
+    VectorXd mu;
+    VectorXd dWp;
+
+    bool bGLMMExact = false;
+    double binGamma;
+    double taoVal;
+    double spaCutOff = 2;
+    void estBinGamma();
+    void binGrammar_func(uintptr_t *genobuf, const vector<uint32_t> &markerIndex);
+    void calculate_spa(uintptr_t *genobuf, const vector<uint32_t> &markerIndex);
+    //void conditionCovarRegBin(Eigen::Ref<VectorXd> pheno);
+    bool binGridREML(const SpMat& fam, Ref<VectorXd> est_a, int maxIter, double threshold);
+    double binLogL(double cur_tao, const SpMat& fam, const SpMat& W, const Ref<VectorXd> Y, const Ref<MatrixXd> X);
+    SPARes saddleProb(double q, double var, const Ref<VectorXd> geno, double cutOff);
+    SPARes saddleProbSP();
+    void output_res_spa(const vector<uint8_t> &isValids, const vector<uint32_t> markerIndex);
+    float *Tscore = NULL;
+    float *Tse = NULL;
+
+    void initVar();
+    bool bPreciseCovar = false; 
+
+    
 };
+
 
 
 #endif

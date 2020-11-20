@@ -55,7 +55,7 @@ void out_ver(bool flag_outFile){
 
     log(0, "*******************************************************************", "");
     log(0, "* Genome-wide Complex Trait Analysis (GCTA)", "");
-    log(0, "* version 1.93.2 beta " + getOSName(), "");
+    log(0, "* version 1.93.3 beta " + getOSName(), "");
     log(0, "* (C) 2010-present, Jian Yang, The University of Queensland", "");
     log(0, "* Please report bugs to Jian Yang <jian.yang.qt@gmail.com>", "");
     log(0, "*******************************************************************", "");
@@ -78,7 +78,7 @@ int main(int argc, char *argv[]){
         "--make-bed", "--recodet", "--sum-geno-x", "--sample", "--bgen", "--mbgen", "--hard-call-thresh", "--dosage-call", "--dosage", "--mgrm", "--unify-grm", "--rel-only", 
         "--ld-matrix", "--r", "--ld-wind", "--r2", "--subtract-grm", "--save-pheno", "--save-bin", "--no-marker", "--joint-covar", "--sparse-cutoff", "--noblas", "--fastGWA-gram",
         "--inv-t1", "--est-vg", "--force-gwa", "--reml-detail", "--h2-limit", "--gwa-no-constrain", "--verbose", "--c-inf", "--c-inf-no-filter", "--geno", "--info", "--nofilter",
-        "--pfile", "--bpfile", "--mpfile", "--mbpfile", "--model-only", "--load-model", "--seed"
+        "--pfile", "--bpfile", "--mpfile", "--mbpfile", "--model-only", "--load-model", "--seed", "--fastGWA-mlm-binary", "--num-vec", "--trace-exact", "--cv-threshold", "--tao-start"
     };
     map<string, vector<string>> options;
     vector<string> keys;

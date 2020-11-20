@@ -18,6 +18,9 @@
 #define STAT_LIB_H
 namespace StatLib{
     double pchisqd1(double x);
+    double qchisqd1(double x);
+
+    double pnorm(double x, bool bLowerTail=false);
 
     bool rankContrast(int n, double *Z);
 }
