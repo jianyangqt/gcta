@@ -47,6 +47,7 @@
 
 #include <Spectra/SymEigsSolver.h>
 #include <Spectra/MatOp/SparseSymMatProd.h>
+#include <boost/math/distributions/beta.hpp>
 
 struct InvItem{
     int32_t row;
@@ -2969,6 +2970,17 @@ int FastFAM::registerOption(map<string, vector<string>>& options_in){
         returnValue++;
         options_in.erase(curFlag);
     }
+    
+    curFlag = "--burden";
+    if(options_in.find(curFlag) != options_in.end()){
+        if(options.find("binary") != options.end()){
+            LOGGER.e(0, "burden test can only work in binary trait only currently!");
+        }else{
+            if(options_in[curFlag].size() != 1){
+                options["genset"] = options_in[curFlag][0];
+            }
+        }
+    }
 
 
     curFlag = "--save-fastGWA-mlm-residual";
@@ -3879,6 +3891,10 @@ void FastFAM::estBinGamma(){
     //LOGGER.i(0, "Got " + to_string(n_valid_null) + " null SNPs");
     v_c_infs.resize(0);
     bValids.resize(0);
+}
+
+void FastFAM::calculate_gene(uintptr_t *genobuf, const vector<uint32_t> &markerIndex){
+
 }
 
 void FastFAM::calculate_spa(uintptr_t *genobuf, const vector<uint32_t> &markerIndex){

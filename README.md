@@ -15,7 +15,7 @@ License: GPLv3 (default license); some codes are released under LGPL detailed in
 ## Requirements
 1. Only x86\_64 (Intel, or AMD64) based operation systems are supported. 
 2. Intel MKL 2017 or above
-3. Eigen >= 3.3.7
+3. Eigen == 3.3.7 (bugs in new version eigen)
 4. CMake >= 3.1
 5. BOOST >= 1.4
 6. zlib >= 1.2.11

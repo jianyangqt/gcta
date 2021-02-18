@@ -192,6 +192,7 @@ private:
     void estBinGamma();
     void binGrammar_func(uintptr_t *genobuf, const vector<uint32_t> &markerIndex);
     void calculate_spa(uintptr_t *genobuf, const vector<uint32_t> &markerIndex);
+    void calculate_gene(uintptr_t *genobuf, const vector<uint32_t> &markerIndex);
     //void conditionCovarRegBin(Eigen::Ref<VectorXd> pheno);
     bool binGridREML(const SpMat& fam, Ref<VectorXd> est_a, int maxIter, double threshold);
     double binLogL(double cur_tao, const SpMat& fam, const SpMat& W, const Ref<VectorXd> Y, const Ref<MatrixXd> X);
@@ -203,6 +204,8 @@ private:
 
     void initVar();
     bool bPreciseCovar = false; 
+
+
 
     
 };
