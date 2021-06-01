@@ -22,6 +22,7 @@ License: GPLv3 (default license); some codes are released under LGPL detailed in
 7. sqlite3 >= 3.31.1 
 8. zstd >= 1.4.4
 9. Spectra >= 0.8.1
+10. gsl (GNU scientific library)
 
 ### Linux
 1. Kernel version >= 2.6.28, or the MKL library can't work. 
