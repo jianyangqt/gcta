@@ -116,6 +116,7 @@ include_directories(${COMMON_INCLUDES})
 
 file(GLOB SRCS "${PROJECT_SOURCE_DIR}/src/*.cpp")
 list(REMOVE_ITEM SRCS "${MAIN_SOURCE}")
+list(APPEND SRCS "${PROJECT_SOURCE_DIR}/src/acat.c")
 
 set(libs_list "")
 foreach(_lib ${SRCS})
@@ -151,7 +152,8 @@ else()
         target_link_libraries(gcta64 mainV1 ${libs_list} Pgenlib -static z sqlite3 zstd -Wl,--start-group ${MKL_LIB} -Wl,--end-group iomp5 -Wl,--whole-archive -lpthread -Wl,--no-whole-archive m dl)
     else()
         #target_link_libraries(gcta64 mainV1 ${libs_list} -Wl,-Bstatic z -Wl,--start-group ${MKL_LIB} -Wl,--end-group gomp -Wl,-Bdynamic pthread m dl)
-        target_link_libraries(gcta64 mainV1 ${libs_list} Pgenlib -static z sqlite3 zstd -Wl,--start-group ${MKL_LIB} -Wl,--end-group gomp -Wl,--whole-archive -lpthread -Wl,--no-whole-archive m dl)
+        #target_link_libraries(gcta64 mainV1 ${libs_list} Pgenlib -static z sqlite3 zstd -Wl,--start-group ${MKL_LIB} -Wl,--end-group gomp -Wl,--whole-archive -lpthread -Wl,--no-whole-archive m dl)
+        target_link_libraries(gcta64 mainV1 ${libs_list} Pgenlib -static z sqlite3 zstd gsl gslcblas m -Wl,--start-group ${MKL_LIB} -Wl,--end-group gomp -Wl,--whole-archive -lpthread -Wl,--no-whole-archive m dl)
     endif()
 endif()
 

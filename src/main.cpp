@@ -37,6 +37,9 @@
 #include <cstdlib>
 #include "mem.hpp"
 
+#include "acat.hpp" //add by fanghl 20210303
+#define ACAT_MODULE
+
 using std::bind;
 using std::map;
 using std::to_string;
@@ -79,6 +82,8 @@ int main(int argc, char *argv[]){
         "--ld-matrix", "--r", "--ld-wind", "--r2", "--subtract-grm", "--save-pheno", "--save-bin", "--no-marker", "--joint-covar", "--sparse-cutoff", "--noblas", "--fastGWA-gram",
         "--inv-t1", "--est-vg", "--force-gwa", "--reml-detail", "--h2-limit", "--gwa-no-constrain", "--verbose", "--c-inf", "--c-inf-no-filter", "--geno", "--info", "--nofilter",
         "--pfile", "--bpfile", "--mpfile", "--mbpfile", "--model-only", "--load-model", "--seed", "--fastGWA-mlm-binary", "--num-vec", "--trace-exact", "--cv-threshold", "--tao-start"
+        "--acat", "--gene-list", "--snp-list", "--min-mac", "--max-maf", "--wind",
+
     };
     map<string, vector<string>> options;
     vector<string> keys;
@@ -89,6 +94,52 @@ int main(int argc, char *argv[]){
         LOGGER.m(0, "Please see online documentation at http://cnsgenomics.com/software/gcta");
         return 1;
     }
+
+#ifdef ACAT_MODULE //fanghl
+    string opt_acat = "--acat";
+    string opt_gene_list = "--gene-list";
+    string arg_gene_list = "";
+    string opt_snp_list = "--snp-list";
+    string arg_snp_list = "";
+    string opt_max_af = "--max-maf";
+    double arg_max_af = 0.01;
+    string opt_min_sample = "--min-mac";
+    unsigned int arg_min_sample = 20;
+    string opt_extend_len = "--wind";
+    unsigned int arg_extend_len = 0;
+    string opt_out = "--out";
+    string arg_out = "acat_res.csv";
+    int ACAT_call = 0;
+
+    for (int j = 1; j < argc; j ++){
+        if (argv[j] == opt_acat){
+            ACAT_call = 1;
+        } else if ((j + 1) < argc && string(argv[j + 1]).substr(0, 2) != "--"){
+            if (argv[j] == opt_gene_list)
+                arg_gene_list = string(argv[j + 1]);
+            else if (argv[j] == opt_snp_list)
+                arg_snp_list = string(argv[j + 1]);
+            else if (argv[j] == opt_max_af)
+                arg_max_af = std::stof(argv[j + 1]);
+            else if (argv[j] == opt_min_sample)
+                arg_min_sample = std::stoi(argv[j + 1]);
+            else if (argv[j] == opt_extend_len)
+                arg_extend_len = std::stoi(argv[j + 1]);
+            else if (argv[j] == opt_out)
+                arg_out = string(argv[j + 1]);
+        }
+    }
+
+    if (ACAT_call && arg_gene_list != "" && arg_snp_list != "" ){
+        const char * gene_list_file_name = arg_gene_list.c_str();
+        const char * snp_list_file_name = arg_snp_list.c_str();
+        const char * arg_out_file = arg_out.c_str();
+        acat_func(gene_list_file_name, snp_list_file_name, arg_max_af, arg_min_sample, arg_extend_len, arg_out_file);
+        exit(0);
+        }
+#endif
+
+
     for(int index = 1; index < argc; index++){
         cur_string = argv[index];
         if(cur_string.substr(0, 2) == "--"){
