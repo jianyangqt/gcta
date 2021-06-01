@@ -133,7 +133,7 @@ public:
     void getGenoDouble(uintptr_t *buf, int bufIndex, GenoBufItem* gbuf);
     void endGenoDouble();
 
-    void loopDouble(const vector<uint32_t> &extractIndex, int numMarkerBuf, bool bMakeGeno, bool bGenoCenter, bool bGenoStd, bool bMakeMiss, vector<function<void (uintptr_t *buf, const vector<uint32_t> &exIndex)>> callbacks = vector<function<void (uintptr_t *buf, const vector<uint32_t> &exIndex)>>());
+    void loopDouble(const vector<uint32_t> &extractIndex, int numMarkerBuf, bool bMakeGeno, bool bGenoCenter, bool bGenoStd, bool bMakeMiss, vector<function<void (uintptr_t *buf, const vector<uint32_t> &exIndex)>> callbacks = vector<function<void (uintptr_t *buf, const vector<uint32_t> &exIndex)>>(), bool showLog = true);
 
     bool getGenoHasInfo();
 

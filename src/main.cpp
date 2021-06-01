@@ -81,9 +81,9 @@ int main(int argc, char *argv[]){
         "--make-bed", "--recodet", "--sum-geno-x", "--sample", "--bgen", "--mbgen", "--hard-call-thresh", "--dosage-call", "--dosage", "--mgrm", "--unify-grm", "--rel-only", 
         "--ld-matrix", "--r", "--ld-wind", "--r2", "--subtract-grm", "--save-pheno", "--save-bin", "--no-marker", "--joint-covar", "--sparse-cutoff", "--noblas", "--fastGWA-gram",
         "--inv-t1", "--est-vg", "--force-gwa", "--reml-detail", "--h2-limit", "--gwa-no-constrain", "--verbose", "--c-inf", "--c-inf-no-filter", "--geno", "--info", "--nofilter",
-        "--pfile", "--bpfile", "--mpfile", "--mbpfile", "--model-only", "--load-model", "--seed", "--fastGWA-mlm-binary", "--num-vec", "--trace-exact", "--cv-threshold", "--tao-start"
+        "--set-list", "--burden",
+        "--pfile", "--bpfile", "--mpfile", "--mbpfile", "--model-only", "--load-model", "--seed", "--fastGWA-mlm-binary", "--num-vec", "--trace-exact", "--cv-threshold", "--tao-start",
         "--acat", "--gene-list", "--snp-list", "--min-mac", "--max-maf", "--wind",
-
     };
     map<string, vector<string>> options;
     vector<string> keys;
@@ -94,8 +94,7 @@ int main(int argc, char *argv[]){
         LOGGER.m(0, "Please see online documentation at http://cnsgenomics.com/software/gcta");
         return 1;
     }
-
-#ifdef ACAT_MODULE //fanghl
+   #ifdef ACAT_MODULE //fanghl
     string opt_acat = "--acat";
     string opt_gene_list = "--gene-list";
     string arg_gene_list = "";
@@ -137,9 +136,7 @@ int main(int argc, char *argv[]){
         acat_func(gene_list_file_name, snp_list_file_name, arg_max_af, arg_min_sample, arg_extend_len, arg_out_file);
         exit(0);
         }
-#endif
-
-
+  #endif
     for(int index = 1; index < argc; index++){
         cur_string = argv[index];
         if(cur_string.substr(0, 2) == "--"){

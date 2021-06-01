@@ -19,9 +19,11 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <utility>
 using std::vector;
 using std::string;
 using std::to_string;
+using std::pair;
 using std::map;
 
 struct MarkerInfo{
@@ -55,8 +57,8 @@ public:
     void getStartPosSize(uint32_t raw_index, uint64_t &pos, uint64_t &size);
     bool isEffecRev(uint32_t extractedIndex);
     bool isEffecRevRaw(uint32_t rawIndex);
-    string get_marker(int rawindex);
-    string getMarkerStrExtract(int extractindex);
+    string get_marker(int rawindex, bool bflip=false);
+    string getMarkerStrExtract(int extractindex, bool bflip=false);
     static int registerOption(map<string, vector<string>>& options_in);
     static void processMain();
     static MarkerInfo extractBgenMarkerInfo(FILE *h_bgen, uint64_t &pos);
@@ -76,6 +78,7 @@ public:
     uint8_t mapCHR(string chr_str, bool &success);
 
     uint64_t getMaxGenoMarkerUptrSize();
+    vector<pair<string, vector<uint32_t>>> read_gene(string gfile);
 
 private:
     vector<uint8_t> chr;

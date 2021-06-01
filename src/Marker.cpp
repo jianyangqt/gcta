@@ -26,6 +26,7 @@
 #include "utils.hpp"
 #include "OptionIO.h"
 #include <memory>
+#include <utility>
 #include <sqlite3.h>
 
 using std::to_string;
@@ -262,7 +263,6 @@ void Marker::read_mbgen(string mbgen_file){
     index_extract.resize(num_marker);
     std::iota(index_extract.begin(), index_extract.end(), 0); 
 }
-
 
 
 //cur_marker_index:  is the index point to position of index_extract
@@ -614,6 +614,108 @@ void Marker::read_bim(string bim_file) {
     markerParam.posGenoDataStart = 3;
     markerParams.push_back(markerParam);
 }
+
+vector<pair<string, vector<uint32_t>>> Marker::read_gene(string gfile){
+    std::ifstream genein(gfile.c_str());
+    if(!genein){
+        LOGGER.e(0, "can not open the file [" + gfile + "] to read");
+    }
+
+    string line;
+    std::getline(genein, line);
+    vector<string> line_elements;
+    boost::split(line_elements, line, boost::is_any_of("\t "));
+    boost::replace_all(line_elements[line_elements.size() - 1], "\r", "");
+    int nElements;
+    if(line_elements[0] == "gene" && line_elements[1] == "chr" && 
+            line_elements[2] == "start" && line_elements[3] == "end" && line_elements[4] == "strand"){
+        nElements = line_elements.size();
+    }else{
+        LOGGER.e(0, "invalid gene list file");
+    }
+
+    int line_number  = 1;
+    uint8_t chr_item;
+    uint8_t curChrItem = 0;
+    bool bFind = false;
+    uint32_t chrStartIndex = 0;
+    uint32_t chrEndIndex = 0;
+    vector<uint32_t> curIndices;
+
+    vector<pair<string, vector<uint32_t>>> gene;
+    while(std::getline(genein, line)){
+        line_number++;
+        vector<string> line_elements;
+        boost::split(line_elements, line, boost::is_any_of("\t "));
+        boost::replace_all(line_elements[line_elements.size() - 1], "\r", "");
+        if(line_elements.size() != nElements) {
+            LOGGER.e(0, "  line " + to_string(line_number)
+                   + " has elements not equal to " + to_string(nElements));
+        }
+        // replace strings
+        try{
+            chr_item = chr_maps.at(line_elements[1]);
+        }catch(std::out_of_range&){
+            LOGGER.e(0, "  Line " + to_string(line_number) + " of [" + gfile +
+                    "] contains invalid chr, please check");
+        }
+        
+        string curGeneName = line_elements[0];
+        int curStart, curEnd; 
+        try{
+            curStart = std::stoi(line_elements[2]);
+            curEnd = std::stoi(line_elements[3]);
+        }catch(std::invalid_argument&){
+           LOGGER.e(0, "  Line " + to_string(line_number) + " of [" + gfile +
+                    "] contains invalid position value, please check");
+        }
+
+        if(chr_item != curChrItem){
+            bool isSetStart = false;
+            bool isSetEnd = false;
+            for(uint32_t marker_index = 0; marker_index < index_extract.size(); marker_index++){
+                uint32_t temp_index = index_extract[marker_index];
+                //LOGGER << temp_index << "\t" << (int)chr_item << "\t" << (int)chr[temp_index] << std::endl;
+                if(chr[temp_index] == chr_item){
+                    if((!isSetStart)){
+                        chrStartIndex = marker_index;
+                        isSetStart = true;
+                    }
+                }else{
+                    if(isSetStart){
+                        chrEndIndex = marker_index - 1;
+                        isSetEnd = true;
+                        break;
+                    }
+                }
+            }
+            if(isSetStart){
+                if(!isSetEnd) chrEndIndex = index_extract.size() - 1;
+            }else{
+                //LOGGER << "gene " << curGeneName << " can not find, chr: " <<  int(chr_item) << std::endl;
+                //curChrItem = chr_item;
+                continue;
+                //LOGGER.e(0, " Line " + to_string(line_number) + ", chr information can't be found in the genotype");
+            }
+            curChrItem = chr_item;
+        }
+
+        vector<uint32_t> indicies;
+        for(uint32_t i = chrStartIndex; i <= chrEndIndex; i++){
+            uint32_t temp_index = index_extract[i];
+            uint32_t cur_pd = pd[temp_index];
+            if(cur_pd >= curStart && cur_pd <= curEnd){
+                indicies.push_back(i);
+            }
+        }
+        if(indicies.size() == 0) continue;
+        pair<string, vector<uint32_t>> pair_gene = std::make_pair(curGeneName+"\t" + to_string(curStart) + "\t" + to_string(curEnd), indicies);
+
+        gene.emplace_back(pair_gene);
+    }
+    return gene;
+}
+
 
 void Marker::getStartPosSize(uint32_t raw_index, uint64_t &pos, uint64_t &size){
     pos = byte_start[raw_index];
@@ -1174,55 +1276,55 @@ vector<uint32_t> Marker::get_extract_index_autosome(){ // returns the index in k
 }
 
 vector<uint32_t> Marker::get_extract_index_X(){
-    uint8_t chrx = options_i["last_chr_autosome"] + 1;
-    vector<uint32_t> auto_index;
-    for(int i = 0; i < index_extract.size(); i++){
-        uint32_t curIndex = index_extract[i];
-        if(chr[curIndex] == chrx){
-            auto_index.push_back(i);
-        }
-    }
-    return auto_index;
+   uint8_t chrx = options_i["last_chr_autosome"] + 1;
+   vector<uint32_t> auto_index;
+   for(int i = 0; i < index_extract.size(); i++){
+       uint32_t curIndex = index_extract[i];
+       if(chr[curIndex] == chrx){
+           auto_index.push_back(i);
+       }
+   }
+   return auto_index;
 }
 
 
 void Marker::extract_marker(vector<string> markers, bool isExtract) {
-    vector<uint32_t> ori_index, marker_index;
-    size_t numOriMarker = markers.size();
-    removeDuplicateSort(markers);
-    int numDup = numOriMarker - markers.size();
-    if(numDup != 0) LOGGER.w(0, to_string(numDup) + " duplicated SNPs were ignored in the list." );
+   vector<uint32_t> ori_index, marker_index;
+   size_t numOriMarker = markers.size();
+   removeDuplicateSort(markers);
+   int numDup = numOriMarker - markers.size();
+   if(numDup != 0) LOGGER.w(0, to_string(numDup) + " duplicated SNPs were ignored in the list." );
 
-    vector_commonIndex_sorted1(name, markers, ori_index, marker_index);
-    vector<uint32_t> remain_index;
-    if(isExtract){
-        std::set_intersection(index_extract.begin(), index_extract.end(),
-                              ori_index.begin(), ori_index.end(),
-                              std::back_inserter(remain_index));
-    }else{
-        std::set_difference(index_extract.begin(), index_extract.end(),
-                            ori_index.begin(), ori_index.end(),
-                            std::back_inserter(remain_index));
-    }
+   vector_commonIndex_sorted1(name, markers, ori_index, marker_index);
+   vector<uint32_t> remain_index;
+   if(isExtract){
+       std::set_intersection(index_extract.begin(), index_extract.end(),
+                             ori_index.begin(), ori_index.end(),
+                             std::back_inserter(remain_index));
+   }else{
+       std::set_difference(index_extract.begin(), index_extract.end(),
+                           ori_index.begin(), ori_index.end(),
+                           std::back_inserter(remain_index));
+   }
 
-    index_extract = remain_index;
-    num_extract = index_extract.size();
+   index_extract = remain_index;
+   num_extract = index_extract.size();
 
-    if(num_extract == 0){
-        LOGGER.e(0, "0 SNP remain.");
-    }
+   if(num_extract == 0){
+       LOGGER.e(0, "0 SNP remain.");
+   }
 
-    LOGGER.i(0, string("After ") + (isExtract? "extracting" : "excluding") +  " SNP, " +  to_string(num_extract) + " SNPs remain.");
+   LOGGER.i(0, string("After ") + (isExtract? "extracting" : "excluding") +  " SNP, " +  to_string(num_extract) + " SNPs remain.");
 }
 
 void Marker::reset_exclude(){
-    vector<uint32_t> whole_index(num_marker);
-    std::iota(whole_index.begin(), whole_index.end(), 0);
+   vector<uint32_t> whole_index(num_marker);
+   std::iota(whole_index.begin(), whole_index.end(), 0);
 
-    index_exclude.resize(whole_index.size() - index_extract.size());
-    std::set_difference(whole_index.begin(), whole_index.end(), index_extract.begin(), 
-            index_extract.end(), index_exclude.begin());
-    num_exclude = index_exclude.size();
+   index_exclude.resize(whole_index.size() - index_extract.size());
+   std::set_difference(whole_index.begin(), whole_index.end(), index_extract.begin(), 
+           index_extract.end(), index_exclude.begin());
+   num_exclude = index_exclude.size();
 }
 
 // didn't check whether in extracted list or not;
@@ -1247,18 +1349,18 @@ void Marker::keep_extracted_index(const vector<uint32_t>& keep_index) {
     keep_raw_index(raw_index);
 }
 
-string Marker::get_marker(int rawindex){ // raw index
+string Marker::get_marker(int rawindex, bool bflip){ // raw index
     string return_string = std::to_string(chr[rawindex]) + "\t" + name[rawindex] + "\t" + 
         std::to_string(pd[rawindex]) + "\t";
-    if(A_rev[rawindex]){
+    if(A_rev[rawindex] ^ bflip){
         return return_string + a2[rawindex] + "\t" + a1[rawindex];
     }else{
         return return_string + a1[rawindex] + "\t" + a2[rawindex];
     }
 }
 
-string Marker::getMarkerStrExtract(int extractindex){ // extract index
-    return get_marker(getRawIndex(extractindex));
+string Marker::getMarkerStrExtract(int extractindex, bool bflip){ // extract index
+    return get_marker(getRawIndex(extractindex), bflip);
 }
  
 

@@ -19,9 +19,11 @@
 #include <limits>
 #include <boost/math/distributions/chi_squared.hpp>
 #include <boost/math/distributions/normal.hpp>
+#include <boost/math/distributions/beta.hpp>
 #include <mkl.h>
 
 using namespace boost::math;
+
 
 namespace StatLib{
     chi_squared dist1(1);
@@ -44,6 +46,18 @@ namespace StatLib{
             return std::numeric_limits<double>::quiet_NaN();
         }
     }
+
+    VectorXd weightBetaMAF(const VectorXd& MAF, double weight_alpha, double weight_beta){
+        beta_distribution<> beta_weight(weight_alpha, weight_beta);
+        int p_len = MAF.size();
+        VectorXd weights(p_len);
+        for(int i = 0; i < p_len; i++){
+            double af = MAF[i];
+            weights[i] = pdf(beta_weight, af);
+        }
+        return weights;
+    }
+
 
     double pnorm(double x, bool bLowerTail){
         if(!std::isfinite(x)){

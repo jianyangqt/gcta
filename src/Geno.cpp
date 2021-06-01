@@ -647,26 +647,6 @@ void Geno::preGenoDouble_pgen(){
     if(!asyncBuf64->init_status()){
         LOGGER.e(0, "can't allocate enough memory to read genotype.");
     }
-    /*
-    LOGGER <<"geno buf size: " << pgenGenoPtrSize << ", dosagemain: " << pgenDosageMainPtrSize;
-    LOGGER << ", dosagepresent: " << pgenDosagePresentPtrSize;
-    LOGGER << ", all:" << pgenGenoBuf1PtrSize << ", marker: " << numMarkerBlock << std::endl;
-    LOGGER << "buffer size:" << pgenGenoBuf1PtrSize * numMarkerBlock << std::endl;
-    */
-
-    //maskPtrSize = PgenReader::GetSubsetMaskSize(raw_sample_ct);
-    //keepMaskPtr = new uintptr_t[maskPtrSize]; 
-    //keepMaskInterPtr = new uintptr_t[maskPtrSize];
-    //PgenReader::SetSampleSubsets(sampleKeepIndex, raw_sample_ct, keepMaskPtr, keepMaskInterPtr);
-
-    //sexMaskPtr = new uintptr_t[maskPtrSize];
-    //sexMaskInterPtr = new uintptr_t[maskPtrSize];
-    //PgenReader::SetSampleSubsets(keepSexIndex, raw_sample_ct, sexMaskPtr, sexMaskInterPtr);
-
-    /*maleMaskPtr = new uintptr_t[maskPtrSize];
-    maleMaskInterPtr = new uintptr_t[maskPtrSize];
-    PgenReader::SetSampleSubsets(keepMaleIndex, raw_sample_ct, maleMaskPtr, maleMaskInterPtr);
-    */
 }
 
 void Geno::preGenoDouble_bed(){
@@ -1513,8 +1493,7 @@ bool Geno::getGenoHasInfo(){
     return hasInfo;
 }
 
-void Geno::loopDouble(const vector<uint32_t> &extractIndex, int numMarkerBuf, bool bMakeGeno, bool bGenoCenter, bool bGenoStd, bool bMakeMiss, vector<function<void (uintptr_t *buf, const vector<uint32_t> &exIndex)>> callbacks){
-    bool showLog = true;
+void Geno::loopDouble(const vector<uint32_t> &extractIndex, int numMarkerBuf, bool bMakeGeno, bool bGenoCenter, bool bGenoStd, bool bMakeMiss, vector<function<void (uintptr_t *buf, const vector<uint32_t> &exIndex)>> callbacks, bool showLog){
    
     preGenoDouble(numMarkerBuf, bMakeGeno, bGenoCenter, bGenoStd, bMakeMiss);
     thread read_thread([this, &extractIndex](){this->readGeno(extractIndex);});
@@ -1530,46 +1509,46 @@ void Geno::loopDouble(const vector<uint32_t> &extractIndex, int numMarkerBuf, bo
     curBufferIndex = 0;
 
     while(nFinishedMarker < nTMarker){
-        uintptr_t *r_buf = NULL;
-        bool isEOF = false;
-        std::tie(r_buf, isEOF) = asyncBuf64->start_read();
-        if(isEOF){
-            LOGGER.e(0, "read to the end of the genotype file, but still didn't finish.");
-        }
+       uintptr_t *r_buf = NULL;
+       bool isEOF = false;
+       std::tie(r_buf, isEOF) = asyncBuf64->start_read();
+       if(isEOF){
+           LOGGER.e(0, "read to the end of the genotype file, but still didn't finish.");
+       }
         
-        int nMarker = numMarkersReadBlocks[curBufferIndex];
-        uint32_t endIndex = nFinishedMarker + nMarker;
-        endIndex = endIndex > nTMarker ? nTMarker : endIndex;
-        vector<uint32_t> curExtractIndex(extractIndex.begin() + nFinishedMarker, 
-                extractIndex.begin() + endIndex);
+       int nMarker = numMarkersReadBlocks[curBufferIndex];
+       uint32_t endIndex = nFinishedMarker + nMarker;
+       endIndex = endIndex > nTMarker ? nTMarker : endIndex;
+       vector<uint32_t> curExtractIndex(extractIndex.begin() + nFinishedMarker, 
+              extractIndex.begin() + endIndex);
 
-        for(auto callback : callbacks){
-            callback(r_buf, curExtractIndex);
-        }
-        asyncBuf64->end_read();
+       for(auto callback : callbacks){
+          callback(r_buf, curExtractIndex);
+       }
+       asyncBuf64->end_read();
 
-        nFinishedMarker += nMarker;
-        curBufferIndex = nextBufIndex(curBufferIndex);
+       nFinishedMarker += nMarker;
+       curBufferIndex = nextBufIndex(curBufferIndex);
 
         // show progress
-        if(showLog){
-            int cur_block = nFinishedMarker >> 14;
-            if(cur_block > pre_block){
-                pre_block = cur_block;
-                float time_p = LOGGER.tp("LOOP_GENO_PRE");
-                if(time_p > 300){
-                    LOGGER.ts("LOOP_GENO_PRE");
-                    float elapse_time = LOGGER.tp("LOOP_GENO_TOT");
-                    float finished_percent = (float) nFinishedMarker / nTMarker;
-                    float remain_time = (1.0 / finished_percent - 1) * elapse_time / 60;
+       if(showLog){
+           int cur_block = nFinishedMarker >> 14;
+           if(cur_block > pre_block){
+               pre_block = cur_block;
+               float time_p = LOGGER.tp("LOOP_GENO_PRE");
+               if(time_p > 300){
+                   LOGGER.ts("LOOP_GENO_PRE");
+                   float elapse_time = LOGGER.tp("LOOP_GENO_TOT");
+                   float finished_percent = (float) nFinishedMarker / nTMarker;
+                   float remain_time = (1.0 / finished_percent - 1) * elapse_time / 60;
 
-                    std::ostringstream ss;
-                    ss << std::fixed << std::setprecision(1) << finished_percent * 100 << "% Estimated time remaining " << remain_time << " min"; 
+                   std::ostringstream ss;
+                   ss << std::fixed << std::setprecision(1) << finished_percent * 100 << "% Estimated time remaining " << remain_time << " min"; 
 
-                    LOGGER.i(1, ss.str());
-                }
-            }
-        }
+                   LOGGER.i(1, ss.str());
+               }
+           }
+       }
     }
     //finished 
     if(showLog){
@@ -1584,20 +1563,20 @@ void Geno::loopDouble(const vector<uint32_t> &extractIndex, int numMarkerBuf, bo
 
 
 void Geno::preProcess(GenoBuf *gbuf, int numMarkerBuf, vector<uint32_t> *rawMarkerIndex){
-    sampleKeepIndex = pheno->get_index_keep();
-    gbuf->n_sample = pheno->count_keep();
-    gbuf->n_marker = numMarkerBuf;
-    numMarkerBlock = gbuf->n_marker;
-    if(rawMarkerIndex != NULL){
-        asyncMode = true;
-        rawMarkerIndexProceed = *rawMarkerIndex;
-    }else{
-        asyncMode = false;
-    }
-        
-    openGFiles();
-    (this->*preProcessFuncs[genoFormat])(gbuf);
-    setGenoBufSize(gbuf, numMarkerBuf);
+   sampleKeepIndex = pheno->get_index_keep();
+   gbuf->n_sample = pheno->count_keep();
+   gbuf->n_marker = numMarkerBuf;
+   numMarkerBlock = gbuf->n_marker;
+   if(rawMarkerIndex != NULL){
+       asyncMode = true;
+       rawMarkerIndexProceed = *rawMarkerIndex;
+   }else{
+       asyncMode = false;
+   }
+       
+   openGFiles();
+   (this->*preProcessFuncs[genoFormat])(gbuf);
+   setGenoBufSize(gbuf, numMarkerBuf);
 }
 
 

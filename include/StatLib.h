@@ -16,6 +16,9 @@
 
 #ifndef STAT_LIB_H
 #define STAT_LIB_H
+#include <Eigen/Eigen>
+using Eigen::VectorXd;
+
 namespace StatLib{
     double pchisqd1(double x);
     double qchisqd1(double x);
@@ -23,5 +26,7 @@ namespace StatLib{
     double pnorm(double x, bool bLowerTail=false);
 
     bool rankContrast(int n, double *Z);
+
+    VectorXd weightBetaMAF(const VectorXd& MAF, double weight_alpha, double weight_beta);
 }
 #endif //STAT_LIB_H
