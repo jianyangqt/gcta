@@ -1,80 +1,78 @@
 # GCTA
-Genome-wide Complex Trait Analysis (GCTA)
+GCTA (Genome-wide Complex Trait Analysis) is a software package, which was initially developed to estimate the proportion of phenotypic variance explained by all genome-wide SNPs for a complex trait but has been extensively extended for many other analyses of data from genome-wide association studies (GWASs). Please see the software website through the link below for more information.
+
+Software website: https://yanglab.westlake.edu.cn/software/gcta/
+License: GPLv3 (some parts of the code are released under LGPL as detailed in the files).
 
 
-(C) 2010-Present, Jian Yang <jian.yang.qt@gmail.com>
+## Credits  
+Jian Yang developed the original version (before v1.90) of the software (with supports from Peter Visscher, Mike Goddard and Hong Lee) and currently maintains the software.
 
-2016-Present, Zhili Zheng <zhilizheng@outlook.com> (New codes from version 1.90)
+Zhili Zheng programmed the fastGWA, fastGWA-GLMM and fastGWA-BB modules, rewrote the I/O and GRM modules, improved the GREML and bivariate GREML modules, extended the PCA module, and improved the SBLUP module.  
 
-Please report bugs to: Jian Yang <jian.yang.qt@gmail.com>
+Zhihong Zhu programmed the mtCOJO and GSMR modules and improved the COJO module.  
 
-License: GPLv3 (default license); some codes are released under LGPL detailed in files.
+Longda Jiang and Hailing Fang developed the ACAT-V module.  
 
-## **Develop page**
+Jian Zeng rewrote the GCTA-HEreg module.  
 
-## Requirements
-1. Only x86\_64 (Intel, or AMD64) based operation systems are supported. 
+Andrew Bakshi contributed to the GCTA-fastBAT module.
+
+Angli Xue improved the GSMR module.
+
+Robert Maier improved the GCTA-SBLUP module.
+
+Contributions to the development of the methods implemented in GCTA (e.g., GREML methods, COJO, mtCOJO, MLMA-LOCO, fastBAT, fastGWA and fastGWA-GLMM) can be found in the corresponding publications (https://yanglab.westlake.edu.cn/software/gcta/index.html#Overview).
+
+
+## Questions and Help Requests
+If you have any bug reports or questions please send an email to Jian Yang at <jian.yang@westlake.edu.cn>.
+
+
+## Compilation
+
+#### Requirements
+1. Currently only x86\_64-based operating systems are supported.
 2. Intel MKL 2017 or above
-3. Eigen == 3.3.7 (bugs in new version eigen)
+3. Eigen == 3.3.7 (there are bugs in the new version of Eigen)
 4. CMake >= 3.1
 5. BOOST >= 1.4
 6. zlib >= 1.2.11
-7. sqlite3 >= 3.31.1 
+7. sqlite3 >= 3.31.1
 8. zstd >= 1.4.4
 9. Spectra >= 0.8.1
 10. gsl (GNU scientific library)
 
-### Linux
-1. Kernel version >= 2.6.28, or the MKL library can't work. 
+#### Linux
+1. Kernel version >= 2.6.28 (otherwise the Intel MKL library doesn't work).
 2. GCC version >= 6.1 with C++ 11 support.
 
-### Mac & Windows
-We don't provide the instructions to compile on these platforms due to the complexity and huge version difference. Please download the binary from our website.
+#### Mac OS & Windows
+Here we do not provide instructions to compile GCTA in Mac OS or Windows because of the enormous complexity of the compilation process and differences among OS versions. We suggest you download the compiled executable files directly from the GCTA website.
 
-## Before compile
-Environment variable (Linux only) 
-1. point MKLROOT and EIGEN3\_INCLUDE\_DIR to your own location of MKL and EIGEN3
-2. point BOOST\_LIB to your own location of BOOST 
-3. point SPECTRA\_LIB to the path of Spectra
-
+#### Before compilation (Linux)
+1. Export MKLROOT variable into shell environment  
+`export MKLROOT=where_your_MKL_located`    
+2. Export EIGENE3_INCLUDE_DIR into your shell environment  
+`export EIGENE3_INCLUDE_DIR=where_your_eigen3_located`  
+3. Export BOOST_LIB environment variable  
+`export BOOST_LIB=where_your_boost_include_directory_located`  
+4. Export SPECTRA_LIB environment variable
+`export SPECTRA_LIB=where_your_spectra_lib_located`
+5. Other compilation environment variables should be included in your compiler's head files and library searching paths.  
+6. Clone GCTA source code from github 
+`git clone https://github.com/jianyangqt/gcta GCTA_PATH`
+7. Clone plink_ng submods
 ```
-# this will update the submodule
-# If you download the code archieve:
-cd SOURCE_CODE_FOLDER_DECOMPRESSED
-git clone https://github.com/zhilizheng/plink-ng submods/plink-ng
+cd GCTA_PATH/submods
+git clone https://github.com/zhilizheng/plink-ng
+```
 
-# If you clone from github
-git clone THIS_REPO_ADDRESS
-git submodule update --init
-
-# make the folder
+#### To compile
+```
+cd GCTA_PATH
 mkdir build
 cd build
 cmake ..
 make
 ```
-After it finishes, the binary file *gcta64* is located in same folder
-
-## Develop guide
-### Fork the repository by clicking the fork button
-*Work in this way if you are new to git, as working directly on main repository may cause disaster*
-1. Revise the code 
-    * Minor bug fix
-    1. Clone your own forked repository.
-    2. Revise the code in the master branch, and push back into your own repository.
-    3. Make a **New pull request** from your own repository, write the detailed log of changes, why revise it, how to use it
-    
-    ---
-
-    * A new function
-    1. Clone your own forked repository.
-    2. New branch, write the code. Push back into your own repository.
-    3. Make a **New pull request** from your own repository, write the document how to use the new function
-
-2. I will merge the pull request and merge the branch periodically to publish new version of GCTA. 
-
-
-> Note: pay attention to the changes in the main master repository,
-> We should always fecth the upstream and merge the changes first before making the **New pull request**,
-> or the admin may meet lots of conflicts.
-> Always make **New pull request** when the function can really work after full testing.
