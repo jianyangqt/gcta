@@ -21,7 +21,11 @@
 #include <cmath>
 #include <algorithm>
 #include <Eigen/SparseCholesky>
+
+#if GCTA_CPU_x86
 #include <Eigen/PardisoSupport>
+#endif
+
 #include <Eigen/IterativeLinearSolvers>
 #include <Eigen/Sparse>
 #include <sstream>
@@ -1133,8 +1137,13 @@ void FastFAM::conditionCovarBinReg(Eigen::Ref<VectorXd> y){
     const double b1 = 0;
     const double b2 = 1.0;
     const int incr = 1;
+#if GCTA_CPU_x86
     dgemv(&nT, &num_covar, &numi_indi, &a1, H.data(), &num_covar, y.data(), &incr, &b1, Hy, &incr);
     dgemv(&nT, &numi_indi, &num_covar, &a2, covar.data(), &numi_indi, Hy, &incr, &b2, y.data(), &incr);
+#else 
+    dgemv_(&nT, &num_covar, &numi_indi, &a1, H.data(), &num_covar, y.data(), &incr, &b1, Hy, &incr);
+    dgemv_(&nT, &numi_indi, &num_covar, &a2, covar.data(), &numi_indi, Hy, &incr, &b2, y.data(), &incr);
+#endif
     delete[] Hy;
 }
 

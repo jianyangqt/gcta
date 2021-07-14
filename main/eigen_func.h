@@ -12,10 +12,7 @@
 #ifndef _EIGENFUNC_H
 #define _EIGENFUNC_H
 
-#ifndef EIGEN_USE_MKL_ALL
-#define EIGEN_USE_MKL_ALL
-#endif
-
+#include "cpu.h"
 #include "CommFunc.h"
 #include "StatFunc.h"
 #include <Eigen/Dense>

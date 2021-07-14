@@ -7,7 +7,7 @@
 #include <string>
 #include <functional>
 #include <omp.h>
-#include <mkl.h>
+#include "cpu_f77blas.h"
 #include <cstdio>
 #include <algorithm>
 
@@ -55,14 +55,18 @@ void LD::calcLD(){
     }else{
         cacl_index_buffer = cur_buffer;
     }
-    const char *trans = "T", *notrans = "N", *uplo = "L";
+    char trans = 'T', notrans = 'N', uplo = 'L';
     double zero = 0.0;
     int nr = num_indi;
     int nc1 = cur_buffer_offset[cacl_index_buffer] / nr;
     double alpha = 1.0 / (nr - 1);
     double *ptr1 = geno_buffer[cacl_index_buffer].get();
     double *res1 = new double[nc1 * nc1];
-    dsyrk(uplo, trans, &nc1, &nr, &alpha, ptr1, &nr, &zero, res1, &nc1);
+#if GCTA_CPU_x86
+    dsyrk(&uplo, &trans, &nc1, &nr, &alpha, ptr1, &nr, &zero, res1, &nc1);
+#else
+    dsyrk_(&uplo, &trans, &nc1, &nr, &alpha, ptr1, &nr, &zero, res1, &nc1);
+#endif
 
     double *res2 = nullptr;
     // is previous buffer active?
@@ -72,7 +76,11 @@ void LD::calcLD(){
         nc2 = cur_buffer_offset[!cacl_index_buffer] / nr;
         double *ptr2 = geno_buffer[!cacl_index_buffer].get();
         res2 = new double[nc2 * nc1];
-        dgemm(trans, notrans, &nc2, &nc1, &nr, &alpha, ptr2, &nr, ptr1, &nr, &zero, res2, &nc2);
+#if GCTA_CPU_x86
+        dgemm(&trans, &notrans, &nc2, &nc1, &nr, &alpha, ptr2, &nr, ptr1, &nr, &zero, res2, &nc2);
+#else
+        dgemm_(&trans, &notrans, &nc2, &nc1, &nr, &alpha, ptr2, &nr, ptr1, &nr, &zero, res2, &nc2);
+#endif
     }
     
     for(int i = 0; i < nc1; i++){

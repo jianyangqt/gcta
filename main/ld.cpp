@@ -1005,7 +1005,7 @@ void gcta::calcu_max_ld_rsq_blk(eigenVector &multi_rsq, eigenVector &multi_rsq_a
         }
 
 
-        SelfAdjointEigenSolver<MatrixXf> pca(rsq_sub.array());
+        SelfAdjointEigenSolver<MatrixXf> pca(rsq_sub);
 
                 // debug
        // ofstream tmp("tmp_R.txt");

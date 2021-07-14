@@ -19,10 +19,7 @@
 #ifndef GCTA2_FASTFAM_H
 #define GCTA2_FASTFAM_H
 
-#ifndef EIGEN_USE_MKL_ALL
-#define EIGEN_USE_MKL_ALL
-#endif
-
+#include "cpu.h"
 #include "Logger.h"
 #include "Geno.h"
 #include "Pheno.h"
