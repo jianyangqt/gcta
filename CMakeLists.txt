@@ -59,6 +59,7 @@ INCLUDE_DIRECTORIES("${BOOST_LIB}")
 
 # PLINK2.0 pgen library;
 INCLUDE_DIRECTORIES("submods/plink-ng/2.0")
+INCLUDE_DIRECTORIES("submods/plink-ng/2.0/simde")
 
 
 message(STATUS "ARCHITECTURE:${CMAKE_LIBRARY_ARCHITECTURE}")
@@ -73,7 +74,7 @@ if(CMAKE_LIBRARY_ARCHITECTURE STREQUAL "aarch64")
     set(BLAS_LIB ${lib_openblas})
 
     if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/submods/plink-ng/2.0/simde/ -march=native -pthread")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -pthread")
         set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
         set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g")
         add_compile_options(-fopenmp)
@@ -83,13 +84,13 @@ if(CMAKE_LIBRARY_ARCHITECTURE STREQUAL "aarch64")
             set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
         endif()
     elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/submods/plink-ng/2.0/simde/ -march=native -pthread -fvisibility=hidden -fvisibility-inlines-hidden")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -pthread -fvisibility=hidden -fvisibility-inlines-hidden")
         set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG") #-flto
         set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -fno-inline -fno-implicit-inline-templates -g3")
         add_compile_options(-fopenmp)
         set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
     elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/submods/plink-ng/2.0/simde/ -openmp -pthread")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -openmp -pthread")
         set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} -O3 -ipo -DNDEBUG")
         set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g")
     endif()
