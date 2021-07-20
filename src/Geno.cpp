@@ -38,6 +38,7 @@
 #include "zlib.h"
 #include "zstd.h"
 #include <cstring>
+#include "cpu.h"
 #include <Eigen/Eigen>
 #include <algorithm>
 #include "submods/Pgenlib/PgenReader.h"
@@ -59,13 +60,13 @@
 #else
   //#define CTZU __builtin_ctz
   //#define CLZU __builtin_clz
-  #ifdef __linux__
+  #if defined(__linux__) && GCTA_CPU_x86
   __attribute__((target("default")))
   #endif
   uint32_t CTZ64U(uint64_t value){
       return __builtin_ctzll(value);
   }
-  #ifdef __linux__
+  #if defined(__linux__) && GCTA_CPU_x86
   __attribute__((target("popcnt")))
   uint32_t CTZ64U(uint64_t value){
       return __builtin_ctzll(value);
@@ -74,7 +75,7 @@
  
 #endif
 
-#ifdef __linux__
+#if defined(__linux__) && GCTA_CPU_x86
 __attribute__((target("default")))
 #endif
 uint64_t fill_inter_zero(uint64_t x) {
@@ -91,7 +92,7 @@ uint64_t fill_inter_zero(uint64_t x) {
    x = x ^ t ^ (t << 1);
    return x;
 }
-#ifdef __linux__
+#if defined(__linux__) && GCTA_CPU_x86
 #include <x86intrin.h>
 __attribute__((target("bmi2")))
 uint64_t fill_inter_zero(uint64_t x) {

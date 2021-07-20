@@ -17,10 +17,7 @@
 #define EIGEN_YES_I_KNOW_SPARSE_MODULE_IS_NOT_STABLE_YET
 #endif
 
-#ifndef EIGEN_USE_MKL_ALL
-#define EIGEN_USE_MKL_ALL
-#endif
-
+#include "cpu.h"
 #include <cstdio>
 #include "CommFunc.h"
 #include "StrFunc.h"
@@ -37,8 +34,6 @@
 #include <unsupported/Eigen/SparseExtra>
 #include <unsupported/Eigen/IterativeSolvers>
 #include <omp.h>
-#include <mkl_cblas.h>
-#include <mkl_lapack.h>
 #include "Logger.h"
 #include "Matrix.hpp"
 
