@@ -1813,7 +1813,9 @@ void FastFAM::grammar_func(uintptr_t *genobuf, const vector<uint32_t> &markerInd
 
 
 void FastFAM::grammar(SpMat& fam, double VG, double VR){
-    int num_marker_rand = 1000;
+    int num_marker_rand = 2000; //1000 -> 2000, longda
+    int soft_cap = 1000; // a soft cap to stop the grammar-gamma approx, longda
+
 
     LOGGER.i(0, "\nTuning parameters using " + to_string(num_marker_rand) + " null SNPs...");
 
@@ -1922,6 +1924,11 @@ void FastFAM::grammar(SpMat& fam, double VG, double VR){
             if(out_inf){
                 o_inf << marker->getMarkerStrExtract(marker_index[i]) << "\t" << v_c_infs[i] << "\t" << v_chisq[i] << std::endl;
             }
+           // added by longda.
+            if(i >= soft_cap && n_valid_null >= nMarker){
+                LOGGER << "Tuning of gamma finished at the " << i << "th SNP." << std::endl;
+                break;
+            }
         }
     }
     if(out_inf){
@@ -1930,7 +1937,7 @@ void FastFAM::grammar(SpMat& fam, double VG, double VR){
     //LOGGER.i(0, "Got " + to_string(n_valid_null) + " null SNPs");
 
     if(n_valid_null < 100){
-        LOGGER.e(0, "Not enough null SNPs (<100).");
+        LOGGER.e(0, "Not enough valid null SNPs (<100). \nUsers may check if there are too many signals or the MAF/INFO/genotype-missing-rate criteria is too stringent.");
     }
 
     c_inf = tmp_cinf / n_valid_null;
