@@ -48,7 +48,7 @@ double CommFunc::median(const vector<double> &x)
 }
 
 double CommFunc::quantile(const Eigen::Ref<const Eigen::VectorXd> &vals, double prob) {
-    if (prob < 0 || prob > 1) LOGGER.e(0, "Requested quantile probability is invalid");
+    if (prob < 0 || prob > 1) LOGGER.e(0, "requested quantile probability is invalid");
     if (vals.size() == 0) return std::numeric_limits<double>::quiet_NaN();
     double index = prob * (vals.size()-1);
     unsigned below = std::floor(index), above = std::ceil(index);
@@ -135,5 +135,5 @@ int CommFunc::rand_seed()
 void CommFunc::FileExist(string filename)
 {
     ifstream ifile(filename.c_str());
-    if(!ifile) LOGGER.e(0, "can not open the file ["+filename+"] to read.");
+    if(!ifile) LOGGER.e(0, "cannot open the file ["+filename+"] to read.");
 }

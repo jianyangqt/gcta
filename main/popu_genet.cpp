@@ -24,7 +24,7 @@ void gcta::paa(string aa_file)
     
     // read ancestral alleles from a file
     ifstream i_aa(aa_file.c_str());
-    if(!i_aa) LOGGER.e(0, "can not open the file ["+aa_file+"] to read.");
+    if(!i_aa) LOGGER.e(0, "cannot open the file ["+aa_file+"] to read.");
     string cbuf=".";
     string str_buf;
 	LOGGER<<"Reading ancestral alleles of the SNPs from ["+aa_file+"]."<<endl;
@@ -98,7 +98,7 @@ void gcta::paa(string aa_file)
     // Save matrix A in binary file
 	string paa_file=_out+".paa";
 	ofstream o_paa(paa_file.c_str());
-	if(!o_paa) LOGGER.e(0, "can not open the file ["+paa_file+"] to write.");
+	if(!o_paa) LOGGER.e(0, "cannot open the file ["+paa_file+"] to write.");
 	o_paa<<"FID\tIID\tNOMISS\tHOM_AA_RARE\tHOM_AA_COMM\tHOM_DA_RARE\tHOM_DA_COMM\tHET_AA_RARE\tHET_AA_COMM"<<endl;
 	for(i=0; i<_keep.size(); i++) o_paa<<_fid[i]<<"\t"<<_pid[i]<<"\t"<<nomiss[i]<<"\t"<<hom_aa_rare[i]<<"\t"<<hom_aa_comm[i]<<"\t"<<hom_da_rare[i]<<"\t"<<hom_da_comm[i]<<"\t"<<het_aa_rare[i]<<"\t"<<het_aa_comm[i]<<endl;
 	o_paa.close();
@@ -199,7 +199,7 @@ void gcta::ibc(bool ibc_all)
     // Save matrix A in binary file
 	string ibc_file=_out+".ibc";
 	ofstream o_ibc(ibc_file.c_str());
-	if(!o_ibc) LOGGER.e(0, "can not open the file ["+ibc_file+"] to write.");
+	if(!o_ibc) LOGGER.e(0, "cannot open the file ["+ibc_file+"] to write.");
 	if(ibc_all){
         o_ibc<<"FID\tIID\tNOMISS\tP_RARE_HOM\tP_COMM_HOM\tFhat1\tFhat1_w\tFhat2\tFhat2_w\tFhat3\tFhat4\tFhat5\tFhat6\tFhat7"<<endl;
         for(i=0; i<_keep.size(); i++) o_ibc<<_fid[_keep[i]]<<"\t"<<_pid[_keep[i]]<<"\t"<<nomiss[i]<<"\t"<<rare_hom[i]<<"\t"<<comm_hom[i]<<"\t"<<Fhat1[i]-1.0<<"\t"<<Fhat1_w[i]-1.0<<"\t"<<Fhat2[i]<<"\t"<<Fhat2_w[i]<<"\t"<<Fhat3[i]<<"\t"<<Fhat4[i]-1.0<<"\t"<<Fhat5[i]<<"\t"<<Fhat6[i]<<"\t"<<Fhat7[i]<<endl;
@@ -232,7 +232,7 @@ void gcta::Fst(string filename)
     string outfile=_out+".fst";
     LOGGER<<"\nSaving the Fst test results"<<_include.size()<<" SNPs to ["+outfile+"] ..."<<endl;
     ofstream ofile(outfile.c_str());
-    if(!ofile) LOGGER.e(0, "Can not open the file ["+outfile+"] to write.");
+    if(!ofile) LOGGER.e(0, "cannot open the file ["+outfile+"] to write.");
     ofile<<"Chr\tSNP\tbp\trefA\t";
     for(i=0; i<r; i++) ofile<<"freq_"<<subpopu_name[i]<<"(n="<<n_sub[i]<<")\t";
     ofile<<"Fst"<<endl;
@@ -271,7 +271,7 @@ void gcta::read_subpopu(string filename, vector<string> &subpopu, vector<string>
 {
     LOGGER<<"Reading sub-population information from ["+filename+"]."<<endl;
     ifstream ifstream_subpopu(filename.c_str());
-    if(!ifstream_subpopu) LOGGER.e(0, "can not open the file ["+filename+"] to read.");
+    if(!ifstream_subpopu) LOGGER.e(0, "cannot open the file ["+filename+"] to read.");
     
     vector<string> ID;
     vector< vector<string> > subpopu_buf;

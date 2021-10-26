@@ -23,7 +23,7 @@ void gcta::mlma(string grm_file, bool m_grm_flag, string subtract_grm_file, stri
     if (!qcovar_flag && !covar_flag) no_adj_covar=false;
     if (m_grm_flag) grm_flag = false;
     bool subtract_grm_flag = (!subtract_grm_file.empty());
-    if (subtract_grm_flag && m_grm_flag) LOGGER.e(0, "the --mlma-subtract-grm option can not be used in combination with the --mgrm option.");
+    if (subtract_grm_flag && m_grm_flag) LOGGER.e(0, "the --mlma-subtract-grm option cannot be used in combination with the --mgrm option.");
     
     // Read data
     int qcovar_num=0, covar_num=0;
@@ -46,7 +46,7 @@ void gcta::mlma(string grm_file, bool m_grm_flag, string subtract_grm_file, stri
     }
     // grm operations will overwrite the _keep
     if(_keep.size() < 1){
-        LOGGER.e(0, "no individual is in common in the input files.");
+        LOGGER.e(0, "no individual is in common among the input files.");
     }
 
     if(subtract_grm_flag){
@@ -229,7 +229,7 @@ void gcta::mlma(string grm_file, bool m_grm_flag, string subtract_grm_file, stri
     string filename=_out+".mlma";
     LOGGER<<"\nSaving the results of the mixed linear model association analyses of "<<m<<" SNPs to ["+filename+"] ..."<<endl;
     ofstream ofile(filename.c_str());
-    if(!ofile) LOGGER.e(0, "Can not open the file ["+filename+"] to write.");
+    if(!ofile) LOGGER.e(0, "cannot open the file ["+filename+"] to write.");
     ofile<<"Chr\tSNP\tbp\tA1\tA2\tFreq\tb\tse\tp"<<endl;
 	for(i=0; i<m; i++){
         j=_include[i];
@@ -332,7 +332,7 @@ void gcta::mlma_calcu_stat_covar(float *y, float *geno_mkl, unsigned long n, uns
         for(j = 0; j < n; j++) X[j*col_num+_X_c] = X_block(j, block_col);
         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, n, col_num, n, 1.0, Vi, n, X, col_num, 0.0, Vi_X, col_num);
         cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, col_num, col_num, n, 1.0, X, col_num, Vi_X, col_num, 0.0, Xt_Vi_X, col_num);
-        if(!comput_inverse_logdet_LU_mkl_array(col_num, Xt_Vi_X, d_buf)) LOGGER.e(0, "Xt_Vi_X is not invertable.");
+        if(!comput_inverse_logdet_LU_mkl_array(col_num, Xt_Vi_X, d_buf)) LOGGER.e(0, "Xt_Vi_X is not invertible.");
         cblas_sgemv(CblasRowMajor, CblasTrans, n, col_num, 1.0, Vi_X, col_num, y, 1, 0.0, Xt_Vi_y, 1);
         cblas_sgemv(CblasRowMajor, CblasNoTrans, col_num, col_num, 1.0, Xt_Vi_X, col_num, Xt_Vi_y, 1, 0.0, b_vec, 1);
         se[i]=Xt_Vi_X[_X_c*col_num+_X_c];
@@ -380,13 +380,13 @@ void gcta::mlma_loco(string phen_file, string qcovar_file, string covar_file, in
     }
     n=_keep.size();
     _n=_keep.size();
-    if(_n<1) LOGGER.e(0, "no individual is in common in the input files.");
+    if(_n<1) LOGGER.e(0, "no individual is in common among the input files.");
     LOGGER<<_n<<" individuals are in common in these files."<<endl;
     
     vector<int> chrs, vi_buf(_chr);
     stable_sort(vi_buf.begin(), vi_buf.end());
 	vi_buf.erase(unique(vi_buf.begin(), vi_buf.end()), vi_buf.end());
-    if(vi_buf.size()<2) LOGGER.e(0, "There is only one chromosome. The MLM leave-on-chromosome-out (LOCO) analysis requires at least two chromosome.");
+    if(vi_buf.size()<2) LOGGER.e(0, "There is only one chromosome. The MLM leave-on-chromosome-out (LOCO) analysis requires at least two chromosomes.");
     for(i=0; i<vi_buf.size(); i++){
         if(vi_buf[i]<=_autosome_num) chrs.push_back(vi_buf[i]);
     }
@@ -506,7 +506,7 @@ void gcta::mlma_loco(string phen_file, string qcovar_file, string covar_file, in
     string filename=_out+".loco.mlma";
     LOGGER<<"\nSaving the results of the mixed linear model association analyses of "<<_include.size()<<" SNPs to ["+filename+"] ..."<<endl;
     ofstream ofile(filename.c_str());
-    if(!ofile) LOGGER.e(0, "Can not open the file ["+filename+"] to write.");
+    if(!ofile) LOGGER.e(0, "cannot open the file ["+filename+"] to write.");
     ofile<<"Chr\tSNP\tbp\tA1\tA2\tFreq\tb\tse\tp"<<endl;
     for(c1=0; c1<chrs.size(); c1++){
         for(i=0; i<icld_chrs[c1].size(); i++){

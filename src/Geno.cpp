@@ -159,7 +159,7 @@ Geno::Geno(Pheno* pheno, Marker* marker) {
     }
 
     if(num_geno == 0){
-        LOGGER.e(0, "No genotype file specified");
+        LOGGER.e(0, "no genotype file is specified");
     }
 
     //open and check genotype files
@@ -245,11 +245,11 @@ Geno::Geno(Pheno* pheno, Marker* marker) {
     if(options_d["dos_dc"] == 1.0){
         iGRMdc = 1;
         iDC = 1;
-        LOGGER << "Setting full dosage compensation mode." << std::endl;
+        LOGGER << "Switch to the full dosage compensation mode." << std::endl;
     }else if(options_d["dos_dc"] == 0.0){
         iGRMdc = 0;
         iDC = 0;
-        LOGGER << "Setting no dosage compensation mode." << std::endl;
+        LOGGER << "Switch to the no dosage compensation mode." << std::endl;
     }else{
         // default equal variance mode for grm
         iGRMdc = -1;
@@ -397,10 +397,10 @@ void Geno::init_AF(string alleleFileName) {
             try{
                 af = stod(fields[i]);
             }catch(std::out_of_range &){
-                LOGGER.e(0, "the third columun shall be a number");
+                LOGGER.e(0, "the third column should be numeric");
             }
             if(af < 0 || af > 1.0){
-                LOGGER.e(0, "frequency values shall be in range from 0 to 1");
+                LOGGER.e(0, "frequency values should range from 0 to 1");
             }
             double maf = std::min(af, 1.0 - af);
             if(maf > min_maf && maf < max_maf){
@@ -453,7 +453,7 @@ void Geno::out_freq(string filename){
     string name_frq = filename + ".frq";
     LOGGER.i(0, "Saving allele frequencies...");
     std::ofstream o_freq(name_frq.c_str());
-    if (!o_freq) { LOGGER.e(0, "can not open the file [" + name_frq + "] to write"); }
+    if (!o_freq) { LOGGER.e(0, "cannot open the file [" + name_frq + "] to write"); }
     vector<string> out_contents;
     out_contents.reserve(AFA1.size() + 1);
     out_contents.push_back("CHR\tSNP\tPOS\tA1\tA2\tAF\tNCHROBS");
@@ -557,7 +557,7 @@ void Geno::read_bed(const vector<uint32_t> &raw_marker_index){
         }else{
             for(int32_t ab_index = 1; ab_index < lag_index; ab_index++){
                 if(fread(w_buf, 1, num_byte_per_marker, pFile) != num_byte_per_marker){
-                    LOGGER.e(0, "read [" + geno_files[cur_file_index] + "] error.\nThere might be some problems in your storage, or have you changed the file?");
+                    LOGGER.e(0, "error in reading data from [" + geno_files[cur_file_index] + "].\nThere might be some problems with your storage, or have you changed the files?");
                 }
             }
         }
@@ -565,7 +565,7 @@ void Geno::read_bed(const vector<uint32_t> &raw_marker_index){
 
         size_t read_count = fread(w_buf, 1, num_byte_per_marker, pFile);
         if(read_count != num_byte_per_marker){
-            LOGGER.e(0, "read [" + geno_files[cur_file_index] + "] error.\nThere might be some problems in your storage, or have you changed the file?");
+            LOGGER.e(0, "error in reading data from [" + geno_files[cur_file_index] + "].\nThere might be some problems with your storage, or the files have been changed?");
         }
         w_buf += num_byte_per_marker;
         pos[cur_file_index] = cur_marker_index;
@@ -700,7 +700,7 @@ void Geno::preGenoDouble_bgen(){
     for(int i = 0; i < geno_files.size(); i++){
         MarkerParam curParam = marker->getMarkerParams(i); 
         if(curParam.rawCountSample != pheno->count_raw()){
-            LOGGER.e(0, "inconsistent sample size in bgen file [" + geno_files[i] + "] to the input of --sample.");
+            LOGGER.e(0, "inconsistent sample sizes between the .bgen file [" + geno_files[i] + "] and the .sample file (specified by --sample).");
         }
         compressFormats.push_back(curParam.compressFormat);
         rawCountSamples.push_back(curParam.rawCountSample);
@@ -894,7 +894,7 @@ void Geno::getGenoDouble_bed(uintptr_t *buf, int idx, GenoBufItem* gbuf){
         hasNoHET = PgenReader::CountHardFreqMissExtX(cur_buf, keepMaskInterPtr, maleMaskInterPtr, rawSampleCT, keepSampleCT, keepMaleSampleCT, &snpinfo, errmsg, iDC==1, f_std);
         /*
             if(errmsg == "het"){
-                LOGGER.e(0, "find heterozygote (1) coding in ChrX (23) for male samples. GCTA follows the convention of PLINK, and treat ChrX (23) as non-PAR while male coded as 0/2. \nPlease check the gender information, or use PLINK --split-x to seperate the ChrX into non-PAR (chr23) and PAR (chr25).\nnon-PAR has the dosage compensation problem, you can specify by --dc flag, 0: no compensation, 1: dosage compensation (default 1 in GCTA).");
+                LOGGER.e(0, "found heterozygote coding (=1) on ChrX (23) for male samples. GCTA treats ChrX (23) as non-PAR and codes male genotype on ChrX as either 0 or 2. \nPlease check the gender information in your genotype file, or use PLINK --split-x to separate the ChrX into non-PAR (chr23) and PAR (chr25) regions for further analysis.\nThe non-PAR region is assumed to have the dosage compensation issue, and you can specify it with the --dc flag, with 0: no compensation, and 1: dosage compensation (the default is 1 in GCTA).");
             }
         }
         */
@@ -1160,7 +1160,7 @@ void Geno::getGenoDouble_bgen(uintptr_t *buf, int idx, GenoBufItem* gbuf){
             uint32_t Ldecomp = len_decomp;
             int z_result = uncompress((Bytef*)dec_data, (uLongf*)&Ldecomp, (Bytef*)curbuf, curCompSize);
             if(z_result != Z_OK || len_decomp != Ldecomp){
-                LOGGER.e(0, "decompress genotype data error in " + error_promp); 
+                LOGGER.e(0, "decompressing genotype data error in " + error_promp); 
             }
         }else if(compressFormat == 2){
             //zstd  
@@ -1174,12 +1174,12 @@ void Geno::getGenoDouble_bgen(uintptr_t *buf, int idx, GenoBufItem* gbuf){
                     break;
             }
             if(rSize != len_decomp){
-                LOGGER.e(0, "size stated in compressed data is different from " + error_promp);
+                LOGGER.e(0, "size stated in the compressed file is different from " + error_promp);
             }
             size_t const dSize = ZSTD_decompress((void *)dec_data, len_decomp, (void*)curbuf, curCompSize); 
 
             if(ZSTD_isError(dSize)){
-                LOGGER.e(0, "decompress genotype error: " + string(ZSTD_getErrorName(dSize)) + " in " + error_promp);
+                LOGGER.e(0, "decompressing genotype error: " + string(ZSTD_getErrorName(dSize)) + " in " + error_promp);
             }
         }else{
             LOGGER.e(0, "unknown compress format in " + error_promp);
@@ -1190,11 +1190,11 @@ void Geno::getGenoDouble_bgen(uintptr_t *buf, int idx, GenoBufItem* gbuf){
 
     uint32_t n_sample = *(uint32_t *)dec_data;
     if(n_sample != rawCountSamples[fileIndex]){
-        LOGGER.e(0, "inconsistent number of sample in " + error_promp);
+        LOGGER.e(0, "inconsistent number of individuals in " + error_promp);
     }
     uint16_t num_alleles = *(uint16_t *)(dec_data + 4);
     if(num_alleles != 2){
-        LOGGER.e(0, "multi alleles detected in " + error_promp);
+        LOGGER.e(0, "multi-allelic SNPs detected in " + error_promp);
     }
 
     uint8_t min_ploidy = *(uint8_t *)(dec_data + 6);//2
@@ -1202,7 +1202,7 @@ void Geno::getGenoDouble_bgen(uintptr_t *buf, int idx, GenoBufItem* gbuf){
     uint8_t * sample_ploidy = (uint8_t *)(dec_data + 8);
     //check all ploidy are 2 or not
     if(min_ploidy != 2){
-        LOGGER.e(0, "multi ploidy detected in " + error_promp);
+        LOGGER.e(0, "multiploidy detected in " + error_promp);
     }
 
     uint8_t *geno_prob = sample_ploidy + n_sample;
@@ -1270,7 +1270,7 @@ void Geno::getGenoDouble_bgen(uintptr_t *buf, int idx, GenoBufItem* gbuf){
             validN++;
             validAllele += 2;
         }else{
-            LOGGER.e(0, "Ploidy other than diploid detected in " + error_promp);
+            LOGGER.e(0, "multiploidy detected in " + error_promp);
         }
     }
 
@@ -1514,7 +1514,7 @@ void Geno::loopDouble(const vector<uint32_t> &extractIndex, int numMarkerBuf, bo
        bool isEOF = false;
        std::tie(r_buf, isEOF) = asyncBuf64->start_read();
        if(isEOF){
-           LOGGER.e(0, "read to the end of the genotype file, but still didn't finish.");
+           LOGGER.e(0, "the reading process reached to the end of the genotype file but couldn't finish.");
        }
         
        int nMarker = numMarkersReadBlocks[curBufferIndex];
@@ -1638,7 +1638,7 @@ void Geno::getGenoArrayExtract(const vector<uint32_t>& extract_index, GenoBuf *g
     int cur_num_marker = extract_index.size();
     uint32_t saveStartMarker = gbuf->indexStartMarker;
     if((cur_num_marker + saveStartMarker) > gbuf->n_marker){
-        LOGGER.e(0, "extracted marker larger than buffer.");
+        LOGGER.e(0, "the size of the extracted SNPs is larger than the buffer size.");
     }
     vector<uint32_t> raw_marker_index(cur_num_marker);
     std::transform(extract_index.begin(), extract_index.end(), raw_marker_index.begin(), [this](uint32_t pos){
@@ -1669,7 +1669,7 @@ void Geno::preProcess_bgen(GenoBuf *gbuf){
     for(int i = 0; i < gFiles.size(); i++){
         MarkerParam curParam = marker->getMarkerParams(i); 
         if(curParam.rawCountSample != pheno->count_raw()){
-            LOGGER.e(0, "inconsistent sample size in bgen file [" + geno_files[i] + "] to the input of --sample.");
+            LOGGER.e(0, "inconsistent sample sizes between the .bgen file [" + geno_files[i] + "] and the .sample file (specified by --sample).");
         }
         compressFormats.push_back(curParam.compressFormat);
         rawCountSamples.push_back(curParam.rawCountSample);
@@ -1794,7 +1794,7 @@ void Geno::getGenoArray_bgen(const vector<uint32_t>& raw_marker_index, GenoBuf *
             if(curCompressFormat == 1){
                 int z_result = uncompress((Bytef*)cur_dec_data, (uLongf*)&len_decomp, (Bytef*)cur_snp_data, curCompSize);
                 if(z_result != Z_OK || len_decomp != decSizes[i]){
-                    LOGGER.e(0, "decompress genotype data error in " + error_promp); 
+                    LOGGER.e(0, "decompressing genotype data error in " + error_promp); 
                 }
             }else if(curCompressFormat == 2){
                 //zstd
@@ -1808,12 +1808,12 @@ void Geno::getGenoArray_bgen(const vector<uint32_t>& raw_marker_index, GenoBuf *
                     break;
                 }
                 if(rSize != len_decomp){
-                    LOGGER.e(0, "size stated in compressed data is different from " + error_promp);
+                    LOGGER.e(0, "the size stated in compressed data is different from " + error_promp);
                 }
                 size_t const dSize = ZSTD_decompress((void *)cur_dec_data, len_decomp, (void*)cur_snp_data, curCompSize); 
 
                 if(ZSTD_isError(dSize)){
-                    LOGGER.e(0, "decompress genotype error: " + string(ZSTD_getErrorName(dSize)) + " in " + error_promp);
+                    LOGGER.e(0, "decompressing genotype error: " + string(ZSTD_getErrorName(dSize)) + " in " + error_promp);
                 }
             }else{
                 LOGGER.e(0, "unknown compress format in " + error_promp);
@@ -1836,11 +1836,11 @@ void Geno::getGenoArray_bgen(const vector<uint32_t>& raw_marker_index, GenoBuf *
 
         uint32_t n_sample = *(uint32_t *)cur_dec_data;
         if(n_sample != rawCountSamples[curFileID]){
-            LOGGER.e(0, "inconsistent number of sample in " + error_promp );
+            LOGGER.e(0, "inconsistent number of samples in " + error_promp );
         }
         uint16_t num_alleles = *(uint16_t *)(cur_dec_data + 4);
         if(num_alleles != 2){
-            LOGGER.e(0, "multi alleles detected in " + error_promp);
+            LOGGER.e(0, "multi-allelic SNPs detected in " + error_promp);
         }
 
         uint8_t min_ploidy = *(uint8_t *)(cur_dec_data + 6);//2
@@ -1848,7 +1848,7 @@ void Geno::getGenoArray_bgen(const vector<uint32_t>& raw_marker_index, GenoBuf *
         uint8_t * sample_ploidy = (uint8_t *)(cur_dec_data + 8);
         //check all ploidy are 2 or not
         if(min_ploidy != 2){
-            LOGGER.e(0, "multi ploidy detected in " + error_promp);
+            LOGGER.e(0, "multi-ploidy detected in " + error_promp);
         }
 
         uint8_t *geno_prob = sample_ploidy + n_sample;
@@ -1857,7 +1857,7 @@ void Geno::getGenoArray_bgen(const vector<uint32_t>& raw_marker_index, GenoBuf *
         uint8_t* X_prob = geno_prob + 2;
         uint32_t len_prob = len_decomp - n_sample - 10;
         if(is_phased){
-            LOGGER.e(0, "GCTA can't support phased data in " + error_promp);
+            LOGGER.e(0, "the current version of GCTA does not support phased data in " + error_promp);
         }
 
         uint8_t double_bits_prob = bits_prob * 2;
@@ -1895,7 +1895,7 @@ void Geno::getGenoArray_bgen(const vector<uint32_t>& raw_marker_index, GenoBuf *
                 fij_sum += fij;
                 validN++;
             }else{
-               LOGGER.e(0, "multiple alleles detected in " + error_promp);
+               LOGGER.e(0, "multi-allelic SNPs detected in " + error_promp);
             }
         }
 
@@ -2034,7 +2034,7 @@ void Geno::getGenoArray_bgen(const vector<uint32_t>& raw_marker_index, GenoBuf *
                 uint32_t fij = dosage + prob1d;
                 fij_dosage2_sum += (fij - dosage * dosage);
             }else{
-               LOGGER.e(0, "multiple alleles detected in " + error_promp);
+               LOGGER.e(0, "multi-allelic SNPs detected in " + error_promp);
             }
         }
 
@@ -2065,7 +2065,7 @@ void Geno::getGenoArray_bgen(const vector<uint32_t>& raw_marker_index, GenoBuf *
                     n_valid++;
                 }
            }else{
-               LOGGER.e(0, "multiple alleles detected in " + error_promp);
+               LOGGER.e(0, "multi-allelic SNPs detected in " + error_promp);
            }
         }
         delete[] dec_data;
@@ -2194,7 +2194,7 @@ void Geno::read_bed2(const vector<uint32_t> &raw_marker_index, int numMarkerBloc
             perror("Errors:");
             LOGGER << "Error index: " << i << ", raw index: " << curRawIndex << std::endl;
             LOGGER << "Error buffer:" << static_cast<void *>(g_buf) << std::endl;
-            LOGGER.e(0, "read [" + geno_files[curFileID] + "] error.\nThere might be some problems in your storage, or have you changed the file?");
+            LOGGER.e(0, "error in reading [" + geno_files[curFileID] + "].\nThere might be some problems with your storage, or the file has been changed.");
         }
         g_buf += numBytePerMarker;
         numMarkerRead += 1;
@@ -2352,7 +2352,7 @@ void Geno::getGenoArray_bed(const vector<uint32_t>& raw_marker_index, GenoBuf* g
         bool isEOF = false;
         std::tie(r_buf, isEOF) = asyncBufn->start_read();
         if(isEOF){
-            LOGGER.e(0, "read to the end of the BED file, but still didn't finish.");
+            LOGGER.e(0, "the reading process reached to the end of the BED file but couldn’t finish.");
         }
         move_geno(r_buf, keepMask64, rawCountSamples[0], gbuf->n_sample, numMarker, geno_buf); 
         asyncBufn->end_read();
@@ -2363,7 +2363,7 @@ void Geno::getGenoArray_bed(const vector<uint32_t>& raw_marker_index, GenoBuf* g
         }
 
         if(numMarker > (gbuf->n_marker)){
-            LOGGER.e(0, "requested marker number exceed the buffer size.");
+            LOGGER.e(0, "requested marker number exceeded the buffer size.");
         }
         //uint8_t *g_buf = bed_buf8;
         uint8_t *g_buf = new uint8_t[numMarker * numBytePerMarker];
@@ -2379,7 +2379,7 @@ void Geno::getGenoArray_bed(const vector<uint32_t>& raw_marker_index, GenoBuf* g
 
             fseek(pFile, (uint64_t) lag_index * numBytePerMarker + 3, SEEK_SET);
             if(fread(g_buf + i * numBytePerMarker, 1, numBytePerMarker, pFile) != numBytePerMarker){
-                LOGGER.e(0, "read [" + geno_files[curFileID] + "] error.\nThere might be some problems in your storage, or have you changed the file?");
+                LOGGER.e(0, "error in reading [" + geno_files[curFileID] + "].\nThere might be some problems with your storage, or the file has been changed.");
             }
         }
 
@@ -2506,7 +2506,7 @@ void Geno::openGFiles(){
         string cur_filename = geno_files[i];
         gFiles[i] = fopen(cur_filename.c_str(), "rb");
         if(gFiles[i] == NULL) {
-            LOGGER.e(0, "open genotype [" + cur_filename + "], " + string(strerror(errno)));
+            LOGGER.e(0, "failed to open genotype [" + cur_filename + "], " + string(strerror(errno)));
         }
     }
 }
@@ -2648,7 +2648,7 @@ void Geno::sum_geno_x(uint64_t *buf, int num_marker) {
     if(!inited){
         inited = true;
         out.open((options["out"] + ".sum").c_str());
-        if (!out) { LOGGER.e(0, "can not open the file [" + options["out"] + ".sum" + "] to write"); }
+        if (!out) { LOGGER.e(0, "failed to open the file [" + options["out"] + ".sum" + "] to write"); }
         out << "CHR\tSNP\tPOS\tA1\tA2\tAAm\tABm\tBBm\tMm\tAAf\tABf\tBBf\tMf" << std::endl;
     }
 
@@ -2811,16 +2811,16 @@ void Geno::bgen2bed(const vector<uint32_t> &raw_marker_index){
         int z_result = uncompress((Bytef*)dec_data, &dec_size, (Bytef*)snp_data, len_comp);
         delete[] snp_data;
         if(z_result == Z_MEM_ERROR || z_result == Z_BUF_ERROR || dec_size != len_decomp){
-            LOGGER.e(0, "decompress genotype data error in " + to_string(raw_index) + "th SNP."); 
+            LOGGER.e(0, "decompressing genotype data error in " + to_string(raw_index) + "th SNP."); 
         }
 
         uint32_t n_sample = *(uint32_t *)dec_data;
         if(n_sample != num_raw_sample){
-            LOGGER.e(0, "inconsistent number of sample in " + to_string(raw_index) + "th SNP." );
+            LOGGER.e(0, "inconsistent number of samples in " + to_string(raw_index) + "th SNP." );
         }
         uint16_t num_alleles = *(uint16_t *)(dec_data + 4);
         if(num_alleles != 2){
-            LOGGER.e(0, "multi alleles still detected, the bgen file might be malformed.");
+            LOGGER.e(0, "multi-allelic SNPs detected likely because the bgen file is malformed.");
         }
 
         uint8_t min_ploidy = *(uint8_t *)(dec_data + 6);//2
@@ -2833,13 +2833,13 @@ void Geno::bgen2bed(const vector<uint32_t> &raw_marker_index){
         uint8_t* X_prob = geno_prob + 2;
         uint32_t len_prob = len_decomp - n_sample - 10;
         if(is_phased){
-            LOGGER.e(0, "can't support phased data currently.");
+            LOGGER.e(0, "GCTA does not support phased data currently.");
         }
 
         int byte_per_prob = bits_prob / 8;
         int double_byte_per_prob = byte_per_prob * 2;
         if(bits_prob % 8 != 0){
-            LOGGER.e(0, "can't support probability bits other than in byte unit.");
+            LOGGER.e(0, "GCTA does not support probability bits other than in byte units.");
         }
 
         if(len_prob != double_byte_per_prob * n_sample){
@@ -2895,7 +2895,7 @@ void Geno::bgen2bed(const vector<uint32_t> &raw_marker_index){
                         geno_value = 1;
                     }
                 }else{
-                    LOGGER.e(0, "multiple alleles detected in " + to_string(raw_index) + "th SNP.");
+                    LOGGER.e(0, "multi-allelic SNPs detected in the " + to_string(raw_index) + "th SNP.");
                 }
                 buf_ptr[item_byte] += geno_value << move_byte;
             }
@@ -2940,7 +2940,7 @@ void Geno::bgen2bed(const vector<uint32_t> &raw_marker_index){
                         geno_value = 2;
                     }
                 }else{
-                    LOGGER.e(0, "multiple alleles detected in " + to_string(raw_index) + "th SNP.");
+                    LOGGER.e(0, " multi-allelic SNPs detected in the " + to_string(raw_index) + "th SNP.");
                 }
                 buf_ptr[item_byte] += geno_value << move_byte;
             }
@@ -3282,7 +3282,7 @@ void Geno::loop_64block(const vector<uint32_t> &raw_marker_index, vector<functio
 
         LOGGER.d(0, "Process block " + std::to_string(cur_block));
         if(isEOF && cur_block != (cur_num_blocks - 1)){
-            LOGGER.e(0, "read to the end of the BED file, but still didn't finish.");
+            LOGGER.e(0, "the reading process reached to the end of the BED file but couldn’t finish.");
         }
         //correct the marker read;
         if(cur_block == (cur_num_blocks - 1)){
@@ -3441,7 +3441,7 @@ double Geno::getFilterMiss(){
 
 void Geno::deterFilterMAF(){
     if(max_maf < min_maf){
-        LOGGER.e(0, "MAF range: --max-maf can't be smaller than --min-maf");
+        LOGGER.e(0, "the value specified for --max-maf can't be smaller than that for --min-maf");
     }
 
     if(std::abs(min_maf) <= 1e-10 && std::abs(max_maf - 0.5) <= 1e-10){
@@ -3453,7 +3453,7 @@ void Geno::deterFilterMAF(){
 
 void Geno::setMaxMAF(double val){
     if(val <= 0 || val > 0.5){
-        LOGGER.e(0, "max MAF can't be negative or larger than 0.5");
+        LOGGER.e(0, "the value specified for --max-maf can't be negative or larger than 0.5");
     }
     this->max_maf = val * (1.0 + Constants::SMALL_EPSILON);
     deterFilterMAF();
@@ -3507,16 +3507,16 @@ int Geno::registerOption(map<string, vector<string>>& options_in) {
             try{
                 options_d["min_maf"] = std::stod(option[0]);
             }catch(std::invalid_argument&){
-                LOGGER.e(0, "illegal value in --maf");
+                LOGGER.e(0, "invalid value for --maf");
             }
             if(options_d["min_maf"]<0.0 || options_d["max_maf"]>0.5){
-                LOGGER.e(0, "--maf can't be smaller than 0 or larger than 0.5");
+                LOGGER.e(0, "value specified for--maf can't be smaller than 0 or larger than 0.5");
             }else if(options_d["min_maf"] == 0.0){
                 options_in["--nofilter"] = {};
             }
 
         }else{
-            LOGGER.e(0, "multiple value in --maf, not supported currently");
+            LOGGER.e(0, "GCTA does not support multiple values for --maf currently");
         }
         options_in.erase("--maf");
     }
@@ -3527,19 +3527,19 @@ int Geno::registerOption(map<string, vector<string>>& options_in) {
             try{
                 options_d["max_maf"] = std::stod(option[0]);
            }catch(std::invalid_argument&){
-                LOGGER.e(0, "illegal value in --maf");
+                LOGGER.e(0, "invalid value for --maf");
            }
            if(options_d["max_maf"] < 0.0 || options_d["max_maf"] > 0.5){
-               LOGGER.e(0, "--max-maf can't be smaller than 0 or larger than 0.5");
+               LOGGER.e(0, "the value specified for --max-maf can't be smaller than 0 or larger than 0.5");
            }
         }else{
-            LOGGER.e(0, "multiple value in --maf, not supported currently");
+            LOGGER.e(0, " GCTA does not support multiple values for --maf currently ");
         }
         options_in.erase("--max-maf");
     }
 
     if(options_d["min_maf"] > options_d["max_maf"]){
-        LOGGER.e(0, "--maf can't be larger than --max-maf value");
+        LOGGER.e(0, "value specified for --max-maf can't be smaller than that for --min-maf");
     }
 
 
@@ -3563,10 +3563,10 @@ int Geno::registerOption(map<string, vector<string>>& options_in) {
             try{
                 options_d["hard_call_thresh"] = std::stod(option[0]);
             }catch(std::invalid_argument&){
-                LOGGER.e(0, "illegal value in " + flag);
+                LOGGER.e(0, "invalid value in " + flag);
             }
         }else{
-            LOGGER.e(0, "multiple value in " + flag + ", not supported currently.");
+            LOGGER.e(0, " GCTA does not support multiple values for " + flag + " currently.");
         }
         options_in.erase(flag);
     }
@@ -3580,7 +3580,7 @@ int Geno::registerOption(map<string, vector<string>>& options_in) {
     if(options_in.find("--freq") != options_in.end()){
         processFunctions.push_back("freq");
         if(options_in["--freq"].size() != 0){
-            LOGGER.w(0, "--freq should not follow by other parameters, if you want to calculate in founders only, "
+            LOGGER.w(0, "--freq should not be followed by any parameter, if you want to calculate the allele frequencies in founders only, "
                     "please specify by --founders option");
         }
         options_in.erase("--freq");
@@ -3593,7 +3593,7 @@ int Geno::registerOption(map<string, vector<string>>& options_in) {
     if(options_in.find("--freqx") != options_in.end()){
         processFunctions.push_back("freqx");
         if(options_in["--freqx"].size() != 0){
-            LOGGER.w(0, "--freq should not follow by other parameters, if you want to calculate in founders only, "
+            LOGGER.w(0, "--freq should not be followed by any other parameter, if you want to calculate the allele frequencies in founders only, "
                     "please specify by --founders option");
         }
         options_in.erase("--freqx");
@@ -3799,14 +3799,14 @@ void Geno::processFreq(){
     osOut.rdbuf()->pubsetbuf(&osBuf[0], buf_size);
  
     osOut.open(name_out.c_str());
-    if (!osOut) { LOGGER.e(0, "can not open the file [" + name_out + "] to write."); }
+    if (!osOut) { LOGGER.e(0, "cannot open the file [" + name_out + "] to write."); }
     osOut << "CHR\tSNP\tPOS\tA1\tA2\tAF\tNCHROBS";
     if(hasInfo){
         osOut << "\tINFO";
     }
     osOut << "\n";
 
-    LOGGER << "Computing allele frequencies and saving to [" << name_out << "]..." << std::endl;
+    LOGGER << "Computing allele frequencies and saving them to [" << name_out << "]..." << std::endl;
 
     int nMarker = 128;
     vector<uint32_t> extractIndex(marker->count_extract());
@@ -3830,13 +3830,13 @@ void Geno::processRecodet(){
     osOut.rdbuf()->pubsetbuf(&osBuf[0], buf_size);
  
     osOut.open(name_out.c_str());
-    if (!osOut) { LOGGER.e(0, "can not open the file [" + name_out + "] to write."); }
+    if (!osOut) { LOGGER.e(0, "cannot open the file [" + name_out + "] to write."); }
     osOut << "CHR\tSNP\tPOS\tA1\tA2\tAF\tNCHROBS";
     if(hasInfo){
         osOut << "\tINFO";
     }
 
-    LOGGER << "Recoding genotypes and saving to [" << name_out << "]..." << std::endl;
+    LOGGER << "Recoding genotypes and saving them to [" << name_out << "]..." << std::endl;
     uint32_t n_sample = pheno->count_keep();
     vector<string> phenoID = pheno->get_id(0, n_sample - 1, "|");
 
@@ -3991,7 +3991,7 @@ void Geno::processMain() {
             geno.preProcess(&gbuf, nMarker);
 
             std::ofstream o_freq(name_frq.c_str());
-            if (!o_freq) { LOGGER.e(0, "can not open the file [" + name_frq + "] to write"); }
+            if (!o_freq) { LOGGER.e(0, "cannot open the file [" + name_frq + "] to write"); }
             o_freq << "CHR\tSNP\tPOS\tA1\tA2\tAF\tNCHROBS";
             if(gbuf.hasInfo){
                 o_freq << "\tINFO\n";
@@ -4108,7 +4108,7 @@ void Geno::processMain() {
             string filename = options["out"];
             pheno.save_pheno(filename + ".fam");
             marker.save_marker(filename + ".bim");
-            LOGGER.i(0, "Saving genotype to PLINK format [" + filename + ".bed]...");
+            LOGGER.i(0, "Saving genotype to PLINK binary PED format [" + filename + ".bed]...");
             callBacks.push_back(bind(&Geno::save_bed, &geno, _1, _2));
             geno.loop_64block(marker.get_extract_index(), callBacks);
             geno.closeOut();
@@ -4122,7 +4122,7 @@ void Geno::processMain() {
             string filename = options["out"];
             pheno.save_pheno(filename + ".fam");
             marker.save_marker(filename + ".bim");
-            LOGGER.i(0, "Converting bgen to PLINK format [" + filename + ".bed]...");
+            LOGGER.i(0, "Converting bgen to PLINK binary PED format [" + filename + ".bed]...");
             geno.bgen2bed(marker.get_extract_index());
             LOGGER.i(0, "Genotype has been saved.");
         }
@@ -4133,10 +4133,10 @@ void Geno::processMain() {
             Marker marker;
             Geno geno(&pheno, &marker);
             geno.filterMAF();
-            LOGGER.i(0, "Summing genotype in with sex"); 
+            LOGGER.i(0, "Summing up genotypes based on sex"); 
             callBacks.push_back(bind(&Geno::sum_geno_x, &geno, _1, _2));
             geno.loop_64block(marker.get_extract_index(), callBacks);
-            LOGGER.i(0, "Summary has bee saved.");
+            LOGGER.i(0, "Summary has been saved.");
         }
 
 

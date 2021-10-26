@@ -114,7 +114,7 @@ Covar::Covar(){
         LOGGER.i(0, "Reading quantitative covariates from [" + filename + "].");
         read_covar(filename, samples_qcovar, &qcovar, NULL, NULL);  
         if(hasVectorDuplicate(samples_qcovar)){
-            LOGGER.e(0, "covariates can't have duplicate FID+IID.");
+            LOGGER.e(0, "duplicated FID+IID in the covariate file.");
         }
         LOGGER.i(0, to_string(qcovar.size()) + " covariates of " + to_string(samples_qcovar.size()) + " samples to be included.");
     }
@@ -124,7 +124,7 @@ Covar::Covar(){
         LOGGER.i(0, "Reading discrete covariates from [" + filename + "].");
         read_covar(filename, samples_covar, &covar, &labels_covar, NULL);  
         if(hasVectorDuplicate(samples_covar)){
-            LOGGER.e(0, "covariates can't have duplicate FID+IID.");
+            LOGGER.e(0, "duplicated FID+IID in the covariate file.");
         }
         LOGGER.i(0, to_string(covar.size()) + " covariates of " + to_string(samples_covar.size()) + " samples to be included.");
  
@@ -135,7 +135,7 @@ Covar::Covar(){
         LOGGER.i(0, "Reading ranked covariates from [" + filename + "].");
         read_covar(filename, samples_rcovar, &rcovar, &labels_rcovar, NULL);  
         if(hasVectorDuplicate(samples_rcovar)){
-            LOGGER.e(0, "covariates can't have duplicate FID+IID.");
+            LOGGER.e(0, "duplicated FID+IID in the covariate file.");
         }
         LOGGER.i(0, to_string(rcovar.size()) +  " covariates of " + to_string(samples_rcovar.size()) + " samples to be included.");
     }
@@ -214,16 +214,16 @@ Covar::Covar(){
             targets[2] = &(this->rcovar);
             break;
         default:
-            LOGGER.e(0, "something impossile happened.");
+            LOGGER.e(0, "unexpected error in the covariate file. Please check.");
     }
     if(common_3vector(idList, values, &sample_id, targets)){
         LOGGER.i(0, to_string(qcovar.size()) + " qcovar, " + to_string(covar.size()) + " covar and " + to_string(rcovar.size()) + " rcovar to be included.");
         setCovarMapping(false);
         setCovarMapping(true);
     }else{
-        LOGGER.e(0, "0 covartiate to be included.");
+        LOGGER.e(0, "no covariate to be included.");
     }
-    LOGGER.i(0, to_string(sample_id.size()) + " common samples in covariates to be included.");
+    LOGGER.i(0, to_string(sample_id.size()) + " common individuals among the covariate files to be included.");
 }
 
 const vector<string>& Covar::getSampleID() const{
@@ -641,7 +641,7 @@ int Covar::registerOption(map<string, vector<string>>& options_in){
 }
 
 void Covar::processMain(){
-    LOGGER.e(0, "No main function in covariate yet.");
+    LOGGER.e(0, "no main function in covariate yet.");
 }
 
 

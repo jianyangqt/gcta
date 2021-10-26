@@ -27,10 +27,10 @@ int main_v1(int argc, char* argv[])
 {
     LOGGER << "*******************************************************************" << endl;
     LOGGER << "* Genome-wide Complex Trait Analysis (GCTA)" << endl;
-    LOGGER << "* version 1.30 beta2" << endl;
-    LOGGER << "* (C) 2010-2017, The University of Queensland" << endl;
+    LOGGER << "* version 1.93.3 beta3" << endl;
+    LOGGER << "* (C) 2010-2021, Westlake University" << endl;
     LOGGER << "* MIT License" << endl;
-    LOGGER << "* Please report bugs to: Jian Yang <jian.yang@uq.edu.au>" << endl;
+    LOGGER << "* Please report bugs to: Jian Yang <jian.yang@westlake.edu.cn>" << endl;
     LOGGER << "*******************************************************************" << endl;
 
     long int time_used = 0, start = time(NULL);
@@ -263,7 +263,7 @@ void option(int option_num, char* option_str[])
         } else if (strcmp(argv[i], "--chr") == 0) {
             extract_chr_start = extract_chr_end = atoi(argv[++i]);
             LOGGER << "--chr " << extract_chr_start << endl;
-            if (extract_chr_start < 1 || extract_chr_start > 100) LOGGER.e(0, "\n  --chr should be within the range from 1 to 100.\n");
+            if (extract_chr_start < 1 || extract_chr_start > 100) LOGGER.e(0, "\n --chr should be within the range from 1 to 100.\n");
         } else if (strcmp(argv[i], "--autosome-num") == 0) {
             autosome_num = atoi(argv[++i]);
             LOGGER << "--autosome-num " << autosome_num << endl;
@@ -287,14 +287,14 @@ void option(int option_num, char* option_str[])
             extract_region_wind = atoi(argv[++i]);
             LOGGER << "--extract-region-snp " << extract_snp_name << " " << extract_region_wind << "Kb" << endl;
             extract_region_wind *= 1000;
-            if(extract_region_wind < 1000 || extract_region_wind > 1e8) LOGGER.e(0, "\n  the second paramter of --extract-region is distance in Kb unit. It should take value between 1 and 1e5.");
+            if(extract_region_wind < 1000 || extract_region_wind > 1e8) LOGGER.e(0, "\n the second parameter of --extract-region is distance in Kb unit. It should take value between 1 and 1e5.");
         } else if (strcmp(argv[i], "--extract-region-bp") == 0) {
             extract_region_chr = atoi(argv[++i]);
             extract_region_bp = atoi(argv[++i]);
             extract_region_wind = atoi(argv[++i]);
             LOGGER << "--extract-region-bp " << extract_region_chr << " " << extract_region_bp << " " << extract_region_wind << "Kb" << endl;
             extract_region_wind *= 1000;
-            if(extract_region_wind < 1000 || extract_region_wind > 1e8) LOGGER.e(0, "\n  the second paramter of --extract-region is distance in Kb unit. It should take value between 1 and 1e5.");
+            if(extract_region_wind < 1000 || extract_region_wind > 1e8) LOGGER.e(0, "\n the second parameter of --extract-region is distance in Kb unit. It should take value between 1 and 1e5.");
         } else if (strcmp(argv[i], "--exclude-snp") == 0) {
             exclude_snp_name = argv[++i];
             LOGGER << "--exclude-snp " << exclude_snp_name << endl;
@@ -303,14 +303,14 @@ void option(int option_num, char* option_str[])
             exclude_region_wind = atoi(argv[++i]);
             LOGGER << "--exclude-region-snp " << exclude_snp_name << exclude_region_wind << "Kb" << endl;
             exclude_region_wind *= 1000;
-            if(exclude_region_wind < 1000 || exclude_region_wind > 1e8) LOGGER.e(0, "\n  the second paramter of --exclude-region is distance in Kb unit. It should take value between 1 and 1e5.");
+            if(exclude_region_wind < 1000 || exclude_region_wind > 1e8) LOGGER.e(0, "\n the second parameter of --exclude-region is distance in Kb unit. It should take value between 1 and 1e5.");
         } else if (strcmp(argv[i], "--exclude-region-bp") == 0) {
             exclude_region_chr = atoi(argv[++i]);
             exclude_region_bp = atoi(argv[++i]);
             exclude_region_wind = atoi(argv[++i]);
             LOGGER << "--exclude-region-bp " << exclude_region_chr << " " << exclude_region_bp << " " << exclude_region_wind << "Kb" << endl;
             exclude_region_wind *= 1000;
-            if(exclude_region_wind < 1000 || exclude_region_wind > 1e8) LOGGER.e(0, "\n  the second paramter of --exclude-region is distance in Kb unit. It should take value between 1 and 1e5.");
+            if(exclude_region_wind < 1000 || exclude_region_wind > 1e8) LOGGER.e(0, "\n the second parameter of --exclude-region is distance in Kb unit. It should take value between 1 and 1e5.");
         } else if (strcmp(argv[i], "--maf") == 0) {
             maf = atof(argv[++i]);
             LOGGER << "--maf " << maf << endl;
@@ -382,7 +382,7 @@ void option(int option_num, char* option_str[])
         } else if (strcmp(argv[i], "--rm-high-ld") == 0) {
             rm_high_ld_cutoff = atof(argv[++i]);
             LOGGER << "--rm-high-ld " << rm_high_ld_cutoff << endl;
-            if (rm_high_ld_cutoff <= 0 || rm_high_ld_cutoff >= 1) LOGGER.e(0, "\n  the value to be specified after --rm-high-ld should be within the range from 0 to 1.\n");
+            if (rm_high_ld_cutoff <= 0 || rm_high_ld_cutoff >= 1) LOGGER.e(0, "\n the value to be specified after --rm-high-ld should be within the range from 0 to 1.\n");
         } else if (strcmp(argv[i], "--make-grm") == 0 || strcmp(argv[i], "--make-grm-v1") == 0 || strcmp(argv[i], "--make-grm-bin") == 0) {
             make_grm_flag = true;
             thread_flag = true;
@@ -397,7 +397,7 @@ void option(int option_num, char* option_str[])
             make_grm_mtd = atoi(argv[++i]);
             thread_flag = true;
             LOGGER << "--make-grm-alg " << make_grm_mtd << endl;
-            if (make_grm_mtd < 0 || make_grm_mtd > 1) LOGGER.e(0, "\n  --make-grm-alg should be 0 or 1.\n");
+            if (make_grm_mtd < 0 || make_grm_mtd > 1) LOGGER.e(0, "\n --make-grm-alg should be 0 or 1.\n");
         } else if (strcmp(argv[i], "--make-grm-f3") == 0) {
             make_grm_flag = true;
             make_grm_f3_flag = true;
@@ -444,11 +444,11 @@ void option(int option_num, char* option_str[])
         } else if (strcmp(argv[i], "--grm-adj") == 0) {
             grm_adj_fac = atof(argv[++i]);
             LOGGER << "--grm-adj " << grm_adj_fac << endl;
-            if (grm_adj_fac < 0 || grm_adj_fac > 1) LOGGER.e(0, "\n  the value to be specified after --grm-adj should be within the range from 0 to 1.\n");
+            if (grm_adj_fac < 0 || grm_adj_fac > 1) LOGGER.e(0, "\n the value to be specified after --grm-adj should be within the range from 0 to 1.\n");
         } else if (strcmp(argv[i], "--dc") == 0) {
             dosage_compen = atoi(argv[++i]);
             LOGGER << "--dc " << dosage_compen << endl;
-            if (dosage_compen != 0 && dosage_compen != 1) LOGGER.e(0, "\n  the value to be specified after --dc should be 0 or 1.\n");
+            if (dosage_compen != 0 && dosage_compen != 1) LOGGER.e(0, "\n the value to be specified after --dc should be 0 or 1.\n");
         } else if (strcmp(argv[i], "--grm-cutoff") == 0 || strcmp(argv[i], "--grm-cutoff-v1") == 0) {
             grm_cutoff = atof(argv[++i]);
             if (grm_cutoff >= -1 && grm_cutoff <= 2) LOGGER << "--grm-cutoff" << grm_cutoff << endl;
@@ -458,7 +458,7 @@ void option(int option_num, char* option_str[])
             thread_flag = true;
         } else if (strcmp(argv[i], "--make-bK") == 0) {
             bK_threshold = atof(argv[++i]);
-            if (bK_threshold < 0 || bK_threshold > 1) LOGGER.e(0, "\n  --make-bK threshold should be range from 0 to 1.\n");
+            if (bK_threshold < 0 || bK_threshold > 1) LOGGER.e(0, "\n --make-bK threshold should be range from 0 to 1.\n");
             else LOGGER << "--make-bK " << bK_threshold << endl;
         } else if (strcmp(argv[i], "--pca") == 0) {
             pca_flag = true;
@@ -469,21 +469,21 @@ void option(int option_num, char* option_str[])
                 i--;
             } else out_pc_num = atoi(argv[i]);
             LOGGER << "--pca " << out_pc_num << endl;
-            if (out_pc_num < 1) LOGGER.e(0, "\n  the value to be specified after --pca should be positive.\n");
+            if (out_pc_num < 1) LOGGER.e(0, "\n the value to be specified after --pca should be positive.\n");
         } else if (strcmp(argv[i], "--pc-loading") == 0) {
             pcl_flag = true;
             thread_flag = true;
             pc_file = argv[++i];
             //pcl_grm_N = atoi(argv[++i]);
             LOGGER << "--pc-loading " << pc_file <<  endl;
-            //if(pcl_grm_N < 1 || pcl_grm_N > 1e20) LOGGER.e(0, "\n  invalid number of SNPs used to calculate PCs."); 
+            //if(pcl_grm_N < 1 || pcl_grm_N > 1e20) LOGGER.e(0, "\n invalid number of SNPs used to calculate PCs."); 
         }else if (strcmp(argv[i], "--project-loading") == 0 ){
             project_flag = true;
             thread_flag = true;
             project_file = argv[++i];
             project_N = atoi(argv[++i]);
             LOGGER << "--project-loading " << project_file << " " << project_N << endl;
-            if(project_N < 1 || project_N > 1e3) LOGGER.e(0, "\n  invalid number of PCs to output");
+            if(project_N < 1 || project_N > 1e3) LOGGER.e(0, "\n invalid number of PCs to output");
         }
         // estimation of LD structure
         else if (strcmp(argv[i], "--ld") == 0) {
@@ -495,7 +495,7 @@ void option(int option_num, char* option_str[])
             LD_search = true;
             LD_step = atoi(argv[++i]);
             LOGGER << "--ld-step " << LD_step << endl;
-            if (LD_step < 1 || LD_step > 20) LOGGER.e(0, "\n  --ld-step should be within the range from 1 to 20.\n");
+            if (LD_step < 1 || LD_step > 20) LOGGER.e(0, "\n --ld-step should be within the range from 1 to 20.\n");
         } else if (strcmp(argv[i], "--ld-wind") == 0 || strcmp(argv[i], "--ld-pruning-wind") == 0 || strcmp(argv[i], "--make-grm-wt-wind") == 0) {
             LD_wind = atof(argv[++i]);
             LOGGER << argv[i - 1] << " " << LD_wind << endl;
@@ -508,7 +508,7 @@ void option(int option_num, char* option_str[])
         } else if (strcmp(argv[i], "--ld-sig") == 0) {
             LD_sig = atof(argv[++i]);
             LOGGER << "--ld-sig " << LD_sig << endl;
-            if (LD_sig <= 0) LOGGER.e(0, "\n  --ld-sig should be > 0.\n");
+            if (LD_sig <= 0) LOGGER.e(0, "\n --ld-sig should be > 0.\n");
         } else if (strcmp(argv[i], "--ld-i") == 0) {
             LD_i = true;
             LOGGER << "--ld-i" << endl;
@@ -516,7 +516,7 @@ void option(int option_num, char* option_str[])
             thread_flag = true;
             LD_prune_rsq = atof(argv[++i]);
             LOGGER << "--ld-pruning " << LD_prune_rsq << endl;
-            if (LD_prune_rsq < 0.0001 || LD_prune_rsq > 0.9999) LOGGER.e(0, "\n  --ld-pruning should be within the range from 0.0001 to 0.9999.\n");
+            if (LD_prune_rsq < 0.0001 || LD_prune_rsq > 0.9999) LOGGER.e(0, "\n --ld-pruning should be within the range from 0.0001 to 0.9999.\n");
         } else if (strcmp(argv[i], "--ld-score") == 0) {
             ld_score_flag = true;
             thread_flag = true;
@@ -551,7 +551,7 @@ void option(int option_num, char* option_str[])
                 i--;
             } else LD_seg = atoi(argv[i]);
             LOGGER << "--ld-score-region" << endl;
-            if (LD_seg < 10) LOGGER.e(0, "\n  input value for --ld-score-region needs to be > 10.\n");
+            if (LD_seg < 10) LOGGER.e(0, "\n the input value for --ld-score-region needs to be > 10.\n");
             LD_seg *= 1000;
         } else if (strcmp(argv[i], "--ld-file") == 0) {
             LD_file = argv[++i];
@@ -566,7 +566,7 @@ void option(int option_num, char* option_str[])
             simu_case_num = atoi(argv[++i]);
             simu_control_num = atoi(argv[++i]);
             LOGGER << "--simu-cc " << simu_case_num << " " << simu_control_num << endl;
-            if (simu_case_num < 10) LOGGER.e(0, "--simu-cc, Invalid number of cases. Minimun number 10.");
+            if (simu_case_num < 10) LOGGER.e(0, "--simu-cc, Invalid number of cases. Minimum number 10.");
             if (simu_control_num < 10) LOGGER.e(0, "--simu-cc, Invalid number of controls. Minimum number 10.");
         } else if (strcmp(argv[i], "--simu-rep") == 0) {
             simu_rep = atoi(argv[++i]);
@@ -618,7 +618,7 @@ void option(int option_num, char* option_str[])
                 mphen_buf.push_back(atoi(argv[i]));
             }
             i--;
-            if (mphen_buf.size() < 2 && mphen_buf.size() > 0) LOGGER.e(0, "\n  --HEreg-bivar. Please specify two traits for the HE regression for covariance analysis.");
+            if (mphen_buf.size() < 2 && mphen_buf.size() > 0) LOGGER.e(0, "\n --HEreg-bivar. Please specify two traits for the bivariate HE regression analysis.");
             if (mphen_buf.size() == 0) {
                 mphen = 1;
                 mphen2 = 2;
@@ -637,7 +637,7 @@ void option(int option_num, char* option_str[])
             prevalence_flag = true;
             prevalence = atof(argv[++i]);
             LOGGER << "--prevalence " << prevalence << endl;
-            if (prevalence <= 0 || prevalence >= 1) LOGGER.e(0, "\n  --prevalence should be between 0 to 1.\n");
+            if (prevalence <= 0 || prevalence >= 1) LOGGER.e(0, "\n --prevalence should be between 0 to 1.\n");
         } else if (strcmp(argv[i], "--reml-pred-rand") == 0) {
             pred_rand_eff = true;
             LOGGER << "--reml-pred-rand" << endl;
@@ -707,11 +707,11 @@ void option(int option_num, char* option_str[])
                 if (reml_drop[j] < 1) err_flag = true;
             }
             LOGGER << endl;
-            if (err_flag || reml_drop.empty()) LOGGER.e(0, "\n  invalid values specified after --reml-lrt.\n");
+            if (err_flag || reml_drop.empty()) LOGGER.e(0, "\n invalid values specified after --reml-lrt.\n");
         } else if (strcmp(argv[i], "--reml-maxit") == 0) {
             MaxIter = atoi(argv[++i]);
             LOGGER << "--reml-maxit " << MaxIter << endl;
-            if (MaxIter < 1 || MaxIter > 10000) LOGGER.e(0, "\n  --reml-maxit should be within the range from 1 to 10000.\n");
+            if (MaxIter < 1 || MaxIter > 10000) LOGGER.e(0, "\n --reml-maxit should be within the range from 1 to 10000.\n");
         } else if (strcmp(argv[i], "--reml-bendV") == 0) {
             reml_force_inv_fac_flag = true;
             LOGGER << "--reml-bendV " << endl;
@@ -786,7 +786,7 @@ void option(int option_num, char* option_str[])
                 mphen_buf.push_back(atoi(argv[i]));
             }
             i--;
-            if (mphen_buf.size() < 2 && mphen_buf.size() > 0) LOGGER.e(0, "\n  --reml-bivar. Please specify two traits for the bivariate REML analysis.");
+            if (mphen_buf.size() < 2 && mphen_buf.size() > 0) LOGGER.e(0, "\n --reml-bivar. Please specify two traits for the bivariate REML analysis.");
             if (mphen_buf.size() == 0) {
                 mphen = 1;
                 mphen2 = 2;
@@ -794,7 +794,7 @@ void option(int option_num, char* option_str[])
                 mphen = mphen_buf[0];
                 mphen2 = mphen_buf[1];
             }
-            if (mphen < 1 || mphen2 < 1 || mphen == mphen2) LOGGER.e(0, "\n  --reml-bivar. Invalid input parameters.");
+            if (mphen < 1 || mphen2 < 1 || mphen == mphen2) LOGGER.e(0, "\n --reml-bivar. Invalid input parameters.");
             LOGGER << "--reml-bivar " << mphen << " " << mphen2 << endl;
         } else if (strcmp(argv[i], "--reml-bivar-prevalence") == 0) {
             vector<double> K_buf;
@@ -804,14 +804,14 @@ void option(int option_num, char* option_str[])
                 K_buf.push_back(atof(argv[i]));
             }
             i--;
-            if (K_buf.size() < 1 || K_buf.size() > 2) LOGGER.e(0, "\n  --reml-bivar-prevalence. Please specify the prevalences of the two diseases.");
+            if (K_buf.size() < 1 || K_buf.size() > 2) LOGGER.e(0, "\n  --reml-bivar-prevalence. Please specify the prevalence of the two diseases.");
             if (K_buf.size() == 2) {
                 if (K_buf[0] < 0.0 || K_buf[0] > 1.0 || K_buf[1] < 0.0 || K_buf[1] > 1.0) LOGGER.e(0, "\n  --reml-bivar-prevalence. Disease prevalence should be between 0 and 1.");
                 LOGGER << "--reml-bivar-prevalence " << K_buf[0] << " " << K_buf[1] << endl;
                 prevalence = K_buf[0];
                 prevalence2 = K_buf[1];
             } else {
-                if (K_buf[0] < 0.0 || K_buf[0] > 1.0) LOGGER.e(0, "\n  --reml-bivar-prevalence. Disease prevalence should be between 0 and 1.");
+                if (K_buf[0] < 0.0 || K_buf[0] > 1.0) LOGGER.e(0, "\n --reml-bivar-prevalence. Disease prevalence should be between 0 and 1.");
                 LOGGER << "--reml-bivar-prevalence " << K_buf[0] << endl;
                 prevalence = prevalence2 = K_buf[0];
             }
@@ -832,11 +832,11 @@ void option(int option_num, char* option_str[])
                 if (fixed_rg_val[j] > 1.0 || fixed_rg_val[j]<-1.0) err_flag = true;
             }
             LOGGER << endl;
-            if (err_flag || fixed_rg_val.empty()) LOGGER.e(0, "\n  --reml-bivar-lrt-rg. Any input paramter should be within the range from -1 to 1.\n");
+            if (err_flag || fixed_rg_val.empty()) LOGGER.e(0, "\n --reml-bivar-lrt-rg. Any input parameter should be within the range from -1 to 1.\n");
             bool haveZero = false;
             if (CommFunc::FloatEqual(fixed_rg_val[0], 0.0)) haveZero = true;
             for (j = 1; j < fixed_rg_val.size(); j++) {
-                if ((CommFunc::FloatNotEqual(fixed_rg_val[0], 0.0) && haveZero) || (CommFunc::FloatEqual(fixed_rg_val[0], 0.0) && !haveZero)) LOGGER.e(0, "\n  --reml-bivar-lrt-rg. Input paramters should be all zero or all non-zero values.\n");
+                if ((CommFunc::FloatNotEqual(fixed_rg_val[0], 0.0) && haveZero) || (CommFunc::FloatEqual(fixed_rg_val[0], 0.0) && !haveZero)) LOGGER.e(0, "\n --reml-bivar-lrt-rg. Input parameters should be all zero or all non-zero values.\n");
             }
         } else if (strcmp(argv[i], "--reml-bivar-no-constrain") == 0) {
             bivar_no_constrain = true;
@@ -865,28 +865,28 @@ void option(int option_num, char* option_str[])
             massoc_slct_flag = true;
             massoc_top_SNPs = atoi(argv[++i]);
             LOGGER << "--cojo-top-SNPs " << massoc_top_SNPs << endl;
-            if (massoc_top_SNPs < 1 || massoc_top_SNPs > 10000) LOGGER.e(0, "\n  --cojo-top-SNPs should be within the range from 1 to 10000.\n");
+            if (massoc_top_SNPs < 1 || massoc_top_SNPs > 10000) LOGGER.e(0, "\n --cojo-top-SNPs should be within the range from 1 to 10000.\n");
         } else if (strcmp(argv[i], "--cojo-actual-geno") == 0) {
             massoc_actual_geno_flag = false;
             LOGGER << "--cojo-actual-geno is deprecated currently." << endl;
         } else if (strcmp(argv[i], "--cojo-p") == 0) {
             massoc_p = atof(argv[++i]);
             LOGGER << "--cojo-p " << massoc_p << endl;
-            if (massoc_p > 0.05 || massoc_p <= 0) LOGGER.e(0, "\n  --cojo-p should be within the range from 0 to 0.05.\n");
+            if (massoc_p > 0.05 || massoc_p <= 0) LOGGER.e(0, "\n --cojo-p should be within the range from 0 to 0.05.\n");
         } else if (strcmp(argv[i], "--restrict-output-pC") == 0) {
             massoc_out_pC_thresh = strtod(argv[++i], NULL);
         } else if (strcmp(argv[i], "--cojo-collinear") == 0) {
             massoc_collinear = atof(argv[++i]);
             LOGGER << "--cojo-collinear " << massoc_collinear << endl;
-            if (massoc_collinear > 0.99 || massoc_collinear < 0.01) LOGGER.e(0, "\n  --cojo-collinear should be within the ragne from 0.01 to 0.99.\n");
+            if (massoc_collinear > 0.99 || massoc_collinear < 0.01) LOGGER.e(0, "\n --cojo-collinear should be within the ragne from 0.01 to 0.99.\n");
         } else if (strcmp(argv[i], "--cojo-wind") == 0) {
             massoc_wind = atoi(argv[++i]);
             LOGGER << "--cojo-wind " << massoc_wind << endl;
 
             // debug
-            if (massoc_wind > 100000) LOGGER.e(0, "\n  invalid value for --cojo-wind. Valid range: 100 ~ 100000\n");
+            if (massoc_wind > 100000) LOGGER.e(0, "\n invalid value for --cojo-wind. Valid range: 100 ~ 100000\n");
 
-            //if (massoc_wind < 100 || massoc_wind > 100000) LOGGER.e(0, "\n  invalid value for --cojo-wind. Valid range: 100 ~ 100000\n");
+            //if (massoc_wind < 100 || massoc_wind > 100000) LOGGER.e(0, "\n invalid value for --cojo-wind. Valid range: 100 ~ 100000\n");
             massoc_wind *= 1000;
         } else if (strcmp(argv[i], "--cojo-joint") == 0) {
             massoc_joint_flag = true;
@@ -902,14 +902,14 @@ void option(int option_num, char* option_str[])
                 i--;
             } else {
                 massoc_gc_val = atof(argv[i]);
-                if (massoc_gc_val < 1 || massoc_gc_val > 10) LOGGER.e(0, "\n  invalid value specified after --cojo-gc.\n");
+                if (massoc_gc_val < 1 || massoc_gc_val > 10) LOGGER.e(0, "\n invalid value specified after --cojo-gc.\n");
             }
             LOGGER << "--cojo-gc " << ((massoc_gc_val < 0) ? "" : argv[i]) << endl;
         } else if (strcmp(argv[i], "--cojo-sblup") == 0) {
             massoc_sblup_flag = true;
             massoc_sblup_fac = atof(argv[++i]);
             LOGGER << "--cojo-sblup " << massoc_sblup_fac << endl;
-            if (massoc_sblup_fac < 0) LOGGER.e(0, "\n  invalid value for --cojo-sblup.\n");
+            if (massoc_sblup_fac < 0) LOGGER.e(0, "\n invalid value for --cojo-sblup.\n");
         } else if (strcmp(argv[i], "--mlma") == 0) {
             reml_flag = false;
             mlma_flag = true;
@@ -939,7 +939,7 @@ void option(int option_num, char* option_str[])
         } else if (strcmp(argv[i], "--fastBAT-ld-cutoff") == 0) {
             sbat_ld_cutoff = sqrt(atof(argv[++i]));
             LOGGER << "--fastBAT-ld-cutoff " << sbat_ld_cutoff << endl;
-            if (sbat_ld_cutoff <= 0.1) LOGGER.e(0, "\n  --fastBAT_ld_cutoff should be > 0.1\n");
+            if (sbat_ld_cutoff <= 0.1) LOGGER.e(0, "\n --fastBAT_ld_cutoff should be > 0.1\n");
         } else if (strcmp(argv[i], "--fastBAT-write-snpset") == 0) {
             sbat_write_snpset = true;
             LOGGER << "--fastBAT-write-snpset" << endl;
@@ -958,7 +958,7 @@ void option(int option_num, char* option_str[])
         } else if (strcmp(argv[i], "--fastBAT-wind") == 0) {
             sbat_wind = atoi(argv[++i]);
             LOGGER << "--fastBAT-wind " << sbat_wind << endl;
-            if (sbat_wind < 0 || sbat_wind > 1000) LOGGER.e(0, "\n  invalid value for --fastBAT-wind. Valid range: 0 ~ 1000\n");
+            if (sbat_wind < 0 || sbat_wind > 1000) LOGGER.e(0, "\n invalid value for --fastBAT-wind. Valid range: 0 ~ 1000\n");
             sbat_wind *= 1000;
         } else if (strcmp(argv[i], "--fastBAT-seg") == 0) {
             sbat_seg_flag = true;
@@ -969,7 +969,7 @@ void option(int option_num, char* option_str[])
                 i--;
             } else sbat_seg_size = atoi(argv[i]);
             LOGGER << "--fastBAT-seg " << sbat_seg_size << endl;
-            if (sbat_seg_size < 10 || sbat_seg_size > 10000) LOGGER.e(0, "\n  invalid value for --fastBAT-seg. Valid range: 10 ~ 10000\n");
+            if (sbat_seg_size < 10 || sbat_seg_size > 10000) LOGGER.e(0, "\n invalid value for --fastBAT-seg. Valid range: 10 ~ 10000\n");
             sbat_seg_size *= 1000;
         }
         else if (strcmp(argv[i], "--efile") == 0) {
@@ -1001,13 +1001,13 @@ void option(int option_num, char* option_str[])
         else if (strcmp(argv[i], "--ecojo-collinear") == 0) {
             ecojo_collinear = atof(argv[++i]);
             LOGGER << "--ecojo-collinear " << ecojo_collinear << endl;
-            if (ecojo_collinear > 1 || ecojo_collinear < 0.01) LOGGER.e(0, "\n  --ecojo-collinear should be within the ragne from 0.01 to 0.99.\n");
+            if (ecojo_collinear > 1 || ecojo_collinear < 0.01) LOGGER.e(0, "\n --ecojo-collinear should be within the range from 0.01 to 0.99.\n");
         }
         else if (strcmp(argv[i], "--ecojo-blup") == 0) {
             ecojo_blup_flag = true;
             ecojo_lambda = atof(argv[++i]);
             LOGGER << "--ecojo-blup " << ecojo_lambda << endl;
-            if (ecojo_lambda < 0.01 || ecojo_lambda > 0.99) LOGGER.e(0, "\n  --ecojo-blup should be within the ragne from 0.01 to 0.99.\n");
+            if (ecojo_lambda < 0.01 || ecojo_lambda > 0.99) LOGGER.e(0, "\n --ecojo-blup should be within the range from 0.01 to 0.99.\n");
         } 
         else if (strcmp(argv[i], "--make-erm") == 0) {
             make_erm_flag = true;
@@ -1025,7 +1025,7 @@ void option(int option_num, char* option_str[])
             make_erm_mtd = atoi(argv[++i]);
             thread_flag = true;
             LOGGER << "--make-erm-alg " << make_erm_mtd << endl;
-            if (make_erm_mtd < 1 || make_erm_mtd > 3) LOGGER.e(0, "\n  --make-erm-alg should be 1, 2 or 3.\n");
+            if (make_erm_mtd < 1 || make_erm_mtd > 3) LOGGER.e(0, "\n --make-erm-alg should be 1, 2 or 3.\n");
         } else if (strcmp(argv[i], "--gsmr-file") == 0 ) {
             gsmr_flag = true;
 
@@ -1053,7 +1053,7 @@ void option(int option_num, char* option_str[])
                LOGGER.e(0, "--gsmr-direction should be 0 (forward-GSMR), 1 (reverse-GSMR) or 2 (bi-GSMR).");
             LOGGER << "--gsmr-direction " << gsmr_alg_flag << endl;
         } else if (strcmp(argv[i], "--gsmr-alg") == 0) {
-            LOGGER.e(0, "--gsmr-alg has been superceded by --gsmr-direction.");
+            LOGGER.e(0, "--gsmr-alg has been superseded by --gsmr-direction.");
         } else if (strcmp(argv[i], "--gsmr-so") == 0) {
             gsmr_so_flag = true;
             //gsmr_so_alg = atoi(argv[++i]);
@@ -1101,12 +1101,12 @@ void option(int option_num, char* option_str[])
         } else if (strcmp(argv[i], "--diff-freq") == 0) {
             freq_thresh = atof(argv[++i]);
             if(freq_thresh <0 || freq_thresh >1)
-                LOGGER.e(0, "--diff-freq, Invalid threshold for difference of allele frequencies.");
+                LOGGER.e(0, "--diff-freq, Invalid threshold used to check allele frequency difference.");
             LOGGER<<"--diff-freq "<<freq_thresh<<endl;
         } else if (strcmp(argv[i], "--gwas-thresh") == 0) {
             gwas_thresh = atof(argv[++i]);
             if(gwas_thresh <0 || gwas_thresh >1)
-                LOGGER.e(0, "--gwas-thresh, Invalid p-value threshold for GWAS summary data.");
+                LOGGER.e(0, "--gwas-thresh, Invalid GWAS p-value threshold.");
             LOGGER<<"--gwas-thresh "<<gwas_thresh<<endl;
         } else if (strcmp(argv[i], "--heidi-thresh") == 0) {
             vector<string> thresh_list;
@@ -1117,7 +1117,7 @@ void option(int option_num, char* option_str[])
             }
             i--;
             if (thresh_list.size() < 1 || thresh_list.size() > 2) 
-                LOGGER.e(0, "--heidi-thresh, please specify threshold(s) for HEIDI-outlier analysis.");
+                LOGGER.e(0, "--heidi-thresh, please specify p-value threshold(s) for the HEIDI-outlier analysis.");
             std_heidi_thresh = atof(thresh_list[0].c_str());
             if(thresh_list.size() > 1) {
                 global_heidi_thresh = atof(thresh_list[1].c_str());
@@ -1137,7 +1137,7 @@ void option(int option_num, char* option_str[])
             if(strcmp(argv[i], "--gsmr-snp") == 0) gsmr_snp_update_flag = true;
             nsnp_gsmr = atoi(argv[++i]);
             if(nsnp_gsmr < 0 || nsnp_gsmr > 1e6)
-                LOGGER.e(0, "--gsmr-snp-min, Invalid SNP number threshold for GSMR analysis.");
+                LOGGER.e(0, "--gsmr-snp-min, Invalid SNP number threshold for the GSMR analysis.");
             LOGGER<<"--gsmr-snp-min "<<nsnp_gsmr<<endl;
         } else if (strcmp(argv[i], "--gsmr-ld-fdr") == 0) {
             ld_fdr_thresh = atoi(argv[++i]);
@@ -1145,16 +1145,16 @@ void option(int option_num, char* option_str[])
                 LOGGER.e(0, "--gsmr-ld-fdr, Invalid FDR threshold for LD correlation matrix.");
             LOGGER<<"--gsmr-ld-fdr "<<ld_fdr_thresh<<endl;
         } else if (strcmp(argv[i], "--clump-p1") == 0) {
-            LOGGER.e(0, "--clump-p1 is discontinued. Please use --gwas-thresh to specify p-value threshold for index SNPs.");   
+            LOGGER.e(0, "--clump-p1 is discontinued. Please use --gwas-thresh to specify a p-value threshold for index SNPs.");   
         } else if (strcmp(argv[i], "--clump-kb") == 0) {
             clump_wind_size = atof(argv[++i]);
             if(clump_wind_size <0 || clump_wind_size >1e6)
-                LOGGER.e(0, "--clump-kb, Invalid window size for clumping analysis.");
+                LOGGER.e(0, "--clump-kb, Invalid window size for the clumping analysis.");
             LOGGER<<"--clump-kb   "<<clump_wind_size<<endl;
         } else if (strcmp(argv[i], "--clump-r2") == 0) {
             clump_r2_thresh = atof(argv[++i]);
             if(clump_r2_thresh <0 || clump_r2_thresh >1)
-                LOGGER.e(0, "--clump-r2, Invalid LD r2 threshold for clumping analysis.");
+                LOGGER.e(0, "--clump-r2, Invalid LD r2 threshold for the clumping analysis.");
             LOGGER<<"--clump-r2 "<<clump_r2_thresh<<endl;
         } else if (strcmp(argv[i], "--gwas-adj-pc") == 0) {
             gwas_data_flag = true;
@@ -1175,7 +1175,7 @@ void option(int option_num, char* option_str[])
     // conflicted options
     LOGGER << endl;
     if (bfile2_flag && !bfile_flag) LOGGER.e(0, "the option --bfile2 should always go with the option --bfile.");
-    if(bfile_flag && grm_cutoff>-1.0) LOGGER.e(0, "the --grm-cutoff option is invalid when used in combined with the --bfile option.");
+    if(bfile_flag && grm_cutoff>-1.0) LOGGER.e(0, "the --grm-cutoff option is invalid when used in combination with the --bfile option.");
     if (m_grm_flag) {
         if (grm_flag) {
             grm_flag = false;
@@ -1212,7 +1212,7 @@ void option(int option_num, char* option_str[])
         pred_rand_eff = false;
     }
 
-    if (dosage_compen>-1 && update_sex_file.empty()) LOGGER.e(0, "you need to specify the sex information for the individuals by the option --update-sex because of the option --dc.");
+    if (dosage_compen>-1 && update_sex_file.empty()) LOGGER.e(0, "you need to specify the sex information for the individuals by the option --update-sex because of the use of the –dc option.");
     if (bfile2_flag && update_freq_file.empty()) LOGGER.e(0, "you need to update the allele frequency by the option --update-freq because there are two datasets.");
     if ((dose_beagle_flag || dose_mach_flag || dose_mach_gz_flag) && dominance_flag) LOGGER.e(0, "unable to calculate the GRM for dominance effect using imputed dosage data.");
     if (make_grm_xchar_flag && dominance_flag) LOGGER.e(0, "unable to calculate the GRM for dominance effect for the X chromosome.");
@@ -1228,13 +1228,13 @@ void option(int option_num, char* option_str[])
     }
     if(bivar_reml_flag && prevalence_flag) LOGGER.e(0, "--prevalence option is not compatible with --reml-bivar option. Please check the --reml-bivar-prevalence option!");
     if(gsmr_flag || mtcojo_flag){
-        if(ref_ld_flag && !w_ld_flag) LOGGER.e(0, "--ref-ld-chr, please specify the directory of LD score files.");
-        if(!ref_ld_flag && w_ld_flag) LOGGER.e(0, "--w-ld-chr, please specify the directory of LD scores for the regression weights.");
+        if(ref_ld_flag && !w_ld_flag) LOGGER.e(0, "--ref-ld-chr, please specify the directory of the LD score files.");
+        if(!ref_ld_flag && w_ld_flag) LOGGER.e(0, "--w-ld-chr, please specify the directory of the LD scores for the regression weights.");
         if(gsmr_snp_update_flag) LOGGER.w(0, "--gsmr-snp has been superseded by --gsmr-snp-min.");
         if(nsnp_gsmr < 5) LOGGER.w(0, "The number of SNP instruments included in the analysis is too small. There might not be enough SNPs to perform the HEIDI-outlier analysis.");
         // if(!gsmr_so_flag && ref_ld_flag && w_ld_flag) { gsmr_so_alg = 0; LOGGER.w(0, "--gsmr-so is not specified. The default value is 0. GSMR analysis will perform LD score regression to estimate sample overlap."); }
         // if(gsmr_so_alg == 1 && ref_ld_flag && w_ld_flag) { gsmr_so_alg = 0; LOGGER.w(0, "The LD score regression instead of correlation method will be used to estimate sample overlap."); }
-        // if(gsmr_so_alg == 0 && !ref_ld_flag && !w_ld_flag) LOGGER.e(0, "Please specify the directory of LD score files to perform LD score regression analysis.");
+        // if(gsmr_so_alg == 0 && !ref_ld_flag && !w_ld_flag) LOGGER.e(0, "Please specify the directory of LD score files to perform the LD score regression analysis.");
         // if(!gsmr_so_flag && !ref_ld_flag && !w_ld_flag) LOGGER.w(0, "The GSMR analysis will be performed assuming no sample overlap between the GWAS data for exposure and outcome.");
     }
     if(gsmr_beta_version && !global_heidi_flag) {
@@ -1298,7 +1298,7 @@ void option(int option_num, char* option_str[])
         else {
             if (bfile2_flag) {
                 LOGGER << "There are two datasets specified (in PLINK binary PED format).\nReading dataset 1 ..." << endl;
-                if (update_freq_file.empty()) LOGGER.e(0, "since there are two dataset, you should update the allele frequencies that are calculated in the combined dataset.");
+                if (update_freq_file.empty()) LOGGER.e(0, "since there are two datasets, you should update the allele frequencies calculated from the combined dataset.");
             }
             // Read the list, if there are multiple bfiles
             if(bfile_flag==2) multi_bfiles = pter_gcta->read_bfile_list(bfile_list);
@@ -1376,7 +1376,7 @@ void option(int option_num, char* option_str[])
             else if(project_flag) pter_gcta->project_loading(project_file, project_N);
         }
     } else if (dose_beagle_flag || dose_mach_flag || dose_mach_gz_flag) {
-        if (massoc_slct_flag | massoc_joint_flag | !massoc_cond_snplist.empty()) LOGGER.e(0, "the --dosage option can't be used in combined with the --cojo options.");
+        if (massoc_slct_flag | massoc_joint_flag | !massoc_cond_snplist.empty()) LOGGER.e(0, "the --dosage option can't be used in combination with the --cojo options.");
         if (dose_mach_flag) pter_gcta->read_imp_info_mach(dose_info_file);
         else if (dose_mach_gz_flag) pter_gcta->read_imp_info_mach_gz(dose_info_file);
         else if (dose_beagle_flag) pter_gcta->read_imp_info_beagle(dose_info_file);
@@ -1413,7 +1413,7 @@ void option(int option_num, char* option_str[])
         else if (mlma_loco_flag) pter_gcta->mlma_loco(phen_file, qcovar_file, covar_file, mphen, MaxIter, reml_priors, reml_priors_var, no_constrain, make_grm_inbred_flag, mlma_no_adj_covar);
     } else if (HE_reg_flag) pter_gcta->HE_reg(grm_file, m_grm_flag, phen_file, kp_indi_file, rm_indi_file, mphen);
     else if (HE_reg_bivar_flag) pter_gcta->HE_reg_bivar(grm_file, m_grm_flag, phen_file, kp_indi_file, rm_indi_file, mphen, mphen2);
-    else if ((reml_flag || bivar_reml_flag) && phen_file.empty()) LOGGER.e(0, "\n  phenotype file is required for reml analysis.\n");
+    else if ((reml_flag || bivar_reml_flag) && phen_file.empty()) LOGGER.e(0, "\n a phenotype file is required for reml analysis.\n");
     else if (bivar_reml_flag) {
         pter_gcta->set_cv_blup(cv_blup);
         pter_gcta->fit_bivar_reml(grm_file, phen_file, qcovar_file, covar_file, kp_indi_file, rm_indi_file, update_sex_file, mphen, mphen2, grm_cutoff, grm_adj_fac, dosage_compen, m_grm_flag, pred_rand_eff, est_fix_eff, reml_mtd, MaxIter, reml_priors, reml_priors_var, reml_drop, no_lrt, prevalence, prevalence2, no_constrain, ignore_Ce, fixed_rg_val, bivar_no_constrain);

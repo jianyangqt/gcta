@@ -60,7 +60,7 @@ GRM::GRM(){
             LOGGER.e(0, "can't open " + grm_file + ".grm.bin");
         }
         if(num_grm * 4 != getFileByteSize(file)){
-            LOGGER.e(0, "The GRM id and GRM binary is not matching [" + grm_file + "]");
+            LOGGER.e(0, "The IDs in GRM and the IDs in the GRM binary file do not match [" + grm_file + "]");
         }
         fclose(file);
 
@@ -126,7 +126,7 @@ void GRM::subtract_grm(string mgrm_file, string out_file){
         LOGGER.e(0, out_err);
     }
     if(files.size() != 2){
-        LOGGER.e(0, "only 2 grm supported currently.");
+        LOGGER.e(0, "only 2 GRMs are supported currently.");
     }
 
     LOGGER.i(0, "Reading [" + files[0] + ".grm.id]...");
@@ -135,7 +135,7 @@ void GRM::subtract_grm(string mgrm_file, string out_file){
     LOGGER.i(0, "Reading [" + files[1] + ".grm.id]...");
     vector<string> common_id2 = Pheno::read_sublist(files[1] + ".grm.id");
     if(common_id != common_id2){
-        LOGGER.e(0, "The sample id in two GRM is not same, try --unify-grm first.");
+        LOGGER.e(0, "The sample IDs in the two GRMs are not same. You may try --unify-grm first.");
     }
     std::ofstream o_id(out_file + ".grm.id");
     if(!o_id) LOGGER.e(0, "can't write to [" + options["out"] + ".grm.id]");
@@ -194,7 +194,7 @@ void GRM::subtract_grm(string mgrm_file, string out_file){
             LOGGER.e(0, "can't write to [" + out_file + ".grm.N.bin].");
         }
     }
-    LOGGER.i(0, "Subtracted GRM has been written to [" + out_file + ".grm.bin, .grm.N.bin].");
+    LOGGER.i(0, "The subtracted GRM has been written to [" + out_file + ".grm.bin, .grm.N.bin].");
 
     delete[] buf1;
     delete[] buf2;
@@ -231,7 +231,7 @@ void GRM::unify_grm(string mgrm_file, string out_file){
         LOGGER.e(0, out_err);
     }
     if(files.size() < 2){
-        LOGGER.e(0, "not enough valid GRM in to unify");
+        LOGGER.e(0, "not enough valid GRMs to be unified.");
     }
 
     LOGGER.i(0, "Reading [" + files[0] + ".grm.id]...");
@@ -255,7 +255,7 @@ void GRM::unify_grm(string mgrm_file, string out_file){
         LOGGER << common_id.size() << " common samples in GRMs" << std::endl;
     }
     if(options.find("keep_file") != options.end()){
-        LOGGER.i(0, "Keeping samples in [" + options["keep_file"] + "]...");
+        LOGGER.i(0, "Keeping individuals listed in [" + options["keep_file"] + "]...");
         vector<string> keep_id = Pheno::read_sublist(options["keep_file"]);
         LOGGER << keep_id.size() << " samples have been read." << std::endl;
         vector<uint32_t> index1, index2;
@@ -267,7 +267,7 @@ void GRM::unify_grm(string mgrm_file, string out_file){
         LOGGER << common_id.size() << " common samples after merging." << std::endl;
     }
     if(options.find("remove_file") != options.end()){
-        LOGGER.i(0, "Excluding samples in [" + options["remove_file"] + "]...");
+        LOGGER.i(0, "Excluding individuals listed in [" + options["remove_file"] + "]...");
         vector<string> remove_id = Pheno::read_sublist(options["remove_file"]);
         LOGGER << remove_id.size() << " samples have been read." << std::endl;
         vector<uint32_t> index1, index2;
@@ -303,7 +303,7 @@ void GRM::unify_grm(string mgrm_file, string out_file){
             out_id << ids[i][index] << std::endl;
         }
         out_id.close();
-        LOGGER.i(0, "Unified indididual IDs have been saved to [" + id_file_name + "].");
+        LOGGER.i(0, "Unified individual IDs have been saved to [" + id_file_name + "].");
     }
 
     LOGGER.i(0, "Writing unified GRM in binary format...");
@@ -339,7 +339,7 @@ void GRM::unify_grm(string mgrm_file, string out_file){
             uint64_t byte_start_grm = start_pos[grm_index];
             fseek(h_grm, byte_start_grm, SEEK_SET);
             if(fread(buf, sizeof(float), num_grm, h_grm) != num_grm){
-                LOGGER.e(0, "Error reading [" + file_name + "], in position " + to_string(ftell(h_grm)), ".");
+                LOGGER.e(0, "error in reading [" + file_name + "], in position " + to_string(ftell(h_grm)), ".");
             }
             uint64_t size_write = j + 1;
             for(int k = 0; k < size_write; k++){
@@ -352,7 +352,7 @@ void GRM::unify_grm(string mgrm_file, string out_file){
                     auto bytes_offset = start_pos[cur_index] + grm_index * sizeof(float);
                     fseek(h_grm, bytes_offset, SEEK_SET); 
                     if(fread(&grm_value, sizeof(float), 1, h_grm) != 1){
-                        LOGGER.e(0, "Error reading [" + file_name + "], in position " + to_string(bytes_offset), ".");
+                        LOGGER.e(0, "error in reading [" + file_name + "], in position " + to_string(bytes_offset), ".");
                     }
                 }
                 *(wbuf + k) = grm_value;
@@ -361,7 +361,7 @@ void GRM::unify_grm(string mgrm_file, string out_file){
             //*(wbuf + j) = *(buf + grm_index);
 
             if(size_write != fwrite(wbuf, sizeof(float), size_write, h_wgrm)){
-                LOGGER.e(0, "writing to [" + wfile_name + "], pos: " + std::to_string(ftell(h_wgrm)) + "."); 
+                LOGGER.e(0, "error in writing to [" + wfile_name + "], pos: " + std::to_string(ftell(h_wgrm)) + "."); 
             }
         }
         delete[] buf;
@@ -374,8 +374,8 @@ void GRM::unify_grm(string mgrm_file, string out_file){
 }
 
 void GRM::prune_fam(float thresh, bool isSparse, float *value){
-    LOGGER.i(0, "Pruning the GRM to sparse with a cut off of " + to_string(thresh) + "...");
-    LOGGER.i(0, "Total number of parts to proceed: " + to_string(index_grm_pairs.size()));
+    LOGGER.i(0, "Pruning the GRM to a sparse matrix with a cutoff of " + to_string(thresh) + "...");
+    LOGGER.i(0, "Total number of parts to be processed: " + to_string(index_grm_pairs.size()));
     FILE *grmFile = fopen((grm_file + ".grm.bin").c_str(), "rb");
 
     std::ofstream o_id((options["out"] + ".grm.id").c_str());
@@ -413,7 +413,7 @@ void GRM::prune_fam(float thresh, bool isSparse, float *value){
     int new_id1 = 0;
     for(int part_index = 0; part_index != index_grm_pairs.size(); part_index++){
         if(fread(grm_buf, sizeof(float), byte_part_grms[part_index], grmFile) != byte_part_grms[part_index]){
-            LOGGER.e(0, "Read GRM failed between line " + to_string(index_grm_pairs[part_index].first + 1) + " and "
+            LOGGER.e(0, "Failed to read GRM between line " + to_string(index_grm_pairs[part_index].first + 1) + " and "
                         + to_string(index_grm_pairs[part_index].second + 1));
         };
         if(part_index % 50 == 0){
@@ -464,7 +464,7 @@ void GRM::prune_fam(float thresh, bool isSparse, float *value){
         if(!isSparse){
             int write_items = cur_grm_buf - out_grm_buf;
             if(fwrite(out_grm_buf, sizeof(float), write_items, o_bk) != write_items){
-                LOGGER.e(0, "Write output failed"); 
+                LOGGER.e(0, "Failed to write the output"); 
             }
         }
 
@@ -477,7 +477,7 @@ void GRM::prune_fam(float thresh, bool isSparse, float *value){
     }
 
     if(isSparse){
-        LOGGER.i(0, "Saving GRM sparse (" + to_string(rm_grm.size()) + " pairs) to [" + options["out"] + ".grm.sp]");
+        LOGGER.i(0, "Saving the sparse GRM (" + to_string(rm_grm.size()) + " pairs) to [" + options["out"] + ".grm.sp]");
         //    auto sorted_index = sort_indexes(rm_grm_ID2, rm_grm_ID1);
         //    for(auto index : sorted_index){
         o_fam << std::setprecision( std::numeric_limits<float>::digits10+2);
@@ -485,7 +485,7 @@ void GRM::prune_fam(float thresh, bool isSparse, float *value){
             o_fam << rm_grm_ID1[index] << "\t" << rm_grm_ID2[index] << "\t" << rm_grm[index] << std::endl;
         }
         o_fam.close();
-        LOGGER.i(0, "Success:", "make GRM sparse finished");
+        LOGGER.i(0, "Success:", "finished generating a sparse GRM");
         return;
     }else{
         LOGGER.i(0, "GRM has been saved to [" + options["out"] + ".grm.bin]");
@@ -499,9 +499,9 @@ void GRM::prune_fam(float thresh, bool isSparse, float *value){
     float *cur_N_buf;
     for(int part_index = 0; part_index != index_grm_pairs.size(); part_index++){
         if(fread(N_buf, sizeof(float), byte_part_grms[part_index], NFile) != byte_part_grms[part_index]){
-            LOGGER.w(0, "Read GRM N failed between line " + to_string(index_grm_pairs[part_index].first + 1) + " and "
+            LOGGER.w(0, "Reading GRM N failed between line " + to_string(index_grm_pairs[part_index].first + 1) + " and "
                         + to_string(index_grm_pairs[part_index].second + 1));
-            LOGGER.i(0, "Stop prune the GRM N");
+            LOGGER.i(0, "Stop pruning the GRM N");
             break;
         };
         if(part_index % 50 == 0){
@@ -524,7 +524,7 @@ void GRM::prune_fam(float thresh, bool isSparse, float *value){
 
         int write_items = cur_N_buf - out_N_buf;
         if(fwrite(out_N_buf, sizeof(float), write_items, ONFile) != write_items){
-            LOGGER.e(0, "Write GRM N failed"); 
+            LOGGER.e(0, "Failed to write the GRM N"); 
         }
 
     }
@@ -539,7 +539,7 @@ void GRM::prune_fam(float thresh, bool isSparse, float *value){
 
 void GRM::cut_rel(float thresh, bool no_grm){
     LOGGER.i(0, "Pruning the GRM with a cutoff of " + to_string(thresh) + "...");
-    LOGGER.i(0, "Total number of parts to proceed: " + to_string(index_grm_pairs.size()));
+    LOGGER.i(0, "Total number of parts to be processed: " + to_string(index_grm_pairs.size()));
     FILE *grmFile = fopen((grm_file + ".grm.bin").c_str(), "rb");
     // put this first to avoid unwritable disk
     std::ofstream o_keep;
@@ -570,7 +570,7 @@ void GRM::cut_rel(float thresh, bool no_grm){
     vector<int> rm_grm_ID1, rm_grm_ID2;
     for(int part_index = 0; part_index != index_grm_pairs.size(); part_index++){
         if(fread(grm_buf, sizeof(float), byte_part_grms[part_index], grmFile) != byte_part_grms[part_index]){
-            LOGGER.e(0, "Read GRM failed between line " + to_string(index_grm_pairs[part_index].first + 1) + " and "
+            LOGGER.e(0, "Failed to read GRM between line " + to_string(index_grm_pairs[part_index].first + 1) + " and "
                         + to_string(index_grm_pairs[part_index].second + 1));
         };
         if(part_index % 50 == 0){
@@ -655,7 +655,7 @@ void GRM::cut_rel(float thresh, bool no_grm){
     if(detail_flag){
         std::copy(keep_ID.begin(), keep_ID.end(), std::ostream_iterator<string>(o_single, "\n"));
         o_single.close();
-        LOGGER.i(2, "Pruned singleton IDs has been saved to " + options["out"] + ".singleton.txt");
+        LOGGER.i(2, "Pruned singleton IDs have been saved to " + options["out"] + ".singleton.txt");
     }
 
     if(no_grm) {
@@ -666,13 +666,13 @@ void GRM::cut_rel(float thresh, bool no_grm){
     LOGGER.i(0, "Pruning GRM values, total parts " + std::to_string(index_grm_pairs.size()));
     FILE *grm_out_file = fopen((options["out"] + ".grm.bin").c_str(), "wb");
     if(!grm_out_file){
-        LOGGER.e(0, "can't open [" + options["out"] + ".grm.bin] for write");
+        LOGGER.e(0, "can't open [" + options["out"] + ".grm.bin] to write");
     }
     fseek(grmFile, 0, SEEK_SET);
     outBinFile(grmFile, grm_out_file);
     fclose(grmFile);
     fclose(grm_out_file);
-    LOGGER.i(2, "GRM values has been saved to [" + options["out"] + ".grm.bin]");
+    LOGGER.i(2, "GRM values have been saved to [" + options["out"] + ".grm.bin]");
 
     LOGGER.i(0, "Pruning number of SNPs to calculate GRM, total parts " + std::to_string(index_grm_pairs.size()));
     FILE *NFile = fopen((grm_file + ".grm.N.bin").c_str(), "rb");
@@ -682,7 +682,7 @@ void GRM::cut_rel(float thresh, bool no_grm){
     }
     FILE *N_out_file = fopen((options["out"] + ".grm.N.bin").c_str(), "wb");
     if(!N_out_file){
-        LOGGER.w(2, "can't open [" + options["out"] + ".grm.N.bin] to write, ignore this step");
+        LOGGER.w(2, "can't open [" + options["out"] + ".grm.N.bin] to write. Ignore this step");
         fclose(NFile);
         return;
     }
@@ -699,7 +699,7 @@ void GRM::outBinFile(FILE *sFile, FILE *dFile) {
     float *cur_grm_pos, *cur_out_pos;
     for(int part_index = 0; part_index != index_grm_pairs.size(); part_index++){
         if(fread(grm_buf, sizeof(float), byte_part_grms[part_index], sFile) != byte_part_grms[part_index]){
-            LOGGER.e(0, "Read failed between line " + to_string(index_grm_pairs[part_index].first + 1) + " and "
+            LOGGER.e(0, "Failed to read GRM between line " + to_string(index_grm_pairs[part_index].first + 1) + " and "
                         + to_string(index_grm_pairs[part_index].second + 1));
         };
         if(part_index % 50 == 0){
@@ -720,7 +720,7 @@ void GRM::outBinFile(FILE *sFile, FILE *dFile) {
         }
         uint64_t size_write = cur_out_pos - grm_out_buffer;
         if(fwrite(grm_out_buffer, sizeof(float), size_write, dFile) != size_write){
-            LOGGER.e(0, "Write output file failed, please check the disk condition or permission");
+            LOGGER.e(0, "Failed to write the output file, please check the disk condition or permission");
         };
     }
     delete [] grm_buf;
@@ -749,12 +749,12 @@ GRM::GRM(Pheno* pheno, Marker* marker) {
     }
 
     if (parts.size() != num_parts) {
-        LOGGER.w(0, "can not divide into " + to_string(num_parts) + ". Use " + to_string(parts.size()) + " instead.");
+        LOGGER.w(0, "cannot divide into " + to_string(num_parts) + ". Use " + to_string(parts.size()) + " instead.");
         this->num_parts = parts.size();
     }
 
     if (part > this->num_parts) {
-        LOGGER.e(0, "can not calculate" + to_string(part) + " larger than " + to_string(this->num_parts));
+        LOGGER.e(0, "cannot calculate when" + to_string(part) + " is larger than " + to_string(this->num_parts));
     } else {
         if (part == 1) {
             part_keep_indices = std::make_pair(0, parts[0]);
@@ -773,7 +773,7 @@ GRM::GRM(Pheno* pheno, Marker* marker) {
         int ret1 = posix_memalign((void **) &geno_buf, 32, num_byte_geno);
         int ret2 = posix_memalign((void **) &mask_buf, 32, num_byte_geno);
         if(ret1 != 0 | ret2 != 0){
-            LOGGER.e(0, "can't allocate enough memory to genotype buffer.");
+            LOGGER.e(0, "can't allocate enough memory for genotype buffer.");
         }
 
    }else{
@@ -791,7 +791,7 @@ GRM::GRM(Pheno* pheno, Marker* marker) {
     this->num_byte_cmask = sizeof(uint64_t) * Constants::NUM_MARKER_READ * index_keep.size() / num_cmask_block;
     int ret3 = posix_memalign((void **) &cmask_buf, 32, num_byte_cmask); 
     if(ret3 != 0){
-        LOGGER.e(0, "can't allocate enough memory to store mask.");
+        LOGGER.e(0, "can't allocate enough memory to store the mask.");
     }
     */
 
@@ -807,13 +807,13 @@ GRM::GRM(Pheno* pheno, Marker* marker) {
 
     int ret_grm = posix_memalign((void **)&grm, 32, fill_grm * sizeof(double));
     if(ret_grm){
-        LOGGER.e(0, "can't allocate enough memory to (parted) GRM: " + to_string(fill_grm*sizeof(double) / 1024.0/1024/1024) + "GB");
+        LOGGER.e(0, "can't allocate enough memory to store the (parted) GRM: " + to_string(fill_grm*sizeof(double) / 1024.0/1024/1024) + "GB required.");
     }
     memset(grm, 0, fill_grm * sizeof(double));
 
     int ret_N = posix_memalign((void **)&N, 32, fill_N * sizeof(uint32_t));
     if(ret_N){
-        LOGGER.e(0, "can't allocate enough memory to (parted) N: " + to_string(fill_grm*sizeof(uint32_t) / 1024.0/1024/1024) + "GB");
+        LOGGER.e(0, "can't allocate enough memory to store (parted) N: " + to_string(fill_grm*sizeof(uint32_t) / 1024.0/1024/1024) + "GB required.");
     }
     memset(N, 0, fill_N * sizeof(uint32_t));
 
@@ -824,7 +824,7 @@ GRM::GRM(Pheno* pheno, Marker* marker) {
     index_grm_pairs.reserve(num_thread);
     vector<uint32_t> thread_parts = divide_parts(part_keep_indices.first, part_keep_indices.second, num_thread);
     if(num_thread != thread_parts.size()){
-        LOGGER.w(0, "can not run in " + to_string(num_thread) + " threads. Use " + to_string(thread_parts.size()) + " instead");
+        LOGGER.w(0, "cannot run in " + to_string(num_thread) + " threads. Use " + to_string(thread_parts.size()) + " instead");
     }
 
     index_grm_pairs.push_back(std::make_pair(part_keep_indices.first, thread_parts[0]));
@@ -869,10 +869,10 @@ void GRM::output_id() {
     string o_grm_id = o_name + ".grm.id";
     std::ofstream grm_id(o_grm_id.c_str());
 
-    if (!grm_id) { LOGGER.e(0, "can not open the file [" + o_grm_id + "] to write"); }
+    if (!grm_id) { LOGGER.e(0, "cannot open the file [" + o_grm_id + "] to write"); }
     std::copy(out_id.begin(), out_id.end(), std::ostream_iterator<string>(grm_id, "\n"));
     grm_id.close();
-    LOGGER.i(0, "IDs for the GRM file has been saved in the file [" + o_grm_id + "]");
+    LOGGER.i(0, "IDs for the GRM file have been saved in the file [" + o_grm_id + "]");
 
 }
 
@@ -1708,7 +1708,7 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
                 options_in.find("--grm-singleton") != options_in.end() ||
                 options_in.find("--make-bK") != options_in.end()){
             if(options["grm_file"] == options["out"]){
-                LOGGER.e(0, "not allowed to have the same file name for the input and output");
+                LOGGER.e(0, "it is not allowed to have the same file name for the input and the output files.");
             }
         }
     }
@@ -1741,7 +1741,7 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
         isDominance = false;
     }
     if(bool_part_grm && bool_part_grm_d && bool_part_grm_xchr){
-        LOGGER.e(0, "can't specify --make-grm-part, --make-grm-d-part or --make-grm-xchr-part together");
+        LOGGER.e(0, "can't specify --make-grm-part, --make-grm-d-part or --make-grm-xchr-part together.");
     }
 
     if(bool_part_grm || bool_part_grm_d || bool_part_grm_xchr){
@@ -1750,13 +1750,13 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
                 num_parts = std::stoi(options_in[part_grm_symbol][0]);
                 cur_part = std::stoi(options_in[part_grm_symbol][1]);
             }catch(std::invalid_argument&){
-                LOGGER.e(0, part_grm_symbol + " can only deal with integer value");
+                LOGGER.e(0, part_grm_symbol + " can only deal with integer value.");
             }
             if(num_parts <= 0 || cur_part <=0){
-                LOGGER.e(0, part_grm_symbol + "arguments should >= 1");
+                LOGGER.e(0, part_grm_symbol + " arguments should be >= 1");
             }
             if(num_parts < cur_part){
-                LOGGER.e(0, part_grm_symbol + "1st parameter (number of parts) can't less than 2nd parameter");
+                LOGGER.e(0, part_grm_symbol + "the 1st parameter (number of parts) can't be smaller than the 2nd parameter");
             }
 
             std::string s_parts = std::to_string(num_parts);
@@ -1775,7 +1775,7 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
             }
  
         }else{
-            LOGGER.e(0, part_grm_symbol + " takes two arguments, total parts and part to calculate currently");
+            LOGGER.e(0, part_grm_symbol + " takes two arguments: the number of total parts and the part number to be calculated currently");
         }
     }
 
@@ -1879,7 +1879,7 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
                     LOGGER.e(0, "--grm-cutoff can't deal with more than one value currently");
                 }
                 if(options.find("grm_file") == options.end()){
-                    LOGGER.e(0, "can't find --grm flag that is essential to --grm-cutoff");
+                    LOGGER.e(0, "can't find the --grm flag that is essential to --grm-cutoff");
                 }
 
                 processFunctions.push_back("grm_cutoff");
@@ -1894,10 +1894,10 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
                 if(options_in[opitem].size() == 1){
                     options_d["grm_cutoff"] = std::stod(options_in[opitem][0]);
                 }else{
-                    LOGGER.e(0, opitem + " can't deal with more than one value currently");
+                    LOGGER.e(0, opitem + " can't deal with more than one value currently.");
                 }
                 if(options.find("grm_file") == options.end()){
-                    LOGGER.e(0, "can't find --grm flag that is essential to " + opitem);
+                    LOGGER.e(0, "can't find the --grm flag that is essential to " + opitem);
                 }
 
                 processFunctions.push_back("grm_cutoff");
@@ -1923,7 +1923,7 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
         string curFlag = flags[index];
         if(options_in.find(curFlag) != options_in.end()){
             if(options.find("grm_file") == options.end()){
-                LOGGER.e(0, "can't find --grm flag that is essential to " + curFlag);
+                LOGGER.e(0, "can't find the --grm flag that is essential to " + curFlag);
             }
             if(options_in[curFlag].size() == 1){
                 options_d["grm_cutoff"] = std::stod(options_in[curFlag][0]);
@@ -1935,7 +1935,7 @@ int GRM::registerOption(map<string, vector<string>>& options_in) {
                 options_d["grm_set_value"] = std::stod(options_in[curFlag][1]);
                 processFunctions.push_back("make_fam");
             }else{
-                LOGGER.e(0, curFlag + " can't deal with more than one value currently");
+                LOGGER.e(0, curFlag + " can't deal with more than one value currently.");
             }
             return_value++;
         }
@@ -1978,7 +1978,7 @@ void GRM::processMakeGRM(){
     this->num_byte_geno = sizeof(double) * nMarkerBlock * (part_keep_indices.second + 1);
     int ret = posix_memalign((void **)&stdGeno, 32, num_byte_geno);
     if(ret != 0){
-        LOGGER.e(0, "can't allnocate enough memory for genotype buffer.");
+        LOGGER.e(0, "can't allocate enough memory for the genotype buffer.");
     }
     
     vector<function<void (uintptr_t *, const vector<uint32_t> &)>> callBacks;
@@ -1986,7 +1986,7 @@ void GRM::processMakeGRM(){
         callBacks.push_back(bind(&GRM::calculate_GRM_blas, this, _1, _2));
     }else{
         //callBacks.push_back(bind(&GRM::calculate_GRM, &grm, _1, _2));
-        LOGGER.e(0, "original version has been deleted, please use GCTA 1.92.4");
+        LOGGER.e(0, "the original version has been deleted. Please use GCTA >= 1.92.4");
     }
     geno->setGRMMode(true, isDominance);
     bool isSTD = true;
@@ -2016,7 +2016,7 @@ void GRM::processMakeGRMX(){
     this->num_byte_geno = sizeof(double) * nMarkerBlock * (part_keep_indices.second + 1);
     int ret = posix_memalign((void **)&stdGeno, 32, num_byte_geno);
     if(ret != 0){
-        LOGGER.e(0, "can't allnocate enough memory for genotype buffer.");
+        LOGGER.e(0, "can't allocate enough memory for the genotype buffer.");
     }
     
     vector<function<void (uintptr_t *, const vector<uint32_t> &)>> callBacks;
@@ -2024,7 +2024,7 @@ void GRM::processMakeGRMX(){
         callBacks.push_back(bind(&GRM::calculate_GRM_blas, this, _1, _2));
     }else{
         //callBacks.push_back(bind(&GRM::calculate_GRM, &grm, _1, _2));
-        LOGGER.e(0, "original version has been deleted, please use GCTA 1.92.4");
+        LOGGER.e(0, "the original version has been deleted. Please use GCTA >= 1.92.4");
     }
     geno->setGRMMode(true, isDominance);
     bool isSTD = true;
@@ -2045,7 +2045,7 @@ void GRM::processMain() {
     vector<function<void (uint64_t *, int)>> callBacks;
     for(auto &process_function : processFunctions){
         if(process_function == "make_grm"){
-            LOGGER.i(0, "Note: GRM is computed using the SNPs on the autosome.");
+            LOGGER.i(0, "Note: GRM is computed using the SNPs on the autosomes.");
             Pheno pheno;
             Marker marker;
             GRM grm(&pheno, &marker);
@@ -2054,7 +2054,7 @@ void GRM::processMain() {
         }
 
         if(process_function == "make_grmx"){
-            LOGGER.i(0, "Note: This function takes X chromosome as non PAR region.");
+            LOGGER.i(0, "Note: this function takes X chromosome as non-PAR region.");
 
             Pheno pheno;
             Marker marker;

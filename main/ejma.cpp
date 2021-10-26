@@ -66,7 +66,7 @@ void gcta::calcu_eR()
 void gcta::read_eR(string eR_file)
 {
     ifstream eR_inf(eR_file.c_str());
-    if (!eR_inf.is_open()) LOGGER.e(0, "can not open the file [" + eR_file + "] to read.");
+    if (!eR_inf.is_open()) LOGGER.e(0, "cannot open the file [" + eR_file + "] to read.");
     LOGGER << "Reading correlation matrix of gene expression from [" + eR_file + "] ..." << endl;
     
     string str_buf="";
@@ -90,7 +90,7 @@ void gcta::read_e_metafile(string e_metafile)
 {
     LOGGER << "\nReading expression-trait association summary-level statistics from [" + e_metafile + "] ..." << endl;
     ifstream e_meta(e_metafile.c_str());
-    if (!e_meta) LOGGER.e(0, "can not open the file [" + e_metafile + "] to read.");
+    if (!e_meta) LOGGER.e(0, "cannot open the file [" + e_metafile + "] to read.");
 
     string str_buf="";
     double d_buf=0.0;
@@ -98,7 +98,7 @@ void gcta::read_e_metafile(string e_metafile)
     vector<double> z_buf, n_buf;
     
     getline(e_meta, str_buf); // the header line
-    if (StrFunc::split_string(str_buf, vs_buf) < 3) LOGGER.e(0, "there needs be at least 3 columns in the file [" + e_metafile + "].");
+    if (StrFunc::split_string(str_buf, vs_buf) < 3) LOGGER.e(0, "there needs to be at least 3 columns in the file [" + e_metafile + "].");
     stringstream errmsg;
     int line=1;
     while(getline(e_meta, str_buf)){
@@ -163,7 +163,7 @@ void gcta::run_ecojo_slct(string e_metafile, double p_cutoff, double collinear)
     eigenVector bC, bC_se, pC;
     LOGGER << endl;
     if (!joint_only && !backward) {
-        LOGGER << "Performing stepwise model selection on " << _e_include.size() << " probes to select association signals ... (p cutoff = " << _ecojo_p_cutoff << "; ";
+        LOGGER << "Performing stepwise model selection on " << _e_include.size() << " probes to select association signals ... (p-value cutoff = " << _ecojo_p_cutoff << "; ";
         LOGGER << "collinearity cutoff = " << _ecojo_collinear << ")"<< endl;
         ecojo_slct(slct, remain, bC, bC_se, pC);
         if (slct.empty()) {
@@ -174,7 +174,7 @@ void gcta::run_ecojo_slct(string e_metafile, double p_cutoff, double collinear)
     else {
         for (i = 0; i < _e_include.size(); i++) slct.push_back(i);
         if (backward) {
-            LOGGER << "Performing backward selection on " << _e_include.size() << " probes at threshold p-value = " << _ecojo_p_cutoff << " ..." << endl;
+            LOGGER << "Performing backward selection on " << _e_include.size() << " probes at p-value cutoff = " << _ecojo_p_cutoff << " ..." << endl;
             ecojo_slct_stay(slct, bC, bC_se, pC);
         }
     }
@@ -195,7 +195,7 @@ void gcta::ecojo_slct_output(bool joint_only, vector<int> &slct, eigenVector &bJ
     if (joint_only) LOGGER << "Saving the joint analysis result of " << slct.size() << " probes to [" + filename + "] ..." << endl;
     else LOGGER << "Saving the " << slct.size() << " independent signals to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
-    if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
+    if (!ofile) LOGGER.e(0, "cannot open the file [" + filename + "] to write.");
     ofile << "Probe\tb\tse\tz\tn\tbJ\tbJ_se\tzJ\tpJ"<< endl;
     int i = 0, j = 0;
     for (i = 0; i < slct.size(); i++) {
@@ -442,7 +442,7 @@ void gcta::ecojo_blup(double lambda)
     string filename = _out + ".blup.ecojo";
     LOGGER << "Saving the BLUP analysis result of " << _e_include.size() << " probes to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
-    if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
+    if (!ofile) LOGGER.e(0, "cannot open the file [" + filename + "] to write.");
     ofile << "Probe\tb\tse\tz\tn\tb_blup"<< endl;
     for (i = 0; i < _e_include.size(); i++) {
         ofile << _probe_name[_e_include[i]] << "\t" << _ecojo_b[i] << "\t" <<_ecojo_se[i] << "\t" << _ecojo_z[i] << "\t" << _ecojo_n[i] << "\t"<< bJ[i] << endl;

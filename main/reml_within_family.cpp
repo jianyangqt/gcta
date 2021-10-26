@@ -57,7 +57,7 @@ bool gcta::calcu_Vi_within_family(eigenMatrix &Vi, eigenVector &prev_varcmp, dou
         solver.compute(Vit);
 
         if(solver.info() != Eigen::Success){
-            LOGGER.e(0, "can't inverse the matrix within familiy");
+            LOGGER.e(0, "can't invert the within-family relatedness matrix");
         }
         
         logdet = solver.vectorD().array().log().sum();

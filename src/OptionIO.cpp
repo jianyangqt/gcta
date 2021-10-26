@@ -168,7 +168,7 @@ bool readTxtList(string fileName, int minFields, vector<string> &head, int &nHea
             if(line_elements.size() < ncol){
                 LOGGER.e(0, "the file [" + fileName + "] contains different number of elements in line " + to_string(line_number) + ".");
             }else if(line_elements.size() > ncol){
-                LOGGER.w(0, "the file [" + fileName + "] contains more number of elements in line " + to_string(line_number) + ".");
+                LOGGER.w(0, "the file [" + fileName + "] contains extra number of elements in line " + to_string(line_number) + ".");
             }
             for(int i = 0; i < ncol; i++){
                 lists[i].emplace_back(line_elements[i]);
@@ -181,9 +181,9 @@ bool readTxtList(string fileName, int minFields, vector<string> &head, int &nHea
             LOGGER.e(0, "can't read [" + fileName + "].");
         }
         if(ncol == 0){
-            LOGGER.e(0, "find blank line in header or can't find valid text data.");
+            LOGGER.e(0, "blank header line or no valid text data.");
         }else{
-            LOGGER.e(0, "text data is different from header.");
+            LOGGER.e(0, "data are inconsistent with the headers.");
         }
         input.close();
         return false;

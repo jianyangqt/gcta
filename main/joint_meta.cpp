@@ -19,7 +19,7 @@ void gcta::read_metafile(string metafile, bool GC, double GC_val) {
     double freq_diff_thresh = _diff_freq;
     LOGGER << "\nReading GWAS summary-level statistics from [" + metafile + "] ..." << endl;
     ifstream Meta(metafile.c_str());
-    if (!Meta) LOGGER.e(0, "can not open the file [" + metafile + "] to read.");
+    if (!Meta) LOGGER.e(0, "cannot open the file [" + metafile + "] to read.");
 
     int i = 0, count = 0;
     double f_buf = 0.0, b_buf = 0.0, se_buf = 0.0, p_buf = 0.0, N_buf = 0.0, Vp_buf = 0.0, GC_buf = 0.0, chi_buf = 0.0, h_buf = 0.0;
@@ -94,9 +94,9 @@ void gcta::read_metafile(string metafile, bool GC, double GC_val) {
             LOGGER << "User specified genomic inflation factor: " << _GC_val << endl;
         } else {
             _GC_val = CommFunc::median(GC_v_buf) / 0.455;
-            LOGGER << "Genomic inflation factor calcualted from " << count << " SNPs: " << _GC_val << endl;
+            LOGGER << "Genomic inflation factor calculated from " << count << " SNPs: " << _GC_val << endl;
         }
-        LOGGER << "p-values wil be adjusted by the genomic control approach." << endl;
+        LOGGER << "p-values will be adjusted by the genomic control approach." << endl;
     }
 
     LOGGER << "Matching the GWAS meta-analysis results to the genotype data ..." << endl;
@@ -143,7 +143,7 @@ void gcta::read_metafile(string metafile, bool GC, double GC_val) {
         obadsnp << "SNP\tA1\tA2\tRefA" << endl;
         for (i = 0; i < bad_snp.size(); i++) obadsnp << bad_snp[i] << "\t" << bad_A1[i] << "\t" << bad_A2[i] << "\t" << bad_refA[i] << endl;
         obadsnp.close();
-        LOGGER << "Warning: can't match the reference alleles or of " << bad_snp.size() << " SNPs to those in the genotype data. These SNPs have been saved in [" + badsnpfile + "]." << endl;
+        LOGGER << "Warning: can't match the reference alleles of " << bad_snp.size() << " SNPs to those in the genotype data. These SNPs have been saved in [" + badsnpfile + "]." << endl;
     }
     if(!bad_snp_freq.empty()){
         string badsnpfile = _out + ".freq.badsnps";
@@ -151,10 +151,10 @@ void gcta::read_metafile(string metafile, bool GC, double GC_val) {
         obadsnp << "SNP\tA1\tA2\tRefA\tgeno_freq\tfreq" << endl;
         for (int i = 0; i < bad_snp_freq.size(); i++) obadsnp << bad_snp_freq[i] << "\t" << bad_A1_freq[i] << "\t" << bad_A2_freq[i] << "\t" << bad_refA_freq[i] << "\t" << bad_freq_value[i] << "\t" << bad_freq_ma[i]<< endl;
         obadsnp.close();
-        LOGGER << bad_snp_freq.size() << " SNP(s) have large difference of allele frequency among the GWAS summary data and the reference sample. These SNPs have been saved in [" << badsnpfile << "]." << endl; 
+        LOGGER << bad_snp_freq.size() << " SNP(s) have large difference of allele frequency between the GWAS summary data and the reference sample. These SNPs have been saved in [" << badsnpfile << "]." << endl; 
     }
 
-    if (_include.empty()) LOGGER.e(0, "all the SNPs in the GWAS meta-analysis results can't be found in the genotype data.");
+    if (_include.empty()) LOGGER.e(0, "none of the SNPs in the GWAS summary data can be found in the genotype data.");
     else LOGGER << _include.size() << " SNPs are matched to the genotype data." << endl;
 
     if (_mu.empty()) calcu_mu();
@@ -265,7 +265,7 @@ void gcta::run_massoc_slct(string metafile, int wind_size, double p_cutoff, doub
     massoc_joint(slct, bJ, bJ_se, pJ);
     eigenMatrix rval(slct.size(), slct.size());
     LD_rval(slct, rval);
-    if (_jma_actual_geno) LOGGER << "Residual varaince = " << _jma_Ve << endl;
+    if (_jma_actual_geno) LOGGER << "Residual variance = " << _jma_Ve << endl;
     massoc_slct_output(joint_only, slct, bJ, bJ_se, pJ, rval);
 
     // output conditional results
@@ -291,7 +291,7 @@ void gcta::run_massoc_cond(string metafile, string snplistfile, int wind_size, d
     string filename = _out + ".given.cojo";
     LOGGER<<"Saving the summary statistics of the given SNPs in the file [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
-    if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
+    if (!ofile) LOGGER.e(0, "cannot open the file [" + filename + "] to write.");
     ofile << "Chr\tSNP\tbp\trefA\tfreq\tb\tse\tp" << endl;
     int i = 0, j = 0;
     for (i = 0; i < pgiven.size(); i++) {
@@ -310,7 +310,7 @@ void gcta::massoc_slct_output(bool joint_only, vector<int> &slct, eigenVector &b
     if (joint_only) LOGGER << "Saving the joint analysis result of " << slct.size() << " SNPs to [" + filename + "] ..." << endl;
     else LOGGER << "Saving the " << slct.size() << " independent signals to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
-    if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
+    if (!ofile) LOGGER.e(0, "cannot open the file [" + filename + "] to write.");
     ofile << "Chr\tSNP\tbp\trefA\tfreq\tb\tse\tp" << ((_GC_val > 0) ? "_GC" : "") << "\tn\tfreq_geno\tbJ\tbJ_se\tpJ" << ((_GC_val > 0) ? "_GC" : "") << "\tLD_r" << endl;
     int i = 0, j = 0;
     for (i = 0; i < slct.size(); i++) {
@@ -327,7 +327,7 @@ void gcta::massoc_slct_output(bool joint_only, vector<int> &slct, eigenVector &b
     if (joint_only) LOGGER << "Saving the LD structure of " << slct.size() << " SNPs to [" + filename + "] ..." << endl;
     else LOGGER << "Saving the LD structure of " << slct.size() << " independent signals to [" + filename + "] ..." << endl;
     ofile.open(filename.c_str());
-    if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
+    if (!ofile) LOGGER.e(0, "cannot open the file [" + filename + "] to write.");
     ofile << "SNP\t";
     for (i = 0; i < slct.size(); i++) ofile << _snp_name[_include[slct[i]]] << "\t";
     ofile << endl;
@@ -350,7 +350,7 @@ void gcta::massoc_cond_output(vector<int> &remain, eigenVector &bC, eigenVector 
     string filename = _out + ".cma.cojo";
     LOGGER << "Saving the conditional analysis results of " << remain.size() << " remaining SNPs to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
-    if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
+    if (!ofile) LOGGER.e(0, "cannot open the file [" + filename + "] to write.");
     ofile << "Chr\tSNP\tbp\trefA\tfreq\tb\tse\tp" << ((_GC_val > 0) ? "_GC" : "") << "\tn\tfreq_geno\tbC\tbC_se\tpC" << ((_GC_val > 0) ? "_GC" : "") << endl;
 
     if(out_thresh < 0){
@@ -363,7 +363,7 @@ void gcta::massoc_cond_output(vector<int> &remain, eigenVector &bC, eigenVector 
             else ofile << bC[i] << "\t" << bC_se[i] << "\t" << pC[i] << endl;
         }
     }else{
-        LOGGER << "Restrict output thresh to " << out_thresh << "." << endl;
+        LOGGER << "Restricting output threshold to " << out_thresh << "." << endl;
         for (i = 0; i < remain.size(); i++) {
             if(pC[i] < out_thresh){
                 j = remain[i];
@@ -430,7 +430,7 @@ bool gcta::slct_entry(vector<int> &slct, vector<int> &remain, eigenVector &bC, e
 
 void gcta::slct_stay(vector<int> &slct, eigenVector &bJ, eigenVector &bJ_se, eigenVector &pJ) {
     if (_B_N.cols() < 1) {
-        if (!init_B(slct)) LOGGER.e(0, "there is a collinearity problem of the given list of SNPs.\nYou can try the option --cojo-slct to get rid of one of each pair of highly correlated SNPs.");
+        if (!init_B(slct)) LOGGER.e(0, "there is a collinearity problem of the given list of SNPs.\nYou can try the option --cojo-slct to remove one of each pair of highly correlated SNPs.");
     }
 
     vector<double> pJ_buf;
@@ -460,15 +460,15 @@ double gcta::massoc_calcu_Ve(const vector<int> &slct, eigenVector &bJ, eigenVect
         Ve += _D_N[k] * bJ[k] * b[k];
     }
     double d_buf = CommFunc::median(Nd_buf);
-    if (d_buf - n < 1) LOGGER.e(0, "no degree of freedom left for the residues, the model is over-fitting. Please specify a more stringent p cutoff value.");
+    if (d_buf - n < 1) LOGGER.e(0, "no degree of freedom is left for the residues. The model is over-fitted. Please specify a more stringent p-value cut-off.");
     Ve = ((d_buf - 1) * _jma_Vp - Ve) / (d_buf - n);
-    if (Ve <= 0.0) LOGGER.e(0, "residual variance is out of boundary, the model is over-fitting. Please specify a more stringent p cutoff value.");
+    if (Ve <= 0.0) LOGGER.e(0, "residual variance is out of boundary. The model is over-fitted. Please specify a more stringent p-value cut-off.");
     return Ve;
 }
 
 void gcta::massoc_joint(const vector<int> &indx, eigenVector &bJ, eigenVector &bJ_se, eigenVector &pJ) {
     if (_B_N.cols() < 1) {
-        if (!init_B(indx)) LOGGER.e(0, "there is a collinearity problem of the given list of SNPs.\nYou can try the option --cojo-slct to get rid of one of each pair of highly correlated SNPs.");
+        if (!init_B(indx)) LOGGER.e(0, "there is a collinearity problem of the given list of SNPs.\nYou can try the option --cojo-slct to remove one of each pair of highly correlated SNPs.");
     }
 
     int i = 0, n = indx.size();
@@ -498,7 +498,7 @@ void gcta::massoc_joint(const vector<int> &indx, eigenVector &bJ, eigenVector &b
 
 void gcta::massoc_cond(const vector<int> &slct, const vector<int> &remain, eigenVector &bC, eigenVector &bC_se, eigenVector &pC) {
     if (_B_N.cols() < 1) {
-        if (!init_B(slct)) LOGGER.e(0, "there is a collinearity problem of the given list of SNPs.\nYou can try the option --cojo-slct to get rid of one of each pair of highly correlated SNPs.");
+        if (!init_B(slct)) LOGGER.e(0, "there is a collinearity problem of the given list of SNPs.\nYou can try the option --cojo-slct to remove one of each pair of highly correlated SNPs.");
     }
     if (_Z_N.cols() < 1) init_Z(slct);
 
@@ -798,13 +798,13 @@ void gcta::run_massoc_sblup(string metafile, int wind_size, double lambda)
         string filename = _out + ".sblup.cojo";
         LOGGER << "Saving the joint analysis result of " << _include.size() << " SNPs to [" + filename + "] ..." << endl;
         ofstream ofile(filename.c_str());
-        if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
+        if (!ofile) LOGGER.e(0, "cannot open the file [" + filename + "] to write.");
         for (j = 0; j < _include.size(); j++) {
             // change here: convert from u to b before writing to file
             ofile << _snp_name[_include[j]] << "\t" << _ref_A[_include[j]] << "\t" << _beta[j] << "\t" << bJ[j] / sqrt(_MSX[j]) << endl;
         }
         ofile.close();
-    } else LOGGER.e(0, "Jacobi iteration not converged. You can increase the maximum number of iterations by the option --massoc-sblup-maxit.");
+    } else LOGGER.e(0, "Jacobi iteration cannot converge. You can increase the maximum number of iterations by the option --massoc-sblup-maxit.");
 }
 
 bool gcta::massoc_sblup(double lambda, eigenVector &bJ)
@@ -883,11 +883,11 @@ bool gcta::massoc_sblup(double lambda, eigenVector &bJ)
     SimplicialLDLT<eigenSparseMat> solver;
     solver.compute(B);
     if(solver.info()!=Success) {
-        LOGGER.e(0, "decomposition failed! The SNP correlation matrix is not positive definite.");
+        LOGGER.e(0, "decomposition failed. The SNP correlation matrix is not positive definite.");
     }
     bJ = solver.solve(Xty);
     if(solver.info()!=Success) {
-        LOGGER.e(0, "solving failed! Unable to solve the BLUP equation.");
+        LOGGER.e(0, "solving failed. Unable to solve the BLUP equation.");
     }
 
     // debug

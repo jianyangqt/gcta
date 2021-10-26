@@ -15,7 +15,7 @@ void gcta::read_pc_adjust_file(string pcadjust_list_file, string pc_file) {
     int line_number = 0;
     std::istringstream linebuf;
     ifstream in_lambda(eigenvalue_file.c_str());
-    if (!in_lambda) LOGGER.e(0, "Cannot open the file [" + eigenvalue_file + "] to read.");
+    if (!in_lambda) LOGGER.e(0, "cannot open the file [" + eigenvalue_file + "] to read.");
     while(std::getline(in_lambda, strbuf)) {
         line_number++;
         linebuf.clear();
@@ -32,7 +32,7 @@ void gcta::read_pc_adjust_file(string pcadjust_list_file, string pc_file) {
     // Read the file list for PC adjust analysis
     line_number = 0;
     ifstream meta_list(pcadjust_list_file.c_str());
-    if (!meta_list) LOGGER.e(0, "Cannot open the file [" + pcadjust_list_file + "] to read.");
+    if (!meta_list) LOGGER.e(0, "cannot open the file [" + pcadjust_list_file + "] to read.");
     while(std::getline(meta_list, strbuf)) {
         line_number++;
         linebuf.clear();
@@ -50,9 +50,9 @@ void gcta::read_pc_adjust_file(string pcadjust_list_file, string pc_file) {
     map<string,int> gws_snp_name_map;
     ncovar = pheno_file.size() - 1;
     if(ncovar == 0)
-       LOGGER.e(0, "At least 1 PC loading is required.");
+       LOGGER.e(0, "At least 1 PC loading vector is required.");
     if(ncovar > _eigen_value.size())
-        LOGGER.e(0, "There are " + to_string(ncovar) + " covariates summary data. " + to_string(_eigen_value.size()) + " eigenvalues are provided.");
+        LOGGER.e(0, "there are summary data for " + to_string(ncovar) + " covariates, but " + to_string(_eigen_value.size()) + " eigenvalues are provided.");
 
     // Covariates
     for( i=1; i<=ncovar; i++) {
@@ -99,8 +99,8 @@ void gcta::read_pc_adjust_file(string pcadjust_list_file, string pc_file) {
             _meta_vp_trait(i) = read_single_metafile_txt(pheno_file[i], _meta_snp_name_map, snp_a1[i], snp_a2[i], snp_freq_buf, snp_b_buf, snp_se_buf, snp_pval_buf, snp_n_buf, _snp_val_flag[i]);
         else _meta_vp_trait(i) = read_single_metafile_gz(pheno_file[i], _meta_snp_name_map, snp_a1[i], snp_a2[i], snp_freq_buf, snp_b_buf, snp_se_buf, snp_pval_buf, snp_n_buf, _snp_val_flag[i]);
         if(_meta_vp_trait(i) < 0) {
-            if(i==0) LOGGER.e(0, "Negative phenotypic variance of the target trait.");
-            else LOGGER.e(0, "Negative phenotypic variance of the covariate #" + to_string(i+1) + ".");
+            if(i==0) LOGGER.e(0, "negative phenotypic variance of the target trait.");
+            else LOGGER.e(0, "negative phenotypic variance of the covariate #" + to_string(i+1) + ".");
         }
         snp_freq.col(i) = snp_freq_buf;
         _meta_snp_b.col(i) = snp_b_buf;
@@ -124,7 +124,7 @@ void gcta::read_pc_adjust_file(string pcadjust_list_file, string pc_file) {
     _meta_snp_a1 = snp_a1[0]; _meta_snp_a2 = snp_a2[0];
     _meta_snp_freq = snp_freq;  
    
-    if(nsnp<1) LOGGER.e(0, "None SNPs are retained after filtering.");
+    if(nsnp<1) LOGGER.e(0, "no SNP is retained after filtering.");
     else LOGGER.i(0, to_string(nsnp) + " SNPs are retained after filtering.");
     LOGGER.i(0, to_string(_include.size()) + " SNPs are in common between the summary data and the LD reference sample.");
 }
@@ -173,13 +173,13 @@ vector<string> update_snp_freq(vector<string> meta_snp_name, vector<int> meta_sn
     if (!afsnps.empty()) {
         string afsnpfile = outfile_name + ".miss_freq.badsnps", strbuf="";
         ofstream oafsnp(afsnpfile.c_str());
-        if(!oafsnp) LOGGER.e(0, "Cannot open file [" + afsnpfile + "] to write bad SNPs.");
+        if(!oafsnp) LOGGER.e(0, "cannot open file [" + afsnpfile + "] to write bad SNPs.");
         int nafsnps = afsnps.size();
         for (i = 0; i < nafsnps; i++) oafsnp << afsnps[i] << endl;
         oafsnp.close();
-        LOGGER.i(0,  to_string(nafsnps) + " SNP(s) do not have allele frequency. These SNPs have been saved in [" + afsnpfile + "].");
+        LOGGER.i(0,  to_string(nafsnps) + " SNP(s) do not have allele frequency information. These SNPs have been saved in [" + afsnpfile + "].");
         if(nafsnps > nsnp*0.05) 
-            LOGGER.e(0, "There are too many SNPs where allele frequencies are not available. Please check your summary datasets.");
+            LOGGER.e(0, "there are too many SNPs without allele frequencies. Please check the GWAS summary data.");
     }
     return(afsnps);
 }
@@ -425,7 +425,7 @@ void output_snp_effect_for_pc(string output_file, vector<string> meta_snp_name, 
     
     output_file = output_file + ".pcadj.cma";
     ofstream ofile(output_file.c_str());
-    if (!ofile) LOGGER.e(0, "Cannot open the file [" + output_file + "] to write.");
+    if (!ofile) LOGGER.e(0, "cannot open the file [" + output_file + "] to write.");
     
     ofile << "SNP\tA1\tA2\tfreq\tb\tse\tp\tN\tbC\tbzx" <<endl;
     for (i = 0; i < meta_nsnp; i++) {
@@ -452,7 +452,7 @@ void gcta::pc_adjust(string pcadjust_list_file, string pc_file, double freq_thre
 
     // Check allele frequency
     vector<string> afsnps;
-    LOGGER.i(0, "Checking allele frequencies among the GWAS summary data and the reference sample...");
+    LOGGER.i(0, "Checking differences in allele frequencies between the GWAS summary data and the reference sample...");
     afsnps = remove_freq_diff_snps(_meta_snp_name, _meta_remain_snp, _snp_name_map, _mu, _meta_snp_freq, _snp_val_flag, npheno, freq_thresh, _out);
     // Update SNPs set
     if( afsnps.size()>0 ) {

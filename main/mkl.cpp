@@ -300,7 +300,7 @@ void gcta::output_grm_mkl(float* A, bool output_grm_bin)
         // Save matrix A in binary file
         grm_file = _out + ".grm.bin";
         fstream A_Bin(grm_file.c_str(), ios::out | ios::binary);
-        if (!A_Bin) LOGGER.e(0, "can not open the file [" + grm_file + "] to write.");
+        if (!A_Bin) LOGGER.e(0, "cannot open the file [" + grm_file + "] to write.");
         int size = sizeof (float);
         for (i = 0; i < n; i++) {
             for (j = 0; j <= i; j++) A_Bin.write((char*) &(A[i * n + j]), size);
@@ -310,19 +310,19 @@ void gcta::output_grm_mkl(float* A, bool output_grm_bin)
 
         string grm_N_file = _out + ".grm.N.bin";
         fstream N_Bin(grm_N_file.c_str(), ios::out | ios::binary);
-        if (!N_Bin) LOGGER.e(0, "can not open the file [" + grm_N_file + "] to write.");
+        if (!N_Bin) LOGGER.e(0, "cannot open the file [" + grm_N_file + "] to write.");
         size = sizeof (float);
         for (i = 0; i < n; i++) {
             for (j = 0; j <= i; j++) N_Bin.write((char*) &(_grm_N(i,j)), size);
         }
         N_Bin.close();
-        LOGGER << "Number of SNPs to calcuate the genetic relationship between each pair of individuals has been saved in the file [" + grm_N_file + "] (in binary format)." << endl;
+        LOGGER << "Number of SNPs to calculate the genetic relationship between each pair of individuals has been saved in the file [" + grm_N_file + "] (in binary format)." << endl;
     } else {
         // Save A matrix in txt format
         grm_file = _out + ".grm.gz";
         gzofstream zoutf;
         zoutf.open(grm_file.c_str());
-        if (!zoutf.is_open()) LOGGER.e(0, "can not open the file [" + grm_file + "] to write.");
+        if (!zoutf.is_open()) LOGGER.e(0, "cannot open the file [" + grm_file + "] to write.");
         LOGGER << "Saving the genetic relationship matrix to the file [" + grm_file + "] (in compressed text format)." << endl;
         zoutf.setf(ios::scientific);
         zoutf.precision(6);
@@ -335,7 +335,7 @@ void gcta::output_grm_mkl(float* A, bool output_grm_bin)
 
     string famfile = _out + ".grm.id";
     ofstream Fam(famfile.c_str());
-    if (!Fam) LOGGER.e(0, "can not open the file [" + famfile + "] to write.");
+    if (!Fam) LOGGER.e(0, "cannot open the file [" + famfile + "] to write.");
     for (i = 0; i < n; i++) Fam << _fid[_keep[i]] + "\t" + _pid[_keep[i]] << endl;
     Fam.close();
     LOGGER << "IDs for the GRM file [" + grm_file + "] have been saved in the file [" + famfile + "]." << endl;
@@ -391,7 +391,7 @@ bool gcta::comput_inverse_logdet_LDLT_mkl(eigenMatrix &Vi, double &logdet)
         //LOGGER << "Inverse finished" << endl;
         //spotri( &uplo, &n, Vi_mkl, &n, &info );
         if (info < 0){
-            LOGGER.e(0, "invalid values found in the varaince-covaraince (V) matrix.\n");
+            LOGGER.e(0, "invalid values found in the variance-covariance (V) matrix.\n");
         }else if (info > 0){
             delete[] Vi_mkl;
             return false;
@@ -453,7 +453,7 @@ bool gcta::comput_inverse_logdet_LU_mkl(eigenMatrix &Vi, double &logdet)
         dgetri_(&N, Vi_mkl, &N, IPIV, WORK, &LWORK, &INFO);
 #endif
         if (INFO < 0){
-            LOGGER.e(0, "invalid values found in the varaince-covaraince (V) matrix.\n");
+            LOGGER.e(0, "invalid values found in the variance-covariance (V) matrix.\n");
         }else if (INFO > 0){
             delete[] Vi_mkl;
             delete[] IPIV;
@@ -516,7 +516,7 @@ bool gcta::comput_inverse_logdet_LU_mkl_array(int n, float *Vi, double &logdet) 
 #else
         dgetri_(&N, Vi_mkl, &N, IPIV, WORK, &LWORK, &INFO);
 #endif
-        if (INFO < 0) LOGGER.e(0, "invalid values found in the varaince-covaraince (V) matrix.\n");
+        if (INFO < 0) LOGGER.e(0, "invalid values found in the variance-covariance (V) matrix.\n");
         else if (INFO > 0) {
             // free memory
             delete[] Vi_mkl;
@@ -567,12 +567,12 @@ void gcta::LD_pruning_mkl(double rsq_cutoff, int wind_size) {
     update_id_map_rm(rm_snp_name, _snp_name_map, _include);
     m = _include.size();
 
-    LOGGER << "After LD-pruning, " << m << " SNPs are remaining." << endl;
+    LOGGER << "After LD-pruning, " << m << " SNPs remain." << endl;
     string pruned_file = _out + ".prune.in";
     ofstream oprune(pruned_file.data());
     for (i = 0; i < m; i++) oprune << _snp_name[_include[i]] << endl;
     oprune << endl;
-    LOGGER << "The list of " << m << " LD-pruned SNPs (pruned in) have been saved in the file [" + pruned_file + "]." << endl;
+    LOGGER << "The list of " << m << " LD-pruned SNPs (pruned in) has been saved in the file [" + pruned_file + "]." << endl;
 }
 
 void gcta::LD_pruning_blk_mkl(float *X, vector<int> &brk_pnt, double rsq_cutoff, vector<int> &rm_snp_ID1)

@@ -15,7 +15,7 @@
 void gcta::gbat_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, vector<int> &snp_chr, vector<int> &snp_bp, vector<double> &snp_pval)
 {
     ifstream in_snpAssoc(snpAssoc_file.c_str());
-    if (!in_snpAssoc) LOGGER.e(0, "can not open the file [" + snpAssoc_file + "] to read.");
+    if (!in_snpAssoc) LOGGER.e(0, "cannot open the file [" + snpAssoc_file + "] to read.");
     LOGGER << "\nReading SNP association results from [" + snpAssoc_file + "]." << endl;
     string str_buf;
     vector<string> vs_buf;
@@ -61,7 +61,7 @@ void gcta::gbat_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, ve
 
 void gcta::gbat_read_geneAnno(string gAnno_file, vector<string> &gene_name, vector<int> &gene_chr, vector<int> &gene_bp1, vector<int> &gene_bp2) {
     ifstream in_gAnno(gAnno_file.c_str());
-    if (!in_gAnno) LOGGER.e(0, "can not open the file [" + gAnno_file + "] to read.");
+    if (!in_gAnno) LOGGER.e(0, "cannot open the file [" + gAnno_file + "] to read.");
     LOGGER << "Reading physical positions of the genes from [" + gAnno_file + "]." << endl;
     string str_buf;
     vector<string> vs_buf;
@@ -73,7 +73,7 @@ void gcta::gbat_read_geneAnno(string gAnno_file, vector<string> &gene_name, vect
         gene_name.push_back(vs_buf[3]);
     }
     in_gAnno.close();
-    LOGGER << "Physical positions of " << gene_name.size() << " genes have been include." << endl;
+    LOGGER << "Physical positions of " << gene_name.size() << " genes have been included." << endl;
 }
 
 void gcta::gbat_calcu_ld(MatrixXf &X, eigenVector &sumsq_x, int snp1_indx, int snp2_indx, MatrixXf &C)
@@ -171,7 +171,7 @@ void gcta::gbat(string sAssoc_file, string gAnno_file, int wind, int simu_num)
     for (i = 0; i < gene_num; i++) {
         if (gene2snp_1[i] != "NA" && gene2snp_2[i] != "NA") mapped++;
     }
-    if (mapped < 1) LOGGER.e(0, "no gene can be mapped to the SNP data. Please check the input data regarding chr and bp.");
+    if (mapped < 1) LOGGER.e(0, "no gene can be mapped to the SNP data. Please check the input data regarding chromosome and bp.");
     else LOGGER << mapped << " genes have been mapped to SNP data." << endl;
 
     // recoding genotype
@@ -223,9 +223,9 @@ void gcta::gbat(string sAssoc_file, string gAnno_file, int wind, int simu_num)
     }
 
     string filename = _out + ".gbat";
-    LOGGER << "\nSaving the results of the gene-based association analysese to [" + filename + "] ..." << endl;
+    LOGGER << "\nSaving the results of the gene-based association analysis to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
-    if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
+    if (!ofile) LOGGER.e(0, "cannot open the file [" + filename + "] to write.");
     ofile << "Gene\tChr\tStart\tEnd\tNo.SNPs\tSNP_start\tSNP_end\tChisq(Obs)\tPvalue" << endl;
     for (i = 0; i < gene_num; i++) {
         if(gene_pval[i]>1.5) continue;
@@ -241,7 +241,7 @@ double gcta::gbat_simu_p(int &seed, int size, eigenMatrix &L, int simu_num, doub
     vector<float> simu_chisq(simu_num);
 
     // debug
-    LOGGER << "here simulation start." << endl;
+    LOGGER << "here simulation starts." << endl;
 
     //default_random_engine eng;
     // normal_distribution<float> rnorm(0.0, 1.0);
@@ -267,13 +267,13 @@ double gcta::gbat_simu_p(int &seed, int size, eigenMatrix &L, int simu_num, doub
     LOGGER<<endl;*/
 
     // debug
-    LOGGER << "here find start." << endl;
+    LOGGER << "here find starts." << endl;
 
 
     int pos = (upper_bound(simu_chisq.begin(), simu_chisq.end(), chisq_o) - simu_chisq.begin());
 
     // debug
-    LOGGER << "here find end." << endl;
+    LOGGER << "here find ends." << endl;
 
 
     // debug

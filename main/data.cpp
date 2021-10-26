@@ -91,7 +91,7 @@ gcta::~gcta() {
 
 void gcta::read_famfile(string famfile) {
     ifstream Fam(famfile.c_str());
-    if (!Fam) LOGGER.e(0, "can not open the file [" + famfile + "] to read.");
+    if (!Fam) LOGGER.e(0, "cannot open the file [" + famfile + "] to read.");
     LOGGER << "Reading PLINK FAM file from [" + famfile + "]." << endl;
 
     int i = 0;
@@ -146,7 +146,7 @@ void gcta::read_bimfile(string bimfile) {
     double dbuf = 0.0;
     string str_buf;
     ifstream Bim(bimfile.c_str());
-    if (!Bim) LOGGER.e(0, "can not open the file [" + bimfile + "] to read.");
+    if (!Bim) LOGGER.e(0, "cannot open the file [" + bimfile + "] to read.");
     LOGGER << "Reading PLINK BIM file from [" + bimfile + "]." << endl;
     _chr.clear();
     _snp_name.clear();
@@ -210,8 +210,8 @@ void gcta::read_bedfile(string bedfile)
     get_rindi(rindi);
     get_rsnp(rsnp);
 
-    if (_include.size() == 0) LOGGER.e(0, "No SNP is retained for analysis.");
-    if (_keep.size() == 0) LOGGER.e(0, "No individual is retained for analysis.");
+    if (_include.size() == 0) LOGGER.e(0, "no SNP is retained for analysis.");
+    if (_keep.size() == 0) LOGGER.e(0, "no individual is retained for analysis.");
 
     // Read bed file
     char ch[1];
@@ -223,7 +223,7 @@ void gcta::read_bedfile(string bedfile)
         _snp_2[i].reserve(_keep.size());
     }
     fstream BIT(bedfile.c_str(), ios::in | ios::binary);
-    if (!BIT) LOGGER.e(0, "can not open the file [" + bedfile + "] to read.");
+    if (!BIT) LOGGER.e(0, "cannot open the file [" + bedfile + "] to read.");
     LOGGER << "Reading PLINK BED file from [" + bedfile + "] in SNP-major format ..." << endl;
     for (i = 0; i < 3; i++) BIT.read(ch, 1); // skip the first three bytes
     int snp_indx = 0, indi_indx = 0;
@@ -368,7 +368,7 @@ vector<string>  gcta::read_bfile_list(string bfile_list)
 {
     ifstream bin_list(bfile_list.c_str());
     if (!bin_list)
-        LOGGER.e(0, "Can not open the file [" + bfile_list + "] to read.");
+        LOGGER.e(0, "cannot open the file [" + bfile_list + "] to read.");
     
     string strbuf = "";
     vector<string> multi_bfiles;
@@ -386,7 +386,7 @@ vector<string>  gcta::read_bfile_list(string bfile_list)
 
 void read_single_famfile(string famfile, vector<string> &fid, vector<string> &pid, vector<string> &fa_id, vector<string> &mo_id, vector<int> &sex, vector<double> &pheno, bool msg_flag) {
     ifstream Fam(famfile.c_str());
-    if(!Fam) LOGGER.e(0, "Can not open the file [" + famfile + "] to read.");
+    if(!Fam) LOGGER.e(0, "cannot open the file [" + famfile + "] to read.");
     if(msg_flag) LOGGER.i(0, "Reading PLINK FAM file from [" + famfile + "].");
 
     int i = 0;
@@ -463,7 +463,7 @@ void gcta::update_keep(vector<string> fid_buf, vector<string> pid_buf, vector<st
             _keep.push_back(i);
             // id map
             _id_map.insert(pair<string,int>(_fid[i] + ":" + _pid[i], i));
-            if (size == _id_map.size()) LOGGER.e(0, "Duplicate individual ID found: " + _fid[i] + " " + _pid[i] + ".");
+            if (size == _id_map.size()) LOGGER.e(0, "duplicated individual IDs found: " + _fid[i] + " " + _pid[i] + ".");
             size = _id_map.size();
         }
     } else {
@@ -476,14 +476,14 @@ void gcta::update_keep(vector<string> fid_buf, vector<string> pid_buf, vector<st
             if(iter!=_id_map.end()) {
                 // already existed
                 indx = iter->second;
-                if(fa_id_buf[i] != _fa_id[indx]) LOGGER.e(0, "Inconsistent paternal ID found, " + fid_buf[i] + " " + pid_buf[i] + ", from [" + famfile + "].");
-                if(mo_id_buf[i] != _mo_id[indx]) LOGGER.e(0, "Inconsistent maternal ID found, " + fid_buf[i] + " " + pid_buf[i] + ", from [" + famfile + "].");
-                if(sex_buf[i] != _sex[indx]) LOGGER.e(0, "Inconsistent gender found, " + fid_buf[i] + " " + pid_buf[i] + ", from [" + famfile + "].");
-                if(pheno_buf[i] != _pheno[indx]) LOGGER.e(0, "Inconsistent phenotype found, " + fid_buf[i] + " " + pid_buf[i] + ", from [" + famfile + "].");
-                if(i!=indx) LOGGER.e(0, "Inconsistent orders of individuals found from [" + famfile + "]. Please make sure that the orders of individuals are the same across the fam files.");
+                if(fa_id_buf[i] != _fa_id[indx]) LOGGER.e(0, "inconsistent paternal IDs found, " + fid_buf[i] + " " + pid_buf[i] + ", from [" + famfile + "].");
+                if(mo_id_buf[i] != _mo_id[indx]) LOGGER.e(0, "inconsistent maternal IDs found, " + fid_buf[i] + " " + pid_buf[i] + ", from [" + famfile + "].");
+                if(sex_buf[i] != _sex[indx]) LOGGER.e(0, "inconsistent gender found, " + fid_buf[i] + " " + pid_buf[i] + ", from [" + famfile + "].");
+                if(pheno_buf[i] != _pheno[indx]) LOGGER.e(0, "inconsistent phenotype found, " + fid_buf[i] + " " + pid_buf[i] + ", from [" + famfile + "].");
+                if(i!=indx) LOGGER.e(0, "inconsistent order of individuals found from [" + famfile + "]. Please make sure that the order of individuals is the same across the fam files.");
             } else {
                 // not existed
-                LOGGER.e(0, "Unexpected individual ID found, " + fid_buf[i] + " " + pid_buf[i] + ", from [" + famfile + "].");
+                LOGGER.e(0, "unexpected individual ID found, " + fid_buf[i] + " " + pid_buf[i] + ", from [" + famfile + "].");
             }   
         }
     }
@@ -527,7 +527,7 @@ void read_single_bimfile(string bimfile, vector<int> &chr, vector<string> &snp_n
     double dbuf = 0.0;
     string str_buf;
     ifstream Bim(bimfile.c_str());
-    if(!Bim) LOGGER.e(0, "Can not open the file [" + bimfile + "] to read.");
+    if(!Bim) LOGGER.e(0, "cannot open the file [" + bimfile + "] to read.");
     if(msg_flag) LOGGER.i(0, "Reading PLINK BIM file from [" + bimfile + "].");
 
     chr.clear(); snp_name.clear(); genet_dst.clear(); bp.clear(); allele1.clear(); allele2.clear();
@@ -624,7 +624,7 @@ void read_single_bedfile(string bedfile, vector<pair<int,int>> rsnp, vector<int>
     char ch[1];
     bitset<8> b;
     fstream BIT(bedfile.c_str(), ios::in | ios::binary);
-    if(!BIT) LOGGER.e(0, "Can not open the file [" + bedfile + "] to read.");
+    if(!BIT) LOGGER.e(0, "cannot open the file [" + bedfile + "] to read.");
     if(msg_flag) LOGGER.i(0, "Reading PLINK BED file from [" + bedfile + "] in SNP-major format ...");
 
     // skip the first three bytes
@@ -639,7 +639,7 @@ void read_single_bedfile(string bedfile, vector<pair<int,int>> rsnp, vector<int>
         snp_indx = rsnp[t1].second;
         for (i = 0, indi_indx = 0; i < nindi_chr;) {
             BIT.read(ch, 1);
-            if (!BIT) LOGGER.e(0, "Problem with the BED file ... has the FAM/BIM file been changed?");
+            if (!BIT) LOGGER.e(0, "problem with the BED file ... has the FAM/BIM file been changed?");
             b = ch[0];
             k = 0;
             while (k < 7 && i < nindi_chr) { // change code: 11 for AA; 00 for BB;
@@ -666,8 +666,8 @@ void gcta::read_multi_bedfiles(vector<string> multi_bfiles) {
     vector<vector<pair<int, int>>> rsnp;
     vector<int> rindi_flag, rsnp_flag;
 
-    if (_include.size() == 0) LOGGER.e(0, "No SNP is retained for analysis.");
-    if (_keep.size() == 0) LOGGER.e(0, "No individual is retained for analysis.");
+    if (_include.size() == 0) LOGGER.e(0, "no SNP is retained for analysis.");
+    if (_keep.size() == 0) LOGGER.e(0, "no individual is retained for analysis.");
 
     LOGGER.i(0, "Reading PLINK BED files ...");
     // Initialize the matrix
@@ -709,7 +709,7 @@ void gcta::read_imp_info_mach_gz(string zinfofile)
     int i = 0;
     gzifstream zinf;
     zinf.open(zinfofile.c_str());
-    if (!zinf.is_open()) LOGGER.e(0, "can not open the file [" + zinfofile + "] to read.");
+    if (!zinf.is_open()) LOGGER.e(0, "cannot open the file [" + zinfofile + "] to read.");
 
     string buf, str_buf, errmsg = "Reading dosage data failed. Please check the format of the map file.";
     string c_buf;
@@ -755,11 +755,11 @@ void gcta::read_imp_info_mach_gz(string zinfofile)
 void gcta::read_imp_info_mach(string infofile)
 {
     _dosage_flag = true;    
-    if(infofile.substr(infofile.length()-3,3)==".gz") LOGGER.e(0, "the --dosage-mach option doesn't support gz file any more. Please check --dosage-mach-gz option.");
+    if(infofile.substr(infofile.length()-3,3)==".gz") LOGGER.e(0, "the --dosage-mach option doesn't support .gz file any more. Please check the --dosage-mach-gz option.");
 
     int i = 0;
     ifstream inf(infofile.c_str());
-    if (!inf.is_open()) LOGGER.e(0, "can not open the file [" + infofile + "] to read.");
+    if (!inf.is_open()) LOGGER.e(0, "cannot open the file [" + infofile + "] to read.");
 
     string buf, str_buf, errmsg = "Reading dosage data failed. Please check the format of the map file.";
     string c_buf;
@@ -800,7 +800,7 @@ void gcta::read_imp_info_mach(string infofile)
 }
 
 void gcta::read_imp_dose_mach_gz(string zdosefile, string kp_indi_file, string rm_indi_file, string blup_indi_file) {
-    if (_include.size() == 0) LOGGER.e(0, "No SNP is retained for analysis.");
+    if (_include.size() == 0) LOGGER.e(0, "no SNP is retained for analysis.");
 
     int i = 0, j = 0, k = 0, line = 0;
     vector<int> rsnp;
@@ -808,7 +808,7 @@ void gcta::read_imp_dose_mach_gz(string zdosefile, string kp_indi_file, string r
 
     gzifstream zinf;
     zinf.open(zdosefile.c_str());
-    if (!zinf.is_open()) LOGGER.e(0, "can not open the file [" + zdosefile + "] to read.");
+    if (!zinf.is_open()) LOGGER.e(0, "cannot open the file [" + zdosefile + "] to read.");
 
     vector<string> indi_ls;
     map<string, int> kp_id_map, blup_id_map, rm_id_map;
@@ -837,7 +837,7 @@ void gcta::read_imp_dose_mach_gz(string zdosefile, string kp_indi_file, string r
         if (!(ss >> str_buf)) break;
         int ibuf = StrFunc::split_string(str_buf, vs_buf, ">");
         if (ibuf > 1) {
-            if (vs_buf[0].empty()) LOGGER.e(0, "family ID of the individual [" + str_buf + "] is missing.");
+            if (vs_buf[0].empty()) LOGGER.e(0, "the family ID of the individual [" + str_buf + "] is missing.");
             else vs_buf[0].erase(vs_buf[0].end() - 1);
         } else if (ibuf == 1) vs_buf.push_back(vs_buf[0]);
         else break;
@@ -901,7 +901,7 @@ void gcta::read_imp_dose_mach_gz(string zdosefile, string kp_indi_file, string r
     // initialize keep
     init_keep();
     update_id_map_kp(kept_id, _id_map, _keep);
-    if (_keep.size() == 0) LOGGER.e(0, "No individual is retained for analysis.");
+    if (_keep.size() == 0) LOGGER.e(0, "no individual is retained for analysis.");
 
     if (blup_indi_flag) read_indi_blup(blup_indi_file);
 
@@ -910,15 +910,15 @@ void gcta::read_imp_dose_mach_gz(string zdosefile, string kp_indi_file, string r
 }
 
 void gcta::read_imp_dose_mach(string dosefile, string kp_indi_file, string rm_indi_file, string blup_indi_file) {
-    if (_include.size() == 0) LOGGER.e(0, "No SNP is retained for analysis.");
-    if(dosefile.substr(dosefile.length()-3,3)==".gz") LOGGER.e(0, "the --dosage-mach option doesn't support gz file any more. Please check --dosage-mach-gz option.");
+    if (_include.size() == 0) LOGGER.e(0, "no SNP is retained for analysis.");
+    if(dosefile.substr(dosefile.length()-3,3)==".gz") LOGGER.e(0, "the --dosage-mach option doesn't support .gz file any more. Please check the --dosage-mach-gz option.");
 
     int i = 0, j = 0, k = 0, line = 0;
     vector<int> rsnp;
     get_rsnp(rsnp);
 
     ifstream idose(dosefile.c_str());
-    if (!idose) LOGGER.e(0, "can not open the file [" + dosefile + "] to read.");
+    if (!idose) LOGGER.e(0, "cannot open the file [" + dosefile + "] to read.");
 
     vector<string> indi_ls;
     map<string, int> kp_id_map, blup_id_map, rm_id_map;
@@ -946,7 +946,7 @@ void gcta::read_imp_dose_mach(string dosefile, string kp_indi_file, string rm_in
         if (!(ss >> str_buf)) break;
         int ibuf = StrFunc::split_string(str_buf, vs_buf, ">");
         if (ibuf > 1) {
-            if (vs_buf[0].empty()) LOGGER.e(0, "family ID of the individual [" + str_buf + "] is missing.");
+            if (vs_buf[0].empty()) LOGGER.e(0, "the family ID of the individual [" + str_buf + "] is missing.");
             else vs_buf[0].erase(vs_buf[0].end() - 1);
         } else if (ibuf == 1) vs_buf.push_back(vs_buf[0]);
         else break;
@@ -1007,7 +1007,7 @@ void gcta::read_imp_dose_mach(string dosefile, string kp_indi_file, string rm_in
     // initialize keep
     init_keep();
     update_id_map_kp(kept_id, _id_map, _keep);
-    if (_keep.size() == 0) LOGGER.e(0, "No individual is retained for analysis.");
+    if (_keep.size() == 0) LOGGER.e(0, "no individual is retained for analysis.");
 
     if (blup_indi_flag) read_indi_blup(blup_indi_file);
 
@@ -1027,8 +1027,8 @@ void gcta::read_imp_info_beagle(string zinfofile) {
     double f_buf = 0.0;
     gzifstream zinf;
     zinf.open(zinfofile.c_str());
-    if (!zinf.is_open()) LOGGER.e(0, "can not open the file [" + zinfofile + "] to read.");
-    LOGGER << "Reading summary information of the imputed SNPs (BEAGLE) ..." << endl;
+    if (!zinf.is_open()) LOGGER.e(0, "cannot open the file [" + zinfofile + "] to read.");
+    LOGGER << "Reading summary information of the imputed SNPs (BEAGLE output) ..." << endl;
     zinf.getline(buf, MAX_LINE_LENGTH, '\n'); // skip the header
     while (1) {
         zinf.getline(buf, MAX_LINE_LENGTH, '\n');
@@ -1069,7 +1069,7 @@ void gcta::read_imp_info_beagle(string zinfofile) {
 }
 
 void gcta::read_imp_dose_beagle(string zdosefile, string kp_indi_file, string rm_indi_file, string blup_indi_file) {
-    if (_include.size() == 0) LOGGER.e(0, "No SNP is retained for analysis.");
+    if (_include.size() == 0) LOGGER.e(0, "no SNP is retained for analysis.");
     int i = 0, j = 0;
     vector<int> rsnp;
     get_rsnp(rsnp);
@@ -1080,7 +1080,7 @@ void gcta::read_imp_dose_beagle(string zdosefile, string kp_indi_file, string rm
 
     gzifstream zinf;
     zinf.open(zdosefile.c_str());
-    if (!zinf.is_open()) LOGGER.e(0, "can not open the file [" + zdosefile + "] to read.");
+    if (!zinf.is_open()) LOGGER.e(0, "cannot open the file [" + zdosefile + "] to read.");
     LOGGER << "Reading imputed dosage scores (BEAGLE output) ..." << endl;
     zinf.getline(buf, MAX_LINE_LENGTH, '\n');
     stringstream ss(buf);
@@ -1145,7 +1145,7 @@ void gcta::save_bedfile() {
     int i = 0, pos = 0, j = 0;
     string OutBedFile = _out + ".bed";
     fstream OutBed(OutBedFile.c_str(), ios::out | ios::binary);
-    if (!OutBed) LOGGER.e(0, "can not open the file [" + OutBedFile + "] to write.");
+    if (!OutBed) LOGGER.e(0, "cannot open the file [" + OutBedFile + "] to write.");
     LOGGER << "Writing genotypes to PLINK BED file [" + OutBedFile + "] ..." << endl;
     bitset<8> b;
     char ch[1];
@@ -1187,7 +1187,7 @@ void gcta::save_bedfile() {
 void gcta::save_famfile() {
     string famfile = _out + ".fam";
     ofstream Fam(famfile.c_str());
-    if (!Fam) LOGGER.e(0, "can not open the fam file " + famfile + " to save!");
+    if (!Fam) LOGGER.e(0, "cannot open the fam file " + famfile + " to save!");
     LOGGER << "Writing PLINK FAM file to [" + famfile + "] ..." << endl;
     int i = 0;
     for (i = 0; i < _keep.size(); i++) {
@@ -1201,8 +1201,8 @@ void gcta::save_bimfile() {
     int i = 0;
     string bimfile = _out + ".bim";
     ofstream Bim(bimfile.c_str());
-    if (!Bim) LOGGER.e(0, "can not open the file [" + bimfile + "] to write.");
-    LOGGER << "Writing PLINK bim file to [" + bimfile + "] ..." << endl;
+    if (!Bim) LOGGER.e(0, "cannot open the file [" + bimfile + "] to write.");
+    LOGGER << "Writing PLINK BIM file to [" + bimfile + "] ..." << endl;
     for (i = 0; i < _include.size(); i++) {
         Bim << _chr[_include[i]] << "\t" << _snp_name[_include[i]] << "\t" << _genet_dst[_include[i]] << "\t" << _bp[_include[i]] << "\t" << _allele1[_include[i]] << "\t" << _allele2[_include[i]] << endl;
     }
@@ -1265,7 +1265,7 @@ void gcta::read_snplist(string snplistfile, vector<string> &snplist, string msg)
     snplist.clear();
     string StrBuf;
     ifstream i_snplist(snplistfile.c_str());
-    if (!i_snplist) LOGGER.e(0, "can not open the file [" + snplistfile + "] to read.");
+    if (!i_snplist) LOGGER.e(0, "cannot open the file [" + snplistfile + "] to read.");
     LOGGER << "Reading a list of " << msg << " from [" + snplistfile + "]." << endl;
     while (i_snplist >> StrBuf) {
         snplist.push_back(StrBuf);
@@ -1287,7 +1287,7 @@ void gcta::extract_single_snp(string snpname)
     vector<string> snplist;
     snplist.push_back(snpname);
     update_id_map_kp(snplist, _snp_name_map, _include);
-    if (_include.empty()) LOGGER.e(0, "can not find the SNP [" + snpname + "] in the data.");
+    if (_include.empty()) LOGGER.e(0, "cannot find the SNP [" + snpname + "] in the data.");
     else LOGGER << "Only the SNP [" + snpname + "] is included in the analysis." << endl;
 }
 
@@ -1298,7 +1298,7 @@ void gcta::extract_region_snp(string snpname, int wind_size)
     iter = _snp_name_map.find(snpname);
     int i = 0, j = 0;
     vector<string> snplist;
-    if(iter==_snp_name_map.end()) LOGGER.e(0, "can not find the SNP [" + snpname + "] in the data.");
+    if(iter==_snp_name_map.end()) LOGGER.e(0, "cannot find the SNP [" + snpname + "] in the data.");
     else{
         int bp = _bp[iter->second];
         int chr = _chr[iter->second];
@@ -1307,7 +1307,7 @@ void gcta::extract_region_snp(string snpname, int wind_size)
             if(_chr[j] == chr && abs(_bp[j]-bp) <= wind_size) snplist.push_back(_snp_name[j]);
         }
     }
-    if(snplist.empty()) LOGGER.e(0, "on SNP found in this region.");
+    if(snplist.empty()) LOGGER.e(0, "no SNP found in this region.");
     update_id_map_kp(snplist, _snp_name_map, _include);
     LOGGER << _include.size() << " SNPs are extracted." << endl;
 }
@@ -1321,7 +1321,7 @@ void gcta::extract_region_bp(int chr, int bp, int wind_size)
         j = _include[i];
         if(_chr[j] == chr && abs(_bp[j]-bp) <= wind_size) snplist.push_back(_snp_name[j]);
     }
-    if(snplist.empty()) LOGGER.e(0, "on SNP found in this region.");
+    if(snplist.empty()) LOGGER.e(0, "no SNP found in this region.");
     update_id_map_kp(snplist, _snp_name_map, _include);
     LOGGER << _include.size() << " SNPs are extracted." << endl;
 }
@@ -1342,7 +1342,7 @@ void gcta::exclude_region_snp(string snpname, int wind_size)
     iter = _snp_name_map.find(snpname);
     int i = 0, j = 0;
     vector<string> snplist;
-    if(iter==_snp_name_map.end()) LOGGER.e(0, "can not find the SNP [" + snpname + "] in the data.");
+    if(iter==_snp_name_map.end()) LOGGER.e(0, "cannot find the SNP [" + snpname + "] in the data.");
     else{
         int bp = _bp[iter->second];
         int chr = _chr[iter->second];
@@ -1351,23 +1351,23 @@ void gcta::exclude_region_snp(string snpname, int wind_size)
             if(_chr[j] == chr && abs(_bp[j]-bp) <= wind_size) snplist.push_back(_snp_name[j]);
         }
     }
-    if(snplist.empty()) LOGGER.e(0, "on SNP found in this region.");
+    if(snplist.empty()) LOGGER.e(0, "no SNP found in this region.");
     update_id_map_rm(snplist, _snp_name_map, _include);
     LOGGER << _include.size() << " SNPs have been excluded." << endl;
 }
 
 void gcta::exclude_region_bp(int chr, int bp, int wind_size)
 {
-    LOGGER << "Extracting SNPs " << wind_size/1000 << "kb away from the position [chr=" << chr <<"; bp="<< bp << "] in either direction ..." << endl;
+    LOGGER << "Excluding SNPs " << wind_size/1000 << "kb away from the position [chr=" << chr <<"; bp="<< bp << "] in either direction ..." << endl;
     int i = 0, j = 0;
     vector<string> snplist;
     for(i = 0; i < _include.size(); i++){
         j = _include[i];
         if(_chr[j] == chr && abs(_bp[j]-bp) <= wind_size) snplist.push_back(_snp_name[j]);
     }
-    if(snplist.empty()) LOGGER.e(0, "on SNP found in this region.");
+    if(snplist.empty()) LOGGER.e(0, "no SNP found in this region.");
     update_id_map_rm(snplist, _snp_name_map, _include);
-    LOGGER << _include.size() << " SNPs are excludeed." << endl;
+    LOGGER << _include.size() << " SNPs are excluded." << endl;
 }
 
 void gcta::exclude_single_snp(string snpname)
@@ -1376,8 +1376,8 @@ void gcta::exclude_single_snp(string snpname)
     snplist.push_back(snpname);
     int include_size = _include.size();
     update_id_map_rm(snplist, _snp_name_map, _include);
-    if (_include.size() == include_size) LOGGER.e(0, "can not find the SNP [" + snpname + "] in the data.");
-    else LOGGER << "The SNP[" + snpname + "] has been excluded from the analysis." << endl;
+    if (_include.size() == include_size) LOGGER.e(0, "cannot find the SNP [" + snpname + "] in the data.");
+    else LOGGER << "The SNP [" + snpname + "] has been excluded from the analysis." << endl;
 }
 
 void gcta::extract_chr(int chr_start, int chr_end)
@@ -1414,7 +1414,7 @@ void gcta::filter_snp_maf(double maf)
         _snp_name_map.insert(*iter);
         _include.push_back(iter->second);
     }
-    if (_include.size() == 0) LOGGER.e(0, "No SNP is retained for analysis.");
+    if (_include.size() == 0) LOGGER.e(0, "no SNP is retained for analysis.");
     else {
         stable_sort(_include.begin(), _include.end());
         LOGGER << "After filtering SNPs with MAF > " << maf << ", there are " << _include.size() << " SNPs (" << prev_size - _include.size() << " SNPs with MAF < " << maf << ")." << endl;
@@ -1438,7 +1438,7 @@ void gcta::filter_snp_max_maf(double max_maf)
         _snp_name_map.insert(*iter);
         _include.push_back(iter->second);
     }
-    if (_include.size() == 0) LOGGER.e(0, "No SNP is retained for analysis.");
+    if (_include.size() == 0) LOGGER.e(0, "no SNP is retained for analysis.");
     else {
         stable_sort(_include.begin(), _include.end());
         LOGGER << "After filtering SNPs with MAF < " << max_maf << ", there are " << _include.size() << " SNPs (" << prev_size - _include.size() << " SNPs with MAF > " << max_maf << ")." << endl;
@@ -1459,7 +1459,7 @@ void gcta::filter_impRsq(double rsq_cutoff)
         _snp_name_map.insert(*iter);
         _include.push_back(iter->second);
     }
-    if (_include.size() == 0) LOGGER.e(0, "No SNP is retained for analysis.");
+    if (_include.size() == 0) LOGGER.e(0, "no SNP is retained for analysis.");
     else {
         stable_sort(_include.begin(), _include.end());
         LOGGER << "After filtering for imputation Rsq > " << rsq_cutoff << ", there are " << _include.size() << " SNPs (" << prev_size - _include.size() << " SNPs with imputation Rsq < " << rsq_cutoff << ")." << endl;
@@ -1469,7 +1469,7 @@ void gcta::filter_impRsq(double rsq_cutoff)
 void gcta::read_indi_list(string indi_list_file, vector<string> &indi_list)
 {
     ifstream i_indi_list(indi_list_file.c_str());
-    if (!i_indi_list) LOGGER.e(0, "can not open the file [" + indi_list_file + "] to read.");
+    if (!i_indi_list) LOGGER.e(0, "cannot open the file [" + indi_list_file + "] to read.");
     string str_buf, id_buf;
     indi_list.clear();
     while (i_indi_list) {
@@ -1501,7 +1501,7 @@ void gcta::remove_indi(string indi_list_file) {
 
 void gcta::update_sex(string sex_file) {
     ifstream isex(sex_file.c_str());
-    if (!isex) LOGGER.e(0, "can not open the file [" + sex_file + "] to read.");
+    if (!isex) LOGGER.e(0, "cannot open the file [" + sex_file + "] to read.");
     int sex_buf = 0, icount = 0;
     string str_buf, fid, pid;
     LOGGER << "Reading sex information from [" + sex_file + "]." << endl;
@@ -1527,14 +1527,14 @@ void gcta::update_sex(string sex_file) {
     isex.close();
 
     for (int i = 0; i < _keep.size(); i++) {
-        if (confirm[_keep[i]] != 1) LOGGER.e(0, "sex information for all of the included individuals should be updated.");
+        if (confirm[_keep[i]] != 1) LOGGER.e(0, "the sex information for all of the included individuals should be updated.");
     }
     LOGGER << "Sex information for " << icount << " individuals are update from [" + sex_file + "]." << endl;
 }
 
 void gcta::update_ref_A(string ref_A_file) {
     ifstream i_ref_A(ref_A_file.c_str());
-    if (!i_ref_A) LOGGER.e(0, "can not open the file [" + ref_A_file + "] to read.");
+    if (!i_ref_A) LOGGER.e(0, "cannot open the file [" + ref_A_file + "] to read.");
     int i = 0;
     string str_buf, ref_A_buf;
     LOGGER << "Reading reference alleles of SNPs from [" + ref_A_file + "]." << endl;
@@ -1558,7 +1558,7 @@ void gcta::update_ref_A(string ref_A_file) {
         getline(i_ref_A, str_buf);
     }
     i_ref_A.close();
-    LOGGER << "Reference alleles of " << icount << " SNPs are update from [" + ref_A_file + "]." << endl;
+    LOGGER << "Reference alleles of " << icount << " SNPs are updated from [" + ref_A_file + "]." << endl;
     if (icount != _snp_num) LOGGER << "Warning: reference alleles of " << _snp_num - icount << " SNPs have not been updated." << endl;
 }
 
@@ -1600,7 +1600,7 @@ void gcta::calcu_mu(bool ssq_flag) {
     }
 
     if(flag_x_problem){
-        LOGGER.w(0, "gender information (the 5th column of the .fam file) is required for analysis on chromosome X, GCTA assumes those missing samples as female.");
+        LOGGER.w(0, "gender information (the 5th column of the .fam file) is required for analysis on chromosome X. GCTA assumes that those missing samples are females.");
     }
 }
 
@@ -1643,7 +1643,7 @@ void gcta::mu_func(int j, vector<double> &fac) {
 
 void gcta::update_impRsq(string zinfofile) {
     ifstream iRsq(zinfofile.c_str());
-    if (!iRsq) LOGGER.e(0, "can not open the file [" + zinfofile + "] to read.");
+    if (!iRsq) LOGGER.e(0, "cannot open the file [" + zinfofile + "] to read.");
 
     string snp_name_buf, str_buf;
     double fbuf = 0.0;
@@ -1667,13 +1667,13 @@ void gcta::update_impRsq(string zinfofile) {
     }
     iRsq.close();
 
-    LOGGER << "Imputation Rsq of " << icount << " SNPs are update from [" + zinfofile + "]." << endl;
+    LOGGER << "Imputation Rsq of " << icount << " SNPs are updated from [" + zinfofile + "]." << endl;
     if (icount != _snp_num) LOGGER << "Warning: imputation Rsq of " << _snp_num - icount << " SNPs have not been updated." << endl;
 }
 
 void gcta::update_freq(string freq) {
     ifstream ifreq(freq.c_str());
-    if (!ifreq) LOGGER.e(0, "can not open the file [" + freq + "] to read.");
+    if (!ifreq) LOGGER.e(0, "cannot open the file [" + freq + "] to read.");
     int i = 0;
     string ref_A_buf;
     double fbuf = 0.0;
@@ -1703,7 +1703,7 @@ void gcta::update_freq(string freq) {
     }
     ifreq.close();
 
-    LOGGER << "Allele frequencies of " << icount << " SNPs are update from [" + freq + "]." << endl;
+    LOGGER << "Allele frequencies of " << icount << " SNPs are updated from [" + freq + "]." << endl;
     if (icount != _snp_num) LOGGER << "Warning: allele frequencies of " << _snp_num - icount << " SNPs have not been updated." << endl;
 }
 
@@ -1711,7 +1711,7 @@ void gcta::save_freq(bool ssq_flag) {
     if (_mu.empty()) calcu_mu(ssq_flag);
     string save_freq = _out + ".freq";
     ofstream ofreq(save_freq.c_str());
-    if (!ofreq) LOGGER.e(0, "can not open the file [" + save_freq + "] to write.");
+    if (!ofreq) LOGGER.e(0, "cannot open the file [" + save_freq + "] to write.");
     int i = 0;
     LOGGER << "Writing allele frequencies of " << _include.size() << " SNPs to [" + save_freq + "]." << endl;
     for (i = 0; i < _include.size(); i++) {
@@ -1726,7 +1726,7 @@ void gcta::save_freq(bool ssq_flag) {
 void gcta::read_indi_blup(string blup_indi_file) {
     vector< vector<string> > g_buf;
     ifstream i_indi_blup(blup_indi_file.c_str());
-    if (!i_indi_blup) LOGGER.e(0, "can not open the file [" + blup_indi_file + "] to read.");
+    if (!i_indi_blup) LOGGER.e(0, "cannot open the file [" + blup_indi_file + "] to read.");
     string str_buf, id_buf;
     vector<string> id, vs_buf;
     int i = 0, j = 0, k = 0, col_num = 0;
@@ -1990,7 +1990,7 @@ void gcta::save_XMat(bool miss_with_mu, bool std)
     string X_zFile = _out + ".xmat.gz";
     gzofstream zoutf;
     zoutf.open(X_zFile.c_str());
-    if (!zoutf.is_open()) LOGGER.e(0, "can not open the file [" + X_zFile + "] to write.");
+    if (!zoutf.is_open()) LOGGER.e(0, "cannot open the file [" + X_zFile + "] to write.");
     LOGGER << "Saving the recoded genotype matrix to the file [" + X_zFile + "]." << endl;
     zoutf << "FID IID ";
     for (j = 0; j < _include.size(); j++) zoutf << _snp_name[_include[j]] << " ";

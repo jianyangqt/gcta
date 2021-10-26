@@ -32,7 +32,7 @@ void gcta::check_chrX() {
 
 void gcta::check_sex() {
     for (int i = 0; i < _keep.size(); i++) {
-        if (_sex[_keep[i]] != 1 && _sex[_keep[i]] != 2) LOGGER.e(0, "Sex information of the individual \"" + _fid[_keep[i]] + " " + _pid[_keep[i]] + "\" is missing.\nUse --update-sex option to update the sex information of the individuals.");
+        if (_sex[_keep[i]] != 1 && _sex[_keep[i]] != 2) LOGGER.e(0, "sex information of the individual \"" + _fid[_keep[i]] + " " + _pid[_keep[i]] + "\" is missing.\nUse --update-sex option to update the sex information of the individuals.");
     }
 }
 
@@ -193,7 +193,7 @@ void gcta::output_grm(bool output_grm_bin)
         // Save matrix A in binary file
         grm_file = _out + ".grm.bin";
         fstream A_Bin(grm_file.c_str(), ios::out | ios::binary);
-        if (!A_Bin) LOGGER.e(0, "can not open the file [" + grm_file + "] to write.");
+        if (!A_Bin) LOGGER.e(0, "cannot open the file [" + grm_file + "] to write.");
         float f_buf = 0.0;
         int size = sizeof (float);
         for (i = 0; i < _keep.size(); i++) {
@@ -207,7 +207,7 @@ void gcta::output_grm(bool output_grm_bin)
 
         string grm_N_file = _out + ".grm.N.bin";
         fstream N_Bin(grm_N_file.c_str(), ios::out | ios::binary);
-        if (!N_Bin) LOGGER.e(0, "can not open the file [" + grm_N_file + "] to write.");
+        if (!N_Bin) LOGGER.e(0, "cannot open the file [" + grm_N_file + "] to write.");
         f_buf = 0.0;
         size = sizeof (int);
         for (i = 0; i < _keep.size(); i++) {
@@ -217,14 +217,14 @@ void gcta::output_grm(bool output_grm_bin)
             }
         }
         N_Bin.close();
-        LOGGER << "Number of SNPs to calcuate the genetic relationship between each pair of individuals has been saved in the file [" + grm_N_file + "] (in binary format)." << endl;
+        LOGGER << "Number of SNPs to calculate the genetic relationship between each pair of individuals has been saved in the file [" + grm_N_file + "] (in binary format)." << endl;
     } 
     else {
         // Save A matrix in txt format
         grm_file = _out + ".grm.gz";
         gzofstream zoutf;
         zoutf.open(grm_file.c_str());
-        if (!zoutf.is_open()) LOGGER.e(0, "can not open the file [" + grm_file + "] to write.");
+        if (!zoutf.is_open()) LOGGER.e(0, "cannot open the file [" + grm_file + "] to write.");
         LOGGER << "Saving the genetic relationship matrix to the file [" + grm_file + "] (in compressed text format)." << endl;
         zoutf.setf(ios::scientific);
         zoutf.precision(6);
@@ -244,7 +244,7 @@ void gcta::output_grm(bool output_grm_bin)
 
     string famfile = _out + ".grm.id";
     ofstream Fam(famfile.c_str());
-    if (!Fam) LOGGER.e(0, "can not open the file [" + famfile + "] to write.");
+    if (!Fam) LOGGER.e(0, "cannot open the file [" + famfile + "] to write.");
     for (i = 0; i < _keep.size(); i++) Fam << _fid[_keep[i]] + "\t" + _pid[_keep[i]] << endl;
     Fam.close();
     LOGGER << "IDs for the GRM file [" + grm_file + "] have been saved in the file [" + famfile + "]." << endl;
@@ -256,7 +256,7 @@ int gcta::read_grm_id(string grm_file, vector<string> &grm_id, bool out_id_log, 
     string grm_id_file = grm_file + ".grm.id";
     if (out_id_log) LOGGER << "Reading IDs of the GRM from [" + grm_id_file + "]." << endl;
     ifstream i_grm_id(grm_id_file.c_str());
-    if (!i_grm_id) LOGGER.e(0, "can not open the file [" + grm_id_file + "] to read.");
+    if (!i_grm_id) LOGGER.e(0, "cannot open the file [" + grm_id_file + "] to read.");
     string str_buf, id_buf;
     vector<string> fid, pid;
     grm_id.clear();
@@ -273,7 +273,7 @@ int gcta::read_grm_id(string grm_file, vector<string> &grm_id, bool out_id_log, 
     }
     i_grm_id.close();
     int n = grm_id.size();
-    if (out_id_log) LOGGER << n << " IDs read from [" + grm_id_file + "]." << endl;
+    if (out_id_log) LOGGER << n << " IDs are read from [" + grm_id_file + "]." << endl;
 
     if (_id_map.empty()) {
         _fid = fid;
@@ -302,7 +302,7 @@ void gcta::read_grm_gz(string grm_file, vector<string> &grm_id, bool out_id_log,
     char buf[MAX_LINE_LENGTH];
     gzifstream zinf;
     zinf.open(grm_gzfile.c_str());
-    if (!zinf.is_open()) LOGGER.e(0, "can not open the file [" + grm_gzfile + "] to read.");
+    if (!zinf.is_open()) LOGGER.e(0, "cannot open the file [" + grm_gzfile + "] to read.");
 
     long indx1 = 0, indx2 = 0, nline = 0;
     double grm_buf = 0.0, grm_N_buf;
@@ -330,7 +330,7 @@ void gcta::read_grm_gz(string grm_file, vector<string> &grm_id, bool out_id_log,
         stringstream errmsg_tmp;
         errmsg_tmp << "there are " << nline << " lines in the [" << grm_gzfile << "] file. The expected number of lines is " << (long) (n * (n + 1)*0.5) << "." << endl;
         LOGGER.e(0, errmsg_tmp.str());
-        //LOGGER.e(0, "incorrect number of lines in the grm file. *.grm.gz file and *.grm.id file are mismatched?");
+        //LOGGER.e(0, "incorrect number of lines in the grm file. Are *.grm.gz file and *.grm.id file mismatched?");
     }
     LOGGER << "GRM for " << n << " individuals are included from [" + grm_gzfile + "]." << endl;
 }
@@ -343,14 +343,14 @@ void gcta::read_grm_bin(string grm_file, vector<string> &grm_id, bool out_id_log
 
     string grm_binfile = grm_file + ".grm.bin";
     ifstream A_bin(grm_binfile.c_str(), ios::in | ios::binary);
-    if (!A_bin.is_open()) LOGGER.e(0, "can not open the file [" + grm_binfile + "] to read.");
+    if (!A_bin.is_open()) LOGGER.e(0, "cannot open the file [" + grm_binfile + "] to read.");
     _grm.resize(n, n);
     LOGGER << "Reading the GRM from [" + grm_binfile + "]." << endl;
     int size = sizeof (float);
     float f_buf = 0.0;
     for (i = 0; i < n; i++) {
         for (j = 0; j <= i; j++) {
-            if (!(A_bin.read((char*) &f_buf, size))) LOGGER.e(0, "the size of the [" + grm_binfile + "] file is incomplete?");
+            if (!(A_bin.read((char*) &f_buf, size))) LOGGER.e(0, "Is the size of the [" + grm_binfile + "] file incorrect?");
             _grm(j, i) = _grm(i, j) = f_buf;
         }
     }
@@ -359,14 +359,14 @@ void gcta::read_grm_bin(string grm_file, vector<string> &grm_id, bool out_id_log
     if(!dont_read_N){
         string grm_Nfile = grm_file + ".grm.N.bin";
         ifstream N_bin(grm_Nfile.c_str(), ios::in | ios::binary);
-        if (!N_bin.is_open()) LOGGER.e(0, "can not open the file [" + grm_Nfile + "] to read.");
+        if (!N_bin.is_open()) LOGGER.e(0, "cannot open the file [" + grm_Nfile + "] to read.");
         _grm_N.resize(n, n);
         LOGGER << "Reading the number of SNPs for the GRM from [" + grm_Nfile + "]." << endl;
         size = sizeof (float);
         f_buf = 0.0;
         for (i = 0; i < n; i++) {
             for (j = 0; j <= i; j++) {
-                if (!(N_bin.read((char*) &f_buf, size))) LOGGER.e(0, "the size of the [" + grm_Nfile + "] file is incomplete?");
+                if (!(N_bin.read((char*) &f_buf, size))) LOGGER.e(0, "Is the size of the [" + grm_Nfile + "] file incorrect?");
                 _grm_N(j, i) = _grm_N(i, j) = f_buf;
             }
         }
@@ -528,7 +528,7 @@ void gcta::merge_grm(string merge_grm_file) {
     vector<string> uni_id;
     for (i = 0; i < _keep.size(); i++) uni_id.push_back(_fid[_keep[i]] + ":" + _pid[_keep[i]]);
     _n = uni_id.size();
-    if (_n == 0) LOGGER.e(0, "no individual is in common in the GRM files.");
+    if (_n == 0) LOGGER.e(0, "no individual is in common among the GRM files.");
     else LOGGER << _n << " individuals in common in the GRM files." << endl;
 
     vector<int> kp;
@@ -574,8 +574,8 @@ void gcta::align_grm(string m_grm_file) {
     vector<string> uni_id;
     for (i = 0; i < _keep.size(); i++) uni_id.push_back(_fid[_keep[i]] + ":" + _pid[_keep[i]]);
     _n = uni_id.size();
-    if (_n == 0) LOGGER.e(0, "no individual is in common in the GRM files.");
-    else LOGGER << _n << " individuals in common in the GRM files." << endl;
+    if (_n == 0) LOGGER.e(0, "no individual is in common among the GRM files.");
+    else LOGGER << _n << " individuals are in common among the GRM files." << endl;
     
     string _out_save = _out;
     
@@ -621,7 +621,7 @@ void gcta::align_grm(string m_grm_file) {
 
 void gcta::read_grm_filenames(string merge_grm_file, vector<string> &grm_files, bool out_log) {
     ifstream merge_grm(merge_grm_file.c_str());
-    if (!merge_grm) LOGGER.e(0, "can not open the file [" + merge_grm_file + "] to read.");
+    if (!merge_grm) LOGGER.e(0, "cannot open the file [" + merge_grm_file + "] to read.");
     string str_buf;
     grm_files.clear();
     vector<string> vs_buf;
@@ -631,7 +631,7 @@ void gcta::read_grm_filenames(string merge_grm_file, vector<string> &grm_files, 
         }
     }
     if (out_log) LOGGER << "There are " << grm_files.size() << " GRM file names specified in [" + merge_grm_file + "]." << endl;
-    if (grm_files.size() > 1000) LOGGER.e(0, "too many GRM file names specified in [" + merge_grm_file + "]. Maximum is 1000.");
+    if (grm_files.size() > 1000) LOGGER.e(0, "too many GRM file names specified in [" + merge_grm_file + "]. The maximum number is 1000.");
     if (grm_files.size() < 1) LOGGER.e(0, "no GRM file name is found in [" + merge_grm_file + "].");
 }
 
@@ -679,13 +679,13 @@ void gcta::pca(string grm_file, string keep_indi_file, string remove_indi_file, 
 
     string eval_file = _out + ".eigenval";
     ofstream o_eval(eval_file.c_str());
-    if (!o_eval) LOGGER.e(0, "can not open the file [" + eval_file + "] to read.");
+    if (!o_eval) LOGGER.e(0, "cannot open the file [" + eval_file + "] to read.");
     for (i = n - 1; i >= 0; i--) o_eval << eval(i) << endl;
     o_eval.close();
     LOGGER << "Eigenvalues of " << n << " individuals have been saved in [" + eval_file + "]." << endl;
     string evec_file = _out + ".eigenvec";
     ofstream o_evec(evec_file.c_str());
-    if (!o_evec) LOGGER.e(0, "can not open the file [" + evec_file + "] to read.");
+    if (!o_evec) LOGGER.e(0, "cannot open the file [" + evec_file + "] to read.");
     if (out_pc_num > n) out_pc_num = n;
     for (i = 0; i < n; i++) {
         o_evec << _fid[_keep[i]] << " " << _pid[_keep[i]];
@@ -701,10 +701,10 @@ void gcta::snp_pc_loading(string pc_file)
     // read eigenvectors and eigenvalues
     string eigenval_file = pc_file + ".eigenval";
     ifstream in_eigenval(eigenval_file.c_str());
-    if (!in_eigenval) LOGGER.e(0, "can not open the file [" + eigenval_file + "] to read.");
+    if (!in_eigenval) LOGGER.e(0, "cannot open the file [" + eigenval_file + "] to read.");
     string eigenvec_file = pc_file + ".eigenvec";
     ifstream in_eigenvec(eigenvec_file.c_str());
-    if (!in_eigenvec) LOGGER.e(0, "can not open the file [" + eigenvec_file + "] to read.");
+    if (!in_eigenvec) LOGGER.e(0, "cannot open the file [" + eigenvec_file + "] to read.");
   
     LOGGER << "Reading eigenvectors from [" + eigenvec_file + "]." << endl;
     vector<string> eigenvec_ID;
@@ -724,7 +724,7 @@ void gcta::snp_pc_loading(string pc_file)
         eigenval_num++;
     }
     if(eigenvec_num != eigenval_num) LOGGER.e(0, "inconsistent numbers of eigenvalues and eigenvectors in the files [" + eigenval_file + "] and [" + eigenvec_file + "]");
-    LOGGER << eigenval_num << " eigenvalues read from [" + eigenval_file + "]" << endl;  
+    LOGGER << eigenval_num << " eigenvalues are read from [" + eigenval_file + "]" << endl;  
 
     int i = 0, j = 0;
     vector<string> uni_id;
@@ -736,7 +736,7 @@ void gcta::snp_pc_loading(string pc_file)
     }
     _n = _keep.size();
     int m = _include.size();
-    if(_n < 1) LOGGER.e(0, "no individual is in common between the input files.");
+    if(_n < 1) LOGGER.e(0, "no individual is in common among the input files.");
     LOGGER << _n << " individuals in common between the input files are included in the analysis."<<endl;
     
     eigenMatrix eigenvec(eigenvec_num, _n);
@@ -751,7 +751,7 @@ void gcta::snp_pc_loading(string pc_file)
 
     // calculating SNP loading
     if (_mu.empty()) calcu_mu();
-    LOGGER << "\nCalculating SNP loading ..." << endl;
+    LOGGER << "\nCalculating PC loadings of SNPs..." << endl;
     eigenMatrix snp_loading(m, eigenvec_num);
     eigenVector x(_n);
     for(j = 0; j < m ; j++) {
@@ -761,9 +761,9 @@ void gcta::snp_pc_loading(string pc_file)
     }
 
     string filename = _out + ".pcl";
-    LOGGER << "\nSaving the PC loading of " << m << " SNPs to [" + filename + "] ..." << endl;
+    LOGGER << "\nSaving the PC loadings of " << m << " SNPs to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
-    if(!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
+    if(!ofile) LOGGER.e(0, "cannot open the file [" + filename + "] to write.");
     ofile << "SNP\tA1\tA2\tmu";
     for(i = 0; i < eigenval_num; i++) ofile << "\tpc" << i+1 << "_loading";
     ofile << endl;
@@ -786,21 +786,21 @@ void gcta::project_loading(string pc_load, int N){
 
     string f_pc_load = pc_load + ".pcl";
     ifstream h_pc_load(f_pc_load.c_str());
-    if (!h_pc_load) LOGGER.e(0, "can't open the loading file [" + f_pc_load + "] to read.");
+    if (!h_pc_load) LOGGER.e(0, "cannot open the loading file [" + f_pc_load + "] to read.");
     
     // output eigenvec. Moving this up to save the time for user when running in an unwritable directory.
     string out_filename = _out + ".proj.eigenvec";
-    //LOGGER << "\nOpen the projected file for write [" << out_filename << "]."<< endl;
+    //LOGGER << "\nOpen the project file [" << out_filename << "] to write."<< endl;
     ofstream ofile(out_filename.c_str());
     if(!ofile) LOGGER.e(0, "failed to open the file [" + out_filename + "] to write.");
 
-    LOGGER << "Reading SNP loading from [" + f_pc_load + "]." << endl;
+    LOGGER << "Reading PC loadings of SNPs from [" + f_pc_load + "]." << endl;
     string buf;
     vector<string> vsec_buf;
     string header;
     getline(h_pc_load,header);
     size_t N_loading_file = count(header.begin(),header.end(),'p');
-    LOGGER << "Number of PC loading: " << N_loading_file << endl;
+    LOGGER << "Number of PC loading vectors: " << N_loading_file << endl;
     while(h_pc_load >> buf){
         vsec_buf.push_back(buf);
     }
@@ -812,10 +812,10 @@ void gcta::project_loading(string pc_load, int N){
     int num_snp = vsec_buf.size() / len_col;
     LOGGER << "Number of SNPs in loading array: " << num_snp << "." << endl; 
     if(vsec_buf.size() % len_col != 0){
-        LOGGER.e(0, "the loading file has different number of column! Please check your loading file");
+        LOGGER.e(0, "invalid number of columns in the PC loading file. Please check.");
     }
     if(N > N_loading_file){
-        LOGGER.e(0, "only " + to_string(N_loading_file) + " loadings, thus not able to project into " + to_string(N) + " PCs.");
+        LOGGER.e(0, "only " + to_string(N_loading_file) + " vectors of PC loadings available, thus not able to project onto " + to_string(N) + " PCs.");
     }
 
     vector<string> snps(num_snp);
@@ -846,7 +846,7 @@ void gcta::project_loading(string pc_load, int N){
     vsec_buf.clear();
     vsec_buf.shrink_to_fit();
     
-    LOGGER << "Matching Alleles..." << endl;
+    LOGGER << "Matching alleles..." << endl;
     vector<int> snp_index_include(snps.size());
     StrFunc::match(snps,_snp_name,snp_index_include);
     // _include should be fixed here, it cause maf caculation go vain; 
@@ -887,7 +887,7 @@ void gcta::project_loading(string pc_load, int N){
     if(missnp_list.size() > 0){
         LOGGER.w(0, to_string(missnp_list.size()) + " SNPs are not found or alleles mismatch in the target genotype"); 
         string miss_file = _out + ".proj.missnp";
-        LOGGER << " See [" << miss_file << "] for more details, if plenty of SNPs missed, the projection might be biased." << endl;
+        LOGGER << " See [" << miss_file << "] for details. If there are many missing SNPs, the projection might be biased." << endl;
         ofstream h_miss(miss_file);
         ostream_iterator<string> output_iterator(h_miss,"\n");
         copy(missnp_list.begin(), missnp_list.end(), output_iterator);
@@ -896,7 +896,7 @@ void gcta::project_loading(string pc_load, int N){
     missnp_list.shrink_to_fit();
 
     //if(_mu.empty()) calcu_mu();
-    LOGGER << "Standardize genotypes and project PCs..." << endl;
+    LOGGER << "Standardizing genotypes and projecting PCs..." << endl;
     LOGGER << "Total number of subjects: " << _keep.size() << "\n" << endl;
     //ofstream demo(_out + ".proj.matrix");
     LOGGER << "Processing subject number: " << endl;

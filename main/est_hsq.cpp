@@ -62,7 +62,7 @@ void gcta::set_reml_inv_method(int method){
 void gcta::read_phen(string phen_file, vector<string> &phen_ID, vector< vector<string> > &phen_buf, int mphen, int mphen2) {
     // Read phenotype data
     ifstream in_phen(phen_file.c_str());
-    if (!in_phen) LOGGER.e(0, "can not open the file [" + phen_file + "] to read.");
+    if (!in_phen) LOGGER.e(0, "cannot open the file [" + phen_file + "] to read.");
 
     int i = 0;
     vector<string> fid, pid, vs_buf;
@@ -127,17 +127,17 @@ void gcta::read_phen(string phen_file, vector<string> &phen_ID, vector< vector<s
 int gcta::read_covar(string covar_file, vector<string> &covar_ID, vector< vector<string> > &covar, bool qcovar_flag) {
     // Read covariate data
     ifstream in_covar(covar_file.c_str());
-    if (!in_covar) LOGGER.e(0, "can not open the file [" + covar_file + "] to read.");
+    if (!in_covar) LOGGER.e(0, "cannot open the file [" + covar_file + "] to read.");
 
     int i = 0, covar_num = 0;
     string str_buf, id_buf;
     vector<string> covar_buf, vs_buf;
     covar_ID.clear();
     covar.clear();
-    if (qcovar_flag) LOGGER << "Reading quantitative covariates from [" + covar_file + "]." << endl;
+    if (qcovar_flag) LOGGER << "Reading quantitative covariate(s) from [" + covar_file + "]." << endl;
     else LOGGER << "Reading discrete covariate(s) from [" + covar_file + "]." << endl;
     covar_num = read_fac(in_covar, covar_ID, covar);
-    if (qcovar_flag) LOGGER << covar_num << " quantitative covariate(s) of " << covar_ID.size() << " individuals read from [" + covar_file + "]." << endl;
+    if (qcovar_flag) LOGGER << covar_num << " quantitative covariate(s) of " << covar_ID.size() << " individuals are included from [" + covar_file + "]." << endl;
     else LOGGER << covar_num << " discrete covariate(s) of " << covar_ID.size() << " individuals are included from [" + covar_file + "]." << endl;
 
     return covar_num;
@@ -173,7 +173,7 @@ int gcta::read_fac(ifstream &ifstrm, vector<string> &ID, vector< vector<string> 
 int gcta::read_GE(string GE_file, vector<string> &GE_ID, vector< vector<string> > &GE, bool qGE_flag) {
     // Read phenotype data
     ifstream in_GE(GE_file.c_str());
-    if (!in_GE) LOGGER.e(0, "can not open the file [" + GE_file + "] to read.");
+    if (!in_GE) LOGGER.e(0, "cannot open the file [" + GE_file + "] to read.");
 
     string str_buf, id_buf;
     vector<string> vs_buf;
@@ -193,7 +193,7 @@ int gcta::read_GE(string GE_file, vector<string> &GE_ID, vector< vector<string> 
 void read_weight(string phen_file, vector<string> &phen_ID, vector<double> &weights) {
     // Read phenotype data
     ifstream in_phen(phen_file.c_str());
-    if (!in_phen) LOGGER.e(0, "can not open the weight [" + phen_file + "] to read.");
+    if (!in_phen) LOGGER.e(0, "cannot open the weight [" + phen_file + "] to read.");
 
     int i = 0;
     string str_buf, fid_buf, pid_buf;
@@ -204,7 +204,7 @@ void read_weight(string phen_file, vector<string> &phen_ID, vector<double> &weig
     getline(in_phen, str_buf);
     int phen_num = StrFunc::split_string(str_buf, vs_buf) - 2;
     if (phen_num <= 0) LOGGER.e(0, "no weight data is found.");
-    if (phen_num > 1) LOGGER << "There are " << phen_num << " weights specified in the file [" + phen_file + "], however, only the first one used." << endl;
+    if (phen_num > 1) LOGGER << "There are " << phen_num << " weights specified in the file [" + phen_file + "], however, only the first one is used." << endl;
     in_phen.seekg(ios::beg);
     int line = 1;
     while (in_phen) {
@@ -311,7 +311,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
         uni_id_map.insert(pair<string, int>(_fid[_keep[i]] + ":" + _pid[_keep[i]], i));
     }
     _n = _keep.size();
-    if (_n < 1) LOGGER.e(0, "no individual is in common in the input files.");
+    if (_n < 1) LOGGER.e(0, "no individual is in common among the input files.");
 
     // construct model terms
     _y.setZero(_n);
@@ -326,7 +326,7 @@ void gcta::fit_reml(string grm_file, string phen_file, string qcovar_file, strin
     _flag_CC = check_case_control(_ncase, _y);
     LOGGER << endl;
     if (_flag_CC) {
-        //if(mlmassoc) LOGGER.e(0, "the option --mlm-assoc is valid for the quantitative trait only.");
+        //if(mlmassoc) LOGGER.e(0, "the option --mlm-assoc is valid for quantitative traits only.");
         if (!_bivar_reml) {
             if (!mlmassoc && prevalence<-1) LOGGER << "Note: you can specify the disease prevalence by the option --prevalence so that GCTA can transform the variance explained to the underlying liability scale." << endl;
         } else {
@@ -609,8 +609,8 @@ void gcta::coeff_mat(const vector<string> &vec, eigenMatrix &coeff_mat, string e
     vector<string> value(vec);
     stable_sort(value.begin(), value.end());
     value.erase(unique(value.begin(), value.end()), value.end());
-    if (value.size() > 0.5 * vec.size()) LOGGER.e(0, errmsg1); // LOGGER.e(0, "too many classes for the envronmental factor. \nPlease make sure you input a discrete variable as the environmental factor.");
-    if (value.size() == 1) LOGGER.e(0, errmsg2); //LOGGER.e(0, "the envronmental factor should has more than one classes.");
+    if (value.size() > 0.5 * vec.size()) LOGGER.e(0, errmsg1); // LOGGER.e(0, "too many classes for the environmental factor. \nPlease make sure you input a discrete variable as the environmental factor.");
+    if (value.size() == 1) LOGGER.e(0, errmsg2); //LOGGER.e(0, "the environmental factor should have at least two classes.");
 
     int i = 0, j = 0, row_num = vec.size(), column_num = value.size();
     map<string, int> val_map;
@@ -640,12 +640,12 @@ bool gcta::check_case_control(double &ncase, eigenVector &y) {
         ncase = case_num / (double) n;
         return true;
     } else if (value.size() < 2) {
-        LOGGER << "Only " << value.size() << " type(s) of phenotype value observed: ";
+        LOGGER << "Only " << value.size() << " type(s) of phenotype values observed: ";
         for(int i = 0; i < value.size(); i++){
             LOGGER << value[i] << "\t";
         }
         LOGGER << std::endl;
-        LOGGER.e(0, "invalid phenotype. Please check the phenotype file (or after covariates merged).");
+        LOGGER.e(0, "invalid phenotype. Please check the phenotype file.");
     }
     return false;
 }
@@ -804,7 +804,7 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
         if (_r_indx.size() > 2) LOGGER << "\nSum of V(G)/Vp\t" << sum_hsq << "\t" << sqrt(var_sum_hsq) << endl;
     }
     if ((_flag_CC && prevalence>-1) || (_flag_CC2 && prevalence2>-1)) {
-        LOGGER << "The estimate of variance explained on the observed scale is transformed to that on the underlying scale:" << endl;
+        LOGGER << "The estimate of variance explained on the observed scale is transformed to that on the underlying liability scale:" << endl;
         if (_bivar_reml) {
             if (_flag_CC) LOGGER << "Proportion of cases in the sample = " << _ncase << " for trait #1; User-specified disease prevalence = " << prevalence << " for trait #1" << endl;
             if (_flag_CC2) LOGGER << "Proportion of cases in the sample = " << _ncase2 << " for trait #2; User-specified disease prevalence = " << prevalence2 << " for trait #2" << endl;
@@ -848,7 +848,7 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
     // save summary result into a file
     string reml_rst_file = _out + ".hsq";
     ofstream o_reml(reml_rst_file.c_str());
-    if (!o_reml) LOGGER.e(0, "can not open the file [" + reml_rst_file + "] to write.");
+    if (!o_reml) LOGGER.e(0, "cannot open the file [" + reml_rst_file + "] to write.");
     o_reml << "Source\tVariance\tSE" << setiosflags(ios::fixed) << setprecision(6) << endl;
     for (i = 0; i < _r_indx.size(); i++) o_reml << _var_name[i] << "\t" << varcmp[i] << "\t" << sqrt(Hi(i, i)) << endl;
     if (_bivar_reml) {
@@ -914,7 +914,7 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
             for (j = 0; j < _r_indx.size(); j++) o_rand_eff << setprecision(6) << Py[i] * varcmp[j] << "\t" << u(i, j) << "\t";
             o_rand_eff << endl;
         }
-        LOGGER << "\nBLUP solutions of the genetic effects for " << _keep.size() << " individuals has been saved in the file [" + rand_eff_file + "]." << endl;
+        LOGGER << "\nBLUP solutions of the genetic effects for " << _keep.size() << " individuals have been saved in the file [" + rand_eff_file + "]." << endl;
     }
 
     if(_cv_blup){
@@ -974,7 +974,7 @@ void gcta::reml(bool pred_rand_eff, bool est_fix_eff, vector<double> &reml_prior
 
             o_rand_eff << endl;
         }
-        LOGGER << "\ncvBLUP solutions of the genetic effects for " << _keep.size() << " individuals has been saved in the file [" + rand_eff_file + "]." << endl;
+        LOGGER << "\ncvBLUP solutions of the genetic effects for " << _keep.size() << " individuals have been saved in the file [" + rand_eff_file + "]." << endl;
     }
 
 }
@@ -1151,11 +1151,11 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
             if(_reml_allow_constrain_run){
                 LOGGER.w(0, "more than half of the variance components are constrained.");
             }else{
-                LOGGER.e(0, "analysis stopped because more than half of the variance components are constrained. The result would be unreliable.\n Please have a try to add the option --reml-no-constrain.");
+                LOGGER.e(0, "analysis stopped because more than half of the variance components are constrained. The result would be unreliable.\n You may have a try of the option --reml-no-constrain.");
             }
         }
         // added by Jian Yang on 22 Oct 2014
-        //if (constrain_num == _r_indx.size()) LOGGER.e(0, "analysis stopped because all variance components are constrained. You may have a try of adding the option --reml-no-constrain.");
+        //if (constrain_num == _r_indx.size()) LOGGER.e(0, "analysis stopped because all variance components are constrained. You may have a try of the option --reml-no-constrain.");
 
         if((_reml_force_converge || _reml_no_converge) && prev_lgL > lgL){
             varcmp = prev_varcmp;
@@ -1179,7 +1179,7 @@ double gcta::reml_iteration(eigenMatrix &Vi_X, eigenMatrix &Xt_Vi_X_i, eigenMatr
         prev_lgL = lgL;
     }
     
-    if(_reml_fixed_var) LOGGER << "Warning: the model is evaluated at fixed variance components. The likelihood might not be maximised." <<endl;
+    if(_reml_fixed_var) LOGGER << "Warning: the model is evaluated at fixed variance components. The (log-)likelihood might not be maximised." <<endl;
     else {
         if(converged_flag) LOGGER << "Log-likelihood ratio converged." << endl;
         else {
@@ -1312,14 +1312,14 @@ bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, i
                 double d_buf = Vi.diagonal().mean() * _reml_diag_mul;
                 for(j = 0; j < _n ; j++) Vi(j,j) += d_buf;
                 if(!SquareMatrixInverse(Vi, logdet, rank, method_try)){
-                    LOGGER << "Still can't be inversed. Try --reml-alg-inv 2 " << endl;
+                    LOGGER << "Still can't be inverted. Try --reml-alg-inv 2 " << endl;
                     ret = false;  
                 }
             }else if(_reml_diagV_adj == 2){
-                LOGGER << "Switching to the \"bending\" approach to invert V. This method hasn't been tested. The results might not be reliable!" << endl;
+                LOGGER << "Switching to the \"bending\" approach to invert V. This method hasn't been tested extensively. The results might not be reliable!" << endl;
                 bend_V(Vi);
             }else{
-                LOGGER.e(0, "the variance-covariance matrix V can't be inverted.\nTry --reml-alg-inv 1 for diagonal addition value or --reml-alg-inv 2 for bending Vi.");
+                LOGGER.e(0, "the variance-covariance matrix V is not invertible.\nWe may try --reml-alg-inv 1 to add a small constant value to the diagonals or --reml-alg-inv 2 to bend the matrix V.");
                 ret = false;
             }
                 
@@ -1336,12 +1336,12 @@ bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, i
                 double d_buf = Vi.diagonal().mean() * _reml_diag_mul;
                 for(j = 0; j < _n ; j++) Vi(j,j) += d_buf;
                 if(!comput_inverse_logdet_LDLT_mkl(Vi, logdet)){
-                    LOGGER << "Still can't inverse. Try --reml-alg-inv 2 " << endl;
+                    LOGGER << "Still can't be inverted. Try --reml-alg-inv 2 " << endl;
                     return false;  
                 }
             }else if(_reml_diagV_adj == 2){
                 LOGGER<<"Warning: the variance-covaraince matrix V is non-positive definite." << endl;
-                LOGGER << "Switching to the \"bending\" approach to invert V. This method hasn't been tested. The results might not be reliable!" << endl;
+                LOGGER << "Switching to the \"bending\" approach to invert V. This method hasn't been tested extensively. The results might not be reliable!" << endl;
                 bend_V(Vi);
             }else{
                 LOGGER<<"Warning: the variance-covaraince matrix V is non-positive definite." << endl;
@@ -1358,7 +1358,7 @@ bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, i
                 if(_reml_force_inv) {
                     LOGGER<<"Warning: the variance-covaraince matrix V is non-positive definite." << endl;
                     _V_inv_mtd = 1;
-                    LOGGER << "\nSwitching to the \"bending\" approach to invert V. This method hasn't been tested. The results might not be reliable!" << endl;
+                    LOGGER << "\nSwitching to the \"bending\" approach to invert V. This method hasn't been tested extensively. The results might not be reliable!" << endl;
                 }else {
                     if(_reml_no_converge){
                         LOGGER<<"Warning: the variance-covaraince matrix is invertible. A small positive value is added to the diagonals. The results might not be reliable!"<<endl;
@@ -1366,7 +1366,7 @@ bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, i
                         for(j = 0; j < _n ; j++) Vi(j,j) += d_buf;
                         if(!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) return false;  
                     } 
-                    else LOGGER.e(0, "the variance-covaraince matrix V is not positive definite.");
+                    else LOGGER.e(0, "the variance-covariance matrix V is not positive definite.");
                 }
             }
         }
@@ -1382,7 +1382,7 @@ bool gcta::calcu_Vi(eigenMatrix &Vi, eigenVector &prev_varcmp, double &logdet, i
                         for(j = 0; j < _n ; j++) Vi(j,j) += d_buf;
                         if(!comput_inverse_logdet_LDLT_mkl(Vi, logdet)) return false;  
                     } 
-                    else LOGGER.e(0, "the variance-covaraince matrix V is still not invertible using LU decomposition.");
+                    else LOGGER.e(0, "the variance-covariance matrix V is not invertible using LU decomposition.");
                 }
             }
             else{
@@ -1782,7 +1782,7 @@ void gcta::blup_snp_dosage() {
 void gcta::output_blup_snp(eigenMatrix &b_SNP) {
     string o_b_snp_file = _out + ".snp.blp";
     ofstream o_b_snp(o_b_snp_file.c_str());
-    if (!o_b_snp) LOGGER.e(0, "can not open the file " + o_b_snp_file + " to write.");
+    if (!o_b_snp) LOGGER.e(0, "cannot open the file " + o_b_snp_file + " to write.");
     int i = 0, j = 0, col_num = b_SNP.cols();
     LOGGER << "Writing BLUP solutions of SNP effects for " << _include.size() << " SNPs to [" + o_b_snp_file + "]." << endl;
     for (i = 0; i < _include.size(); i++) {
@@ -1825,12 +1825,12 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
         } else {
             int n = read_grm_id(grm_files[i], grm_id, true, true);
             if (n != size_grm) {
-                LOGGER.e(0, "file [" + grm_files[i] + "] contains a different number of ind than other GRM file.");
+                LOGGER.e(0, "file [" + grm_files[i] + "] contains a different number of individuals from other GRM files.");
             }
         }
         string grm_binfile = grm_files[i] + ".grm.bin";
         A_bin[i] = new ifstream(grm_binfile.c_str(), ios::in | ios::binary);
-        if ((*A_bin[i]).bad()) LOGGER.e(0, "can not open the file [" + grm_binfile + "] to read.");
+        if ((*A_bin[i]).bad()) LOGGER.e(0, "cannot open the file [" + grm_binfile + "] to read.");
     }
     update_id_map_kp(grm_id, _id_map, _keep);
 
@@ -1851,7 +1851,7 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
         uni_id_map.insert(pair<string, int>(_fid[_keep[i]] + ":" + _pid[_keep[i]], i));
     }
     _n = _keep.size();
-    if (_n < 1) LOGGER.e(0, "no individual is in common in the input files.");
+    if (_n < 1) LOGGER.e(0, "no individual is in common among the input files.");
     LOGGER << _n << " individuals are in common in these files." << endl;
     
     // fill phenotypes to _y vector based on the order of uni_id
@@ -2090,7 +2090,7 @@ void gcta::HE_reg(string grm_file, bool m_grm_flag, string phen_file, string kee
     LOGGER << ss.str() << endl;
     string ofile = _out + ".HEreg";
     ofstream os(ofile.c_str());
-    if (!os) LOGGER.e(0, "can not open the file [" + ofile + "] to write.");
+    if (!os) LOGGER.e(0, "cannot open the file [" + ofile + "] to write.");
     os << ss.str() << endl;
     LOGGER << "Results from Haseman-Elston regression have been saved in [" + ofile + "]." << endl;
 }
@@ -2126,12 +2126,12 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
         } else {
             int n = read_grm_id(grm_files[i], grm_id, true, true);
             if (n != size_grm) {
-                LOGGER.e(0, "file [" + grm_files[i] + "] contains a different number of ind than other GRM file.");
+                LOGGER.e(0, "file [" + grm_files[i] + "] contains a different number of individuals from other GRM files.");
             }
         }
         string grm_binfile = grm_files[i] + ".grm.bin";
         A_bin[i] = new ifstream(grm_binfile.c_str(), ios::in | ios::binary);
-        if ((*A_bin[i]).bad()) LOGGER.e(0, "can not open the file [" + grm_binfile + "] to read.");
+        if ((*A_bin[i]).bad()) LOGGER.e(0, "cannot open the file [" + grm_binfile + "] to read.");
     }
     update_id_map_kp(grm_id, _id_map, _keep);
     
@@ -2156,7 +2156,7 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
         uni_id_map.insert(pair<string, int>(combinedID, i));
     }
     _n = _keep.size();
-    if (_n < 1) LOGGER.e(0, "no individual is in common in the input files.");
+    if (_n < 1) LOGGER.e(0, "no individual is in common among the input files.");
     LOGGER << _n << " individuals are in common in these files." << endl;
     
     
@@ -2552,7 +2552,7 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
 
     
     // sampling variance-covariance of estimates of variance components
-    LOGGER << "\nJackknife sampling variance/covariance of the estimates of heritabilities:" << endl;
+    LOGGER << "\nJackknife sampling variance/covariance of the estimates of heritability:" << endl;
     eigenMatrix betaGJk(minn, 3*n_grm);
     j = 0;
     for (i=0; i<n_grm; ++i) {
@@ -2608,7 +2608,7 @@ void gcta::HE_reg_bivar(string grm_file, bool m_grm_flag, string phen_file, stri
     LOGGER << ss.str() << endl;
     string ofile = _out + ".HEreg";
     ofstream os(ofile.c_str());
-    if (!os) LOGGER.e(0, "can not open the file [" + ofile + "] to write.");
+    if (!os) LOGGER.e(0, "cannot open the file [" + ofile + "] to write.");
     os << ss.str() << endl;
     LOGGER << "Results from Haseman-Elston regression have been saved in [" + ofile + "]." << endl;
 }
@@ -2635,7 +2635,7 @@ void gcta::HE_reg(string grm_file, string phen_file, string keep_indi_file, stri
         uni_id_map.insert(pair<string, int>(_fid[_keep[i]] + ":" + _pid[_keep[i]], i));
     }
     _n = _keep.size();
-    if (_n < 1) LOGGER.e(0, "no individual is in common in the input files.");
+    if (_n < 1) LOGGER.e(0, "no individual is in common among the input files.");
 
     _y.setZero(_n);
     for (i = 0; i < phen_ID.size(); i++) {
@@ -2688,7 +2688,7 @@ void gcta::HE_reg(string grm_file, string phen_file, string keep_indi_file, stri
     LOGGER << ss.str() << endl;
     string ofile = _out + ".HEreg";
     ofstream os(ofile.c_str());
-    if (!os) LOGGER.e(0, "can not open the file [" + ofile + "] to write.");
+    if (!os) LOGGER.e(0, "cannot open the file [" + ofile + "] to write.");
     os << ss.str() << endl;
     LOGGER << "Results from Haseman-Elston regression have been saved in [" + ofile + "]." << endl;
 

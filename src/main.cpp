@@ -145,11 +145,11 @@ int main(int argc, char *argv[]){
                 options[last_key] = {};
                 keys.push_back(last_key);
             }else{
-                LOGGER.e(0, "Find multiple options: " + cur_string);
+                LOGGER.e(0, "invalid multiple options: " + cur_string);
             }
         }else{
             if(last_key == ""){
-                LOGGER.e(0, "the option must start with \"--\": " + cur_string);
+                LOGGER.e(0, "an option must start with \"--\": " + cur_string);
             }else{
                 options[last_key].push_back(cur_string);
             }
@@ -160,12 +160,12 @@ int main(int argc, char *argv[]){
     if(options.find("--out") != options.end()){
         vector<string> outs = options["--out"];
         if(outs.size() == 0){
-            LOGGER.e(0, "no output file name in the \"--out\" option");
+            LOGGER.e(0, "no output file name is specified in the \"--out\" option");
         }else{
             options["out"].push_back(outs[0]);
         }
     }else{
-        LOGGER.e(0, "missing the --out option");
+        LOGGER.e(0, "the --out option is missing.");
     }
 
     // multi thread mode
@@ -191,27 +191,27 @@ int main(int argc, char *argv[]){
                 is_threaded = true;
                 is_thread_set = true;
             }catch(std::invalid_argument&){
-                LOGGER.e(0, "can't get thread number from --thread-num option.");
+                LOGGER.e(0, "can't get the thread number from the --thread-num option.");
             }
         }else{
-            LOGGER.e(0, "can't set multiple thread number.");
+            LOGGER.e(0, "can't set the number of threads.");
         }
     }
 
     if(options.find("--threads") != options.end()){
         vector<string> thread_nums = options["--threads"];
         if(is_thread_set){
-            LOGGER.e(0,"can't set both --thread-num and --threads");
+            LOGGER.e(0,"can't set the number of threads using both --thread-num and --threads");
         }
         if(thread_nums.size() == 1) {
             try{
                 thread_num = std::stoi(thread_nums[0]);
                 is_threaded = true;
             }catch(std::invalid_argument&){
-                LOGGER.e(0, "can't get thread number from --threads option.");
+                LOGGER.e(0, "can't get the number of threads from --threads option.");
             }
         }else{
-            LOGGER.e(0, "can't set multiple thread number.");
+            LOGGER.e(0, "can't set the number of threads.");
         }
     }
 
@@ -296,7 +296,7 @@ int main(int argc, char *argv[]){
 
         if(mains.size() > 1) LOGGER.e(0, "multiple main functions are not supported currently.");
         if(is_threaded) {
-            LOGGER.i(0, "The program will be running on up to " + std::to_string(thread_num) + " threads.");
+            LOGGER.i(0, "The program will be running with up to " + std::to_string(thread_num) + " threads.");
         }
         //ThreadPool *threadPool = ThreadPool::GetPool(thread_num - 1);
         //avoid auto parallel

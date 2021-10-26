@@ -88,7 +88,7 @@ Marker::Marker() {
     }
 
     if(!has_marker){
-        LOGGER.e(0, "no marker exist");
+        LOGGER.e(0, "no marker found.");
     }
 
 
@@ -116,7 +116,7 @@ Marker::Marker() {
     }
 
     if(index_extract.size() == 0){
-        LOGGER.e(0, "0 SNP remained!");
+        LOGGER.e(0, "no SNP remained.");
     }
 
 }
@@ -207,7 +207,7 @@ void Marker::matchSNPListFile(string filename, int num_min_fields, const vector<
 
     int rm_snps = index_extract.size() - index_common.size();
     if(rm_snps){
-        LOGGER.w(0, to_string(rm_snps) + " SNPs are removed due to mismatching SNP name or alleles.");
+        LOGGER.w(0, to_string(rm_snps) + " SNPs are removed due to mismatched SNP IDs or alleles.");
     }
 
     keep_raw_index(index_common);
@@ -410,7 +410,7 @@ int Marker::getMIndex(uint32_t raw_index){
             return i;
         }
     }
-    LOGGER.e(0, "too large SNP index " + to_string(raw_index));
+    LOGGER.e(0, "the SNP index is too large in" + to_string(raw_index));
     return 0;
 }
 
@@ -448,7 +448,7 @@ void Marker::read_pvar(string pvar_file){
                 iA1 = 3;
                 iA2 = 4;
             }else{
-                LOGGER.e(0, "can't read variant list file with " + to_string(ncol) + " columns, not a valid BIM file.");
+                LOGGER.e(0, "The .bim file only has " + to_string(ncol) + " columns, which is not valid.");
             }
         }else{
             if(head[0]=="#CHROM"){
@@ -468,10 +468,10 @@ void Marker::read_pvar(string pvar_file){
                 if(found) validHeadCT++;
 
                 if(validHeadCT != 5){
-                    LOGGER.e(0, "can't find enough essential columns in PVAR file.");
+                    LOGGER.e(0, "can't find all the essential columns in the PVAR file.");
                 }
             }else{
-                LOGGER.e(0, "invaild PVAR file, should start with #CHROM.");
+                LOGGER.e(0, "invalid PVAR file. It should start with #CHROM.");
             }
         }
 
@@ -502,7 +502,7 @@ void Marker::read_pvar(string pvar_file){
                 //gd here if need;
                 pd[curRow] = std::stoi(lists[iPOS][i]);
             }catch(std::invalid_argument&){
-                LOGGER.e(0, "Line " + to_string(nHeader + i + 1) + " contains illegal distance value.");
+                LOGGER.e(0, "line " + to_string(nHeader + i + 1) + " contains invalid distance value.");
             }
             auto &curA1 = lists[iA1][i];
             std::transform(curA1.begin(), curA1.end(), curA1.begin(), toupper);
@@ -529,7 +529,7 @@ void Marker::read_pvar(string pvar_file){
 
         LOGGER.i(0, to_string(num_marker) + " SNPs to be included from PVAR file(s).");
         if(nrows != nValidSNP){
-            LOGGER.i(0, to_string(num_extract) + " SNPs to be included from valid chromosome number");
+            LOGGER.i(0, to_string(num_extract) + " SNPs to be included on valid chromosomes");
         }
 
         MarkerParam markerParam;
@@ -547,7 +547,7 @@ void Marker::read_bim(string bim_file) {
     LOGGER.i(0, "Reading PLINK BIM file from [" + bim_file + "]...");
     std::ifstream bim(bim_file.c_str());
     if(!bim){
-        LOGGER.e(0, "can not open the file [" + bim_file + "] to read");
+        LOGGER.e(0, "cannot open the file [" + bim_file + "] to read");
     }
 
     int line_number = name.size();
@@ -604,7 +604,7 @@ void Marker::read_bim(string bim_file) {
     num_extract = index_extract.size();
     LOGGER.i(0, to_string(num_marker) + " SNPs to be included from BIM file(s).");
     if(num_marker != num_extract){
-        LOGGER.i(0, to_string(num_extract) + " SNPs to be included from valid chromosome number");
+        LOGGER.i(0, to_string(num_extract) + " SNPs to be included on valid chromosomes");
     }
     bim.close();
     MarkerParam markerParam;
@@ -618,7 +618,7 @@ void Marker::read_bim(string bim_file) {
 vector<pair<string, vector<uint32_t>>> Marker::read_gene(string gfile){
     std::ifstream genein(gfile.c_str());
     if(!genein){
-        LOGGER.e(0, "can not open the file [" + gfile + "] to read");
+        LOGGER.e(0, "cannot open the file [" + gfile + "] to read");
     }
 
     string line;
@@ -631,7 +631,7 @@ vector<pair<string, vector<uint32_t>>> Marker::read_gene(string gfile){
             line_elements[2] == "start" && line_elements[3] == "end" && line_elements[4] == "strand"){
         nElements = line_elements.size();
     }else{
-        LOGGER.e(0, "invalid gene list file");
+        LOGGER.e(0, "invalid gene list file.");
     }
 
     int line_number  = 1;
@@ -656,7 +656,7 @@ vector<pair<string, vector<uint32_t>>> Marker::read_gene(string gfile){
         try{
             chr_item = chr_maps.at(line_elements[1]);
         }catch(std::out_of_range&){
-            LOGGER.e(0, "  Line " + to_string(line_number) + " of [" + gfile +
+            LOGGER.e(0, "  line " + to_string(line_number) + " of [" + gfile +
                     "] contains invalid chr, please check");
         }
         
@@ -666,7 +666,7 @@ vector<pair<string, vector<uint32_t>>> Marker::read_gene(string gfile){
             curStart = std::stoi(line_elements[2]);
             curEnd = std::stoi(line_elements[3]);
         }catch(std::invalid_argument&){
-           LOGGER.e(0, "  Line " + to_string(line_number) + " of [" + gfile +
+           LOGGER.e(0, "  line " + to_string(line_number) + " of [" + gfile +
                     "] contains invalid position value, please check");
         }
 
@@ -695,7 +695,7 @@ vector<pair<string, vector<uint32_t>>> Marker::read_gene(string gfile){
                 //LOGGER << "gene " << curGeneName << " can not find, chr: " <<  int(chr_item) << std::endl;
                 //curChrItem = chr_item;
                 continue;
-                //LOGGER.e(0, " Line " + to_string(line_number) + ", chr information can't be found in the genotype");
+                //LOGGER.e(0, " line " + to_string(line_number) + ", chromosome information can't be found in the genotype file");
             }
             curChrItem = chr_item;
         }
@@ -744,7 +744,7 @@ MarkerParam Marker::getBgenMarkerParam(FILE *h_bgen, string &outputs){
     if(skip_byte > 0){
         fseek(h_bgen, skip_byte, SEEK_CUR); 
     }else if(skip_byte < 0){
-        LOGGER.e(0, "strange header length, might be an invalid bgen.");
+        LOGGER.e(0, "unusual header length - might be an invalid bgen file.");
     }
 
     uint32_t flags = read1Byte<uint32_t>(h_bgen);
@@ -779,11 +779,11 @@ MarkerParam Marker::getBgenMarkerParam(FILE *h_bgen, string &outputs){
     outputs += ".";
 
     if(layout != 2){
-        LOGGER.e(0, "GCTA only support bgen version 1.2, 1.3. Use QCTOOLv2 to convert to new version.");
+        LOGGER.e(0, "GCTA only supports bgen version 1.2 and 1.3. Use QCTOOLv2 to convert files with < v1.2 to a newer version.");
     }
 
     if(has_sample){
-        LOGGER.w(0, "GCTA reads sample information from '--sample' inputs, but ignore the built-in sample data.");
+        LOGGER.w(0, "GCTA reads sample information from '--sample' input, but ignores the built-in sample data.");
     }
 
     MarkerParam param;
@@ -808,7 +808,7 @@ void Marker::read_bgen_index(string bgen_file){
     //string prompt_index = "'gcta64 --bgen test.bgen --bgen-index --out test.bgen.bgi' or 'bgenix -g test.bgen -index'";
     string prompt_index = "'bgenix -g test.bgen -index'";
     if(rc){
-        LOGGER.e(0, "can't open index file: " + string(sqlite3_errmsg(db)) + 
+        LOGGER.e(0, "can't open the index file: " + string(sqlite3_errmsg(db)) + 
                 "\nIndex the bgen file by " + prompt_index + ".");
     }
 
@@ -837,22 +837,22 @@ void Marker::read_bgen_index(string bgen_file){
 
     FILE * h_bgen = fopen(bgen_file.c_str(), "rb");
     if(h_bgen == NULL){
-        LOGGER.e(0, "can't read bgen file [" + bgen_file + "], " + string(strerror(errno)));
+        LOGGER.e(0, "can't read the bgen file [" + bgen_file + "], " + string(strerror(errno)));
     }
 
     char * geno_first1000bytes = new char[num_firstNbytes];
     if(num_firstNbytes != fread(geno_first1000bytes, sizeof(char), num_firstNbytes, h_bgen)){
-        LOGGER.e(0, "can't read bgen file [" + bgen_file + "], " + string(strerror(errno)));
+        LOGGER.e(0, "can't read the bgen file [" + bgen_file + "], " + string(strerror(errno)));
     }
 
     if(strncmp(first1000bytes, geno_first1000bytes, num_firstNbytes) != 0){
-        LOGGER.e(0, "bad index file, first 1000 bytes aren't consistent."
+        LOGGER.e(0, "bad index file, the first 1000 bytes aren't consistent."
                 "\nTry to regenerate the index by " + prompt_index + ".");
     }
 
     fseek(h_bgen, 0L, SEEK_END);
     if(file_size != ftell(h_bgen)){
-        LOGGER.e(0, "bad index file, file size isn't consistent."
+        LOGGER.e(0, "bad index file, the file size isn't consistent."
                 "\nTry to regenerate the index by " + prompt_index + ".");
     }
     rewind(h_bgen);
@@ -878,7 +878,7 @@ void Marker::read_bgen_index(string bgen_file){
     MarkerParam markerParam = getBgenMarkerParam(h_bgen, outputs);
     LOGGER << outputs << std::endl;
     if(markerParam.rawCountSNP != n_variants_total_index){
-        LOGGER.e(0, "bad index file, the indexed SNPs are different from bgen file."
+        LOGGER.e(0, "bad index file, the indexed SNPs are different from those in the bgen file."
                 "\nTry to regenerate the index by " + prompt_index + ".");
     }
     markerParams.push_back(markerParam);
@@ -903,7 +903,7 @@ void Marker::read_bgen_index(string bgen_file){
     }
     rc = sqlite3_reset(stmt);
     if(n_variants == 0){
-        LOGGER.w(0, "None variant with bialleric SNPs.");
+        LOGGER.w(0, "No biallelic variants.");
         return;
     }
     int cur_total_num_variants = chr.size() + n_variants;
@@ -968,7 +968,7 @@ void Marker::read_bgen_index(string bgen_file){
     }
 
     if (rc != SQLITE_DONE) {
-        LOGGER.e(0, string(sqlite3_errmsg(db)) + "\nBad index file, regenerate by " + prompt_index + ".");
+        LOGGER.e(0, string(sqlite3_errmsg(db)) + "\nbad index file. You may regenerate it by " + prompt_index + ".");
     }
 
     sqlite3_finalize(stmt);
@@ -988,12 +988,12 @@ void Marker::read_bgen_index(string bgen_file){
         vector<string> allele2 = {a1[index2], a2[index2]};
         bool success;
         if(mapCHR(m1.chr, success) != chr[index1] || m1.name != name[index1] || m1.pd != pd[index1] || m1.alleles != allele1){
-            LOGGER.e(0, "The first variant in bgen file aren't consistent with index file."
+            LOGGER.e(0, "the first variant in the bgen file is not consistent with that in the index file."
                 "\nTry to regenerate the index by " + prompt_index + ".");
         }
 
         if(mapCHR(m2.chr, success) != chr[index2] || m2.name != name[index2] || m2.pd != pd[index2] || m2.alleles != allele2){
-            LOGGER.e(0, "The variants in bgen file aren't consistent with index file."
+            LOGGER.e(0, "the variants in bgen file aren't consistent with those in the index file."
                 "\nTry to regenerate the index by " + prompt_index + ".");
         }
     }
@@ -1001,7 +1001,7 @@ void Marker::read_bgen_index(string bgen_file){
     fclose(h_bgen);
 
     if(count_chr_error > 0){
-        LOGGER << count_chr_error << " SNPs excluded due to filter on chromosome. " << std::endl;
+        LOGGER << count_chr_error << " SNPs excluded due to filtering of chromosomes. " << std::endl;
     }
 
     LOGGER << "Total SNPs included: " << num_var_added  << "/" <<  num_marker << "." << std::endl;
@@ -1063,7 +1063,7 @@ MarkerParam Marker::getMarkerParams(int part_num){
     if(part_num < markerParams.size()){
         return markerParams[part_num];
     }else{
-        LOGGER.e(0, "Get Marker Params out of range.");
+        LOGGER.e(0, "the marker parameters are out of range.");
         return markerParams[0]; // dummy return
     }
 }
@@ -1073,7 +1073,7 @@ void Marker::read_bgen(string bgen_file){
     LOGGER << "Extracting biallelic SNPs from bgen [" << bgen_file << "]..." << std::endl;
     FILE* h_bgen = fopen(bgen_file.c_str(), "rb");
     if(!h_bgen){
-        LOGGER.e(0, "can't open bgen file to read");
+        LOGGER.e(0, "can't open the bgen file to read");
     }
     uint32_t start_byte = read1Byte<uint32_t>(h_bgen);
     uint32_t start_data_block = start_byte + 4;
@@ -1093,7 +1093,7 @@ void Marker::read_bgen(string bgen_file){
     if(skip_byte > 0){
         fseek(h_bgen, skip_byte, SEEK_CUR); 
     }else if(skip_byte < 0){
-        LOGGER.e(0, "strange header length, might be an invalid bgen.");
+        LOGGER.e(0, "unusual header length - it might be an invalid bgen file.");
     }
 
     uint32_t flags = read1Byte<uint32_t>(h_bgen);
@@ -1128,14 +1128,14 @@ void Marker::read_bgen(string bgen_file){
     LOGGER << "." << std::endl;
 
     if(layout != 2){
-        LOGGER.e(0, "GCTA only support bgen version 1.2, 1.3. Use QCTOOL to convert to new version.");
+        LOGGER.e(0, "GCTA only supports bgen version 1.2 and 1.3. Use QCTOOL to convert files with < v1.2 to a newer version.");
     }
                
     if(compress_block != 1){
-        LOGGER.e(0, "Compress not by zlib is not supported currently");
+        LOGGER.e(0, "non-zlid compressed files are not supported currently");
     }
 
-    LOGGER << "Looking for bialleric allels..." << std::endl;
+    LOGGER << "Looking for biallelic alleles..." << std::endl;
     fseek(h_bgen, start_data_block, SEEK_SET);
     uint32_t count_chr_error = 0, count_multi_alleles = 0;
 
@@ -1218,11 +1218,11 @@ void Marker::read_bgen(string bgen_file){
     std::iota(index_extract.begin(), index_extract.end(), 0);
     num_extract = index_extract.size();
     LOGGER.i(0, to_string(num_marker) + " SNPs to be included from bgen file.");
-    LOGGER << count_chr_error << " SNPs excluded due to filter on chromosome." << std::endl;
+    LOGGER << count_chr_error << " SNPs excluded due to filtering of chromosomes." << std::endl;
     LOGGER << count_multi_alleles << " SNPs excluded due to multiple alleles." << std::endl; 
     fclose(h_bgen);
     if(num_extract == 0){
-        LOGGER.e(0, "0 SNP remain for further analysis.");
+        LOGGER.e(0, "no SNP remains for further analysis.");
     }
 }
 
@@ -1311,7 +1311,7 @@ void Marker::extract_marker(vector<string> markers, bool isExtract) {
    num_extract = index_extract.size();
 
    if(num_extract == 0){
-       LOGGER.e(0, "0 SNP remain.");
+       LOGGER.e(0, "no SNP remains.");
    }
 
    LOGGER.i(0, string("After ") + (isExtract? "extracting" : "excluding") +  " SNP, " +  to_string(num_extract) + " SNPs remain.");
@@ -1334,7 +1334,7 @@ void Marker::keep_raw_index(const vector<uint32_t>& keep_index) {
 
     num_extract = index_extract.size();
     if(num_extract == 0){
-        LOGGER.e(0, "0 SNP remain.");
+        LOGGER.e(0, "no SNP remains.");
     }
     reset_exclude();
 }
@@ -1425,7 +1425,7 @@ void Marker::addOneFileOption(string key_store, string append_string, string key
             options[key_store] = options_in[key_name][0] + append_string;
         }else if(options_in[key_name].size() > 1){
             options[key_store] = options_in[key_name][0] + append_string;
-            LOGGER.w(0, "Marker: multiple " + key_name + ", use the first one only" );
+            LOGGER.w(0, "Marker: multiple " + key_name + ", using the first one only" );
         }else{
             LOGGER.e(0, "no " + key_name + " parameter found");
         }
@@ -1458,10 +1458,10 @@ int Marker::registerOption(map<string, vector<string>>& options_in){
             try{
                 options_i["last_chr_autosome"] = std::stoi(options_in["--autosome-num"][0]);
             }catch(std::invalid_argument&){
-                LOGGER.e(0, "Invalid autosome number: " + options_in["--autosome-num"][0]);
+                LOGGER.e(0, "invalid autosome number: " + options_in["--autosome-num"][0]);
             }
         }else{
-            LOGGER.e(0, "Multiple --autosome-num is not supported");
+            LOGGER.e(0, "multiple values in --autosome-num are not supported currently");
         }
     }
     if(options_i.find("last_chr_autosome") == options_i.end()){
@@ -1483,7 +1483,7 @@ int Marker::registerOption(map<string, vector<string>>& options_in){
     if(options_in.find("--autosome") != options_in.end()){
         if(specifiedChrFlag){
             if(options_i["start_chr"] < 1 || options_i["end_chr"] > options_i["last_chr_autosome"]){
-                LOGGER.e(0, "Chromosome range has been fixed by --chr flag, however it was not in autosome range");
+                LOGGER.e(0, "the chromosome number specified for --chr is not within the range for the autosomes (i.e., 1 to 22)");
             }
         }else{
             options_i["start_chr"] = 1;
@@ -1495,11 +1495,11 @@ int Marker::registerOption(map<string, vector<string>>& options_in){
 
     if(options_in.find("--autosome-x-y") != options_in.end()){
         if(filterChrFlag){
-            LOGGER.w(0, "One of the chromosome filter has been applied, it has been overrided by --autosome-x-y");
+            LOGGER.w(0, "One of the chromosome filtering criteria has been applied, which has been overridden by --autosome-x-y");
         }
         if(specifiedChrFlag){
             if(options_i["start_chr"] < 1 || options_i["end_chr"] > options_i["last_chr_autosome"] + 2){
-                LOGGER.e(0, "Chromosome range has been fixed by --chr flag, however it was not in autosome range");
+                LOGGER.e(0, "The chromosome number specified for --chr is not within the range for the autosomes (i.e., 1 to 22)");
             }
         }else{
             options_i["start_chr"] = 1;
@@ -1511,14 +1511,14 @@ int Marker::registerOption(map<string, vector<string>>& options_in){
     if(options_in.find("--chr") != options_in.end()){
         specifiedChrFlag = true;
         if(filterChrFlag){
-            LOGGER.w(0, "One of the CHR filter has been applied, it has been overrided by --chr");
+            LOGGER.w(0, "One of the CHR filtering criteria has been applied, which has been overridden by --chr");
         }
         if(options_in["--chr"].size() == 1){
             try{
                 options_i["start_chr"] = std::stoi(options_in["--chr"][0]);
                 options_i["end_chr"] = options_i["start_chr"];
             }catch(std::invalid_argument&){
-                LOGGER.e(0, "--chr contains no numeric value");
+                LOGGER.e(0, "non-numeric value specified for --chr");
             }
 
         }else if(options_in["--chr"].size() == 2){
@@ -1526,14 +1526,14 @@ int Marker::registerOption(map<string, vector<string>>& options_in){
                 options_i["start_chr"] = std::stoi(options_in["--chr"][0]);
                 options_i["end_chr"] = std::stoi(options_in["--chr"][1]);
             }catch(std::invalid_argument&){
-                LOGGER.e(0, "--chr contains no numeric value");
+                LOGGER.e(0, "non-numeric value specified for --chr");
             }
         }else{
-            LOGGER.e(0, "multiple --chr is not supported currently");
+            LOGGER.e(0, "multiple --chr flags are not supported currently");
         }
 
         if(options_i["start_chr"] < 0 || options_i["end_chr"] > options_i["last_chr"]){
-            LOGGER.e(0, "--chr is out of chromosome range");
+            LOGGER.e(0, "the value specified for --chr is out of the accepted range.");
         }
         filterChrFlag = true;
     }
@@ -1541,7 +1541,7 @@ int Marker::registerOption(map<string, vector<string>>& options_in){
     if(options_in.find("--chrx") != options_in.end()){
         specifiedChrFlag = true;
         if(filterChrFlag){
-            LOGGER.w(0, "One of the CHR filter has been applied, it has been overrided by --chrx");
+            LOGGER.w(0, "One of the CHR filtering criteria has been applied, which has been overridden by --chrx");
         }
         options_i["start_chr"] = options_i["last_chr_autosome"] + 1;
         options_i["end_chr"] = options_i["start_chr"];
@@ -1553,5 +1553,5 @@ int Marker::registerOption(map<string, vector<string>>& options_in){
 
 
 void Marker::processMain(){
-    LOGGER.e(0, "Marker has no main process this time");
+    LOGGER.e(0, "marker has no main process this time.");
 }

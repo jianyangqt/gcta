@@ -34,8 +34,8 @@ void gcta::read_LD_target_SNPs(string snplistfile)
     _include.clear();
     for (iter = _snp_name_map.begin(); iter != _snp_name_map.end(); iter++) _include.push_back(iter->second);
     stable_sort(_include.begin(), _include.end());
-    if (_ld_target_snp.size() == 0) LOGGER.e(0, "no target SNPs are retained to estimate the LD structure.");
-    else LOGGER << prev_target_snp_num << " target SNPs read from [" + snplistfile + "], " << _ld_target_snp.size() << " of which exist in the data." << endl;
+    if (_ld_target_snp.size() == 0) LOGGER.e(0, "no target SNP is retained to estimate the LD structure.");
+    else LOGGER << prev_target_snp_num << " target SNPs are read from [" + snplistfile + "], " << _ld_target_snp.size() << " of which exist in the data." << endl;
 }
 
 void gcta::LD_Blocks(int stp, double wind_size, double alpha, bool IncldQ, bool save_ram)
@@ -66,13 +66,13 @@ void gcta::LD_Blocks(int stp, double wind_size, double alpha, bool IncldQ, bool 
     // Save result
     string SavFileName = _out + ".rsq.ld";
     ofstream SavFile(SavFileName.c_str());
-    if (!SavFile) LOGGER.e(0, "can not open the file [" + SavFileName + "] to save result!");
+    if (!SavFile) LOGGER.e(0, "cannot open the file [" + SavFileName + "] to save result!");
     SavFile << "target_SNP\tfreq\tL_region\tR_region\tL_snp\tR_snp\tnSNPs\tmean_rsq\tmedian_rsq\tmax_rsq\tmax_rsq_snp" << endl;
     for (i = 0; i < SNP_SmplNum; i++) SavFile << _snp_name[_include[smpl[i]]] << "\t" << 0.5 * _mu[_include[smpl[i]]] << "\t" << dL[i] << "\t" << dR[i] << "\t" << L_SNP[i] << "\t" << R_SNP[i] << "\t" << K[i] << "\t" << r2[i] << "\t" << md_r2[i] << "\t" << max_r2[i] << "\t" << max_r2_snp[i] << endl;
     SavFile.close();
     SavFileName = _out + ".r.ld";
     SavFile.open(SavFileName.c_str());
-    if (!SavFile) LOGGER.e(0, "can not open the file [" + SavFileName + "] to save result.");
+    if (!SavFile) LOGGER.e(0, "cannot open the file [" + SavFileName + "] to save result.");
     for (i = 0; i < SNP_SmplNum; i++) {
         for (j = 0; j < r[i].size(); j++) SavFile << r[i][j] << " ";
         SavFile << endl;
@@ -80,7 +80,7 @@ void gcta::LD_Blocks(int stp, double wind_size, double alpha, bool IncldQ, bool 
     SavFile.close();
     SavFileName = _out + ".snp.ld";
     SavFile.open(SavFileName.c_str());
-    if (!SavFile) LOGGER.e(0, "Can not open the file [" + SavFileName + "] to save result.");
+    if (!SavFile) LOGGER.e(0, "cannot open the file [" + SavFileName + "] to save result.");
     for (i = 0; i < SNP_SmplNum; i++) {
         for (j = 0; j < snp_ls[i].size(); j++) SavFile << snp_ls[i][j] << " ";
         SavFile << endl;
@@ -95,7 +95,7 @@ void gcta::EstLD(vector<int> &smpl, double wind_size, vector< vector<string> > &
     map<int, int> smpl_snp_map;
     for (i = 0; i < smpl.size(); i++) smpl_snp_map.insert(pair<int, int>(_include[smpl[i]], i));
 
-    LOGGER << "Parameters used to search SNPs in LD with the given SNPs: window size=" << (int) (wind_size * 0.001) << "Kb, significant level=" << alpha << endl;
+    LOGGER << "Parameters used to search for SNPs in LD with the given SNPs: window size=" << (int) (wind_size * 0.001) << "Kb, significant level=" << alpha << endl;
     vector<double> rst, y, x;
     for (i = 0; i < smpl.size(); i++) {
         vector<int> buf;
@@ -504,7 +504,7 @@ void gcta::calcu_mean_rsq_multiSet(string snpset_filenames_file, int wind_size, 
     int i = 0,  j = 0, m = _include.size();
 
     ifstream in_snpset_filenames(snpset_filenames_file.c_str());
-    if (!in_snpset_filenames) LOGGER.e(0, "can not open the file [" + snpset_filenames_file + "] to read.");
+    if (!in_snpset_filenames) LOGGER.e(0, "cannot open the file [" + snpset_filenames_file + "] to read.");
     string str_buf;
     vector<string> snpset_filenaems, vs_buf;
     while (getline(in_snpset_filenames, str_buf)) {
@@ -521,7 +521,7 @@ void gcta::calcu_mean_rsq_multiSet(string snpset_filenames_file, int wind_size, 
     vector< vector<string> > snplist(set_num);
     for(i = 0; i < set_num; i++) {
         ifstream i_snplist(snpset_filenaems[i].c_str());
-        if (!i_snplist) LOGGER.e(0, "can not open the file [" + snpset_filenaems[i] + "] to read.");
+        if (!i_snplist) LOGGER.e(0, "cannot open the file [" + snpset_filenaems[i] + "] to read.");
         LOGGER << "Reading the list of SNPs from [" + snpset_filenaems[i] + "]." << endl;
         while (i_snplist >> str_buf) {
             snplist[i].push_back(str_buf);
@@ -749,7 +749,7 @@ void gcta::ld_seg(string i_ld_file, int seg_size, int wind_size, double rsq_cuto
 
     if(!i_ld_file.empty()){
         ifstream ild(i_ld_file.c_str());
-        if (!ild) LOGGER.e(0, "can not open the file [" + i_ld_file + "] to read.");
+        if (!ild) LOGGER.e(0, "cannot open the file [" + i_ld_file + "] to read.");
 
         string str_buf;
         LOGGER << "Reading per-SNP LD score from [" + i_ld_file + "] ..." << endl;

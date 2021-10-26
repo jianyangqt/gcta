@@ -138,7 +138,7 @@ void read_metafile_list(string mtcojolist_file, string &target_pheno, string &ta
 
     ifstream meta_list(mtcojolist_file.c_str());
     if (!meta_list)
-        LOGGER.e(0, "Cannot open the file [" + mtcojolist_file + "] to read.");
+        LOGGER.e(0, "cannot open the file [" + mtcojolist_file + "] to read.");
     
     string strbuf="", prevbuf1="", prevbuf2="";
     double d_prev1 = 0.0, d_prev2 = 0.0;
@@ -150,7 +150,7 @@ void read_metafile_list(string mtcojolist_file, string &target_pheno, string &ta
     std::istream_iterator<string> begin_title(linebuf), end_title;
     vector<string> line_elements(begin_title, end_title);
     if(line_elements.size() != 2 && line_elements.size() != 4) {
-        LOGGER.e(0, "Format of file [" + mtcojolist_file + "] is not correct, line " + to_string(line_number) + ".");
+        LOGGER.e(0, "the format of file [" + mtcojolist_file + "] is incorrect, line " + to_string(line_number) + ".");
     }
     target_pheno=line_elements[0]; target_pheno_file=line_elements[1];
     // prevelance
@@ -162,12 +162,12 @@ void read_metafile_list(string mtcojolist_file, string &target_pheno, string &ta
         if(prevbuf1 != "NA"  &&  prevbuf1!= "NAN" && prevbuf1!= ".") {
             d_prev1 = atof(prevbuf1.c_str());
             if(d_prev1 < 0 || d_prev1 > 1)
-                LOGGER.e(0, "Invalid sample prevalence for trait [" + target_pheno + "].");
+                LOGGER.e(0, "invalid sample prevalence for trait [" + target_pheno + "].");
         }
         if(prevbuf2 != "NA"  &&  prevbuf2!= "NAN" && prevbuf2 != ".") {
             d_prev2 = atof(prevbuf2.c_str());
             if(d_prev2 < 0 || d_prev2 > 1)
-                LOGGER.e(0, "Invalid population prevalence for trait [" + target_pheno + "].");
+                LOGGER.e(0, "invalid population prevalence for trait [" + target_pheno + "].");
         }
     }
     smpl_prev.push_back(d_prev1); popu_prev.push_back(d_prev2);
@@ -181,7 +181,7 @@ void read_metafile_list(string mtcojolist_file, string &target_pheno, string &ta
         std::istream_iterator<string> begin(linebuf), end;
         vector<string> line_elements(begin, end);
         if(line_elements.size() != 2 && line_elements.size() != 4) {
-            LOGGER.e(0, "Format of file [" + mtcojolist_file + "] is not correct, line " + to_string(line_number) + ".");
+            LOGGER.e(0, "the format of file [" + mtcojolist_file + "] is incorrect, line " + to_string(line_number) + ".");
         }
         covar_pheno.push_back(line_elements[0]);
         covar_pheno_file.push_back(line_elements[1]);
@@ -194,12 +194,12 @@ void read_metafile_list(string mtcojolist_file, string &target_pheno, string &ta
             if(prevbuf1 != "NA"  &&  prevbuf1!= "NAN" && prevbuf1!= ".") {
                 d_prev1 = atof(prevbuf1.c_str());
                 if(d_prev1 < 0 || d_prev1 > 1)
-                    LOGGER.e(0, "Invalid sample prevalence for trait [" + line_elements[0] + "].");
+                    LOGGER.e(0, "invalid sample prevalence for trait [" + line_elements[0] + "].");
             }
             if(prevbuf2 != "NA"  &&  prevbuf2!= "NAN" && prevbuf2 != ".") {
                 d_prev2 = atof(prevbuf2.c_str());
                 if(d_prev2 < 0 || d_prev2 > 1)
-                    LOGGER.e(0, "Invalid population prevalence for trait [" + line_elements[0] + "].");
+                    LOGGER.e(0, "invalid population prevalence for trait [" + line_elements[0] + "].");
             }
         }
         smpl_prev.push_back(d_prev1); popu_prev.push_back(d_prev2);
@@ -321,7 +321,7 @@ void gcta::update_mtcojo_snp_rm(vector<string> adjsnps, map<string,int> &snp_id_
 vector<string> gcta::read_snp_metafile_txt(string metafile, map<string,int> &gws_snp_name_map, double thresh) {
     ifstream meta_snp(metafile.c_str());
     if (!meta_snp)
-         LOGGER.e(0, "Cannot open the file [" + metafile + "] to read.");
+         LOGGER.e(0, "cannot open the file [" + metafile + "] to read.");
     
     string strbuf="", valbuf = "";
     vector<string> snplist;
@@ -334,7 +334,7 @@ vector<string> gcta::read_snp_metafile_txt(string metafile, map<string,int> &gws
         std::istream_iterator<string> begin(linebuf), end;
         vector<string> line_elements(begin, end);
         if(line_elements.size() != 8) {
-            LOGGER.e(0, "The GWAS summary data file [" + metafile + "] should be GCTA-COJO format, line " + to_string(line_number) + ".");
+            LOGGER.e(0, "the GWAS summary data file [" + metafile + "] should be in GCTA-COJO format, line " + to_string(line_number) + ".");
         }
         if(line_number==1) continue;
         // keep significant SNPs
@@ -360,7 +360,7 @@ vector<string> gcta::read_snp_metafile_gz(string metafile, map<string,int> &gws_
     
     gzifstream meta_snp(metafile.c_str());
     if (!meta_snp)
-         LOGGER.e(0, "Cannot open the file [" + metafile + "] to read.");
+         LOGGER.e(0, "cannot open the file [" + metafile + "] to read.");
     
     string err_msg = "Failed to read [" + metafile + "]. An error occurs in line ";
 
@@ -398,7 +398,7 @@ double gcta::read_single_metafile_txt(string metafile, map<string, int> id_map,
    
     ifstream meta_raw(metafile.c_str());
     if (!meta_raw)
-        LOGGER.e(0, "Cannot open the file [" + metafile + "] to read.");
+        LOGGER.e(0, "cannot open the file [" + metafile + "] to read.");
     string strbuf="", valbuf="";
     int line_number=0, snp_indx=0;
     map<string, int>::iterator iter;
@@ -414,7 +414,7 @@ double gcta::read_single_metafile_txt(string metafile, map<string, int> id_map,
         std::istream_iterator<string> begin(linebuf), end;
         vector<string> line_elements(begin, end);
         if(line_elements.size() != 8) {
-            LOGGER.e(0, "The GWAS summary data file [" + metafile + "] should be GCTA-COJO format, line " + to_string(line_number) + ".");
+            LOGGER.e(0, "the GWAS summary data file [" + metafile + "] should be in GCTA-COJO format, line " + to_string(line_number) + ".");
         }        
         // Read the summary data
         if(line_number==1) continue;
@@ -464,7 +464,7 @@ double gcta::read_single_metafile_gz(string metafile, map<string, int> id_map,
 
     gzifstream meta_raw(metafile.c_str());
     if (!meta_raw)
-        LOGGER.e(0, "Cannot open the file [" + metafile + "] to read.");
+        LOGGER.e(0, "cannot open the file [" + metafile + "] to read.");
     string err_msg = "Failed to read [" + metafile + "]. An error occurs in line ";
 
     int line_number=0, snp_indx=0;
@@ -610,7 +610,7 @@ vector<string> gcta::remove_bad_snps(vector<string> snp_name, vector<int> snp_re
     if (!badsnps.empty()) {
         string badsnpfile = outfile_name + ".badsnps", strbuf="";
         ofstream obadsnp(badsnpfile.c_str());
-        if(!obadsnp) LOGGER.e(0, "Cannot open file [" + badsnpfile + "] to write bad SNPs.");
+        if(!obadsnp) LOGGER.e(0, "cannot open file [" + badsnpfile + "] to write bad SNPs.");
         int nbadsnps = badsnps.size();
         for (i = 0; i < nbadsnps; i++) 
             obadsnp << badsnps[i] << endl;
@@ -663,13 +663,13 @@ vector<string> gcta::remove_freq_diff_snps(vector<string> meta_snp_name, vector<
     if (!afsnps.empty()) {
         string afsnpfile = outfile_name + ".freq.badsnps", strbuf="";
         ofstream oafsnp(afsnpfile.c_str());
-        if(!oafsnp) LOGGER.e(0, "Cannot open file [" + afsnpfile + "] to write bad SNPs.");
+        if(!oafsnp) LOGGER.e(0, "cannot open file [" + afsnpfile + "] to write bad SNPs.");
         int nafsnps = afsnps.size();
         for (i = 0; i < nafsnps; i++) oafsnp << afsnps[i] << endl;
         oafsnp.close();
-        LOGGER.i(0,  to_string(nafsnps) + " SNP(s) have large difference of allele frequency among the GWAS summary data and the reference sample. These SNPs have been saved in [" + afsnpfile + "].");
+        LOGGER.i(0,  to_string(nafsnps) + " SNP(s) have large difference of allele frequency between the GWAS summary data and the reference sample. These SNPs have been saved in [" + afsnpfile + "].");
         if(nafsnps > nsnp_ttl*0.05) 
-            LOGGER.e(0, "There are too many SNPs that have large difference of allele frequency. Please check your summary datasets.");
+            LOGGER.e(0, "there are too many SNPs that have large difference in allele frequency. Please check the GWAS summary data.");
     }
     return(afsnps);
 }
@@ -686,12 +686,12 @@ vector<string> gcta::remove_mono_snps(map<string,int> snp_name_map, vector<doubl
         if(af < 0.01) n_raresnp++;
     }
 
-    if(n_raresnp > 0) LOGGER.w(0,  "There are " + to_string(n_raresnp) + " SNP(s) with MAF < 0.01 in the reference sample.");
+    if(n_raresnp > 0) LOGGER.w(0,  "There are " + to_string(n_raresnp) + " SNPs with MAF < 0.01 in the reference sample.");
 
     if (!afsnps.empty()) {
         string afsnpfile = outfile_name + ".mono.badsnps", strbuf="";
         ofstream oafsnp(afsnpfile.c_str());
-        if(!oafsnp) LOGGER.e(0, "Cannot open file [" + afsnpfile + "] to write bad SNPs.");
+        if(!oafsnp) LOGGER.e(0, "cannot open file [" + afsnpfile + "] to write bad SNPs.");
         int nafsnps = afsnps.size();
         for (i = 0; i < nafsnps; i++) oafsnp << afsnps[i] << endl;
         oafsnp.close();
@@ -782,7 +782,7 @@ int gcta::read_mtcojofile(string mtcojolist_file, double gwas_thresh, int nsnp_g
     if(target_pheno_file.substr(target_pheno_file.length()-3,3)!=".gz")
         _meta_vp_trait(0) = read_single_metafile_txt(target_pheno_file, _meta_snp_name_map,  snp_a1[0], snp_a2[0], snp_freq_buf, snp_b_buf, snp_se_buf, snp_pval_buf, snp_n_buf, _snp_val_flag[0]);
     else _meta_vp_trait(0) = read_single_metafile_gz(target_pheno_file, _meta_snp_name_map,  snp_a1[0], snp_a2[0], snp_freq_buf, snp_b_buf, snp_se_buf, snp_pval_buf, snp_n_buf, _snp_val_flag[0]);
-    if(_meta_vp_trait(0) < 0) LOGGER.e(0, "Negative phenotypic variance of the target trait, " + _covar_pheno_name[0] + ".");
+    if(_meta_vp_trait(0) < 0) LOGGER.e(0, "negative phenotypic variance of the target trait, " + _covar_pheno_name[0] + ".");
     
     snp_freq.col(0) = snp_freq_buf;
     _meta_snp_b.col(0) = snp_b_buf;
@@ -795,7 +795,7 @@ int gcta::read_mtcojofile(string mtcojolist_file, double gwas_thresh, int nsnp_g
         if(covar_pheno_file[i].substr(covar_pheno_file[i].length()-3,3)!=".gz")
             _meta_vp_trait(i+1) = read_single_metafile_txt(covar_pheno_file[i], _meta_snp_name_map,  snp_a1[i+1], snp_a2[i+1], snp_freq_buf, snp_b_buf, snp_se_buf, snp_pval_buf, snp_n_buf, _snp_val_flag[i+1]);
         else _meta_vp_trait(i+1) = read_single_metafile_gz(covar_pheno_file[i], _meta_snp_name_map,  snp_a1[i+1], snp_a2[i+1], snp_freq_buf, snp_b_buf, snp_se_buf, snp_pval_buf, snp_n_buf, _snp_val_flag[i+1]);
-        if(_meta_vp_trait(i+1) < 0) LOGGER.e(0, "Negative phenotypic variance of the covariate #" + to_string(i+1) + ", " + _covar_pheno_name[i+1] + ".");
+        if(_meta_vp_trait(i+1) < 0) LOGGER.e(0, "negative phenotypic variance of the covariate #" + to_string(i+1) + ", " + _covar_pheno_name[i+1] + ".");
         snp_freq.col(i+1) = snp_freq_buf;
         _meta_snp_b.col(i+1) = snp_b_buf;
         _meta_snp_se.col(i+1) = snp_se_buf;
@@ -819,7 +819,7 @@ int gcta::read_mtcojofile(string mtcojolist_file, double gwas_thresh, int nsnp_g
     _meta_snp_a1 = snp_a1[0]; _meta_snp_a2 = snp_a2[0];
     _meta_snp_freq = snp_freq;  
     nsnp = _meta_remain_snp.size();
-    if(nsnp<1) LOGGER.e(0, "None SNPs are retained after filtering.");
+    if(nsnp<1) LOGGER.e(0, "no SNP is retained after filtering.");
     else LOGGER.i(0, to_string(nsnp) + " SNPs are retained after filtering.");
   
     // Only keep SNPs with p-value < threshold
@@ -845,7 +845,7 @@ eigenVector read_external_bxy(string filestr, vector<string> covar_pheno_name) {
     bxy_est.setConstant(-999999.0);
 
     ifstream extern_bxy(filestr.c_str());
-    if (!extern_bxy) LOGGER.e(0, "Cannot open the file [" + filestr + "] to read.");
+    if (!extern_bxy) LOGGER.e(0, "cannot open the file [" + filestr + "] to read.");
 
     for(i=0; i<ncovar; i++) covar_pheno_map.insert(pair<string,int>(covar_pheno_name[i], i));
     
@@ -853,7 +853,7 @@ eigenVector read_external_bxy(string filestr, vector<string> covar_pheno_name) {
         std::istringstream linebuf(strbuf);
         std::istream_iterator<string> begin(linebuf), end;
         vector<string> line_elements(begin, end);
-        if(line_elements.size() != 2) LOGGER.e(0, "Format of file [" + filestr + "] is not correct.");
+        if(line_elements.size() != 2) LOGGER.e(0, "the format of file [" + filestr + "] is not correct.");
         string phenobuf = line_elements[0].c_str();
         map<string,int>::iterator iter = covar_pheno_map.find(phenobuf);
         if(iter==covar_pheno_map.end()) continue;
@@ -1134,7 +1134,7 @@ vector<double> est_bxy_gsmr(eigenVector bxy_sort, eigenVector bxy, vector<string
     LDLT<eigenMatrix> ldlt_cov_bxy(cov_bxy);
 
     if( ldlt_cov_bxy.vectorD().minCoeff() <= 0 )
-        LOGGER.e(0, "The variance-covariance matrix of bxy is not invertible.");
+        LOGGER.e(0, "the variance-covariance matrix of bxy is not invertible.");
     eigenMatrix cov_bxy_inv = eigenMatrix::Identity(n_indices_snp, n_indices_snp);
     ldlt_cov_bxy.solveInPlace(cov_bxy_inv);
     vec_1t_v = vec_1.transpose()*cov_bxy_inv;
@@ -1703,12 +1703,12 @@ int read_ld_marker(string ref_ld_dirt) {
     for(i=0; i<chr_num; i++) {
         filestr = ref_ld_dirt + to_string(i+1)+ ".l2.M_5_50";
         ifstream ref_marker(filestr.c_str());
-        if (!ref_marker) LOGGER.e(0, "Cannot open the file [" + filestr + "] to read.");
+        if (!ref_marker) LOGGER.e(0, "cannot open the file [" + filestr + "] to read.");
         std::getline(ref_marker, strbuf);
         std::istringstream linebuf(strbuf);
         std::istream_iterator<string> begin(linebuf), end;
         vector<string> line_elements(begin, end);
-        if(line_elements.size() != 1) LOGGER.e(0, "Format of file [" + filestr + "] is not correct.");
+        if(line_elements.size() != 1) LOGGER.e(0, "the format of file [" + filestr + "] is incorrect.");
         i_buf = atoi(line_elements[0].c_str());
         ttl_mk_num += i_buf;
         ref_marker.close();
@@ -1735,7 +1735,7 @@ vector<string> read_ld_score_txt(string filestr, map<string,int> snplist_map, ve
         } else if(line_elements.size() == 6) {
             ldsc_index = 5;
         } else {
-            LOGGER.e(0, "Format of file [" + filestr + "] is not correct, line " + to_string(line_number) + ".");
+            LOGGER.e(0, "the format of file [" + filestr + "] is incorrect, line " + to_string(line_number) + ".");
         }
         if(line_number==1) continue;
         snpbuf = line_elements[1];
@@ -1776,7 +1776,7 @@ vector<string> read_ld_score_gz(string filestr, map<string,int> snplist_map, vec
         } else if(line_elements.size() == 6) {
             ldsc_index = 5;
         } else {
-            LOGGER.e(0, "Format of file [" + filestr + "] is not correct, line " + to_string(line_number) + ".");
+            LOGGER.e(0, "the format of file [" + filestr + "] is not correct, line " + to_string(line_number) + ".");
         }
         if(line_number==1) continue;
         snpbuf = line_elements[1];
@@ -1813,7 +1813,7 @@ vector<string> read_ld_score(string ld_dirt, map<string,int> snplist_map, int ns
             snpbuf = read_ld_score_gz(filestr_t2, snplist_map, ld_score);
             ld_score_snps.insert(ld_score_snps.end(), snpbuf.begin(), snpbuf.end());
         }
-        else LOGGER.e(0, "Cannot open the file [" + filestr_t1 + "] or [" + filestr_t2 + "] to read.");
+        else LOGGER.e(0, "cannot open the file [" + filestr_t1 + "] or [" + filestr_t2 + "] to read.");
     }
     
     return ld_score_snps;
@@ -2125,7 +2125,7 @@ eigenMatrix gcta::ldsc_snp_h2(eigenMatrix bhat_z, eigenMatrix bhat_n, eigenVecto
             ldsc_var(i,1) = rst_ldsc[1];
             LOGGER.i(0, trait_name[i] + ": " + to_string(rst_ldsc[0]) + " " + to_string(rst_ldsc[1]));  
         } else {
-            LOGGER.e(0, "Negative SNP heritability estimate for " + trait_name[i] + ". Exiting ...");
+            LOGGER.e(0, "negative SNP heritability estimate for " + trait_name[i] + ". Exiting ...");
         }
     }  
     return ldsc_var;
@@ -2196,7 +2196,7 @@ bool gcta::mtcojo_ldsc(vector<vector<bool>> snp_val_flag, eigenMatrix snp_b, eig
                        cm_ld_snps, ldsc_snp_name_map, ref_ld, w_ld, ref_ld_vec, w_ld_vec, ntrait);
     for(i=0; i<ntrait; i++) {
         if(nsnp_cm_trait[i]==0)
-            LOGGER.e(0, "\nThere is no SNP in common between the summary data and the LD score files. Please double check.");
+            LOGGER.e(0, "\nno SNP in common between the summary data and the LD score files. Please check.");
     }
     // Check the p-value
     for(i=0; i<ntrait; i++) {
@@ -2316,7 +2316,7 @@ void mtcojo_cond_output(string output_file, vector<string> snp_name, vector<int>
     
     int i=0, snpindx=0;
     ofstream ofile(output_file.c_str());
-    if (!ofile) LOGGER.e(0, "Cannot open the file [" + output_file + "] to write.");
+    if (!ofile) LOGGER.e(0, "cannot open the file [" + output_file + "] to write.");
     
     ofile << "SNP\tA1\tA2\tfreq\tb\tse\tp\tN\tbC\tbC_se\tbC_pval" <<endl;
     for (i = 0; i < nsnp; i++) {
@@ -2374,9 +2374,9 @@ void gcta::mtcojo(string mtcojo_bxy_file, string ref_ld_dirt, string w_ld_dirt, 
         if(ncovar==1) {
             ldsc_intercept.setZero(ncovar+1, ncovar+1);
             ldsc_slope.setZero(ncovar+1, ncovar+1);
-            LOGGER.e(0, "Not enough SNPs to perform the univariate LD score regression analysis. The mtCOJO analysis will be conducted assuming no sample overlap between the GWAS data for target and covariate traits.");
+            LOGGER.e(0, "not enough SNPs to perform the univariate LD score regression analysis. The mtCOJO analysis will be conducted assuming no sample overlap between the GWAS data for the target and covariate traits.");
         } else {
-            LOGGER.e(0, "Not enough SNPs to perform the univariate and bivariate LD score regression analyses. The mtCOJO analysis needs SNP-based heritability from univariate LD score regression analysis and genetic correlation from bivariate LD score regression analysis.");
+            LOGGER.e(0, "not enough SNPs to perform the univariate and bivariate LD score regression analyses. The mtCOJO analysis requires SNP-based heritability from univariate LD score regression analysis and genetic correlation from bivariate LD score regression analysis.");
         }
     } 
 
@@ -2410,7 +2410,7 @@ void gcta::mtcojo(string mtcojo_bxy_file, string ref_ld_dirt, string w_ld_dirt, 
     if(pleio_flag) {
         string pleio_snpfile = _out + ".pleio_snps";	
         ofstream o_pleio_snp(pleio_snpfile.c_str());	
-        if(!o_pleio_snp) LOGGER.e(0, "Cannot open file [" + pleio_snpfile + "] to write pleiotropic SNPs.");
+        if(!o_pleio_snp) LOGGER.e(0, "cannot open file [" + pleio_snpfile + "] to write pleiotropic SNPs.");
         o_pleio_snp << ss_pleio.str();            
         o_pleio_snp.close();	
         LOGGER.i(0,  "The pleiotropic SNPs filtered by HEIDI-outlier analysis have been saved in [" + pleio_snpfile + "].");

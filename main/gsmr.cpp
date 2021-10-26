@@ -10,7 +10,7 @@ bool determine_gwas_file(string input_file) {
 
     ifstream file_list(input_file);
     if(!file_list) 
-        LOGGER.e(0, "Cannot open file [" + input_file + "] to read.");
+        LOGGER.e(0, "cannot open file [" + input_file + "] to read.");
 
     std::getline(file_list, strbuf);
     std::istringstream linebuf(strbuf);
@@ -22,7 +22,7 @@ bool determine_gwas_file(string input_file) {
     } else if(nelements==8) {
         file_type = false;
     } else {
-        LOGGER.e(0, "The GWAS summary data should be GCTA-COJO format. Please check.");
+        LOGGER.e(0, "the GWAS summary data should be in GCTA-COJO format. Please check.");
     }
 
     return file_type;
@@ -48,7 +48,7 @@ void read_gsmr_file_list(string gsmr_file_list, vector<string> &pheno_name, vect
 
     ifstream meta_list(gsmr_file_list.c_str());
     if (!meta_list)
-        LOGGER.e(0, "Cannot open the file [" + gsmr_file_list + "] to read.");
+        LOGGER.e(0, "cannot open the file [" + gsmr_file_list + "] to read.");
     
     string strbuf="", prevbuf1="", prevbuf2="";
     // Retrieve the GWAS summary data file
@@ -60,7 +60,7 @@ void read_gsmr_file_list(string gsmr_file_list, vector<string> &pheno_name, vect
         vector<string> line_elements((istream_iterator<string>(linebuf)), istream_iterator<string>());
         
         if(line_elements.size() != 2 && line_elements.size() != 4)
-            LOGGER.e(0, "Format of file [" + gsmr_file_list + "] is not correct, line " + to_string(line_number) + ".");
+            LOGGER.e(0, "the format of file [" + gsmr_file_list + "] is incorrect, line " + to_string(line_number) + ".");
         
         pheno_name.push_back(line_elements[0]); pheno_file.push_back(line_elements[1]);
         
@@ -73,12 +73,12 @@ void read_gsmr_file_list(string gsmr_file_list, vector<string> &pheno_name, vect
             if(prevbuf1 != "NA"  &&  prevbuf1!= "NAN" && prevbuf1!= ".") {
                 d_prev1 = atof(prevbuf1.c_str());
                 if(d_prev1 < 0 || d_prev1 > 1)
-                    LOGGER.e(0, "Invalid sample prevalence for [" + pheno_name[line_number] + "].");
+                    LOGGER.e(0, "invalid sample prevalence for [" + pheno_name[line_number] + "].");
             }
             if(prevbuf2 != "NA"  &&  prevbuf2!= "NAN" && prevbuf2 != ".") {
                 d_prev2 = atof(prevbuf2.c_str());
                 if(d_prev2 < 0 || d_prev2 > 1)
-                    LOGGER.e(0, "Invalid population prevalence for [" + pheno_name[line_number] + "].");
+                    LOGGER.e(0, "invalid population prevalence for [" + pheno_name[line_number] + "].");
             }
         }
         smpl_prev.push_back(d_prev1); popu_prev.push_back(d_prev2);
@@ -153,8 +153,8 @@ void gcta::read_gsmrfile(string expo_file_list, string outcome_file_list, double
     // reset SNP variables
     update_meta_snp(_meta_snp_name_map, _meta_snp_name, _meta_remain_snp);
     
-    LOGGER.i(0, to_string(nsnp) + " SNPs genome-wide significant SNPs in common between the exposure(s) and the outcome(s).");
-    if(nsnp<nsnp_gsmr) LOGGER.e(0, "No enough SNPs to perform GSMR analysis.");
+    LOGGER.i(0, to_string(nsnp) + " genome-wide significant SNPs in common between the exposure(s) and the outcome(s).");
+    if(nsnp<nsnp_gsmr) LOGGER.e(0, "not enough SNPs to perform the GSMR analysis.");
 
     // Reading the summary data
     _meta_vp_trait.resize(npheno);
@@ -170,7 +170,7 @@ void gcta::read_gsmrfile(string expo_file_list, string outcome_file_list, double
         if(gwas_data_file[i].substr(gwas_data_file[i].length()-3,3)!=".gz")
             _meta_vp_trait[i] = read_single_metafile_txt(gwas_data_file[i], _meta_snp_name_map,  snp_a1[i], snp_a2[i], snp_freq_buf, snp_b_buf, snp_se_buf, snp_pval_buf, snp_n_buf, _snp_val_flag[i]);
         else _meta_vp_trait[i] = read_single_metafile_gz(gwas_data_file[i], _meta_snp_name_map,  snp_a1[i], snp_a2[i], snp_freq_buf, snp_b_buf, snp_se_buf, snp_pval_buf, snp_n_buf, _snp_val_flag[i]);
-        if(_meta_vp_trait[i] < 0) LOGGER.e(0, "Negative phenotypic variance of trait " + _gwas_trait_name[i] + ".");
+        if(_meta_vp_trait[i] < 0) LOGGER.e(0, "negative phenotypic variance of trait " + _gwas_trait_name[i] + ".");
         snp_freq.col(i) = snp_freq_buf;
         _meta_snp_b.col(i) = snp_b_buf;
         _meta_snp_se.col(i) = snp_se_buf;
@@ -193,7 +193,7 @@ void gcta::read_gsmrfile(string expo_file_list, string outcome_file_list, double
     _meta_snp_freq = snp_freq;
 
     nsnp = _meta_remain_snp.size();
-    if(nsnp<1) LOGGER.e(0, "None SNPs are retained for the GSMR analysis.");
+    if(nsnp<1) LOGGER.e(0, "no SNP is retained for the GSMR analysis.");
     else LOGGER.i(0, to_string(nsnp) + " SNPs are retained after filtering.");
 
     // Only keep SNPs with p-value < threshold
@@ -300,7 +300,7 @@ eigenMatrix gcta::sample_overlap_rb(vector<vector<bool>> snp_val_flag, eigenMatr
     vector<int> trait_indx1(nproc), trait_indx2(nproc);
 
     // Estimate sample overlap
-    LOGGER.i(0, "Correlation of SNP effects to estimate sample overlap between each pair of exposure and outcome ...");
+    LOGGER.i(0, "Using correlation of SNP effects to estimate sample overlap between each pair of exposure and outcome ...");
     // Initialize the variable
     for( i = 0, k = 0; i < nexpo; i++) {
         for( j = 0; j < noutcome; j++, k++) {
@@ -509,7 +509,7 @@ void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double 
     if(pleio_flag) {
         string pleio_snpfile = _out + ".pleio_snps";	
         ofstream o_pleio_snp(pleio_snpfile.c_str());	
-        if(!o_pleio_snp) LOGGER.e(0, "Cannot open file [" + pleio_snpfile + "] to write pleiotropic SNPs.");
+        if(!o_pleio_snp) LOGGER.e(0, "cannot open file [" + pleio_snpfile + "] to write pleiotropic SNPs.");
         o_pleio_snp << ss_pleio.str();            
         o_pleio_snp.close();	
         LOGGER.i(0,  "The pleiotropic SNPs filtered by HEIDI-outlier analysis have been saved in [" + pleio_snpfile + "].");
@@ -527,7 +527,7 @@ void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double 
             string output_filename = _out + ".eff_plot.gz";
             LOGGER.i(0, "Saving the SNP instruments for the GSMR plots to [" + output_filename + "] ...");
             gzofstream zofile(output_filename.c_str());
-            if (!zofile) LOGGER.e(0, "Cannot open the file [" + output_filename + "] to write.");
+            if (!zofile) LOGGER.e(0, "cannot open the file [" + output_filename + "] to write.");
             zofile << ss_pheno.str() << "#gsmr_begin" << endl << ss_gsmr.str() 
                    << "#gsmr_end" << endl << ss_effect.str() << ss.str();
             zofile.close();
@@ -541,7 +541,7 @@ void gcta::gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double 
     LOGGER.i(0, "Saving the GSMR analyses results of " + to_string(_expo_num) + " exposure(s) and "
                  + to_string(_outcome_num) + " outcome(s) to [" + output_filename + "] ...");
     ofstream ofile(output_filename.c_str());
-    if (!ofile) LOGGER.e(0, "Cannot open the file [" + output_filename + "] to write.");             
+    if (!ofile) LOGGER.e(0, "cannot open the file [" + output_filename + "] to write.");             
     ofile << ss_gsmr.str();
     ofile.close();
     LOGGER.i(0, "\nGSMR analyses completed.");

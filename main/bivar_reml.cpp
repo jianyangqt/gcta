@@ -42,7 +42,7 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
         for (i = 0; i < grm_files.size(); i++) {
             read_grm(grm_files[i], grm_id, false, true, !(adj_grm_fac > -1.0));
             if(i > 0 && grm_id.size() != last_sample){
-                LOGGER.e(0, "REML bivar can't handle different sample size in --mgrm currently. \n"
+                LOGGER.e(0, "bivariate REML can't handle multiple GRMs with different sample sizes. \n"
                         "Please use GRMs in same samples");
             }
             last_sample = grm_id.size();
@@ -77,7 +77,7 @@ void gcta::fit_bivar_reml(string grm_file, string phen_file, string qcovar_file,
         uni_id_map.insert(pair<string, int>(_fid[_keep[i]] + ":" + _pid[_keep[i]], i));
     }
     _n = _keep.size();
-    if (_n < 1) LOGGER.e(0, "no individuals are in common in the input files.");
+    if (_n < 1) LOGGER.e(0, "no individuals are in common among the input files.");
     LOGGER.i(0, to_string(_n) + " individuals are in common in these files.");
 
     // construct model terms
@@ -358,7 +358,7 @@ bool gcta::calcu_Vi_bivar(eigenMatrix &Vi, eigenVector &prev_varcmp, double &log
         }
     }
     if (_V_inv_mtd == 1) {
-        if (!comput_inverse_logdet_LU_mkl(Vi, logdet)) LOGGER.e(0, "the variance-covaraince matrix V is not invertible.");
+        if (!comput_inverse_logdet_LU_mkl(Vi, logdet)) LOGGER.e(0, "the variance-covariance matrix V is not invertible.");
     }
     //LOGGER << "Chop decomposition finished" << endl;
     return true;
@@ -501,7 +501,7 @@ void gcta::init_rg(eigenVector &varcmp)
             varcmp[_bivar_pos[1][i]]/=ratio;
             delta_0=varcmp_buf[_bivar_pos[0][i]]-varcmp[_bivar_pos[0][i]];
         }
-        else LOGGER.e(0, "unable to calcuate the genetic correlation because one of the genetic variance components is negative.");
+        else LOGGER.e(0, "unable to calculate the genetic correlation because one of the genetic variance components is negative.");
     }
 }
 

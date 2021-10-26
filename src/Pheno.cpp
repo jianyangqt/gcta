@@ -70,7 +70,7 @@ Pheno::Pheno() {
     }
 
     if(!has_pheno){
-        LOGGER.e(0, "no phenotype file presents");
+        LOGGER.e(0, "no phenotype file found.");
     }
 
     if(options.find("keep_file") != options.end()){
@@ -90,7 +90,7 @@ Pheno::Pheno() {
         LOGGER.i(0, "Reading phenotype data from [" + options["qpheno_file"] + "]...");
         vector<string> pheno_subjects = read_sublist(options["qpheno_file"], &phenos);
         if(hasVectorDuplicate(pheno_subjects)){
-            LOGGER.e(0, "find duplicated items in phenotype data.");
+            LOGGER.e(0, " duplicated IDs found in the phenotype data.");
         }
 
         int cur_pheno = 1;
@@ -98,12 +98,12 @@ Pheno::Pheno() {
             try{
                 cur_pheno = std::stoi(options["mpheno"]);
             }catch(std::invalid_argument&){
-                LOGGER.e(0, "--mpheno isn't a numberic value");
+                LOGGER.e(0, "non-numberic value specified for –mpheno.");
             }
         }
 
         if(cur_pheno <= 0 || cur_pheno > phenos.size()){
-            LOGGER.e(0, "selected pheno column can't be less than 0 or larger than --pheno columns");
+            LOGGER.e(0, "the value specified for --mpheno can't be less than 0 or larger than the total number of columns in .pheno file.");
         }
 
         cur_pheno -= 1;
@@ -118,7 +118,7 @@ Pheno::Pheno() {
         LOGGER.i(0, "Reading gender information from [" + options["sex_file"] + "]...");
         vector<string> subjects = read_sublist(options["sex_file"], &phenos);
         if(hasVectorDuplicate(subjects)){
-            LOGGER.e(0, "find duplicated items in gender information.");
+            LOGGER.e(0, "duplicated IDs in the gender information.");
         }
         vector<double> sex_info = phenos[0];
         update_sex(subjects, sex_info);
@@ -139,7 +139,7 @@ Pheno::Pheno() {
     }
 
     if(hasVectorDuplicate(filter_marker)){
-        LOGGER.e(0, "find duplicated items in sample IDs.");
+        LOGGER.e(0, "duplicated sample IDs.");
     }
     */
 
@@ -188,7 +188,7 @@ void Pheno::reinit(){
     num_keep = index_keep.size();
     num_rm = index_rm.size();
     if(num_keep == 0){
-        LOGGER.e(0, "0 individual remain for further analysis.");
+        LOGGER.e(0, "0 individual remains for further analysis.");
     }
     //init_mask_block();
     index_keep_male.clear();
@@ -219,7 +219,7 @@ vector<string> Pheno::read_sublist(string sublist_file, vector<vector<double>> *
     vector<string> subject_list;
     std::ifstream sublist(sublist_file.c_str());
     if(!sublist.good()){
-        LOGGER.e(0, "cann't read [" + sublist_file + "]");
+        LOGGER.e(0, "can't read [" + sublist_file + "]");
     }
     vector<int> keep_row;
     string err_file = "the file [" + sublist_file + "]";
@@ -238,7 +238,7 @@ vector<string> Pheno::read_sublist(string sublist_file, vector<vector<double>> *
         last_length = num_elements;
         if(phenos){
             if(num_elements < 3){
-                LOGGER.e(0, err_file + " has less than 3 columns, first 2 columns should be FID, IID");
+                LOGGER.e(0, err_file + " has less than 3 columns, where the first 2 columns should be FID, IID");
             }
 
             if(keep_row_p){
@@ -251,7 +251,7 @@ vector<string> Pheno::read_sublist(string sublist_file, vector<vector<double>> *
             }
             large_elements = keep_row[keep_row.size() - 1] + 1 + 2;
             if(large_elements > num_elements){
-                LOGGER.e(0, err_file + " has not enough column to read");
+                LOGGER.e(0, err_file + " does not have enough columns to read");
             }
         }else{
             if(num_elements < 2){
@@ -350,7 +350,7 @@ void Pheno::read_checkMPSample(string m_file){
         if(errr){
             LOGGER.e(0, "GCTA requires all files with same sample information.");
         }else{
-            LOGGER.i(1, "All files checked OK.");
+            LOGGER.i(1, "All the files checked are OK.");
         }
     }
 }
@@ -371,7 +371,7 @@ void Pheno::read_psam(string psam_file){
                 iMAT = 3;
                 iSEX = 4;
             }else{
-                LOGGER.e(0, "only find " + to_string(ncol) + " columns, invalid FAM file (at least 6).");
+                LOGGER.e(0, "only " + to_string(ncol) + " columns for the FAM file which has at least 6 columns.");
             }
             //pheno.push_back(strtod("nan", NULL)); //5
         }else{
@@ -386,11 +386,11 @@ void Pheno::read_psam(string psam_file){
                 iIID = findElementVector(head, string("#IID"), foundIID);
                 iFID = iIID;
             }
-            if(!foundIID) LOGGER.e(0, "can't find IID or #IID in header, invalid PSAM file.");
+            if(!foundIID) LOGGER.e(0, "can't find IID or #IID in the headers, which is invalid for a PSAM file.");
 
             bool found;
             iSEX = findElementVector(head, string("SEX"), found);
-            if(!found) LOGGER.e(0, "SEX column in PSAM file is essential to GCTA.");
+            if(!found) LOGGER.e(0, "the column for gender information is required in the PSAM file.");
             iPAT = findElementVector(head, string("PAT"), found);
             iMAT = findElementVector(head, string("MAT"), found);
         }
@@ -441,10 +441,10 @@ void Pheno::read_psam(string psam_file){
 }
 
 void Pheno::read_sample(string sample_file){
-    LOGGER.i(0, "Reading oxford sample information file from [" + sample_file + "]...");
+    LOGGER.i(0, "Reading Oxford sample information file from [" + sample_file + "]...");
     std::ifstream hsample(sample_file.c_str());
     if(!hsample){
-        LOGGER.e(0, "can not open sample file to read.");
+        LOGGER.e(0, "cannot open sample file to read.");
     }
     string line;
     std::getline(hsample, line);
@@ -491,7 +491,7 @@ void Pheno::read_sample(string sample_file){
             sex.push_back(sex_map[line_elements[3]]);
             pheno.push_back(strtod("nan", NULL)); //5
         }else{
-            LOGGER.e(0, "Line " + to_string(line_number + 3) + " has different number of columns.");
+            LOGGER.e(0, "line " + to_string(line_number + 3) + " has different number of columns.");
         }
         line_number++;
     }
@@ -509,7 +509,7 @@ void Pheno::read_fam(string fam_file) {
     LOGGER.i(0, "Reading PLINK FAM file from [" + fam_file + "]...");
     std::ifstream fam(fam_file.c_str());
     if(!fam){
-        LOGGER.e(0, "can not open the file [" + fam_file + "] to read");
+        LOGGER.e(0, "cannot open the file [" + fam_file + "] to read");
     }
 
     int line_number = 0;
@@ -963,7 +963,7 @@ int Pheno::registerOption(map<string, vector<string>>& options_in){
 
     if(options_in.find("--mpheno") != options_in.end()){
         if(options.find("qpheno_file") == options.end()){
-            LOGGER.e(0, "--mpheno has to combine with --pheno");
+            LOGGER.e(0, "--mpheno only works with --pheno");
         }
         options["mpheno"] = options_in["--mpheno"][0];
         options_in.erase("--mpheno");
@@ -979,5 +979,5 @@ int Pheno::registerOption(map<string, vector<string>>& options_in){
 }
 
 void Pheno::processMain(){
-    LOGGER.e(0, "Phenotype has no main process this time");
+    LOGGER.e(0, "phenotype has no main process this time.");
 }

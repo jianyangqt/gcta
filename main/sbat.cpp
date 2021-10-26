@@ -15,7 +15,7 @@
 void gcta::sbat_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, vector<int> &snp_chr, vector<int> &snp_bp, vector<double> &snp_pval)
 {
     ifstream in_snpAssoc(snpAssoc_file.c_str());
-    if (!in_snpAssoc) LOGGER.e(0, "can not open the file [" + snpAssoc_file + "] to read.");
+    if (!in_snpAssoc) LOGGER.e(0, "cannot open the file [" + snpAssoc_file + "] to read.");
     LOGGER << "\nReading SNP association results from [" + snpAssoc_file + "]." << endl;
     string str_buf;
     vector<string> vs_buf;
@@ -66,7 +66,7 @@ void gcta::sbat_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, ve
 
 void gcta::sbat_read_geneAnno(string gAnno_file, vector<string> &gene_name, vector<int> &gene_chr, vector<int> &gene_bp1, vector<int> &gene_bp2) {
     ifstream in_gAnno(gAnno_file.c_str());
-    if (!in_gAnno) LOGGER.e(0, "can not open the file [" + gAnno_file + "] to read.");
+    if (!in_gAnno) LOGGER.e(0, "cannot open the file [" + gAnno_file + "] to read.");
     LOGGER << "Reading physical positions of the genes from [" + gAnno_file + "]." << endl;
     string str_buf;
     vector<string> vs_buf;
@@ -112,7 +112,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
     sbat_read_geneAnno(gAnno_file, gene_name, gene_chr, gene_bp1, gene_bp2);
 
     // map genes to SNPs
-    LOGGER << "Mapping the physical positions of genes to SNP data (gene bounaries: " << wind / 1000 << "Kb away from UTRs) ..." << endl;
+    LOGGER << "Mapping the physical positions of genes to SNP data (gene boundaries: " << wind / 1000 << "Kb away from UTRs) ..." << endl;
 
     int gene_num = gene_name.size();
     vector<string> gene2snp_1(gene_num), gene2snp_2(gene_num);
@@ -153,7 +153,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
     for (i = 0; i < gene_num; i++) {
         if (gene2snp_1[i] != "NA" && gene2snp_2[i] != "NA") mapped++;
     }
-    if (mapped < 1) LOGGER.e(0, "no gene can be mapped to the SNP data. Please check the input data regarding chr and bp.");
+    if (mapped < 1) LOGGER.e(0, "no gene can be mapped to the SNP data. Please check the input data regarding chromosome and bp.");
     else LOGGER << mapped << " genes have been mapped to SNP data." << endl;
 
     // run gene-based test
@@ -225,7 +225,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
     string filename = _out + ".gene.fastbat";
     LOGGER << "\nSaving the results of the fastBAT analysis to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
-    if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
+    if (!ofile) LOGGER.e(0, "cannot open the file [" + filename + "] to write.");
     ofile << "Gene\tChr\tStart\tEnd\tNo.SNPs\tSNP_start\tSNP_end\tChisq(Obs)\tPvalue\tTopSNP.Pvalue\tTopSNP" << endl;
     for (i = 0; i < gene_num; i++) {
         if(gene_pval[i]>1.5) continue;
@@ -236,7 +236,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
     }
     ofile.close();
     if (sbat_write_snpset) {
-        LOGGER << "The SNP sets have been save in file [" << rgoodsnpfile << "]." << endl;
+        LOGGER << "The SNP sets have been saved in file [" << rgoodsnpfile << "]." << endl;
         rogoodsnp.close();
     }
 }
@@ -244,7 +244,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
 void gcta::sbat_read_snpset(string snpset_file, vector<string> &set_name, vector< vector<string> > &snpset)
 {
     ifstream in_snpset(snpset_file.c_str());
-    if (!in_snpset) LOGGER.e(0, "can not open the file [" + snpset_file + "] to read.");
+    if (!in_snpset) LOGGER.e(0, "cannot open the file [" + snpset_file + "] to read.");
     LOGGER << "\nReading SNP sets from [" + snpset_file + "]." << endl;
     string str_buf;
     vector<string> vs_buf, snpset_buf, snp_name;
@@ -293,7 +293,7 @@ void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, b
     // run gene-based test
     if (_mu.empty()) calcu_mu();
     LOGGER << "\nRunning fastBAT analysis ..." << endl;
-    if (sbat_ld_cutoff < 1) LOGGER << "Pruning snps with maximum ld cutoff " << sbat_ld_cutoff  << endl;
+    if (sbat_ld_cutoff < 1) LOGGER << "Pruning SNPs with maximum LD cutoff " << sbat_ld_cutoff  << endl;
     vector<double> set_pval(set_num), chisq_o(set_num), min_snp_pval(set_num);
     vector<string> min_snp_name(set_num);
     vector<int> snp_num_in_set(set_num);
@@ -363,7 +363,7 @@ void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, b
     string filename = _out + ".fastbat";
     LOGGER << "\nSaving the results of the fastBAT analysis to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
-    if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
+    if (!ofile) LOGGER.e(0, "cannot open the file [" + filename + "] to write.");
     ofile << "Set\tNo.SNPs\tChisq(Obs)\tPvalue\tTopSNP.Pvalue\tTopSNP" << endl;
     for (i = 0; i < set_num; i++) {
         if(set_pval[i]>1.5) continue;
@@ -372,7 +372,7 @@ void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, b
     }
     ofile.close();
     if (sbat_write_snpset) {
-        LOGGER << "The SNP sets have been save in file [" << rgoodsnpfile << "]." << endl;
+        LOGGER << "The SNP sets have been saved in file [" << rgoodsnpfile << "]." << endl;
         rogoodsnp.close();
     }
 }
@@ -393,7 +393,7 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, boo
     // run gene-based test
     if (_mu.empty()) calcu_mu();
     LOGGER << "\nRunning fastBAT analysis at genomic segments with a length of " << seg_size/1000 << "Kb ..." << endl;
-    if (sbat_ld_cutoff < 1) LOGGER << "Pruning snps with maximum ld cutoff " << sbat_ld_cutoff  << endl;
+    if (sbat_ld_cutoff < 1) LOGGER << "Pruning SNPs with maximum LD cutoff " << sbat_ld_cutoff  << endl;
     vector< vector<int> > snp_set_indx;
     vector<int> set_chr, set_start_bp, set_end_bp;
     get_sbat_seg_blk(seg_size, snp_set_indx, set_chr, set_start_bp, set_end_bp);
@@ -459,7 +459,7 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, boo
     string filename = _out + ".seg.fastbat";
     LOGGER << "\nSaving the results of the segment-based fastBAT analysis to [" + filename + "] ..." << endl;
     ofstream ofile(filename.c_str());
-    if (!ofile) LOGGER.e(0, "Can not open the file [" + filename + "] to write.");
+    if (!ofile) LOGGER.e(0, "cannot open the file [" + filename + "] to write.");
     ofile << "Chr\tStart\tEnd\tNo.SNPs\tChisq(Obs)\tPvalue\tTopSNP.Pvalue\tTopSNP" << endl;
     for (i = 0; i < set_num; i++) {
         if(set_pval[i]>1.5) continue;
@@ -470,7 +470,7 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, boo
     }
     ofile.close();
     if (sbat_write_snpset) {
-        LOGGER << "The SNP sets have been save in file [" << rgoodsnpfile << "]." << endl;
+        LOGGER << "The SNP sets have been saved in file [" << rgoodsnpfile << "]." << endl;
         rogoodsnp.close();
     }
 }

@@ -30,7 +30,7 @@ double StatFunc::F_prob(double df_1, double df_2, double F_value) {
 double StatFunc::betai(double a, double b, double x) {
     double bt;
 
-    if (x < 0.0 || x > 1.0) LOGGER.e(0, "Bad x in routine betai!");
+    if (x < 0.0 || x > 1.0) LOGGER.e(0, "bad x in routine betai!");
 
     if (x == 0.0 || x == 1.0) bt = 0.0;
     else bt = exp(gammln(a + b) - gammln(a) - gammln(b) + a * log(x) + b * log(1.0 - x));
@@ -98,7 +98,7 @@ double StatFunc::chi_prob(double df, double chi_sqr_val) {
 double StatFunc::gammp(const double a, const double x) {
     double gamser, gammcf, gln;
 
-    if (x < 0.0 || a <= 0.0) LOGGER.e(0, "Invalid arguments in routine gammp");
+    if (x < 0.0 || a <= 0.0) LOGGER.e(0, "invalid arguments in routine gammp");
 
     if (x < a + 1.0) {
         gser(gamser, a, x, gln);
@@ -117,7 +117,7 @@ void StatFunc::gser(double &gamser, const double a, const double x, double &gln)
 
     gln = gammln(a);
     if (x <= 0.0) {
-        if (x < 0.0) LOGGER.e(0, "x less than 0 in routine gser");
+        if (x < 0.0) LOGGER.e(0, "x is less than 0 in routine gser");
         gamser = 0.0;
         return;
     } else {
@@ -132,7 +132,7 @@ void StatFunc::gser(double &gamser, const double a, const double x, double &gln)
                 return;
             }
         }
-        LOGGER.e(0, "a too large, ITMAX too small in routine gser");
+        LOGGER.e(0, "a is too large, and ITMAX is too small in routine gser");
         return;
     }
 }
@@ -161,7 +161,7 @@ void StatFunc::gcf(double &gammcf, const double a, const double x, double &gln) 
         h *= del;
         if (CommFunc::Abs(del - 1.0) <= EPS) break;
     }
-    if (i > ITMAX) LOGGER.e(0, "a too large, ITMAX too small in gcf");
+    if (i > ITMAX) LOGGER.e(0, "a is too large, and ITMAX is too small in gcf");
     gammcf = exp(-x + a * log(x) - gln) * h;
 }
 ////////// P-value Calculatiion Functions End ////////////////
@@ -177,7 +177,7 @@ void StatFunc::gasdev_seq(int &idum, vector<double> &vec, int size, double means
 }
 
 void StatFunc::gasdev_seq(int &idum, vector<double> &vec, int size, double var) {
-    if (size < 2) LOGGER.e(0, "Invalid size! StatFunc::gasdev_seq");
+    if (size < 2) LOGGER.e(0, "invalid size. StatFunc::gasdev_seq");
     if (CommFunc::FloatEqual(var, 0.0)) {
         vec.clear();
         vec.resize(size);
@@ -223,7 +223,7 @@ double StatFunc::gasdev(int &idum) {
 }
 
 double StatFunc::UniformDev(double a, double b, int &idum) {
-    if (a >= b) LOGGER.e(0, "b must larger than a! StatFunc::UniformDev");
+    if (a >= b) LOGGER.e(0, "b must be larger than a. StatFunc::UniformDev");
     if (idum > 0) idum *= -1;
     return a + (b - a) * ran1(idum);
 }
@@ -268,7 +268,7 @@ double StatFunc::ran1(int &idum) {
 
 double StatFunc::chidev(int &idum, const double df) {
     if (df > 2.0) return 2.0 * cheng_gamdev(idum, df * 0.5);
-    else LOGGER.e(0, "Invalid degree of freedom! StatFunc::chidev");
+    else LOGGER.e(0, "invalid degree of freedom. StatFunc::chidev");
     return 0;
 }
 
@@ -411,7 +411,7 @@ double StatFunc::F_val(double df_1, double df_2, double prob) {
 
 double StatFunc::ControlFDR(const vector<double> &P_Value, double alpha, bool Restrict) {
     int i = 0, Size = P_Value.size();
-    if (Size <= 1) LOGGER.e(0, "Invalid size! StatFunc::ControlFDR");
+    if (Size <= 1) LOGGER.e(0, "invalid size. StatFunc::ControlFDR");
     double FDR_Threshold = 0.0;
     vector<double> P_ValueBuf(Size);
     for (i = 0; i < Size; i++) P_ValueBuf[i] = P_Value[i];
@@ -556,7 +556,7 @@ void StatFunc::splint(vector<double> &xa, vector<double> &ya, vector<double> &y2
         else klo = k;
     }
     h = xa[khi] - xa[klo];
-    if (h == 0.0) LOGGER.e(0, "Bad xa input to routine splint");
+    if (h == 0.0) LOGGER.e(0, "bad xa input to routine splint");
     a = (xa[khi] - x) / h;
     b = (x - xa[klo]) / h;
     y = a * ya[klo] + b * ya[khi]+((a * a * a - a) * y2a[klo]

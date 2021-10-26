@@ -20,7 +20,7 @@ int gcta::read_QTL_file(string qtl_file, vector<string> &qtl_name, vector<int> &
     have_eff.clear();
 
     ifstream i_qtl(qtl_file.c_str());
-    if (!i_qtl) LOGGER.e(0, "can not open the file [" + qtl_file + "] to read.");
+    if (!i_qtl) LOGGER.e(0, "cannot open the file [" + qtl_file + "] to read.");
     string qtl_buf, str_buf;
     double qtl_eff_buf = 0.0;
     LOGGER << "Reading a list of SNPs (as causal variants) from [" + qtl_file + "]." << endl;
@@ -61,7 +61,7 @@ void gcta::output_simu_par(vector<string> &qtl_name, vector<int> &qtl_pos, vecto
     int i = 0;
     string out_parfile = _out + ".par";
     ofstream out_par(out_parfile.c_str());
-    if (!out_par) LOGGER.e(0, "can not open par file [" + out_parfile + "] to write!");
+    if (!out_par) LOGGER.e(0, "cannot open par file [" + out_parfile + "] to write!");
     out_par << "QTL\tRefAllele\tFrequency\tEffect" << endl;
     for (i = 0; i < qtl_eff.size(); i++) out_par << qtl_name[i] << "\t" << _ref_A[qtl_pos[i]] << "\t" << 0.5 * _mu[qtl_pos[i]] << "\t" << qtl_eff[i] << endl;
     out_par.close();
@@ -72,7 +72,7 @@ void gcta::save_phenfile(vector< vector<double> > &y)
 {
     string phenfile = _out + ".phen";
     ofstream phen(phenfile.c_str());
-    if (!phen) LOGGER.e(0, "can not open the file [" + phenfile + "] to write.");
+    if (!phen) LOGGER.e(0, "cannot open the file [" + phenfile + "] to write.");
     int i = 0, j = 0;
     for (i = 0; i < _keep.size(); i++) {
         phen << _fid[_keep[i]] << " " << _pid[_keep[i]] << " ";
@@ -202,7 +202,7 @@ void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, 
         if (!output_causal) update_id_map_rm(qtl_name, _snp_name_map, _include);
         string out_rstfile = _out + ".emb";
         ofstream out_emBayesB(out_rstfile.c_str());
-        if (!out_emBayesB) LOGGER.e(0, "can not open the file [" + out_rstfile + "] to write.");
+        if (!out_emBayesB) LOGGER.e(0, "cannot open the file [" + out_rstfile + "] to write.");
         LOGGER << "Saving the simulated data to the file [" + out_rstfile + "] (in emBayesB format)." << endl;
         for (i = 0; i < _keep.size(); i++) {
             if (y[0][i] == -9) continue;
@@ -296,7 +296,7 @@ void gcta::GenerCases(string bfile, string qtl_file, int case_num, int control_n
     }
         string out_parfile=_out+".par";
         ofstream out_par(out_parfile.c_str());
-        if(!out_par) LOGGER.e(0, "can not open par file ["+out_parfile+"] to write!");
+        if(!out_par) LOGGER.e(0, "cannot open par file ["+out_parfile+"] to write!");
         LOGGER<<"Writing simulation parameters to file ["<<out_parfile<<"]."<<endl;
         for(i=0; i<qtl_num; i++) out_par<<qtl_name[i]<<"\t"<<AF[i]<<"\t"<<qtl_eff[i]<<"\t"<<qsq[i]<<endl;
     out_par.close();
@@ -367,7 +367,7 @@ void gcta::GenerCases(string bfile, string qtl_file, int case_num, int control_n
         // Output fam file
         string out_famfile=_out+".fam";
     ofstream out_fam(out_famfile.c_str());
-    if(!out_fam) LOGGER.e(0, "can not open fam file ["+out_famfile+"] to write!");
+    if(!out_fam) LOGGER.e(0, "cannot open fam file ["+out_famfile+"] to write!");
     LOGGER<<"Writing IDs of cases and controls to file ["<<out_famfile<<"]."<<endl;
     for(i=0; i<case_num; i++) out_fam<<i+1<<"\t"<<i+1<<"\t0\t0\t0\t2"<<endl;
     for(i=case_num; i<_indi_num; i++) out_fam<<i+1<<"\t"<<i+1<<"\t0\t0\t0\t1"<<endl;
@@ -407,7 +407,7 @@ void gcta::save_bedfile(vector< vector<int> > &fa_indx, vector< vector<int> > &m
     int i=0, pos=0, n=0, fa=0, mo=0, fa_hap_buf=0, mo_hap_buf=0;
     string OutBedFile=_out+".bed";
         fstream OutBed(OutBedFile.c_str(), ios::out|ios::binary);
-        if(!OutBed) LOGGER.e(0, "can not open the file ["+OutBedFile+"] to write.");
+        if(!OutBed) LOGGER.e(0, "cannot open the file ["+OutBedFile+"] to write.");
         LOGGER<<"Writing genotypes to PLINK BED file ["+OutBedFile+"]."<<endl;
         bitset<8> b;
         char ch[1];
@@ -472,7 +472,7 @@ void gcta::save_famfile()
 {
     string famfile=_out+".fam";
         ofstream Fam(famfile.c_str());
-        if(!Fam) LOGGER.e(0, "can not open the fam file "+famfile+" to save!");
+        if(!Fam) LOGGER.e(0, "cannot open the fam file "+famfile+" to save!");
         LOGGER<<"Writing PLINK FAM file to ["+famfile+"]."<<endl;
         int i=0;
         for(i=0; i<_indi_num; i++){
@@ -487,7 +487,7 @@ void gcta::save_bimfile()
         int i=0;
         string bimfile=_out+".bim";
         ofstream Bim(bimfile.c_str());
-        if(!Bim) LOGGER.e(0, "can not open the file ["+bimfile+"] to write.");
+        if(!Bim) LOGGER.e(0, "cannot open the file ["+bimfile+"] to write.");
         LOGGER<<"Writing PLINK bim file to ["<<bimfile<<"]."<<endl;
         for(i=0; i<_snp_num; i++){
                 Bim<<_chr[i]<<"\t"<<_snp_name[i]<<"\t"<<_genet_dst[i]<<"\t"<<_bp[i]<<"\t"<<_allele1[i]<<"\t"<<_allele2[i]<<endl;
@@ -513,7 +513,7 @@ void gcta::genet_dst(string bfile, string hapmap_genet_map)
         str_strm << hapmap_genet_map << i + 1 << "_CEU_b36.txt";
         genet_mapfile = str_strm.str();
         ifstream i_genet_map(genet_mapfile.c_str());
-        if (!i_genet_map) LOGGER.e(0, "can not open HAPMAP genetic map file " + genet_mapfile + "!");
+        if (!i_genet_map) LOGGER.e(0, "cannot open the HAPMAP genetic map file " + genet_mapfile + ".");
         hap_genet[i].resize(2);
         getline(i_genet_map, str_buf);
         while (getline(i_genet_map, str_buf)) {
@@ -554,7 +554,7 @@ void gcta::genet_dst(string bfile, string hapmap_genet_map)
     // Output fam file
     string out_bimfile = _out + ".genetdst";
     ofstream out_bim(out_bimfile.c_str());
-    if (!out_bim) LOGGER.e(0, "can not open file " + out_bimfile + " to write!");
+    if (!out_bim) LOGGER.e(0, "cannot open file " + out_bimfile + " to write.");
     for (i = 0; i < snp_num; i++) out_bim << _chr[i] << "\t" << _snp_name[i] << "\t" << dst[i]*1e-6 << "\t" << _bp[i] << "\t" << _allele1[i] << "\t" << _allele2[i] << endl;
     out_bim.close();
     LOGGER << "Genetic distances have been created, and been saved in [" + out_bimfile + "]." << endl;

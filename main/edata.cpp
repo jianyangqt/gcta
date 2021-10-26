@@ -16,14 +16,14 @@ void gcta::read_efile(string efile)
 {
     ifstream einf;
     einf.open(efile.c_str());
-    if (!einf.is_open()) LOGGER.e(0, "can not open the file [" + efile + "] to read.");
+    if (!einf.is_open()) LOGGER.e(0, "cannot open the file [" + efile + "] to read.");
     LOGGER << "Reading gene expression / methylation data from [" + efile + "] ..." << endl;
     
     string str_buf="";
     vector<string> vs_buf;
     getline(einf, str_buf); // reading the header
     int col_num = StrFunc::split_string(str_buf, vs_buf, " \t\n");
-    if(col_num < 3) LOGGER.e(0, "there needs be at least 3 columns in the file [" + efile + "].");
+    if(col_num < 3) LOGGER.e(0, "there needs to be at least 3 columns in the file [" + efile + "].");
     _probe_num = col_num - 2;
     _probe_name.resize(_probe_num);
     int i=0;
@@ -70,7 +70,7 @@ void gcta::init_e_include() {
     for (i = 0; i < _probe_num; i++) {
         _e_include[i] = i;
         _probe_name_map.insert(pair<string, int>(_probe_name[i], i));
-        if (size == _probe_name_map.size()) LOGGER.e(0, "Duplicate probe name found: \"" + _probe_name[i] + "\".");
+        if (size == _probe_name_map.size()) LOGGER.e(0, "duplicated probe names found: \"" + _probe_name[i] + "\".");
         size = _probe_name_map.size();
     }
 }
