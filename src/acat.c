@@ -20,8 +20,8 @@
     atan(1.0 / (x)) / M_PI
 
 #define HASH_LEN 100
-#define LINE_BUFFER_LEN 300
-#define FIELD_BUFFER_LEN 50
+#define LINE_BUFFER_LEN 4096
+#define FIELD_BUFFER_LEN 512
 
 #ifndef LOCAL_STRUCT /*LOCAL_STRUCT*/
 #define LOCAL_STRUCT
