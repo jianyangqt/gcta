@@ -60,7 +60,7 @@ Here we do not provide instructions to compile GCTA in Mac OS or Windows because
 3. Export BOOST_LIB environment variable  
 `export BOOST_LIB=where_your_boost_include_directory_located`  
 4. Export SPECTRA_LIB environment variable
-`export SPECTRA_LIB=where_your_spectra_lib_located`
+`export SPECTRA_LIB=where_your_spectra_include_directory_located`
 5. Other compilation Requirements should be placed in your compiler's header files and library searching paths.  
 6. Clone GCTA source code from github 
 `git clone https://github.com/jianyangqt/gcta GCTA_PATH`
