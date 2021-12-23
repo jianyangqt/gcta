@@ -66,8 +66,7 @@ Here we do not provide instructions to compile GCTA in Mac OS or Windows because
 `git clone https://github.com/jianyangqt/gcta GCTA_PATH`
 7. Clone plink_ng submods
 ```
-cd GCTA_PATH/submods
-git clone https://github.com/zhilizheng/plink-ng
+git submodule update --init
 ```
 
 #### To compile
