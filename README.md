@@ -56,7 +56,7 @@ Here we do not provide instructions to compile GCTA in Mac OS or Windows because
 `export MKLROOT=where_your_MKL_located`  
 `export OPENBLAS=where_your_openblas_located`  
 2. Export EIGENE3_INCLUDE_DIR into your shell environment  
-`export EIGENE3_INCLUDE_DIR=where_your_eigen3_located`  
+`export EIGEN3_INCLUDE_DIR=where_your_eigen3_located`  
 3. Export BOOST_LIB environment variable  
 `export BOOST_LIB=where_your_boost_include_directory_located`  
 4. Export SPECTRA_LIB environment variable
