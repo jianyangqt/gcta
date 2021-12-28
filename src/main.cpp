@@ -91,7 +91,7 @@ int main(int argc, char *argv[]){
     string cur_string = "";
    if(argc == 1){
         LOGGER.m(0, "Error: no analysis has been launched by the option(s)");
-        LOGGER.m(0, "Please see online documentation at http://cnsgenomics.com/software/gcta");
+        LOGGER.m(0, "Please see online documentation at https://yanglab.westlake.edu.cn/software/gcta/");
         return 1;
     }
    #ifdef ACAT_MODULE //fanghl
