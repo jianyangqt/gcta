@@ -163,7 +163,7 @@ hash_func(char * chrom_s)
     else if (isdigit(chrom_s[0]))
         return atoi(chrom_s);
     else{
-        fprintf(stderr, "error, chrom not recognized.\n");
+        fprintf(stderr, "error, chrom %s not recognized.\n", chrom_s);
         exit(EXIT_FAILURE);
     }
 }
@@ -308,7 +308,7 @@ structure_gene_data(struct HASH_NODE * hash_dt, const char * gene_list_name, boo
             j = 0;
             most_right = 0;
             while (this){
-                gene_start = (this -> gene_pos_s_e)[0] - extend_len;
+                gene_start = ((long)((this -> gene_pos_s_e)[0] - extend_len) > 0)? (this -> gene_pos_s_e)[0] - extend_len: 1;
                 gene_end = (this -> gene_pos_s_e)[1] + extend_len;
                 if (gene_end > most_right)
                     most_right = gene_end;
