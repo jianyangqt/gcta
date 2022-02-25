@@ -33,7 +33,7 @@ If you have any bug reports or questions please send an email to Jian Yang at <j
 
 #### Requirements
 1. Currently only x86\_64-based operating systems are supported.
-2. Intel MKL 2017 or above (only needed when building on x86\-64 machines)
+2. [Intel MKL](https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl-download.html) 2017 or above (only needed when building on x86\-64 machines)
 3. OpenBLAS (only needed when building on AArch64 machines)
 4. Eigen == 3.3.7 (there are bugs in the new version of Eigen)
 5. CMake >= 3.1
@@ -41,7 +41,7 @@ If you have any bug reports or questions please send an email to Jian Yang at <j
 7. zlib >= 1.2.11
 8. sqlite3 >= 3.31.1
 9. zstd >= 1.4.4
-10. Spectra >= 0.8.1
+10. [Spectra](https://spectralib.org/) >= 0.8.1
 11. gsl (GNU scientific library)
 
 #### Linux
