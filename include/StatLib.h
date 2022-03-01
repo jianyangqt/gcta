@@ -21,6 +21,7 @@ using Eigen::VectorXd;
 
 namespace StatLib{
     double pchisqd1(double x);
+    double pchisqd2(double x); 
     double qchisqd1(double x);
 
     double pnorm(double x, bool bLowerTail=false);

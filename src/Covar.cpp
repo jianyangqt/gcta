@@ -35,6 +35,7 @@ bool common_3vector(vector<string> **idListP, vector<vector<double>> **valueP,
     vector<string> &s1 = *(idListP[0]);
     vector<string> &s2 = *(idListP[1]);
     vector<string> &s3 = *(idListP[2]);
+    vector<string> &s4 = *(idListP[3]); 
     if(s1.size() == 0 || s2.size() == 0){
         return false;
     }
@@ -50,7 +51,7 @@ bool common_3vector(vector<string> **idListP, vector<vector<double>> **valueP,
     std::transform(s1_index.begin(), s1_index.end(), 
             std::back_inserter(sample_id), [&s1](int pos){return s1[pos];}); 
 
-    vector<int> s3_index;
+    vector<int> s3_index, s4_index;
     if(s3.size() != 0){
         vector<int> sa_index;
         vector_commonIndex_sorted1(sample_id, s3, sa_index, s3_index);
@@ -70,6 +71,42 @@ bool common_3vector(vector<string> **idListP, vector<vector<double>> **valueP,
                 std::back_inserter(temp_s2), [&s2_index](int pos){return s2_index[pos];});
         s2_index.resize(remain_size);
         s2_index = temp_s2;
+
+        sample_id.clear();
+        sample_id.reserve(remain_size);
+        std::transform(s1_index.begin(), s1_index.end(), 
+                       std::back_inserter(sample_id), [&s1](int pos){return s1[pos];}); 
+        
+        if(s4.size() != 0){
+            vector<int> sc_index;
+            vector_commonIndex_sorted1(sample_id, s4, sc_index, s4_index);
+            remain_size = sc_index.size();
+            if(remain_size == 0){
+              return false;
+            }
+            vector<int> temp_s3;
+            temp_s1.clear();
+            temp_s2.clear();
+            temp_s1.reserve(remain_size);
+            temp_s2.reserve(remain_size);
+            temp_s3.reserve(remain_size);
+            
+            std::transform(sc_index.begin(), sc_index.end(), 
+                           std::back_inserter(temp_s1), [&s1_index](int pos){return s1_index[pos];});
+            s1_index.resize(remain_size);
+            s1_index = temp_s1;
+            
+            std::transform(sc_index.begin(), sc_index.end(), 
+                           std::back_inserter(temp_s2), [&s2_index](int pos){return s2_index[pos];});
+            s2_index.resize(remain_size);
+            s2_index = temp_s2;
+            
+            std::transform(sc_index.begin(), sc_index.end(), 
+                           std::back_inserter(temp_s3), [&s3_index](int pos){return s3_index[pos];});
+            s3_index.resize(remain_size);
+            s3_index = temp_s3;
+            
+        }
     }
 
     target_id->resize(remain_size);
@@ -79,15 +116,17 @@ bool common_3vector(vector<string> **idListP, vector<vector<double>> **valueP,
     auto &value1 = *valueP[0];
     auto &value2 = *valueP[1];
     auto &value3 = *valueP[2];
+    auto &value4 = *valueP[3];
     auto &targetvalue1 = *targetP[0];
     auto &targetvalue2 = *targetP[1];
     auto &targetvalue3 = *targetP[2];
+    auto &targetvalue4 = *targetP[3];
 
-    vector<vector<double>> *values[] = {&value1, &value2, &value3};
-    vector<int> *indicies[] = {&s1_index, &s2_index, &s3_index};
-    vector<vector<double>> *targetvalues[] = {&targetvalue1, &targetvalue2, &targetvalue3};
+    vector<vector<double>> *values[] = {&value1, &value2, &value3, &value4};
+    vector<int> *indicies[] = {&s1_index, &s2_index, &s3_index, &s4_index};
+    vector<vector<double>> *targetvalues[] = {&targetvalue1, &targetvalue2, &targetvalue3, &targetvalue4};
 
-    for(int i = 0; i < 3; i++){
+    for(int i = 0; i < 4; i++){
         auto &temp_value = *(values[i]);
         auto &temp_index = *(indicies[i]);
         auto &temp_target = *(targetvalues[i]);
@@ -106,8 +145,8 @@ bool common_3vector(vector<string> **idListP, vector<vector<double>> **valueP,
 
 
 Covar::Covar(){
-    vector<string> samples_qcovar, samples_covar, samples_rcovar;
-    vector<vector<double>> qcovar, covar, rcovar;
+    vector<string> samples_qcovar, samples_covar, samples_rcovar, samples_envir;
+    vector<vector<double>> qcovar, covar, rcovar, envir;
 
     if(options.find("qcovar") != options.end()){
         string filename = options["qcovar"];
@@ -140,17 +179,28 @@ Covar::Covar(){
         LOGGER.i(0, to_string(rcovar.size()) +  " covariates of " + to_string(samples_rcovar.size()) + " samples to be included.");
     }
 
+    if(options.find("envir") != options.end()){
+      string filename = options["envir"];
+      LOGGER.i(0, "Reading environment variable from [" + filename + "].");
+      read_covar(filename, samples_envir, &envir, NULL, NULL);  
+      if(hasVectorDuplicate(samples_envir)){
+        LOGGER.e(0, "environment variable can't have duplicate FID+IID.");
+      }
+      LOGGER.i(0, to_string(envir.size()) +  " environment variable of " + to_string(samples_envir.size()) + " samples to be included.");
+    } 
+
     this->rcovar.resize(rcovar.size());
     this->covar.resize(covar.size());
     this->qcovar.resize(qcovar.size());
+    this->envir.resize(envir.size());  
 
     int flags_samples = (samples_qcovar.size() != 0) + (samples_covar.size() != 0) * 10 + 
-        (samples_rcovar.size() != 0) * 100;
+        (samples_rcovar.size() != 0) * 100 + (samples_envir.size() != 0) * 1000;
 
 
-    vector<string> *idList[3];
-    vector<vector<double>> *values[3];
-    vector<vector<double>> *targets[3];
+    vector<string> *idList[4];
+    vector<vector<double>> *values[4];
+    vector<vector<double>> *targets[4];
     
     switch(flags_samples){
         case 0:
@@ -169,49 +219,163 @@ Covar::Covar(){
             this->rcovar = rcovar;
             setCovarMapping(true);
             return;
+        case 1000:  
+            sample_id = samples_envir;
+            this->envir = envir;
+            return;
         case 11:
             idList[0] = &samples_qcovar;
             idList[1] = &samples_covar;
             idList[2] = &samples_rcovar;
+            idList[3] = &samples_envir;
             values[0] = &qcovar;
             values[1] = &covar;
             values[2] = &rcovar;
+            values[3] = &envir;
             targets[0] = &(this->qcovar);
             targets[1] = &(this->covar);
             targets[2] = &(this->rcovar);
+            targets[3] = &(this->envir);
             break;
         case 101:
             idList[0] = &samples_qcovar;
             idList[2] = &samples_covar;
             idList[1] = &samples_rcovar;
+            idList[3] = &samples_envir;
             values[0] = &qcovar;
             values[2] = &covar;
             values[1] = &rcovar;
+            values[3] = &envir;
             targets[0] = &(this->qcovar);
             targets[2] = &(this->covar);
             targets[1] = &(this->rcovar);
+            targets[3] = &(this->envir);
             break;
         case 110:
             idList[2] = &samples_qcovar;
             idList[1] = &samples_covar;
             idList[0] = &samples_rcovar;
+            idList[3] = &samples_envir;
             values[2] = &qcovar;
             values[1] = &covar;
             values[0] = &rcovar;
+            values[3] = &envir;
             targets[2] = &(this->qcovar);
             targets[1] = &(this->covar);
             targets[0] = &(this->rcovar);
+            targets[3] = &(this->envir);
+            break;
+        case 1001:  
+            idList[0] = &samples_qcovar;
+            idList[2] = &samples_covar;
+            idList[3] = &samples_rcovar;
+            idList[1] = &samples_envir;
+            values[0] = &qcovar;
+            values[2] = &covar;
+            values[3] = &rcovar;
+            values[1] = &envir;
+            targets[0] = &(this->qcovar);
+            targets[2] = &(this->covar);
+            targets[3] = &(this->rcovar);
+            targets[1] = &(this->envir);
+            break;
+        case 1010:
+            idList[2] = &samples_qcovar;
+            idList[0] = &samples_covar;
+            idList[3] = &samples_rcovar;
+            idList[1] = &samples_envir;
+            values[2] = &qcovar;
+            values[0] = &covar;
+            values[3] = &rcovar;
+            values[1] = &envir;
+            targets[2] = &(this->qcovar);
+            targets[0] = &(this->covar);
+            targets[3] = &(this->rcovar);
+            targets[1] = &(this->envir);
+            break;
+        case 1100:
+            idList[2] = &samples_qcovar;
+            idList[3] = &samples_covar;
+            idList[0] = &samples_rcovar;
+            idList[1] = &samples_envir;
+            values[2] = &qcovar;
+            values[3] = &covar;
+            values[0] = &rcovar;
+            values[1] = &envir;
+            targets[2] = &(this->qcovar);
+            targets[3] = &(this->covar);
+            targets[0] = &(this->rcovar);
+            targets[1] = &(this->envir);
             break;
         case 111:
             idList[0] = &samples_qcovar;
             idList[1] = &samples_covar;
             idList[2] = &samples_rcovar;
+            idList[3] = &samples_envir;
             values[0] = &qcovar;
             values[1] = &covar;
             values[2] = &rcovar;
+            values[3] = &envir;
             targets[0] = &(this->qcovar);
             targets[1] = &(this->covar);
             targets[2] = &(this->rcovar);
+            targets[3] = &(this->envir);
+            break;
+        case 1011:
+            idList[0] = &samples_qcovar;
+            idList[1] = &samples_covar;
+            idList[3] = &samples_rcovar;
+            idList[2] = &samples_envir;
+            values[0] = &qcovar;
+            values[1] = &covar;
+            values[3] = &rcovar;
+            values[2] = &envir;
+            targets[0] = &(this->qcovar);
+            targets[1] = &(this->covar);
+            targets[3] = &(this->rcovar);
+            targets[2] = &(this->envir);
+            break;
+        case 1101:
+            idList[0] = &samples_qcovar;
+            idList[3] = &samples_covar;
+            idList[1] = &samples_rcovar;
+            idList[2] = &samples_envir;
+            values[0] = &qcovar;
+            values[3] = &covar;
+            values[1] = &rcovar;
+            values[2] = &envir;
+            targets[0] = &(this->qcovar);
+            targets[3] = &(this->covar);
+            targets[1] = &(this->rcovar);
+            targets[2] = &(this->envir);
+            break;
+        case 1110:
+            idList[3] = &samples_qcovar;
+            idList[1] = &samples_covar;
+            idList[0] = &samples_rcovar;
+            idList[2] = &samples_envir;
+            values[3] = &qcovar;
+            values[1] = &covar;
+            values[0] = &rcovar;
+            values[2] = &envir;
+            targets[3] = &(this->qcovar);
+            targets[1] = &(this->covar);
+            targets[0] = &(this->rcovar);
+            targets[2] = &(this->envir);
+            break;
+        case 1111:
+            idList[0] = &samples_qcovar;
+            idList[1] = &samples_covar;
+            idList[2] = &samples_rcovar;
+            idList[3] = &samples_envir;
+            values[0] = &qcovar;
+            values[1] = &covar;
+            values[2] = &rcovar;
+            values[3] = &envir;
+            targets[0] = &(this->qcovar);
+            targets[1] = &(this->covar);
+            targets[2] = &(this->rcovar);
+            targets[3] = &(this->envir);
             break;
         default:
             LOGGER.e(0, "unexpected error in the covariate file. Please check.");
@@ -342,7 +506,7 @@ bool Covar::getCommonSampleIndex(const vector<string> &sampleIDs, vector<uint32_
 }
 
 bool Covar::hasCovar(){
-    int total_col_covar = qcovar.size() + covar.size() + rcovar.size();
+    int total_col_covar = qcovar.size() + covar.size() + rcovar.size() + envir.size();
     if(sample_id.size() == 0 || total_col_covar == 0){
         return false;
     }else{
@@ -350,6 +514,13 @@ bool Covar::hasCovar(){
     }
 }
 
+bool Covar::hasEnvir(){
+    if (sample_id.size() == 0 || envir.size() == 0){
+        return false;
+    }else{
+        return true;
+    }
+}
 
 bool Covar::getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector<uint32_t> &keep_index){
     vector<uint32_t> covar_index;
@@ -375,6 +546,11 @@ bool Covar::getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector
 
     for(auto & label : labels_rcovar){
         expand_col_covar += label["LABEL_MAX_VALUE"];
+        start_col_X.push_back(expand_col_covar);
+    }
+
+    for (int i = 0; i < envir.size(); i++){ 
+        expand_col_covar++;
         start_col_X.push_back(expand_col_covar);
     }
 
@@ -412,6 +588,14 @@ bool Covar::getCovarX(const vector<string> &sampleIDs, vector<double> &X, vector
             //std::transform(covarp.begin(), covarp.end(), X.begin() + base_pos + j * common_sample_size, [&cur_table](double covar){ return cur_table[(int)covar];});
             map_rindex++;
         }
+    }
+
+    int base_envir = qcovar.size() + covar.size() + rcovar.size();
+    for(int i = 0; i < envir.size(); i++){
+        auto &covarp = this->envir[i];
+        int base_pos = (start_col_X[base_envir + i]) * common_sample_size;
+        std::transform(covar_index.begin(), covar_index.end(), X.begin() + base_pos,
+                       [&covarp](int pos){return covarp[pos];});
     }
 
     return true;
@@ -459,6 +643,34 @@ bool Covar::getCovarXRaw(const vector<string> &sampleIDs, vector<double> &X, vec
         }
     }
 */
+}
+
+bool Covar::getEnvirX(const vector<string> &sampleIDs, vector<double> &X, vector<uint32_t> &keep_index){
+  vector<uint32_t> covar_index;
+  if(!getCommonSampleIndex(sampleIDs, keep_index, covar_index)){
+    return false;
+  }
+  
+  int common_sample_size = covar_index.size();
+  
+  vector<int> start_col_X;
+  start_col_X.push_back(0);
+  int expand_col_covar = 0;
+  
+  for (int i = 0; i < envir.size(); i++){ 
+    expand_col_covar++;
+    start_col_X.push_back(expand_col_covar);
+  }
+  
+  X.resize(expand_col_covar * common_sample_size);
+  
+  for(int i = 0; i < envir.size(); i++){
+    auto &covarp = this->envir[i];
+    int base_pos = i * common_sample_size;
+    std::transform(covar_index.begin(), covar_index.end(), X.begin() + base_pos,
+                   [&covarp](int pos){return covarp[pos];});
+  }
+  return true;
 }
 
 void Covar::read_covar(string filename, vector<string>& sub_list, vector<vector<double>>* covar, vector<map<string, int>>* labels, vector<int>* keep_row_p){
@@ -594,6 +806,7 @@ int Covar::registerOption(map<string, vector<string>>& options_in){
     addOneFileOption("qcovar", "", "--qcovar", options_in, options);
     addOneFileOption("covar", "", "--covar", options_in, options);
     addOneFileOption("rcovar", "", "--rcovar", options_in, options);
+    addOneFileOption("envir", "", "--envir", options_in, options); 
 
     string op = "--covar-maxlevel";
     options["covar_maxlevel"] = "33";
