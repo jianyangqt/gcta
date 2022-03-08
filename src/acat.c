@@ -9,6 +9,10 @@
 
 //#define ACAT_UTILITY
 
+//When compile under windows, M_PI is defined in corecrt_math_defines.h
+#if defined _WIN32 || defined _WIN64
+#define _USE_MATH_DEFINES
+#endif
 
 #define BETA_DENSITY(x, a, b)  \
     (((gsl_sf_gamma(a + b)) / (gsl_sf_gamma(a) * gsl_sf_gamma(b))) * pow((x), a - 1.0) * pow(1.0 - (x), b - 1.0))
