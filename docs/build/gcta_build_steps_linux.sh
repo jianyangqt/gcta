@@ -37,6 +37,7 @@ cd build
 cmake -DCMAKE_INSTALL_PREFIX=$rootdir/spectra_pkg ..
 
 cd $rootdir/gcta_dep
+tar -zxf gsl-2.7.tar.gz
 cd gsl-2.7/
 ./configure --prefix=$rootdir/gsl_pkg
 make
