@@ -381,27 +381,69 @@ void gcta::stepwise_slct(vector<int> &slct, vector<int> &remain, eigenVector &bC
 {
     int i = 0, i_buf = 0;
     vector<double> p_buf, chisq;
-    eigenVector2Vector(_chisq, chisq);
-    int m = max_element(chisq.begin(), chisq.end()) - chisq.begin();
-    if (_pval[m] >= _jma_p_cutoff) return;
-    slct.push_back(m);
+    
     for (i = 0; i < _include.size(); i++) {
-        if (i != m) remain.push_back(i);
+        remain.push_back(i);
     }
+    
+    for (i = 0; i < remain.size(); i++) {
+        chisq.push_back(_chisq[remain[i]]);
+    }
+
+    int max_chisq_index = max_element(chisq.begin(), chisq.end()) - chisq.begin();
+    if (_pval[remain[max_chisq_index]] >= _jma_p_cutoff) {
+        return;
+    } else {
+        slct.push_back(remain[max_chisq_index]);
+    }
+
+    remain.erase(remain.begin() + max_chisq_index);
+    
     int prev_num = 0;
     if (mld_slct_alg==0 && _jma_p_cutoff > 1e-3){
         LOGGER << "Switched to perform a forward model selection because the significance level is too low..." << endl;
         mld_slct_alg=1;
     }
+    bool slct_only_contain_remain = true;
     while (!remain.empty()) {
-        if (slct_entry(slct, remain, bC, bC_se, pC)) {
-            if (mld_slct_alg==0) slct_stay(slct, bC, bC_se, pC);
+        if (slct.size() > 0) {
+            slct_only_contain_remain = false;
+            if (slct_entry(slct, remain, bC, bC_se, pC)) {
+                if (mld_slct_alg == 0) slct_stay(slct, bC, bC_se, pC);
+            } else {
+                break;
+            }
+        } else {
+            chisq.clear();
+            for (i = 0; i < remain.size(); i++) {
+                chisq.push_back(_chisq[remain[i]]);
+            }
+            int max_chisq_index =
+                max_element(chisq.begin(), chisq.end()) - chisq.begin();
+            if (_pval[remain[max_chisq_index]] >= _jma_p_cutoff) {
+                break;
+            } else {
+                slct.push_back(remain[max_chisq_index]);
+            }
+            remain.erase(remain.begin() + max_chisq_index);
+            slct_only_contain_remain = true;
         }
-        else break;
-        if (slct.size() % 5 == 0 && slct.size() > prev_num) LOGGER << slct.size() << " associated SNPs have been selected." << endl;
-        if (slct.size() > prev_num) prev_num = slct.size();
-        if (slct.size() >= top_SNPs) break;
+        if (!slct_only_contain_remain) {
+            if (slct.size() % 5 == 0 && slct.size() > prev_num)
+                LOGGER << slct.size() << " associated SNPs have been selected."
+                       << endl;
+            if (slct.size() > prev_num) prev_num = slct.size();
+            if (slct.size() >= top_SNPs) break;
+        }
     }
+    if (slct_only_contain_remain) {
+        if (mld_slct_alg == 0) {
+            slct_stay(slct, bC, bC_se, pC);
+        } else {
+            LOGGER.e(0, "Warning, this should not happend");
+        }
+    }
+
     if (_jma_p_cutoff > 1e-3) {
         LOGGER << "Performing backward elimination..." << endl;
         slct_stay(slct, bC, bC_se, pC);
@@ -410,6 +452,9 @@ void gcta::stepwise_slct(vector<int> &slct, vector<int> &remain, eigenVector &bC
 }
 
 bool gcta::slct_entry(vector<int> &slct, vector<int> &remain, eigenVector &bC, eigenVector &bC_se, eigenVector &pC) {
+    if (slct.size() < 1) {
+        LOGGER.e(0, "Warning, this should not happend");
+    } 
     int i = 0, m = 0;
     massoc_cond(slct, remain, bC, bC_se, pC);
     vector<double> pC_buf;
@@ -497,6 +542,9 @@ void gcta::massoc_joint(const vector<int> &indx, eigenVector &bJ, eigenVector &b
 }
 
 void gcta::massoc_cond(const vector<int> &slct, const vector<int> &remain, eigenVector &bC, eigenVector &bC_se, eigenVector &pC) {
+    if (slct.size() < 1) {
+        LOGGER.e(0, "Warning, this should not happend");
+    }
     if (_B_N.cols() < 1) {
         if (!init_B(slct)) LOGGER.e(0, "there is a collinearity problem of the given list of SNPs.\nYou can try the option --cojo-slct to remove one of each pair of highly correlated SNPs.");
     }
@@ -543,6 +591,10 @@ void gcta::massoc_cond(const vector<int> &slct, const vector<int> &remain, eigen
 
 bool gcta::init_B(const vector<int> &indx)
 {
+    if (indx.size() < 1) {
+        LOGGER.e(0, "slct size is zero will cause Eigen Matrix of"
+            "Vector operation error.");
+    }
     int i = 0, j = 0, k = 0, n = _keep.size();
     double d_buf = 0.0;
     eigenVector diagB(indx.size());
@@ -587,6 +639,11 @@ bool gcta::init_B(const vector<int> &indx)
 
 void gcta::init_Z(const vector<int> &indx)
 {
+    if (indx.size() < 1) {
+        LOGGER.e(0,
+                 "slct size is zero will cause Eigen Matrix of Vector "
+                 "operation error.");
+    }
     int i = 0, j = 0, n = _keep.size();
     double d_buf = 0.0;
     _Z.resize(indx.size(), _include.size());
@@ -611,6 +668,11 @@ void gcta::init_Z(const vector<int> &indx)
 
 bool gcta::insert_B_and_Z(const vector<int> &indx, int insert_indx)
 {
+    if (indx.size() < 1) {
+        LOGGER.e(0,
+                 "slct size is zero will cause Eigen Matrix of Vector "
+                 "operation error.");
+    }
     int i = 0, j = 0, n = _keep.size();
     double d_buf = 0.0;
     vector<int> ix(indx);
@@ -703,7 +765,7 @@ bool gcta::insert_B_and_Z(const vector<int> &indx, int insert_indx)
 }
 
 void gcta::erase_B_and_Z(const vector<int> &indx, int erase_indx) {
-    int i = 0, j = 0;
+    int i = 0, j = 0;   
     eigenSparseMat B_dense(_B), B_N_dense(_B_N);
     _B.resize(indx.size() - 1, indx.size() - 1);
     _B_N.resize(indx.size() - 1, indx.size() - 1);
@@ -735,34 +797,44 @@ void gcta::erase_B_and_Z(const vector<int> &indx, int erase_indx) {
 
     if (_Z_N.cols() < 1) return;
 
-    SimplicialLDLT<eigenSparseMat> ldlt_B(_B);
     _B_i.resize(indx.size() - 1, indx.size() - 1);
     _B_i.setIdentity();
-
-    _B_i = ldlt_B.solve(_B_i).eval();
-    SimplicialLDLT<eigenSparseMat> ldlt_B_N(_B_N);
     _B_N_i.resize(indx.size() - 1, indx.size() - 1);
     _B_N_i.setIdentity();
-    _B_N_i = ldlt_B_N.solve(_B_N_i).eval();
+    if (indx.size() > 1) {
+        SimplicialLDLT<eigenSparseMat> ldlt_B(_B);
+        _B_i = ldlt_B.solve(_B_i).eval();
+        SimplicialLDLT<eigenSparseMat> ldlt_B_N(_B_N);
+        _B_N_i = ldlt_B_N.solve(_B_N_i).eval();
+    }
 
-    eigenSparseMat Z_buf(_Z), Z_N_buf(_Z_N);
-    _Z.resize(indx.size() - 1, _include.size());
-    _Z_N.resize(indx.size() - 1, _include.size());
-    for (j = 0; j < _include.size(); j++) {
-        _Z.startVec(j);
-        _Z_N.startVec(j);
-        get_insert_row = false;
-        for (i = 0; i < indx.size(); i++) {
-            if (erase_indx == indx[i]) {
-                get_insert_row = true;
-                continue;
-            }
-            if (Z_buf.coeff(i, j) != 0) {
-                _Z.insertBack(i - get_insert_row, j) = Z_buf.coeff(i, j);
-                _Z_N.insertBack(i - get_insert_row, j) = Z_N_buf.coeff(i, j);
+ 
+    if (indx.size() > 1) {
+        eigenSparseMat Z_buf(_Z), Z_N_buf(_Z_N);
+        _Z.resize(indx.size() - 1, _include.size());
+        _Z_N.resize(indx.size() - 1, _include.size());
+        for (j = 0; j < _include.size(); j++) {
+            _Z.startVec(j);
+            _Z_N.startVec(j);
+            get_insert_row = false;
+            for (i = 0; i < indx.size(); i++) {
+                if (erase_indx == indx[i]) {
+                    get_insert_row = true;
+                    continue;
+                }
+                if (Z_buf.coeff(i, j) != 0) {
+                    _Z.insertBack(i - get_insert_row, j) = Z_buf.coeff(i, j);
+                    _Z_N.insertBack(i - get_insert_row, j) =
+                        Z_N_buf.coeff(i, j);
+                }
             }
         }
+
+    } else {
+        _Z.resize(0, 0);
+        _Z_N.resize(0, 0);
     }
+
     _Z.finalize();
     _Z_N.finalize();
 }
