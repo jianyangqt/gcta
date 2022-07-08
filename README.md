@@ -77,3 +77,4 @@ cd build
 cmake ..
 make
 ```
+Here is a [example](https://github.com/benjaminfang/gcta/blob/fhl_dev/docs/build/gcta_build_steps_linux.sh) building the GCTA on linux.
