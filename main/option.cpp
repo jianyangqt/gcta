@@ -140,13 +140,21 @@ void option(int option_num, char* option_str[])
     bool fst_flag = false;
     string subpopu_file = "";
 
-    // gene-based association test
+    // fastBAT gene-based association test
     bool sbat_seg_flag = false;
     double sbat_ld_cutoff = sqrt(0.9); //option to remove overly correlated snps in SBAT test
     bool sbat_write_snpset = false; //write snplist - used in conjunction with sbat_ld_cutoff
     string sbat_sAssoc_file = "", sbat_gAnno_file = "", sbat_snpset_file = "";
     int sbat_wind = 50000, sbat_seg_size = 1e5;
-
+   
+    // mBAT gene-based association test
+    // alstep 1 . add flag
+    double mbat_svd_gamma = 0.9; //option to remove overly correlated snps in mBAT test
+    bool mbat_write_snpset = false; //write snplist _ used in conjunction with mbat_ld_cutoff
+    string mbat_sAssoc_file = "", mbat_gAnno_file = "", mbat_snpset_file = "";
+    int mbat_wind = 50000;
+    bool mbat_print_all_p = false;
+   
     // gene expression data
     string efile="", eR_file = "", ecojo_ma_file="";
     int make_erm_mtd = 1;
@@ -936,9 +944,10 @@ void option(int option_num, char* option_str[])
             subpopu_file = argv[++i];
             LOGGER << "--sub-popu " << subpopu_file << endl;
             CommFunc::FileExist(subpopu_file);
-        } else if (strcmp(argv[i], "--fastBAT-ld-cutoff") == 0) {
+        }
+        else if (strcmp(argv[i], "--fastBAT-ld-cutoff") == 0) {
             sbat_ld_cutoff = sqrt(atof(argv[++i]));
-            LOGGER << "--fastBAT-ld-cutoff " << sbat_ld_cutoff << endl;
+            LOGGER << "--fastBAT-ld-cutoff " << sbat_ld_cutoff * sbat_ld_cutoff << endl;
             if (sbat_ld_cutoff <= 0.1) LOGGER.e(0, "\n --fastBAT_ld_cutoff should be > 0.1\n");
         } else if (strcmp(argv[i], "--fastBAT-write-snpset") == 0) {
             sbat_write_snpset = true;
@@ -972,6 +981,30 @@ void option(int option_num, char* option_str[])
             if (sbat_seg_size < 10 || sbat_seg_size > 10000) LOGGER.e(0, "\n invalid value for --fastBAT-seg. Valid range: 10 ~ 10000\n");
             sbat_seg_size *= 1000;
         }
+        else if (strcmp(argv[i], "--mbat-svd-gamma") == 0) {
+            mbat_svd_gamma = atof(argv[++i]);
+            LOGGER << "--mBAT-svd-gamma " << mbat_svd_gamma << endl;
+            if (mbat_svd_gamma <= 0.8) LOGGER.e(0, "\n --mbat-svd-gamma recommend to be 0.9\n");
+        } else if (strcmp(argv[i], "--mBAT-write-snpset") == 0) {
+            mbat_write_snpset = true;
+            LOGGER << "--mBAT-write-snpset" << endl;
+        } else if (strcmp(argv[i], "--mBAT-print-all-p") == 0) {
+            mbat_print_all_p = true;
+            LOGGER << "--mBAT-print-all-p" << endl;
+        } else if (strcmp(argv[i], "--mBAT-combo") == 0) {
+            mbat_sAssoc_file = argv[++i];
+            LOGGER << "--mBAT-combo " << mbat_sAssoc_file << endl;
+            CommFunc::FileExist(mbat_sAssoc_file);
+        } else if (strcmp(argv[i], "--mBAT-gene-list") == 0) {
+            mbat_gAnno_file = argv[++i];
+            LOGGER << "--mBAT-gene-list " << mbat_gAnno_file << endl;
+            CommFunc::FileExist(mbat_gAnno_file);
+        } else if (strcmp(argv[i], "--mBAT-wind") == 0) {
+            mbat_wind = atoi(argv[++i]);
+            LOGGER << "--mBAT-wind " << mbat_wind << endl;
+            if (mbat_wind < 0 || mbat_wind > 1000) LOGGER.e(0, "\n invalid value for --mBAT-wind. Valid range: 0 ~ 1000\n");
+            mbat_wind *= 1000;
+        } 
         else if (strcmp(argv[i], "--efile") == 0) {
             efile = argv[++i];
             efile_flag = true;
@@ -1370,6 +1403,10 @@ void option(int option_num, char* option_str[])
                 if(!sbat_gAnno_file.empty()) pter_gcta->sbat_gene(sbat_sAssoc_file, sbat_gAnno_file, sbat_wind, sbat_ld_cutoff, sbat_write_snpset);
                 else if(!sbat_snpset_file.empty()) pter_gcta->sbat(sbat_sAssoc_file, sbat_snpset_file, sbat_ld_cutoff, sbat_write_snpset);
                 else if(sbat_seg_flag) pter_gcta->sbat_seg(sbat_sAssoc_file, sbat_seg_size, sbat_ld_cutoff, sbat_write_snpset);
+            }
+            else if(!mbat_sAssoc_file.empty()){
+               if(!mbat_gAnno_file.empty()) pter_gcta->mbat_gene(mbat_sAssoc_file, mbat_gAnno_file, mbat_wind,mbat_svd_gamma, sbat_ld_cutoff, mbat_write_snpset,massoc_gc_flag, massoc_gc_val,mbat_print_all_p);
+               // else if(!mbat_snpset_file.empty()) pter_gcta->mbat(mbat_sAssoc_file, mbat_snpset_file, mbat_svd_gamma, mbat_write_snpset);
             }
             else if(gwas_adj_pc_flag) { pcl_flag=false; pter_gcta->pc_adjust(pcadjust_list_file, pc_file, freq_thresh, pc_adj_wind_size); }
             else if(pcl_flag) pter_gcta->snp_pc_loading(pc_file);

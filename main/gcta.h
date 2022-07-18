@@ -176,7 +176,15 @@ public:
     void sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sbat_ld_cutoff, bool sbat_write_snpset);
     void sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, bool sbat_write_snpset);
     void sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, bool sbat_write_snpset);
+
+    //////////////////////////////
+    // gene based association
+    void mbat_gene(string mbat_sAssoc_file, string mbat_gAnno_file, int mbat_wind, double mbat_svd_gamma, double sbat_ld_cutoff, bool mbat_write_snpset, bool GC, double GC_val,bool mbat_print_all_p);
+    void svdDecomposition( MatrixXf &X,double &prop, int &eigenvalueNum, VectorXd &eigenvalueUsed,MatrixXd &U_prop);
+    void mbat_ACATO(double &mbat_svd_pvalue,double &fastbat_pvalue, double &mbat_pvalue);
+    void mbat_calcu_lambda(vector<int> &snp_indx, MatrixXf &rval, VectorXd &eigenval, int &snp_count, double sbat_ld_cutoff, vector<int> &sub_indx);
     
+    ////////////////////////////////
     // GSMR
     void read_gsmrfile(string expo_file_list, string outcome_file_list, double gwas_thresh, int nsnp_gsmr, int gsmr_so_alg);
     void gsmr(int gsmr_alg_flag, string ref_ld_dirt, string w_ld_dirt, double freq_thresh, double gwas_thresh, double clump_wind_size, double clump_r2_thresh, double std_heidi_thresh, double global_heidi_thresh, double ld_fdr_thresh, int nsnp_gsmr, bool o_snp_instru_flag, int gsmr_so_alg, int gsmr_beta_version);
@@ -214,6 +222,7 @@ public:
 
     // ERM
     void make_erm(int erm_mtd, bool output_bin); 
+
 
 private:
     void init_keep();
