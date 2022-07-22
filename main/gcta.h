@@ -162,7 +162,7 @@ public:
     void paa(string aa_file);
     void ibc(bool ibc_all);
 
-    // mkl
+    // mklf
     void make_grm_mkl(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, bool mlmassoc, bool diag_f3_flag = false);
     void calcu_mean_rsq_mkl(int wind_size, double rsq_cutoff);
     void LD_pruning_mkl(double rsq_cutoff, int wind_size);
@@ -173,17 +173,18 @@ public:
     void mlma_loco(string phen_file, string qcovar_file, string covar_file, int mphen, int MaxIter, vector<double> reml_priors, vector<double> reml_priors_var, bool no_constrain, bool inbred, bool no_adj_covar);
 
     // gene based association test
-    void sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sbat_ld_cutoff, bool sbat_write_snpset);
+    void sbat_gene(string sAssoc_file, string gAnno_file, int sbat_wind, double sbat_ld_cutoff, bool sbat_write_snpset, bool GC, double GC_val);
+    void sbat_gene_old(string sAssoc_file, string gAnno_file, int wind, double sbat_ld_cutoff, bool sbat_write_snpset);
     void sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, bool sbat_write_snpset);
     void sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, bool sbat_write_snpset);
 
-    //////////////////////////////
     // gene based association
+    //////////////////////////////
     void mbat_gene(string mbat_sAssoc_file, string mbat_gAnno_file, int mbat_wind, double mbat_svd_gamma, double sbat_ld_cutoff, bool mbat_write_snpset, bool GC, double GC_val,bool mbat_print_all_p);
     void svdDecomposition( MatrixXf &X,double &prop, int &eigenvalueNum, VectorXd &eigenvalueUsed,MatrixXd &U_prop);
     void mbat_ACATO(double &mbat_svd_pvalue,double &fastbat_pvalue, double &mbat_pvalue);
     void mbat_calcu_lambda(vector<int> &snp_indx, MatrixXf &rval, VectorXd &eigenval, int &snp_count, double sbat_ld_cutoff, vector<int> &sub_indx);
-    
+      
     ////////////////////////////////
     // GSMR
     void read_gsmrfile(string expo_file_list, string outcome_file_list, double gwas_thresh, int nsnp_gsmr, int gsmr_so_alg);
