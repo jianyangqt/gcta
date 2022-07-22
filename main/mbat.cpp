@@ -1,3 +1,15 @@
+/*
+ * GCTA: a tool for Genome-wide Complex Trait Analysis
+ *
+ * Implementation of gene-based association test (GBAT) in GCTA
+ *
+ * 2013 by Jian Yang <jian.yang.qt@gmail.com>
+ *
+ * This file is distributed under the GNU General Public
+ * License, Version 3.  Please see the file COPYING for more
+ * details
+ */
+
 #include "gcta.h"
 #include <Eigen/Core>
 #include <Eigen/SVD>
