@@ -981,10 +981,10 @@ void option(int option_num, char* option_str[])
             if (sbat_seg_size < 10 || sbat_seg_size > 10000) LOGGER.e(0, "\n invalid value for --fastBAT-seg. Valid range: 10 ~ 10000\n");
             sbat_seg_size *= 1000;
         }
-        else if (strcmp(argv[i], "--mbat-svd-gamma") == 0) {
+        else if (strcmp(argv[i], "--mBAT-svd-gamma") == 0) {
             mbat_svd_gamma = atof(argv[++i]);
             LOGGER << "--mBAT-svd-gamma " << mbat_svd_gamma << endl;
-            if (mbat_svd_gamma <= 0.8) LOGGER.e(0, "\n --mbat-svd-gamma recommend to be 0.9\n");
+            if (mbat_svd_gamma <= 0.8) LOGGER.e(0, "\n --mBAT-svd-gamma recommend to be 0.9\n");
         } else if (strcmp(argv[i], "--mBAT-write-snpset") == 0) {
             mbat_write_snpset = true;
             LOGGER << "--mBAT-write-snpset" << endl;
@@ -1400,7 +1400,8 @@ void option(int option_num, char* option_str[])
             else if (make_bed_flag) pter_gcta->save_plink();
             else if (fst_flag) pter_gcta->Fst(subpopu_file);
             else if (!sbat_sAssoc_file.empty()){
-                if(!sbat_gAnno_file.empty()) pter_gcta->sbat_gene(sbat_sAssoc_file, sbat_gAnno_file, sbat_wind, sbat_ld_cutoff, sbat_write_snpset);
+                //if(!sbat_gAnno_file.empty()) pter_gcta->sbat_gene_old(sbat_sAssoc_file, sbat_gAnno_file, sbat_wind, sbat_ld_cutoff, sbat_write_snpset);
+                if(!sbat_gAnno_file.empty()) pter_gcta->sbat_gene( sbat_sAssoc_file,sbat_gAnno_file, sbat_wind, sbat_ld_cutoff, sbat_write_snpset, massoc_gc_flag, massoc_gc_val);
                 else if(!sbat_snpset_file.empty()) pter_gcta->sbat(sbat_sAssoc_file, sbat_snpset_file, sbat_ld_cutoff, sbat_write_snpset);
                 else if(sbat_seg_flag) pter_gcta->sbat_seg(sbat_sAssoc_file, sbat_seg_size, sbat_ld_cutoff, sbat_write_snpset);
             }

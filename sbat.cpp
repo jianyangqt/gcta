@@ -81,7 +81,7 @@ void gcta::sbat_read_geneAnno(string gAnno_file, vector<string> &gene_name, vect
     LOGGER << "Physical positions of " << gene_name.size() << " genes have been include." << endl;
 }
 
-void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sbat_ld_cutoff, bool sbat_write_snpset)
+void gcta::sbat_gene_old(string sAssoc_file, string gAnno_file, int wind, double sbat_ld_cutoff, bool sbat_write_snpset)
 {
     int i = 0, j = 0;
     int snp_count;
@@ -160,13 +160,14 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
     if (_mu.empty()) calcu_mu();
     LOGGER << "\nRunning fastBAT analysis for genes ..." << endl;
     if (sbat_ld_cutoff < 1) LOGGER << "Pruning SNPs with LD rsq cutoff = " << sbat_ld_cutoff*sbat_ld_cutoff  << endl;
-    vector<double> gene_pval(gene_num), chisq_o(gene_num), min_snp_pval(gene_num);
+    vector<double> gene_pval(gene_num), chisq_o(gene_num), min_snp_pval(gene_num),eigenval_fastbat(gene_num);
     vector<string> min_snp_name(gene_num);
     vector<int> snp_num_in_gene(gene_num);
     map<string, int>::iterator iter1, iter2;
     map<string, int> snp_name_map;
     string rgoodsnpfile = _out + ".gene.snpset";
     ofstream rogoodsnp;
+    
     if (sbat_write_snpset) rogoodsnp.open(rgoodsnpfile.c_str());
     for (i = 0; i < snp_name.size(); i++) snp_name_map.insert(pair<string,int>(snp_name[i], i));
     for (i = 0; i < gene_num; i++) {
@@ -203,6 +204,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
             vector<int> sub_indx;
             sbat_calcu_lambda(snp_indx, eigenval, snp_count, sbat_ld_cutoff, sub_indx);
             //recalculate chisq value from low correlation snp subset
+            // eigenval_fastbat[i] = eigenval;
             if (sbat_ld_cutoff < 1) {
                 chisq_o[i] = 0;
                 for (j = 0; j < sub_indx.size(); j++) chisq_o[i] += snp_chisq[snp_indx[sub_indx[j]]];
@@ -230,7 +232,7 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
     for (i = 0; i < gene_num; i++) {
         if(gene_pval[i]>1.5) continue;
         ofile << gene_name[i] << "\t" << gene_chr[i] << "\t" << gene_bp1[i] << "\t" << gene_bp2[i] << "\t";
-        ofile << snp_num_in_gene[i] << "\t" << gene2snp_1[i] << "\t" << gene2snp_2[i] << "\t" << chisq_o[i];
+        ofile << snp_num_in_gene[i] << "\t" << gene2snp_1[i] << "\t" << gene2snp_2[i] << "\t" << chisq_o[i]; // << "\t" << eigenval_fastbat[i];
         ofile << "\t" << gene_pval[i] << "\t" << min_snp_pval[i] << "\t" << min_snp_name[i] << endl;
         //else ofile << "0\tNA\tNA\tNA\tNA" << endl;
     }
@@ -240,6 +242,248 @@ void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int wind, double sba
         rogoodsnp.close();
     }
 }
+
+
+void gcta::sbat_gene(string sAssoc_file, string gAnno_file, int sbat_wind, double sbat_ld_cutoff, bool sbat_write_snpset, bool GC, double GC_val)
+{
+    int i = 0, j = 0;
+    vector<int> snp_chr;
+    vector<string> gene_name;
+    vector<int> gene_chr, gene_bp1, gene_bp2;
+    /////////////////////////////////////////
+    // Step 1. Read snp and gene files
+    /////////////////////////////////////////
+    //Step 1.1  Read SNP association results based cojo ma format
+    // GC:  If this option is specified, p-values will be adjusted by the genomic control method.
+    // By default, the genomic inflation factor will be calculated from the summary-level statistics 
+    // of all the SNPs unless you specify a value, e.g. --cojo-gc 1.05.
+    init_massoc(sAssoc_file, GC, GC_val);
+    int snp_num = _include.size();
+    // re-calculate chi-square 
+    vector<double> snp_chisq(snp_num);
+    for (i = 0; i < snp_num; i++) snp_chisq[i] = StatFunc::qchisq(_pval[i], 1);
+
+    map<int, string> chr_begin_snp, chr_end_snp;
+    chr_begin_snp.insert(pair<int, string>(_chr[_include[0]], _snp_name[_include[0]]  ));
+    for (i = 1; i < snp_num; i++) {
+        if (_chr[_include[i]] != _chr[ _include[i - 1]]) {
+            chr_begin_snp.insert(pair<int, string>(_chr[_include[i]], _snp_name[_include[i]] ));
+            chr_end_snp.insert(pair<int, string>(_chr[_include[i-1]], _snp_name[_include[i -1]] ));
+        }
+    }
+    chr_end_snp.insert(pair<int, string>(_chr[_include[snp_num -1]], _snp_name[_include[snp_num - 1]]));
+    //Step 1.2  Read gene file
+    sbat_read_geneAnno(gAnno_file, gene_name, gene_chr, gene_bp1, gene_bp2);
+
+    /////////////////////////////////////////
+    // Step 2. Map snps to genes
+    /////////////////////////////////////////
+    LOGGER << "Mapping the physical positions of genes to SNP data (gene boundaries: " << sbat_wind / 1000 << "Kb away from UTRs) ..." << endl;
+
+    vector<int> gene_mapped_idx;
+    int gene_num = gene_name.size();
+    vector<string> gene2snp_1(gene_num), gene2snp_2(gene_num);
+    vector<locus_bp>::iterator iter;
+    map<int, string>::iterator chr_iter;
+    vector<locus_bp> snp_vec;
+    for (i = 0; i < snp_num; i++){
+        snp_vec.push_back(locus_bp(_snp_name[_include[i]], _chr[_include[i]], _bp[_include[i]]));
+    }
+#pragma omp parallel for private(iter, chr_iter)
+    for (i = 0; i < gene_num; i++) {
+        // find lowest snp_name in the gene
+        iter = find_if(snp_vec.begin(), snp_vec.end(), locus_bp(gene_name[i], gene_chr[i], gene_bp1[i] - sbat_wind));
+        if (iter != snp_vec.end()) gene2snp_1[i] = iter->locus_name;
+        else gene2snp_1[i] = "NA";
+    }
+#pragma omp parallel for private(iter, chr_iter)
+    for (i = 0; i < gene_num; i++) {
+        if (gene2snp_1[i] == "NA") {
+            gene2snp_2[i] = "NA";
+            continue;
+        }
+        iter = find_if(snp_vec.begin(), snp_vec.end(), locus_bp(gene_name[i], gene_chr[i], gene_bp2[i] + sbat_wind));
+        if (iter != snp_vec.end()){
+            if (iter->bp ==  gene_bp2[i] + sbat_wind){
+                gene2snp_2[i] = iter->locus_name;
+            }else {
+                if(iter!=snp_vec.begin()){
+                    iter--;
+                    gene2snp_2[i] = iter->locus_name;
+                }
+                else gene2snp_2[i] = "NA";
+            }
+        }
+        else {
+            chr_iter = chr_end_snp.find(gene_chr[i]);
+            if (chr_iter == chr_end_snp.end()) gene2snp_2[i] = "NA";
+            else gene2snp_2[i] = chr_iter->second;
+        }
+    }
+    int mapped = 0;
+    for (i = 0; i < gene_num; i++) {
+        if (gene2snp_1[i] != "NA" && gene2snp_2[i] != "NA") 
+        {
+            mapped++;
+            gene_mapped_idx.push_back(i);
+        }
+    }
+    if (mapped < 1) LOGGER.e(0, "no gene can be mapped to the SNP data. Please check the input data regarding chromosome and bp.");
+    else LOGGER << mapped << " genes have been mapped to SNP data." << endl;
+
+    /////////////////////////////////////////
+    // Step 3. Run gene-based test.
+    /////////////////////////////////////////
+    if (_mu.empty()) calcu_mu();
+    LOGGER << "\nRunning sBat analysis for " << mapped << " gene(s) ..." << endl;
+
+    LOGGER << "For computing fastBAT test statistics, SNPs are pruned with LD rsq cutoff of = " << sbat_ld_cutoff * sbat_ld_cutoff 
+        << " (set by --fastBAT-ld-cutoff 0.9 as default)." << endl;
+    //int mapped = gene_mapped_idx.size();
+    vector<string> min_snp_name(mapped);
+    vector<double> min_snp_pval(mapped);
+    vector<int> snp_num_in_gene(mapped);
+    vector<int> snp_num_in_gene_mBAT(mapped);
+    map<string, int>::iterator iter1, iter2;
+    string rgoodsnpfile = _out + ".gene.snpset.fastbat";
+    ofstream rogoodsnp;
+    if (sbat_write_snpset) {
+        rogoodsnp.open(rgoodsnpfile.c_str());
+        rogoodsnp << "gene\tsnp" << endl;
+    }
+    ////////////////////////////////////////////////////
+    VectorXd P_mBATcombo, P_mbat_svd_prop, fastbat_gene_pvalue, Chisq_mBAT,chisq_o;
+    P_mBATcombo.resize(mapped);
+    P_mbat_svd_prop.resize(mapped);
+    fastbat_gene_pvalue.resize(mapped);
+    Chisq_mBAT.resize(mapped);
+    chisq_o.resize(mapped);
+    map<int,int> include_in_gene; 
+    vector<int> eigenvalVec_mBAT(mapped);
+    int gene_analyzed=0;
+
+    /// save output results
+    string filename = _out + ".gene.assoc.fastbat";
+    LOGGER << "Saving the results of the mBAT analysis to [" + filename + "] ..." << endl;
+    ofstream ofile(filename.c_str());
+    if (!ofile) LOGGER.e(0, "cannot open the file [" + filename + "] to write.");
+    ofile << "Gene\tChr\tStart\tEnd\tNo.SNPs\tSNP_start\tSNP_end\tTopSNP\tTopSNP_Pvalue";
+    ofile << "\tChisq_fastBAT\tP_fastBAT" << endl;
+
+    for (j = 0; j < mapped; j++) {
+        include_in_gene.clear();
+        int gene_ori_idx = gene_mapped_idx[j];
+        vector<int> snp_indx;
+        iter1 = _snp_name_map.find(gene2snp_1[gene_ori_idx]);
+        iter2 = _snp_name_map.find(gene2snp_2[gene_ori_idx]);
+        bool skip = false;
+        if (iter1 == _snp_name_map.end() || iter2 == _snp_name_map.end() || iter1->second >= iter2->second) skip = true;
+        // 
+        std::vector<int>::iterator iter_include;
+        int idx_include_in_gene;
+        iter_include = std::find(_include.begin(), _include.end(), iter1->second);
+        if(iter_include != _include.cend()){
+           idx_include_in_gene = std::distance(_include.begin(),iter_include);
+        }
+        for(int k = idx_include_in_gene; k < snp_num; k ++){
+                if(_include[k] > iter2->second){break;}
+                snp_indx.push_back(_include[k]);
+                include_in_gene.insert(pair<int,int>(_include[k],k));
+        }
+
+        snp_num_in_gene[j] = snp_indx.size();  // assume snp_name_index is ordered and continuous
+        snp_num_in_gene_mBAT[j] = snp_num_in_gene[j];
+        if(!skip && snp_num_in_gene[j] > 10000){
+            LOGGER<<"Warning: Too many SNPs in the gene region [" << gene_name[gene_ori_idx] << "]. Maximum limit is 10000. This gene is ignored in the analysis."<<endl;
+            skip = true;  
+        } 
+        if(skip){
+            P_mBATcombo[j] = 2.0;
+            snp_num_in_gene[j] = 0;
+            continue;
+        }
+     
+        if (sbat_write_snpset) {
+            for (int k = 0; k < snp_indx.size(); k++) {
+                rogoodsnp << gene_name[gene_ori_idx] << "\t"<< _snp_name[snp_indx[k]] << endl;
+            }
+        }
+        // Step 3.1 run mBAT analysis
+        // calculate LD matrix 
+        // Step 3.2 run fastBAT
+        // actually both mBAT and fatBAT use LD matrix, it may be possible to use one LD matrix to speed up later.
+        int snp_count;
+        vector<int> snp_include_gene;
+        if (_mu.empty()) calcu_mu();
+        chisq_o[j] = 0;
+        for(int k = 0; k < snp_indx.size(); k++) {
+              chisq_o[j] += snp_chisq[include_in_gene[snp_indx[k]]];
+             snp_include_gene.push_back(include_in_gene[snp_indx[k]]);
+        }
+        if(snp_num_in_gene[j] == 1) {
+            // actually, this situation will not be considered in mbat
+            fastbat_gene_pvalue[j] = StatFunc::pchisq(chisq_o[j], 1.0);
+        } else {
+            snp_count=snp_num_in_gene[j];
+            VectorXd eigenval;
+            vector<int> sub_indx;
+            MatrixXf rval(snp_indx.size(), snp_indx.size());;
+            mbat_calcu_lambda(snp_include_gene, rval, eigenval, snp_count, sbat_ld_cutoff, sub_indx);
+            ///////////////////////////////////////////////////////////////////////////////
+            // // Step 3.1 run mBAT analysis
+            // MatrixXd U_prop;
+            // VectorXd eigenvalueUsed;
+            // svdDecomposition(rval, mbat_svd_gamma,eigenvalVec_mBAT[j],eigenvalueUsed, U_prop);
+            // VectorXd zscore_in_gene;
+            // zscore_in_gene.resize(snp_indx.size());
+            min_snp_pval[j]=2;
+            min_snp_name[j]="na";
+
+            for(int k = 0; k < snp_indx.size(); k++){
+                if (min_snp_pval[j] > _pval[include_in_gene[snp_indx[k]]]) { 
+                    min_snp_pval[j] = _pval[include_in_gene[snp_indx[k]]];
+                    min_snp_name[j] = _snp_name[snp_indx[k]]; //keep minimum value - regardless of whether SNP removed by LD pruning
+                 }
+            //     zscore_in_gene[k] = _beta[include_in_gene[snp_indx[k]]]/_beta_se[include_in_gene[snp_indx[k]]];
+            }
+
+            // MatrixXd Uprop_z = U_prop.transpose() * zscore_in_gene; 
+            // MatrixXd lambda_prop_diag_inv = eigenvalueUsed.asDiagonal().inverse();        
+            // Chisq_mBAT[j] = (Uprop_z.transpose() * lambda_prop_diag_inv * Uprop_z)(0);
+            // P_mbat_svd_prop[j] = StatFunc::pchisq(Chisq_mBAT[j], eigenvalVec_mBAT[j]);
+            ///////////////////////////////////////////////////////////////////////////////
+            //Step 3.2 recalculate chisq value from low correlation snp subset
+            if (sbat_ld_cutoff < 1) {
+                chisq_o[j] = 0;
+                for (int k = 0; k < sub_indx.size(); k++){
+                    chisq_o[j] += snp_chisq[snp_include_gene[ sub_indx[k]] ];
+                }
+
+            } 
+            snp_num_in_gene[j] = snp_count;
+            if (snp_count==1 && chisq_o[j] ==0){
+                fastbat_gene_pvalue[j] = 1;
+            }else {
+                fastbat_gene_pvalue[j] = StatFunc::pchisqsum(chisq_o[j], eigenval);
+            }
+        }
+        // Step 3.3 Combine fastbat and mbat p value to obtain mbat-combo p
+        // mbat_ACATO(P_mbat_svd_prop[j],fastbat_gene_pvalue[j],P_mBATcombo[j]);
+        
+        /////////////////////////////////////////
+        // Step 4. output
+        /////////////////////////////////////////
+        if (P_mBATcombo[j] > 1.5) continue;
+        gene_analyzed++;
+        ofile << gene_name[gene_ori_idx] << "\t" << gene_chr[gene_ori_idx] << "\t" << gene_bp1[gene_ori_idx] << "\t" << gene_bp2[gene_ori_idx] << "\t";
+        ofile << snp_num_in_gene_mBAT[j] << "\t" << gene2snp_1[gene_ori_idx] << "\t" << gene2snp_2[gene_ori_idx]  << "\t";
+        ofile << min_snp_name[j] << "\t" << min_snp_pval[j] << "\t" << chisq_o[j]  << "\t" << fastbat_gene_pvalue[j];
+        ofile << endl;
+    }
+    ofile.close();
+    rogoodsnp.close();
+}
+
 
 void gcta::sbat_read_snpset(string snpset_file, vector<string> &set_name, vector< vector<string> > &snpset)
 {
@@ -604,4 +848,3 @@ void gcta::rm_cor_sbat(MatrixXf &R, double R_cutoff, int m, vector<int> &rm_ID1)
     stable_sort(rm_ID1.begin(), rm_ID1.end());
     rm_ID1.erase(unique(rm_ID1.begin(), rm_ID1.end()), rm_ID1.end());
 }
-
