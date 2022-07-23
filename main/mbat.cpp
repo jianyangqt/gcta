@@ -9,8 +9,7 @@
  * License, Version 3.  Please see the file COPYING for more
  * details
  */
- 
- 
+
 #include "gcta.h"
 #include <Eigen/Core>
 #include <Eigen/SVD>
@@ -19,6 +18,7 @@
 
 using namespace Eigen;
 using namespace std;
+
 
 
 void gcta::mbat_calcu_lambda(vector<int> &snp_indx, MatrixXf &rval, VectorXd &eigenval, int &snp_count, double sbat_ld_cutoff, vector<int> &sub_indx)

@@ -162,7 +162,7 @@ public:
     void paa(string aa_file);
     void ibc(bool ibc_all);
 
-    // mkl
+    // mklf
     void make_grm_mkl(bool grm_d_flag, bool grm_xchr_flag, bool inbred, bool output_bin, int grm_mtd, bool mlmassoc, bool diag_f3_flag = false);
     void calcu_mean_rsq_mkl(int wind_size, double rsq_cutoff);
     void LD_pruning_mkl(double rsq_cutoff, int wind_size);
