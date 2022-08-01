@@ -36,6 +36,7 @@
 #include <omp.h>
 #include <cstdlib>
 #include "mem.hpp"
+#include "config.h"
 
 #include "acat.hpp" //add by fanghl 20210303
 #define ACAT_MODULE
@@ -58,7 +59,7 @@ void out_ver(bool flag_outFile){
 
     log(0, "*******************************************************************", "");
     log(0, "* Genome-wide Complex Trait Analysis (GCTA)", "");
-    log(0, "* version 1.94.0 beta " + getOSName(), "");
+    log(0, std::string("* version ") + std::string(GCTA_VERSION) + std::string(" ") + getOSName(), "");
     log(0, "* (C) 2010-present, Yang Lab, Westlake University", "");
     log(0, "* Please report bugs to Jian Yang <jian.yang@westlake.edu.cn>", "");
     log(0, "*******************************************************************", "");
