@@ -1402,8 +1402,8 @@ void option(int option_num, char* option_str[])
             else if (!sbat_sAssoc_file.empty()){
                 //if(!sbat_gAnno_file.empty()) pter_gcta->sbat_gene_old(sbat_sAssoc_file, sbat_gAnno_file, sbat_wind, sbat_ld_cutoff, sbat_write_snpset);
                 if(!sbat_gAnno_file.empty()) pter_gcta->sbat_gene( sbat_sAssoc_file,sbat_gAnno_file, sbat_wind, sbat_ld_cutoff, sbat_write_snpset, massoc_gc_flag, massoc_gc_val);
-                else if(!sbat_snpset_file.empty()) pter_gcta->sbat(sbat_sAssoc_file, sbat_snpset_file, sbat_ld_cutoff, sbat_write_snpset);
-                else if(sbat_seg_flag) pter_gcta->sbat_seg(sbat_sAssoc_file, sbat_seg_size, sbat_ld_cutoff, sbat_write_snpset);
+                else if(!sbat_snpset_file.empty()) pter_gcta->sbat(sbat_sAssoc_file, sbat_snpset_file, sbat_ld_cutoff, sbat_write_snpset,massoc_gc_flag, massoc_gc_val);
+                else if(sbat_seg_flag) pter_gcta->sbat_seg(sbat_sAssoc_file, sbat_seg_size, sbat_ld_cutoff, sbat_write_snpset,massoc_gc_flag, massoc_gc_val);
             }
             else if(!mbat_sAssoc_file.empty()){
                if(!mbat_gAnno_file.empty()) pter_gcta->mbat_gene(mbat_sAssoc_file, mbat_gAnno_file, mbat_wind,mbat_svd_gamma, sbat_ld_cutoff, mbat_write_snpset,massoc_gc_flag, massoc_gc_val,mbat_print_all_p);
