@@ -293,7 +293,9 @@ void gcta::sbat_read_snpset(string snpset_file, vector<string> &set_name, vector
     LOGGER << snp_name.size() << " SNPs in " << snpset.size() << " sets have been included." << endl;
 }
 
+
 void gcta::sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, bool sbat_write_snpset,bool GC, double GC_val)
+
 {
     int i = 0, j = 0;
     int snp_count;
@@ -417,6 +419,7 @@ void gcta::sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, boo
     int snp_count;
 
     // read SNP association results
+
     vector<string> snp_name;
     vector<int> snp_chr, snp_bp;
     vector<double> snp_pval;
