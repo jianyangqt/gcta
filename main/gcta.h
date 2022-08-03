@@ -174,11 +174,8 @@ public:
 
     // gene based association test
     void sbat_gene(string sAssoc_file, string gAnno_file, int sbat_wind, double sbat_ld_cutoff, bool sbat_write_snpset, bool GC, double GC_val);
-    void sbat_gene_old(string sAssoc_file, string gAnno_file, int wind, double sbat_ld_cutoff, bool sbat_write_snpset);
     void sbat(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, bool sbat_write_snpset,bool GC, double GC_val);
     void sbat_seg(string sAssoc_file, int seg_size, double sbat_ld_cutoff, bool sbat_write_snpset,bool GC, double GC_val);
-    void sbat_old(string sAssoc_file, string snpset_file, double sbat_ld_cutoff, bool sbat_write_snpset);
-    void sbat_seg_old(string sAssoc_file, int seg_size, double sbat_ld_cutoff, bool sbat_write_snpset);
 
     // gene based association
     //////////////////////////////
