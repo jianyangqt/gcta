@@ -60,6 +60,14 @@ void out_ver(bool flag_outFile){
     log(0, "*******************************************************************", "");
     log(0, "* Genome-wide Complex Trait Analysis (GCTA)", "");
     log(0, std::string("* version ") + std::string(GCTA_VERSION) + std::string(" ") + getOSName(), "");
+#if (defined __linux__ || defined __linux) && defined __GNUC__
+    std::string compile_info("");
+    std::ostringstream outstring;
+    outstring << "* Built at " << __DATE__ << " " << __TIME__ << ", "
+        << "by GCC " << __GNUC__ << "." << __GNUC_MINOR__;
+    compile_info = outstring.str();
+    log(0, compile_info, "");
+#endif
     log(0, "* (C) 2010-present, Yang Lab, Westlake University", "");
     log(0, "* Please report bugs to Jian Yang <jian.yang@westlake.edu.cn>", "");
     log(0, "*******************************************************************", "");
