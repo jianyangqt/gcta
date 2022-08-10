@@ -11,7 +11,7 @@
 
 //When compile under windows, M_PI is defined in corecrt_math_defines.h
 #if defined _WIN32 || defined _WIN64
-#define _USE_MATH_DEFINES
+#include <corecrt_math_defines.h>
 #endif
 
 #define BETA_DENSITY(x, a, b)  \
