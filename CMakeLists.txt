@@ -77,7 +77,7 @@ if(CMAKE_LIBRARY_ARCHITECTURE STREQUAL "aarch64")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -pthread")
         set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
         set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g")
-        add_compile_options(-fopenmp)
+        add_compile_options(-openmp)
         set(CMAKE_EXE_LINKER_FLAGS "-Wl,-no_implicit_dylibs")
         if(NOT APPLE)
             # don't delete this it will result in _implibs
@@ -120,7 +120,7 @@ else()
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -m64 ${SSE} -DMKL_LP64 -pthread")
         set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
         set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g")
-        add_compile_options(-fopenmp)
+        add_compile_options(-openmp)
         set(CMAKE_EXE_LINKER_FLAGS "-Wl,-no_implicit_dylibs")
         if(NOT APPLE)
             # don't delete this it will result in _implibs
@@ -178,7 +178,7 @@ add_executable(gcta64 ${MAIN_SOURCE})
 
 if(APPLE)
     # iomp5
-    target_link_libraries(gcta64 ${libs_list} Pgenlib mainV1 z ${BLAS_LIB} sqlite3 zstd_s omp pthread m dl )
+    target_link_libraries(gcta64 ${libs_list} Pgenlib mainV1 z ${BLAS_LIB} sqlite3 zstd omp pthread m dl gsl gslcblas) 
 else()
     if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         # error keeps only
