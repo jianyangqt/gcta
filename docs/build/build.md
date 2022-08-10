@@ -104,10 +104,10 @@ This document described general procedure to build GCTA, for more detail please 
 
     Until now, due to we have not implement any build system yet, you need to build the GCTA manually.
 
-    First you need compile all source, get object files. and you alse need to compile submods, including `Pgenlib/PgenReader.cpp, plink-ng/2.0/pgenlib_write.cc, plink-ng/2.0/pgenlib_read.cc plink-ng/2.0/pgenlib_misc.cc plink-ng/2.0/pgenlib_ffi_support.cc`.
+    First you need compile all source, get object files. and you alse need to compile submods, including `Pgenlib/PgenReader.cpp, plink-ng/2.0/pgenlib_write.cc, plink-ng/2.0/pgenlib_read.cc plink-ng/2.0/pgenlib_misc.cc plink-ng/2.0/pgenlib_ffi_support.cc plink-ng/2.0/plink2_base.cc`.
 
-    Second, link object files and libs, you need link `zlib, zstd, gsl, gslblas, sqlte3, mkl_core, mkl_intel_lp64, mkl_intel_thread, libiomp5md/libomp`.
+    Second, link object files and libs, you need link `zlib(Link zlib.lib file. This is different from linux), zstd, gsl, gslblas, sqlite3, mkl_core, mkl_intel_lp64, mkl_intel_thread, libiomp5md/libomp(Link libiomp5md.lib/libomp.lib)`.
 
-    Note that, `libiomp5md` is part of intel compiler, and Clang/LLVM may contain this library too. Of cause you can use `libomp` which is omp implement of Clang/LLVM instead of libiomp5md.  
+    Note that, `libiomp5md` is part of intel compiler, and Clang/LLVM may contain this library too. Of cause you can use `libomp` which is omp implement of Clang/LLVM instead of libiomp5md.
 
     The dynamic library of windows is different from Unix like system. The `.lib` only contain information for linker, and the code of library is contained by `.dll` file. After link, you may need copy DLL file to the directory which gcta binary located, and when you distribute your binary you need distribute this DLL file with gcta binary too.  
