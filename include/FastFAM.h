@@ -56,7 +56,12 @@ public:
     void calculate_fam(uintptr_t *buf, const vector<uint32_t> &markerIndex);
     void calculate_grammar(uintptr_t *buf, const vector<uint32_t> &markerIndex);
     void calculate_gwa(uintptr_t * geno, const vector<uint32_t> &markerIndex);
+    void calculate_gwa_2df(uintptr_t * geno, const vector<uint32_t> &markerIndex);
+    void calculate_gwa_2df_sandwich(uintptr_t * geno, const vector<uint32_t> &markerIndex);
+    void calculate_mixed_2df(uintptr_t *geno, const vector<uint32_t> &markerIndex);
+    void calculate_mixed_2df_sandwich(uintptr_t *geno, const vector<uint32_t> &markerIndex);
     void output_res(const vector<uint8_t> &isValids, const vector<uint32_t> markerIndex);
+    void output_res_2df(const vector<uint8_t> &isValids, const vector<uint32_t> markerIndex);
 
     //void readGenoSample(uint64_t *buf, int num_marker);
     void genRandY(uint64_t *buf, int num_marker);
@@ -67,9 +72,12 @@ public:
 
     static void readFAM(string filename, SpMat& fam, const vector<string> &ids, vector<uint32_t> &remain_index);
     static double HEreg(vector<double> &Zij, vector<double> &Aij, bool &isSig);
+    static double HEreg(vector<double> &Zij, vector<double> &Aij, bool &isSig, double &pvalue);
     static double HEreg(const Ref<const SpMat> fam, const Ref<const VectorXd> pheno, bool &isSig);
+    static double HEreg(const Ref<const SpMat> fam, const Ref<const VectorXd> pheno, bool &isSig, double &pvalue);
     double MCREML(const Ref<const SpMat> fam, const Ref<const VectorXd> pheno, bool &isSig);
     double spREML(const Ref<const SpMat> fam, const Ref<const VectorXd> pheno, bool &isSig);
+    double spREML_2df(const Ref<const SpMat> fam, const Ref<const VectorXd> pheno, bool &isSig, const double rho, double &logLikelihood);
 
     void conditionCovarReg(Eigen::Ref<VectorXd> pheno);
     void conditionCovarReg(VectorXd &pheno, VectorXd &condPheno);
@@ -100,12 +108,21 @@ private:
     float *af = NULL;
     float *info = NULL;
     bool bOutResAll = false;
+    double *p_geno = NULL; 
+    double *p_interaction = NULL; 
+    float *beta_geno = NULL; 
+    float *beta_interaction = NULL; 
+    float *se_geno = NULL; 
+    float *se_interaction = NULL; 
+    float *cov_geno_interaction = NULL; 
+    float *score_geno = NULL; 
+    float *score_interaction = NULL; 
+    float *score = NULL; 
 
-   
     bool fam_flag;
     MatrixXd H, covar;
     bool covarFlag = false;
-
+    bool has_envir = false; 
     bool bGrammar = false;
     int num_grammar_markers;
     VectorXd Vi_y;
@@ -130,7 +147,10 @@ private:
     SpMat V_inverse;
     vector<double> phenos;
     VectorXd phenoVec;
+    VectorXd envirVec; 
+    VectorXd envirVec_scaled;
     VectorXd rawPhenoVec;
+    double VR_copy;
 
     void inverseFAM(SpMat& fam, double VG, double VR);
     void makeIH(MatrixXd &X);

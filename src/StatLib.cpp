@@ -27,11 +27,20 @@ using namespace boost::math;
 
 namespace StatLib{
     chi_squared dist1(1);
+    chi_squared dist2(2); 
     normal_distribution<> norm_dist(0.0, 1.0);
 
     double pchisqd1(double x){
         if(x > 0 && std::isfinite(x)){
             return cdf(complement(dist1, x));
+        }else{
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+    }
+
+    double pchisqd2(double x){
+        if(x > 0 && std::isfinite(x)){
+            return cdf(complement(dist2, x));
         }else{
             return std::numeric_limits<double>::quiet_NaN();
         }

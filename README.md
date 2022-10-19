@@ -22,6 +22,8 @@ Angli Xue improved the GSMR module.
 
 Robert Maier improved the GCTA-SBLUP module.
 
+Wujuan Zhong and Judong Shen programmed the fastGWA-GE module. 
+
 Contributions to the development of the methods implemented in GCTA (e.g., GREML methods, COJO, mtCOJO, MLMA-LOCO, fastBAT, fastGWA and fastGWA-GLMM) can be found in the corresponding publications (https://yanglab.westlake.edu.cn/software/gcta/index.html#Overview).
 
 
