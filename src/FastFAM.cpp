@@ -2636,7 +2636,7 @@ void FastFAM::calculate_gwa_2df_sandwich(uintptr_t * genobuf, const vector<uint3
         //sandwich variance estimator is (-A)^(-1) * B * (-A)^(-1)
         MatrixXd sandwich_variance = ngtv_2nd_deri_inv * B_mat * ngtv_2nd_deri_inv;
         
-        if (isnan(sandwich_variance.sum()) == 0){
+        if (std::isnan(sandwich_variance.sum()) == 0){
             double temp_chisq = temp_beta.dot(sandwich_variance.inverse() * temp_beta);
             
             VectorXd temp_se(2);
