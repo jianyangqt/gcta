@@ -40,7 +40,7 @@ If you have any bug reports or questions please send an email to Jian Yang at <j
 4. Eigen == 3.3.7 (there are bugs in the new version of Eigen)
 5. CMake >= 3.1
 6. BOOST >= 1.4
-7. zlib >= 1.2.11
+7. zlib >= 1.2.11 (old zlib may cause an error of bgen file decompression)
 8. sqlite3 >= 3.31.1
 9. zstd >= 1.4.4
 10. [Spectra](https://spectralib.org/) >= 0.8.1
