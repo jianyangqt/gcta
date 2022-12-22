@@ -27,7 +27,7 @@ void gcta::read_metafile(string metafile, bool GC, double GC_val) {
     string snp_buf, str_buf0, str_buf;
 
     vector<string> snplist, vs_buf, bad_snp;
-    vector<string> ref_A_buf, bad_A1, bad_A2, bad_refA;
+    vector<string> ref_A1_buf, ref_A2_buf, bad_A1, bad_A2, bad_refA;
     vector<double> freq_buf, beta_buf, beta_se_buf, pval_buf, N_o_buf, Vp_v_buf, GC_v_buf;
     map<string, int>::iterator iter;
     getline(Meta, str_buf); // the header line
@@ -77,7 +77,8 @@ void gcta::read_metafile(string metafile, bool GC, double GC_val) {
             continue;
         }
         snplist.push_back(snp_buf);
-        ref_A_buf.push_back(A1_buf);
+        ref_A1_buf.push_back(A1_buf);
+        ref_A2_buf.push_back(A2_buf);
         freq_buf.push_back(f_buf);
         beta_buf.push_back(b_buf);
         beta_se_buf.push_back(se_buf);
@@ -105,7 +106,7 @@ void gcta::read_metafile(string metafile, bool GC, double GC_val) {
 
     vector<int> indx;
     vector<string> snplist_freq;
-    vector<string> bad_snp_freq, bad_A1_freq, bad_A2_freq, bad_refA_freq;
+    vector<string> bad_snp_freq, bad_A1_freq, bad_A2_freq, bad_refA_freq, bad_otherA_freq;
     vector<double> bad_freq_value, bad_freq_ma;
     map<string, int> id_map;
     for (i = 0; i < snplist.size(); i++) id_map.insert(pair<string, int>(snplist[i], i));
@@ -114,8 +115,9 @@ void gcta::read_metafile(string metafile, bool GC, double GC_val) {
         bool flip_flag = false;
         string cur_snp_name = _snp_name[include_i];
         iter = id_map.find(cur_snp_name);
-        _ref_A[include_i] = ref_A_buf[iter->second];
-        if (!_mu.empty() && ref_A_buf[iter->second] == _allele2[include_i]){
+        _ref_A[include_i] = ref_A1_buf[iter->second];
+        _other_A[include_i] = ref_A2_buf[iter->second];
+        if (!_mu.empty() && ref_A1_buf[iter->second] == _allele2[include_i]) {
             _mu[include_i] = 2.0 - _mu[include_i];
             flip_flag = true;
         }
@@ -130,6 +132,7 @@ void gcta::read_metafile(string metafile, bool GC, double GC_val) {
             bad_A1_freq.push_back(_allele1[include_i]);
             bad_A2_freq.push_back(_allele2[include_i]);
             bad_refA_freq.push_back(_ref_A[include_i]);
+            bad_otherA_freq.push_back(_other_A[include_i]);
             bad_freq_value.push_back(cur_freq_value);
             bad_freq_ma.push_back(freq_buf[iter->second]);
         }
@@ -148,8 +151,17 @@ void gcta::read_metafile(string metafile, bool GC, double GC_val) {
     if(!bad_snp_freq.empty()){
         string badsnpfile = _out + ".freq.badsnps";
         ofstream obadsnp(badsnpfile.c_str());
-        obadsnp << "SNP\tA1\tA2\tRefA\tgeno_freq\tfreq" << endl;
-        for (int i = 0; i < bad_snp_freq.size(); i++) obadsnp << bad_snp_freq[i] << "\t" << bad_A1_freq[i] << "\t" << bad_A2_freq[i] << "\t" << bad_refA_freq[i] << "\t" << bad_freq_value[i] << "\t" << bad_freq_ma[i]<< endl;
+        obadsnp << "SNP\tsummary_A1\tsummary_A2\tsummary_A1_freq\tgeno_A1\tgeno_A2\tgeno_A1_freq" << endl;
+        for (int i = 0; i < bad_snp_freq.size(); i++){
+            obadsnp << bad_snp_freq[i] << "\t"
+                    << bad_refA_freq[i] << "\t"
+                    << bad_otherA_freq[i] << "\t"
+                    << bad_freq_ma[i] << "\t"
+                    << bad_A1_freq[i] << "\t"
+                    << bad_A2_freq[i] << "\t"
+                    << bad_freq_value[i]
+                    << endl;
+        }
         obadsnp.close();
         LOGGER << bad_snp_freq.size() << " SNP(s) have large difference of allele frequency between the GWAS summary data and the reference sample. These SNPs have been saved in [" << badsnpfile << "]." << endl; 
     }
