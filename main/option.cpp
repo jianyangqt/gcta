@@ -999,6 +999,10 @@ void option(int option_num, char* option_str[])
             mbat_gAnno_file = argv[++i];
             LOGGER << "--mBAT-gene-list " << mbat_gAnno_file << endl;
             CommFunc::FileExist(mbat_gAnno_file);
+        } else if (strcmp(argv[i], "--mBAT-set-list") == 0) {
+            mbat_snpset_file = argv[++i];
+            LOGGER << "--mBAT-set-list " << mbat_snpset_file << endl;
+            CommFunc::FileExist(mbat_snpset_file);
         } else if (strcmp(argv[i], "--mBAT-wind") == 0) {
             mbat_wind = atoi(argv[++i]);
             LOGGER << "--mBAT-wind " << mbat_wind << endl;
@@ -1407,7 +1411,7 @@ void option(int option_num, char* option_str[])
             }
             else if(!mbat_sAssoc_file.empty()){
                if(!mbat_gAnno_file.empty()) pter_gcta->mbat_gene(mbat_sAssoc_file, mbat_gAnno_file, mbat_wind,mbat_svd_gamma, sbat_ld_cutoff, mbat_write_snpset,massoc_gc_flag, massoc_gc_val,mbat_print_all_p);
-               // else if(!mbat_snpset_file.empty()) pter_gcta->mbat(mbat_sAssoc_file, mbat_snpset_file, mbat_svd_gamma, mbat_write_snpset);
+               else if(!mbat_snpset_file.empty()) pter_gcta->mbat(mbat_sAssoc_file, mbat_snpset_file, mbat_svd_gamma, sbat_ld_cutoff, mbat_write_snpset,massoc_gc_flag, massoc_gc_val,mbat_print_all_p);
             }
             else if(gwas_adj_pc_flag) { pcl_flag=false; pter_gcta->pc_adjust(pcadjust_list_file, pc_file, freq_thresh, pc_adj_wind_size); }
             else if(pcl_flag) pter_gcta->snp_pc_loading(pc_file);
