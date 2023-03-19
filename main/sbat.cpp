@@ -11,6 +11,7 @@
  */
 
 #include "gcta.h"
+#include <set>
 
 void gcta::sbat_read_snpAssoc(string snpAssoc_file, vector<string> &snp_name, vector<int> &snp_chr, vector<int> &snp_bp, vector<double> &snp_pval)
 {
@@ -270,16 +271,24 @@ void gcta::sbat_read_snpset(string snpset_file, vector<string> &set_name, vector
     LOGGER << "\nReading SNP sets from [" + snpset_file + "]." << endl;
     string str_buf;
     vector<string> vs_buf, snpset_buf, snp_name;
+    // add set vector to remove duplicate items;
+    std::set<string> snpUniqSet_buf;
     int i = 0;
     while (in_snpset>>str_buf) {
         if(str_buf!="END" && str_buf!="end") vs_buf.push_back(str_buf);
         else{
             if(vs_buf.empty()) continue;
             set_name.push_back(vs_buf[0]);
+            snpUniqSet_buf.clear();
             for(i = 1; i < vs_buf.size(); i++){
                 if (_snp_name_map.find(vs_buf[i]) != _snp_name_map.end()){
+                    // if there is duplicated snp, ignore it
+                    if(snpUniqSet_buf.find(vs_buf[i]) != snpUniqSet_buf.end()) continue;
+                    snpUniqSet_buf.insert(vs_buf[i]);
+
                     snpset_buf.push_back(vs_buf[i]);
                     snp_name.push_back(vs_buf[i]);
+                    
                 }
             }
             vs_buf.clear();
@@ -290,6 +299,7 @@ void gcta::sbat_read_snpset(string snpset_file, vector<string> &set_name, vector
     in_snpset.close();
     snp_name.erase(unique(snp_name.begin(), snp_name.end()), snp_name.end());
     update_id_map_kp(snp_name, _snp_name_map, _include);
+    // cout  << "snpset[0] size: " << snpset[0].size() << endl;
     LOGGER << snp_name.size() << " SNPs in " << snpset.size() << " sets have been included." << endl;
 }
 
