@@ -519,7 +519,7 @@ void gcta::mbat(string mbat_sAssoc_file, string snpset_file, double mbat_svd_gam
     ofstream rogoodsnp;
     if (mbat_write_snpset) {
         rogoodsnp.open(rgoodsnpfile.c_str());
-        rogoodsnp << "set\tsnp" << endl;
+        // rogoodsnp << "set\tsnp" << endl;
     }
     for (i = 0; i < snp_name.size(); i++) snp_name_map.insert(pair<string,int>(snp_name[i], i));
     ////////////////////////////////////////////////////
