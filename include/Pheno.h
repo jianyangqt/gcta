@@ -19,6 +19,7 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <cstdint>
 using std::map;
 using std::vector;
 using std::string;
