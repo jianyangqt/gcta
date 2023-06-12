@@ -106,12 +106,11 @@ void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, 
     update_id_map_kp(qtl_name, _snp_name_map, _include);
     
     // Generate QTL effects
-    int Seed = -CommFunc::rand_seed();
     if (hsq > 0.0) {
         int num_gener_qtl_eff = 0;
         for (i = 0; i < qtl_num; i++) {
             if (have_eff[i] == 0) {
-                qtl_eff[i] = StatFunc::gasdev(Seed);
+                qtl_eff[i] = StatFunc::gasdev(seed);
                 num_gener_qtl_eff++;
             }
         }
@@ -167,7 +166,7 @@ void gcta::GWAS_simu(string bfile, int simu_num, string qtl_file, int case_num, 
     for (i = 0; i < simu_num; i++) {
         y[i].resize(_keep.size());
         for (j = 0; j < _keep.size(); j++) {
-            if (hsq < 1.0) y[i][j] = g[j] + sd_e * StatFunc::gasdev(Seed);
+            if (hsq < 1.0) y[i][j] = g[j] + sd_e * StatFunc::gasdev(seed);
             else y[i][j] = g[j];
         }
         if (cc_flag) {
