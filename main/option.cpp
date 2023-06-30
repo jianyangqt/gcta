@@ -154,6 +154,9 @@ void option(int option_num, char* option_str[])
     string mbat_sAssoc_file = "", mbat_gAnno_file = "", mbat_snpset_file = "";
     int mbat_wind = 50000;
     bool mbat_print_all_p = false;
+
+    // Max number of SNPs for gene-based association test
+    int max_snps = 10000;
    
     // gene expression data
     string efile="", eR_file = "", ecojo_ma_file="";
@@ -1008,6 +1011,9 @@ void option(int option_num, char* option_str[])
             LOGGER << "--mBAT-wind " << mbat_wind << endl;
             if (mbat_wind < 0 || mbat_wind > 1000) LOGGER.e(0, "\n invalid value for --mBAT-wind. Valid range: 0 ~ 1000\n");
             mbat_wind *= 1000;
+        } else if (strcmp(argv[i], "--max_snps") == 0) {
+            max_snps = atoi(argv[++i]);
+            LOGGER << "--max_snps " << max_snps << endl;
         } 
         else if (strcmp(argv[i], "--efile") == 0) {
             efile = argv[++i];
