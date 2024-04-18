@@ -18,6 +18,7 @@
 
 #include <cstdio>
 #include <stdlib.h>
+#include <limits>
 #include "gcta.h"
 #include "Logger.h"
 
@@ -177,6 +178,12 @@ void option(int option_num, char* option_str[])
     bool gwas_data_flag = false, gwas_adj_pc_flag = false;
     int pc_adj_wind_size = 10000;
     string pcadjust_list_file = "";
+
+    // vif threshold
+    double vif_threshold = 30; //default vif threshold value is 30
+    double vif_max_double = std::numeric_limits<double>::max();
+
+
 
     int argc = option_num;
     vector<char *> argv(option_num + 2);
@@ -1201,6 +1208,14 @@ void option(int option_num, char* option_str[])
         } else if (strcmp(argv[i], "--gwas-adj-pc-wind") == 0) {
             pc_adj_wind_size = atoi(argv[++i]);
             LOGGER << "--gwas-adj-pc-wind " << pc_adj_wind_size << endl;
+        } else if (strcmp(argv[i], "--vif-thresh") == 0) {
+            char  *vif_thresh_val = argv[++i];
+            if (strcmp(vif_thresh_val, "Inf") == 0) {
+                vif_threshold = vif_max_double;
+            } else {
+                vif_threshold = atof(vif_thresh_val);
+            }
+            LOGGER << "--vif-thresh " << vif_threshold << endl;
         } 
         else if (strcmp(argv[i], "gcta") == 0) break;
         else {
@@ -1314,6 +1329,9 @@ void option(int option_num, char* option_str[])
     pter_gcta->set_reml_diagV_adj(reml_diagV_adj);
     pter_gcta->set_reml_diag_mul(reml_diag_mul);
     pter_gcta->set_diff_freq(freq_thresh); 
+
+    pter_gcta->set_vif_threshold(vif_threshold);// add by yangwen 20240417
+
     if (grm_bin_flag || m_grm_bin_flag) pter_gcta->enable_grm_bin_flag();
     //if(simu_unlinked_flag) pter_gcta->simu_geno_unlinked(simu_unlinked_n, simu_unlinked_m, simu_unlinked_maf);
     if (!RG_fname_file.empty()) {
