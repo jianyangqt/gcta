@@ -129,6 +129,7 @@ public:
     void set_reml_diagV_adj(int method);
     void set_reml_inv_method(int method);
 
+
     // bivariate REML analysis
     void fit_bivar_reml(string grm_file, string phen_file, string qcovar_file, string covar_file, string keep_indi_file, string remove_indi_file, string sex_file, int mphen, int mphen2, double grm_cutoff, double adj_grm_fac, int dosage_compen, bool m_grm_flag, bool pred_rand_eff, bool est_fix_eff, int reml_mtd, int MaxIter, vector<double> reml_priors, vector<double> reml_priors_var, vector<int> drop, bool no_lrt, double prevalence, double prevalence2, bool no_constrain, bool ignore_Ce, vector<double> &fixed_rg_val, bool bivar_no_constrain);
 
@@ -207,6 +208,7 @@ public:
     vector<string> read_snp_metafile_txt(string metafile, map<string,int> &gws_snp_name_map, double thresh);
     vector<string> read_snp_metafile_gz(string metafile, map<string,int> &gws_snp_name_map, double thresh);
     
+    
     // Adjusted for PC
     void pc_adjust(string pcadjust_list_file, string eigenvalue_file, double freq_thresh, int wind_size);
     void read_pc_adjust_file(string pcadjust_list_file, string pc_file);
@@ -223,6 +225,10 @@ public:
 
     // ERM
     void make_erm(int erm_mtd, bool output_bin); 
+
+    // vif threshold
+    void set_vif_threshold(double value);
+
 
 
 private:
@@ -678,6 +684,10 @@ private:
     // PC adjustment
     double _ttl_mk_num;
     vector<double> _eigen_value;
+
+    //vif threshold
+    double _vif_threshold;
+
 };
 
 class locus_bp {

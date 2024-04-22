@@ -13,6 +13,10 @@
 #include "gcta.h"
 #include "mem.hpp"
 
+void gcta::set_vif_threshold(double value) {
+    _vif_threshold = value;
+}
+
 void gcta::set_reml_diag_mul(double value){
     _reml_diag_mul = value;
 }
