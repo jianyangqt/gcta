@@ -31,6 +31,7 @@
 #include <numeric>
 #include <algorithm>
 #include <sstream>
+#include <cstdint>
 
 std::string getHostName();
 std::string getLocalTime();
