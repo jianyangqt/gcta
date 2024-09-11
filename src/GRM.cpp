@@ -1660,7 +1660,7 @@ vector<uint32_t> GRM::divide_parts_mem(uint32_t n_sample, uint32_t num_parts){
     vector<uint32_t> div_parts(parts);
     uint32_t total_num = 0;
     for(int i = 0 ; i < parts - 1; i++){
-        uint32_t cur_n = ceil(n_each_part[i] * x1);
+        uint32_t cur_n = round(n_each_part[i] * x1);
         total_num = cur_n + total_num;
         div_parts[i] = total_num - 1;
     }
