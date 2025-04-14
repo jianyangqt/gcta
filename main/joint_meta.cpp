@@ -729,7 +729,8 @@ bool gcta::insert_B_and_Z(const vector<int> &indx, int insert_indx)
     _B_i.resize(ix.size(), ix.size());
     _B_i.setIdentity();
     _B_i = ldlt_B.solve(_B_i).eval();
-    if (ldlt_B.vectorD().minCoeff() < 0 || sqrt(ldlt_B.vectorD().maxCoeff() / ldlt_B.vectorD().minCoeff()) > 30 || (1 - eigenVector::Constant(ix.size(), 1).array() / (diagB.array() * _B_i.diagonal().array())).maxCoeff() > _jma_collinear) {
+    //if (ldlt_B.vectorD().minCoeff() < 0 || sqrt(ldlt_B.vectorD().maxCoeff() / ldlt_B.vectorD().minCoeff()) > 30 || (1 - eigenVector::Constant(ix.size(), 1).array() / (diagB.array() * _B_i.diagonal().array())).maxCoeff() > _jma_collinear) {
+    if (ldlt_B.vectorD().minCoeff() < 0 || (1 - eigenVector::Constant(ix.size(), 1).array() / (diagB.array() * _B_i.diagonal().array())).maxCoeff() > _jma_collinear) { //Replaced above line 5/5/24 Kartik Chundru; Middle condition not suitable for mix of rare and common variants in WGS association studies
         _jma_snpnum_collienar++;
         _B = B_buf;
         _B_N = B_N_buf;
