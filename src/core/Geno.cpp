@@ -41,7 +41,7 @@
 #include "cpu.h"
 #include <Eigen/Eigen>
 #include <algorithm>
-#include "submods/Pgenlib/PgenReader.h"
+#include "PgenReader.h"
 #include <numeric>
 
 #ifdef _WIN64
