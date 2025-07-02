@@ -3145,6 +3145,37 @@ int FastFAM::registerOption(map<string, vector<string>>& options_in){
     //DEBUG: change to .fastFAM
     options["out"] = options_in["out"][0] + ".fastGWA";
 
+    // Check for genetic data dependency for all fastGWA options
+    vector<string> fastGWA_options = {"--fastGWA", "--fastGWA-mlm", "--fastGWA-mlm-binary", 
+                                      "--fastGWA-mlm-exact", "--fastGWA-lr"};
+    bool has_fastGWA_option = false;
+    for(const string& option : fastGWA_options){
+        if(options_in.find(option) != options_in.end()){
+            has_fastGWA_option = true;
+            break;
+        }
+    }
+    
+    if(has_fastGWA_option){
+        // Check if any genetic data file is provided
+        vector<string> genetic_data_options = {"--bfile", "--bgen", "--mbgen", "--pfile", "--bpfile", "--mpfile", "--mbpfile", "--mbfile"};
+        bool has_genetic_data = false;
+        for(const string& option : genetic_data_options){
+            if(options_in.find(option) != options_in.end()){
+                has_genetic_data = true;
+                break;
+            }
+        }
+        if(!has_genetic_data){
+            LOGGER.e(0, "fastGWA requires genetic data to be specified (e.g., --bfile, --pfile, --bgen, etc.).");
+        }
+
+        // Check if phenotype file is provided (fastGWA almost always needs explicit --pheno)
+        if(options_in.find("--pheno") == options_in.end()){
+            LOGGER.e(0, "fastGWA requires a phenotype file to be specified using --pheno.");
+        }
+    }
+
     string curFlag = "--fastGWA";
     if(options_in.find(curFlag) != options_in.end()){
         processFunctions.push_back("fast_fam");

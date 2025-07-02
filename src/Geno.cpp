@@ -2352,7 +2352,7 @@ void Geno::getGenoArray_bed(const vector<uint32_t>& raw_marker_index, GenoBuf* g
         bool isEOF = false;
         std::tie(r_buf, isEOF) = asyncBufn->start_read();
         if(isEOF){
-            LOGGER.e(0, "the reading process reached to the end of the BED file but couldn’t finish.");
+            LOGGER.e(0, "the reading process reached to the end of the BED file but couldn't finish.");
         }
         move_geno(r_buf, keepMask64, rawCountSamples[0], gbuf->n_sample, numMarker, geno_buf); 
         asyncBufn->end_read();
@@ -3282,7 +3282,7 @@ void Geno::loop_64block(const vector<uint32_t> &raw_marker_index, vector<functio
 
         LOGGER.d(0, "Process block " + std::to_string(cur_block));
         if(isEOF && cur_block != (cur_num_blocks - 1)){
-            LOGGER.e(0, "the reading process reached to the end of the BED file but couldn’t finish.");
+            LOGGER.e(0, "the reading process reached to the end of the BED file but couldn't finish.");
         }
         //correct the marker read;
         if(cur_block == (cur_num_blocks - 1)){
@@ -3498,6 +3498,13 @@ int Geno::registerOption(map<string, vector<string>>& options_in) {
     addMFileListsOption("mbgen_file", ".bgen", "--mbgen", options_in, options);
     addMFileListsOption("mpgen_file", ".pgen", "--mbpfile", options_in, options);
     addMFileListsOption("mpgen_file", ".pgen", "--mpfile", options_in, options);
+
+    // Check for BGEN dependency on --sample
+    if(options_in.find("--mbgen") != options_in.end() || options_in.find("--bgen") != options_in.end()){
+        if(options_in.find("--sample") == options_in.end()){
+            LOGGER.e(0, "when using BGEN format files (--bgen or --mbgen), the --sample option is required to specify the sample information file.");
+        }
+    }
 
     options_d["min_maf"] = 0.0;
     options_d["max_maf"] = 0.5;
