@@ -3,12 +3,9 @@ project(gcta)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
-# 设置C++标准
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS ON)
 
-# 设置调试模式
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
 endif() 
@@ -17,10 +14,23 @@ if(WIN32 AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message(FATAL_ERROR "Only the Clang compiler is supported on Windows, Please use Clang to compile this project.")
 endif()
 
-
+if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+    message(FATAL_ERROR "The Apple Clang compiler is not supported. Please use a standard LLVM Clang.")
+endif()
 
 if (APPLE)
-    # todo: link openblas for macOS
+    find_package(OpenMP REQUIRED)
+    if(OpenMP_FOUND)
+        message(STATUS "OpenMP_INCLUDE_DIRS: ${OpenMP_INCLUDE_DIRS}")
+        include_directories(${OpenMP_INCLUDE_DIRS})
+    endif()
+
+    find_package(LAPACK REQUIRED)
+    if(LAPACK_FOUND)
+        message(STATUS "LAPACK Include Dirs from target: ${LAPACK_INCLUDE_DIRS}")
+        include_directories(/opt/homebrew/opt/openblas/include/)
+        #target_link_libraries(${PROJECT_NAME} LAPACK::LAPACK)
+    endif()
 else()
     if(UNIX)
         set(MKL_THREADING "gnu_thread")
@@ -107,8 +117,13 @@ target_link_libraries(${PROJECT_NAME}
     ${SQLite3_LIBRARIES}
     ${zstd_LIBRARIES}
     ${GSL_LIBRARIES}
-    MKL::MKL
 )
+if(APPLE)
+    target_link_libraries(${PROJECT_NAME} LAPACK::LAPACK)
+    target_link_libraries(${PROJECT_NAME} OpenMP::OpenMP_CXX)
+else()
+    target_link_libraries(${PROJECT_NAME} MKL::MKL)
+endif()
 
 target_sources(${PROJECT_NAME} 
   PRIVATE

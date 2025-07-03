@@ -32,7 +32,7 @@ bool _LLT(MatrixType &A, double &logdet){
 #if GCTA_CPU_x86
     dpotrf(&uplo, &cols, vi, &cols, &info);
 #else
-    dpotrf_(&uplo, &cols, vi, &cols, &info);
+    dpotrf_(&uplo, &cols, vi, &cols, &info, 1);
 #endif    
     //LOGGER << "  LLT time: " << LOGGER.tp("LLT") << std::endl;
     if(info == 0){
@@ -41,7 +41,7 @@ bool _LLT(MatrixType &A, double &logdet){
 #if GCTA_CPU_x86        
         dpotri(&uplo, &cols, vi, &cols, &info);
 #else
-        dpotri_(&uplo, &cols, vi, &cols, &info);
+        dpotri_(&uplo, &cols, vi, &cols, &info, 1);
 #endif
         //LOGGER << "  LLT inverse time: " << LOGGER.tp("LLT_INV") << std::endl;
         if(info == 0){

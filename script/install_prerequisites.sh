@@ -95,7 +95,7 @@ if [[ "$MANAGER" == "apt" ]]; then
 elif [[ "$MANAGER" == "vcpkg" ]]; then
     PKGS_OPTIONS+=(install --triplet=x64-windows)
     if ((DRYRUN > 0));  then PKGS_OPTIONS+=(--dry-run); fi
-    PACKAGES+=(gsl eigen3 zlib zstd sqlite3 intel-mkl)
+    PACKAGES+=(gsl eigen3 zlib zstd sqlite3 boost-algorithm boost-lexical-cast boost-random boost-math boost-crc)
 elif [[ "$MANAGER" == "dnf" ]]; then
     # TODO:
     SUDO="sudo"
@@ -106,10 +106,9 @@ elif [[ "$MANAGER" == "dnf" ]]; then
         SUDO=""
     fi
 elif [[ "$MANAGER" == "brew" ]]; then
-    # TODO:
     PKGS_OPTIONS+=(install)
     if ((VERBOSE > 0)); then PKGS_OPTIONS+=(--verbose); fi
-    PACKAGES+=()
+    PACKAGES+=(cmake llvm openblas boost gsl eigen zlib zstd sqlite )
     # Brew doesn't have a dryrun option
     if ((DRYRUN > 0));  then
         MANAGER="echo $MANAGER"

@@ -127,7 +127,7 @@ namespace StatLib{
                 &lda, work, &lwork, &info);
 #else
         dormqr_(&side, &t, &n, &n, &n, X, &lda, tau, c, 
-                &lda, work, &lwork, &info);
+                &lda, work, &lwork, &info, 1, 1);
 #endif
         if(info != 0){
             return false;
