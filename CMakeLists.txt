@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
+
 project(gcta)
+set(GCTA_VERSION_MAJOR 1)
+set(GCTA_VERSION_MINOR 94)
+set(GCTA_VERSION_PATCH 1)
+set(GCTA_VERSION ${GCTA_VERSION_MAJOR}.${GCTA_VERSION_MINOR}.${GCTA_VERSION_PATCH})
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
@@ -27,9 +32,7 @@ if (APPLE)
 
     find_package(LAPACK REQUIRED)
     if(LAPACK_FOUND)
-        message(STATUS "LAPACK Include Dirs from target: ${LAPACK_INCLUDE_DIRS}")
         include_directories(/opt/homebrew/opt/openblas/include/)
-        #target_link_libraries(${PROJECT_NAME} LAPACK::LAPACK)
     endif()
 else()
     if(UNIX)
@@ -129,3 +132,19 @@ target_sources(${PROJECT_NAME}
   PRIVATE
     ${MAIN_SOURCE}
 )
+
+if (WIN32)
+    get_filename_component(MKL_THREAD_LIB_FILE_DIR "${MKL_THREAD_LIB}" DIRECTORY)
+    get_filename_component(MKL_THREAD_LIB_FILE_DIR_PRE "${MKL_THREAD_LIB_FILE_DIR}" DIRECTORY)
+    get_filename_component(MKL_THREAD_LIB_FILE_NAME "${MKL_THREAD_LIB}" NAME)
+    get_filename_component(MKL_THREAD_LIB_FILE_NAME_WE "${MKL_THREAD_LIB_FILE_NAME}" NAME_WE)
+
+    set(MKL_THREAD_LIB_DLL_FILE "${MKL_THREAD_LIB_FILE_DIR_PRE}/bin/${MKL_THREAD_LIB_FILE_NAME_WE}.dll")
+    add_custom_command(
+        TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${MKL_THREAD_LIB_DLL_FILE}"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+        COMMENT "Copying MKL THREAD DLL: ${MKL_THREAD_LIB_DLL_FILE} to output directory"
+    )
+endif()
