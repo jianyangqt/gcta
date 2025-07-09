@@ -29,6 +29,7 @@
 #include <string>
 #include <vector>
 #include <numeric>
+#include <cstdint> 
 #include <algorithm>
 #include <sstream>
 
