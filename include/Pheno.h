@@ -20,6 +20,8 @@
 #include <string>
 #include <cstdint> 
 #include <map>
+#include <cstdint>
+
 using std::map;
 using std::vector;
 using std::string;
