@@ -100,7 +100,7 @@ void gcta::gbat_calcu_ld(MatrixXf &X, eigenVector &sumsq_x, int snp1_indx, int s
     }
 }
 
-void gcta::gbat(string sAssoc_file, string gAnno_file, int wind, int simu_num)
+void gcta::gbat(string sAssoc_file, string gAnno_file, int wind, int simu_num, int max_snps)
 {
     int i = 0, j = 0;
 
@@ -200,9 +200,9 @@ void gcta::gbat(string sAssoc_file, string gAnno_file, int wind, int simu_num)
         bool skip = false;
         if (iter1 == snp_name_map.end() || iter2 == snp_name_map.end() || iter1->second >= iter2->second) skip = true;
         snp_num_in_gene[i] = iter2->second - iter1->second + 1;
-        if(!skip && snp_num_in_gene[i] > 10000){
-            LOGGER<<"Warning: Too many SNPs in the gene region ["<<gene_name[i]<<"]. Maximum limit is 10000. This gene is ignored in the analysis."<<endl;
-            skip = true;  
+        if(!skip && snp_num_in_gene[i] > max_snps){
+            LOGGER<<"Warning: Too many SNPs ("<<snp_num_in_gene[i]<<") in the gene region ["<<gene_name[i]<<"]. Maximum limit is ["<<max_snps<<"]. This gene is ignored in the analysis."<<endl;
+            skip = true; 
         } 
         if(skip){
             gene_pval[i] = 2.0;
