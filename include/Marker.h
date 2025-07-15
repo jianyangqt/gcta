@@ -18,6 +18,7 @@
 #define GCTA2_MARKER_H
 #include <string>
 #include <vector>
+#include <cstdint> 
 #include <map>
 #include <utility>
 using std::vector;
