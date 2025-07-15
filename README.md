@@ -33,11 +33,11 @@ If you have any bug reports or questions please send an email to Jian Yang at <j
 ## Code
 ```bash
 # Clone gcta along with it's submodules
-git clone --recursive https://github.com/yywei/gcta.git
+git clone --recursive https://github.com/jianyangqt/gcta.git
 ```
 
 ## Dependencies
-You can use a simple [script](https://github.com/yywei/gcta/blob/master/script/install_prerequisites.sh) to install them, which supports the following package managers: apt, vcpkg, and brew.
+You can use a simple [script](https://github.com/jianyangqt/gcta/blob/master/script/install_prerequisites.sh) to install them, which supports the following package managers: apt, vcpkg, and brew.
 ```bash
 # See what packages will be install
 ./scripts/install_prerequisites.sh -l
@@ -62,7 +62,7 @@ You'll see the dependencies are
 ```bash
 # get code
 cd ~/your_directory
-git clone --recursive https://github.com/yywei/gcta.git
+git clone --recursive https://github.com/jianyangqt/gcta.git.git
 cd gcta
 
 # Install dependencies
@@ -80,7 +80,7 @@ cmake --build build
 ```bash
 # get code
 cd ~/your_directory
-git clone --recursive https://github.com/yywei/gcta.git
+git clone --recursive https://github.com/jianyangqt/gcta.git.git
 cd gcta
 
 # Install dependencies
@@ -99,7 +99,7 @@ On Windows, you need to install [Intel MKL](https://www.intel.com/content/www/us
 ```bash
 # get code
 cd ~/your_directory
-git clone --recursive https://github.com/yywei/gcta.git
+git clone --recursive https://github.com/jianyangqt/gcta.git.git
 cd gcta
 
 # Install vcpkg
