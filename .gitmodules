@@ -1,3 +1,6 @@
-[submodule "submods/plink-ng"]
-	path = submods/plink-ng
-	url = https://github.com/zhilizheng/plink-ng
+[submodule "thirdparty/plink-ng"]
+	path = thirdparty/plink-ng
+	url = https://github.com/yywei/plink-ng.git
+[submodule "script/vcpkg"]
+	path = script/vcpkg
+	url = https://github.com/microsoft/vcpkg.git

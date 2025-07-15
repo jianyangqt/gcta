@@ -365,7 +365,7 @@ bool gcta::comput_inverse_logdet_LDLT_mkl(eigenMatrix &Vi, double &logdet)
 #if GCTA_CPU_x86
     dpotrf(&uplo, &int_n, Vi_mkl, &int_n, &info);
 #else
-    dpotrf_(&uplo, &int_n, Vi_mkl, &int_n, &info);
+    dpotrf_(&uplo, &int_n, Vi_mkl, &int_n, &info, 1);
 #endif
     //LOGGER << "Finished decompose" << endl;
     //spotrf( &uplo, &n, Vi_mkl, &n, &info );
@@ -386,7 +386,7 @@ bool gcta::comput_inverse_logdet_LDLT_mkl(eigenMatrix &Vi, double &logdet)
 #if GCTA_CPU_x86
         dpotri(&uplo, &int_n, Vi_mkl, &int_n, &info);
 #else
-        dpotri_(&uplo, &int_n, Vi_mkl, &int_n, &info);
+        dpotri_(&uplo, &int_n, Vi_mkl, &int_n, &info, 1);
 #endif
         //LOGGER << "Inverse finished" << endl;
         //spotri( &uplo, &n, Vi_mkl, &n, &info );

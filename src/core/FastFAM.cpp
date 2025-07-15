@@ -49,8 +49,8 @@
 #include <Eigen/Core>
 #include <Eigen/SparseCore>
 
-#include <Spectra/SymEigsSolver.h>
-#include <Spectra/MatOp/SparseSymMatProd.h>
+//#include <Spectra/SymEigsSolver.h>
+//#include <Spectra/MatOp/SparseSymMatProd.h>
 #include <boost/math/distributions/beta.hpp>
 
 struct InvItem{

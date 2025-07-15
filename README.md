@@ -30,53 +30,90 @@ Contributions to the development of the methods implemented in GCTA (e.g., GREML
 ## Questions and Help Requests
 If you have any bug reports or questions please send an email to Jian Yang at <jian.yang@westlake.edu.cn>.
 
+## Code
+```bash
+# Clone gcta along with it's submodules
+git clone --recursive https://github.com/jianyangqt/gcta.git
+```
 
-## Compilation
+## Dependencies
+You can use a simple [script](https://github.com/jianyangqt/gcta/blob/master/script/install_prerequisites.sh) to install them, which supports the following package managers: apt, vcpkg, and brew.
+```bash
+# See what packages will be install
+./scripts/install_prerequisites.sh -l
 
-#### Requirements
-1. Currently only x86\_64-based operating systems are supported.
-2. [Intel MKL](https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl-download.html) 2017 or above (only needed when building on x86\-64 machines)
-3. OpenBLAS (only needed when building on AArch64 machines)
-4. Eigen == 3.3.7 (there are bugs in the new version of Eigen)
-5. CMake >= 3.1
-6. BOOST >= 1.4
-7. zlib >= 1.2.11 (old zlib may cause an error of bgen file decompression)
-8. sqlite3 >= 3.31.1
-9. zstd >= 1.4.4
-10. [Spectra](https://spectralib.org/) >= 0.8.1
-11. gsl (GNU scientific library)
+# Override the package manager choice and install packages
+# if one has not already been selected manually
+./scripts/install_prerequisites.sh -m apt
+```
+You'll see the dependencies are
+- cmake
+- intel mkl (x64)
+- openblas (Apple Silicon)
+- boost
+- eigen
+- zlib
+- zstd
+- gsl
+- sqlite3
+## Building
 
 #### Linux
-1. Kernel version >= 2.6.28 (otherwise the Intel MKL library doesn't work).
-2. GCC version >= 6.1 with C++ 11 support.
+```bash
+# get code
+cd ~/your_directory
+git clone --recursive https://github.com/jianyangqt/gcta.git.git
+cd gcta
 
-#### Mac OS & Windows
-Here we do not provide instructions to compile GCTA in Mac OS or Windows because of the enormous complexity of the compilation process and differences among OS versions. We suggest you download the compiled executable files directly from the GCTA website.
+# Install dependencies
+./scripts/install_prerequisites.sh
 
-#### Before compilation (Linux)
-1. Export MKLROOT or OPENBLAS variable into shell environment  
-`export MKLROOT=where_your_MKL_located`  
-`export OPENBLAS=where_your_openblas_located`  
-2. Export EIGENE3_INCLUDE_DIR into your shell environment  
-`export EIGEN3_INCLUDE_DIR=where_your_eigen3_located`  
-3. Export BOOST_LIB environment variable  
-`export BOOST_LIB=where_your_boost_include_directory_located`  
-4. Export SPECTRA_LIB environment variable
-`export SPECTRA_LIB=where_your_spectra_include_directory_located`
-5. Other compilation Requirements should be placed in your compiler's header files and library searching paths.  
-6. Clone GCTA source code from github 
-`git clone https://github.com/jianyangqt/gcta GCTA_PATH`
-7. Clone plink_ng submods
-```
-git submodule update --init
+#initializing oneAPI environment
+source /opt/intel/oneapi/setvars.sh
+
+# Configure and build
+cmake -B build
+cmake --build build
 ```
 
-#### To compile
+#### MacOS
+```bash
+# get code
+cd ~/your_directory
+git clone --recursive https://github.com/jianyangqt/gcta.git.git
+cd gcta
+
+# Install dependencies
+./scripts/install_prerequisites.sh
+
+# Configure and build
+# Not support AppleClang
+cmake -B build \
+    -D $(brew --prefix llvm)/bin/clang \
+    -D $(brew --prefix llvm)/bin/clang++
+cmake --build build
 ```
-cd GCTA_PATH
-mkdir build
-cd build
-cmake ..
-make
+
+#### Windwos
+On Windows, you need to install [Intel MKL](https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl-download.html) and [CMake](https://cmake.org/download/) separately. We recommended Git Bash for executing the bash snippets on this page. On Windwos, we use ***vcpkg*** package manager to install other dependencies, you should ensure that the directory containing ***vcpkg.exe*** has been added to the ***Path*** environment variable. Please note that MinGW and MSVC are not supported; only Clang/LLVM is. We recommend using Visual Studio 2022, and you can find instructions on how to install Clang/LLVM [here](https://learn.microsoft.com/en-us/cpp/build/clang-support-msbuild?view=msvc-170).
+```bash
+# get code
+cd ~/your_directory
+git clone --recursive https://github.com/jianyangqt/gcta.git.git
+cd gcta
+
+# Install vcpkg
+./script/vcpkg/bootstrap-vcpkg.sh
+
+# Ensure that the directory containing vcpkg.exe has been added to the Path environment variable.
+
+# Install dependencies
+./scripts/install_prerequisites.sh
+
+# Configure and build
+cmake -B build \
+    -T ClangCL \
+    -G "Visual Studio 17 2022" \
+    -D CMAKE_TOOLCHAIN_FILE=~/your_vcpkg_directory/scripts/buildsystems/vcpkg.cmake
+cmake --build build --config Release
 ```
-Here is an [example](https://github.com/jianyangqt/gcta/blob/master/docs/build/gcta_build_steps_linux.sh) building the GCTA on linux.

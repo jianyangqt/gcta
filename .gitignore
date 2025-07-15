@@ -1,6 +1,5 @@
 .*/
 .*
-!.gitignore
 compile_commands.json
 *[Bb]uild*/
 *[Rr]elease*/
